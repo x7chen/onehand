@@ -1,9 +1,12 @@
+import type { ProjectContext } from './context'
+
 export interface Project {
   id: string
   name: string
   createdAt: number
   updatedAt: number
   canvas: Canvas
+  context?: ProjectContext
 }
 
 export interface Canvas {

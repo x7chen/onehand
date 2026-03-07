@@ -104,6 +104,21 @@ ipcMain.handle('save-file', async (event, filePath, data) => {
   }
 })
 
+ipcMain.handle('save-file-buffer', async (event, filePath, buffer) => {
+  try {
+    const dir = path.dirname(filePath)
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true })
+    }
+    // Convert ArrayBuffer to Buffer and write
+    const data = Buffer.from(buffer)
+    fs.writeFileSync(filePath, data)
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: String(error) }
+  }
+})
+
 ipcMain.handle('set-theme', async (event, isDark) => {
   if (mainWindow) {
     mainWindow.setBackgroundColor(isDark ? '#2d2d2d' : '#f5f5f5')
@@ -111,11 +126,19 @@ ipcMain.handle('set-theme', async (event, isDark) => {
   return { success: true }
 })
 
-ipcMain.handle('read-file', async (event, filePath) => {
+ipcMain.handle('read-file', async (event, filePath, encoding = 'utf-8') => {
   try {
     if (!fs.existsSync(filePath)) {
       return { success: false, error: 'File not found' }
     }
+    
+    // 如果请求的是 arraybuffer，返回 buffer
+    if (encoding === 'arraybuffer') {
+      const data = fs.readFileSync(filePath)
+      return { success: true, data: data.buffer }
+    }
+    
+    // 否则返回文本
     const data = fs.readFileSync(filePath, 'utf-8')
     return { success: true, data }
   } catch (error) {

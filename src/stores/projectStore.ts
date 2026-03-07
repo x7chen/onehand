@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { Project, CanvasNode } from '@/types/project'
+import type { ProjectContext } from '@/types/context'
 
 export const useProjectStore = defineStore('project', () => {
   const projects = ref<Project[]>([])
@@ -13,7 +14,7 @@ export const useProjectStore = defineStore('project', () => {
       const appDataPath = await window.electronAPI.getAppPath('userData')
       const projectsDir = `${appDataPath}/projects`
       const exists = await window.electronAPI.exists(`${projectsDir}/projects.json`)
-      
+
       if (exists) {
         const result = await window.electronAPI.readFile(`${projectsDir}/projects.json`)
         if (result.success && result.data) {
@@ -25,7 +26,7 @@ export const useProjectStore = defineStore('project', () => {
     }
   }
 
-  async function createProject(name: string) {
+  async function createProject(name: string, context?: ProjectContext) {
     const project: Project = {
       id: Date.now().toString(),
       name,
@@ -37,6 +38,10 @@ export const useProjectStore = defineStore('project', () => {
         viewport: { x: 0, y: 0, zoom: 1 },
         nodes: []
       }
+    }
+
+    if (context && (context.staticContextId || context.dynamicContextId)) {
+      project.context = context
     }
 
     projects.value.push(project)

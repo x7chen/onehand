@@ -1,0 +1,200 @@
+import { defineStore } from 'pinia'
+import { ref, computed } from 'vue'
+import type { ContextFile, ContextType } from '@/types/context'
+
+export const useContextStore = defineStore('context', () => {
+  const contextFiles = ref<ContextFile[]>([])
+
+  const allContextFiles = computed(() => contextFiles.value)
+  
+  const staticContextFiles = computed(() => 
+    contextFiles.value.filter(f => f.type === 'static')
+  )
+  
+  const dynamicContextFiles = computed(() => 
+    contextFiles.value.filter(f => f.type === 'dynamic')
+  )
+
+  /**
+   * 加载上下文文件列表
+   */
+  async function loadContextFiles() {
+    try {
+      const appDataPath = await window.electronAPI.getAppPath('userData')
+      const contextsDir = `${appDataPath}/contexts`
+      const exists = await window.electronAPI.exists(`${contextsDir}/contexts.json`)
+
+      if (exists) {
+        const result = await window.electronAPI.readFile(`${contextsDir}/contexts.json`)
+        if (result.success && result.data) {
+          contextFiles.value = JSON.parse(result.data)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load context files:', error)
+    }
+  }
+
+  /**
+   * 保存上下文文件列表
+   */
+  async function saveContextFiles() {
+    try {
+      const appDataPath = await window.electronAPI.getAppPath('userData')
+      const contextsDir = `${appDataPath}/contexts`
+      await window.electronAPI.mkdir(contextsDir)
+      await window.electronAPI.saveFile(
+        `${contextsDir}/contexts.json`,
+        JSON.stringify(contextFiles.value, null, 2)
+      )
+    } catch (error) {
+      console.error('Failed to save context files:', error)
+    }
+  }
+
+  /**
+   * 创建新的上下文文件
+   */
+  async function createContextFile(
+    name: string,
+    type: ContextType,
+    content: string = '',
+    projectId?: string
+  ): Promise<ContextFile> {
+    const contextFile: ContextFile = {
+      id: `ctx-${Date.now()}`,
+      name,
+      type,
+      content,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      projectId
+    }
+
+    contextFiles.value.push(contextFile)
+    await saveContextFiles()
+    
+    // 同时保存内容到单独的 markdown 文件
+    await saveContextFileContent(contextFile)
+    
+    return contextFile
+  }
+
+  /**
+   * 保存上下文文件内容到 markdown 文件
+   */
+  async function saveContextFileContent(contextFile: ContextFile) {
+    try {
+      const appDataPath = await window.electronAPI.getAppPath('userData')
+      const contextsDir = `${appDataPath}/contexts`
+      await window.electronAPI.mkdir(contextsDir)
+      await window.electronAPI.saveFile(
+        `${contextsDir}/${contextFile.id}.md`,
+        contextFile.content
+      )
+    } catch (error) {
+      console.error('Failed to save context file content:', error)
+    }
+  }
+
+  /**
+   * 读取上下文文件内容
+   */
+  async function loadContextFileContent(contextFileId: string): Promise<string | null> {
+    try {
+      const appDataPath = await window.electronAPI.getAppPath('userData')
+      const contextsDir = `${appDataPath}/contexts`
+      const result = await window.electronAPI.readFile(`${contextsDir}/${contextFileId}.md`)
+      if (result.success && result.data) {
+        return result.data
+      }
+    } catch (error) {
+      console.error('Failed to load context file content:', error)
+    }
+    return null
+  }
+
+  /**
+   * 更新上下文文件
+   */
+  async function updateContextFile(
+    contextFileId: string,
+    updates: Partial<ContextFile>
+  ) {
+    const index = contextFiles.value.findIndex(f => f.id === contextFileId)
+    if (index !== -1) {
+      const file = contextFiles.value[index]
+      Object.assign(file, {
+        ...updates,
+        updatedAt: Date.now()
+      })
+      await saveContextFiles()
+      
+      // 如果内容更新了，保存到 markdown 文件
+      if (updates.content !== undefined) {
+        await saveContextFileContent(file)
+      }
+    }
+  }
+
+  /**
+   * 删除上下文文件
+   */
+  async function deleteContextFile(contextFileId: string) {
+    contextFiles.value = contextFiles.value.filter(f => f.id !== contextFileId)
+    await saveContextFiles()
+    
+    // 删除 markdown 文件
+    try {
+      const appDataPath = await window.electronAPI.getAppPath('userData')
+      const contextsDir = `${appDataPath}/contexts`
+      // 注意：electron API 没有提供删除文件的方法，这里只从列表中删除
+      // 如果需要物理删除，需要在 electron 主进程中添加 deleteFile IPC 处理
+    } catch (error) {
+      console.error('Failed to delete context file:', error)
+    }
+  }
+
+  /**
+   * 根据 ID 获取上下文文件
+   */
+  function getContextFileById(id: string): ContextFile | undefined {
+    return contextFiles.value.find(f => f.id === id)
+  }
+
+  /**
+   * 追加内容到动态上下文文件
+   */
+  async function appendToDynamicContext(
+    contextFileId: string,
+    content: string
+  ) {
+    const file = contextFiles.value.find(f => f.id === contextFileId)
+    if (file && file.type === 'dynamic') {
+      const newContent = file.content 
+        ? file.content + '\n\n' + content 
+        : content
+      
+      file.content = newContent
+      file.updatedAt = Date.now()
+      
+      await saveContextFiles()
+      await saveContextFileContent(file)
+    }
+  }
+
+  return {
+    contextFiles,
+    allContextFiles,
+    staticContextFiles,
+    dynamicContextFiles,
+    loadContextFiles,
+    createContextFile,
+    updateContextFile,
+    deleteContextFile,
+    getContextFileById,
+    appendToDynamicContext,
+    loadContextFileContent,
+    saveContextFileContent
+  }
+})

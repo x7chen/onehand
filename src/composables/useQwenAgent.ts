@@ -68,29 +68,60 @@ export async function chatWithLLM(
   }
 }
 
-export function buildContextMessages(
+/**
+ * 构建包含静态上下文和动态上下文的完整消息
+ */
+export function buildFullContextMessages(
   contextNodes: Array<{ transcript: string; agentResult: string }>,
-  currentTranscript: string
+  currentTranscript: string,
+  staticContext?: string,
+  dynamicContext?: string
 ): Message[] {
   const systemMessage: Message = {
     role: 'system',
     content: `You are an intelligent notebook assistant. Based on the user's voice note content and context, provide useful responses, summaries, or expanded information. Reply in the same language as the user's input.`
   }
 
-  const contextMessages: Message[] = []
+  const messages: Message[] = []
+
+  // 1. 静态上下文
+  if (staticContext && staticContext.trim()) {
+    messages.push({
+      role: 'user',
+      content: `【静态上下文】\n${staticContext}`
+    })
+  }
+
+  // 2. 动态上下文
+  if (dynamicContext && dynamicContext.trim()) {
+    messages.push({
+      role: 'user',
+      content: `【动态上下文】\n${dynamicContext}`
+    })
+  }
+
+  // 3. 已选择的上下文记录
   for (const node of contextNodes) {
     if (node.transcript && node.agentResult) {
-      contextMessages.push(
+      messages.push(
         { role: 'user', content: `【上下文记录】${node.transcript}` },
         { role: 'assistant', content: `【AI 回答】${node.agentResult}` }
       )
     }
   }
 
-  contextMessages.push({
+  // 4. 当前问题
+  messages.push({
     role: 'user',
     content: `【当前问题】${currentTranscript}`
   })
 
-  return [systemMessage, ...contextMessages]
+  return [systemMessage, ...messages]
+}
+
+export function buildContextMessages(
+  contextNodes: Array<{ transcript: string; agentResult: string }>,
+  currentTranscript: string
+): Message[] {
+  return buildFullContextMessages(contextNodes, currentTranscript, undefined, undefined)
 }

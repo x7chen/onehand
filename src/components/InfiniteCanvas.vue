@@ -1,5 +1,5 @@
 <template>
-  <div 
+  <div
     ref="canvasRef"
     class="infinite-canvas"
     @mousedown="handleMouseDown"
@@ -8,23 +8,35 @@
     @mouseleave="handleMouseLeave"
     @wheel="handleWheel"
     @contextmenu.prevent
+    @dragover="handleDragOver"
+    @dragleave="handleDragLeave"
+    @drop="handleDrop"
   >
-    <div 
+    <div
       class="canvas-content"
       :style="transformStyle"
     >
       <div class="grid-background"></div>
-      
+
       <slot name="nodes"></slot>
     </div>
-    
+
     <!-- Recording indicator outside canvas-content to avoid transform -->
-    <RecordingIndicator 
+    <RecordingIndicator
       v-if="isRecording"
       :x="recordingPosition!.x"
       :y="recordingPosition!.y"
       :duration="recordingDuration"
     />
+
+    <!-- 拖拽提示 -->
+    <div 
+      v-if="isDraggingText" 
+      class="drag-hint"
+      :style="dragHintStyle"
+    >
+      拖拽提问 ({{ draggedTextLength }}字)
+    </div>
   </div>
 </template>
 
@@ -44,7 +56,12 @@ const emit = defineEmits<{
   'long-press': [x: number, y: number]
   'long-press-end': []
   'click': [x: number, y: number]
+  'drop-text': [x: number, y: number, text: string]
 }>()
+
+const isDraggingText = ref(false)
+const dragHintStyle = ref({ left: '0px', top: '0px' })
+const draggedTextLength = ref(0)
 
 const canvasRef = ref<HTMLElement | null>(null)
 const isDragging = ref(false)
@@ -158,12 +175,12 @@ function handleMouseUp(e: MouseEvent) {
 function handleMouseLeave() {
   // Mouse left canvas - reset everything
   isMouseDown.value = false
-  
+
   if (longPressTimer.value) {
     clearTimeout(longPressTimer.value)
     longPressTimer.value = null
   }
-  
+
   isDragging.value = false
   hasMovedBeyondThreshold.value = false
 }
@@ -172,17 +189,56 @@ function handleWheel(e: WheelEvent) {
   e.preventDefault()
   const delta = e.deltaY > 0 ? 0.9 : 1.1
   const newZoom = Math.min(Math.max(props.viewport.zoom * delta, 0.5), 2)
-  
+
   const rect = canvasRef.value?.getBoundingClientRect()
   if (rect) {
     const mouseX = e.clientX - rect.left
     const mouseY = e.clientY - rect.top
-    
+
     const newX = mouseX - (mouseX - props.viewport.x) * (newZoom / props.viewport.zoom)
     const newY = mouseY - (mouseY - props.viewport.y) * (newZoom / props.viewport.zoom)
-    
+
     emit('viewport-change', { x: newX, y: newY, zoom: newZoom })
   }
+}
+
+// 拖拽处理
+function handleDragOver(e: DragEvent) {
+  e.preventDefault()
+  if (e.dataTransfer) {
+    e.dataTransfer.dropEffect = 'copy'
+  }
+  
+  const text = e.dataTransfer?.getData('text/plain')
+  if (text && text.trim()) {
+    isDraggingText.value = true
+    draggedTextLength.value = text.trim().length
+    dragHintStyle.value = {
+      left: (e.clientX + 15) + 'px',
+      top: (e.clientY + 15) + 'px'
+    }
+  }
+}
+
+function handleDragLeave() {
+  isDraggingText.value = false
+}
+
+function handleDrop(e: DragEvent) {
+  e.preventDefault()
+  isDraggingText.value = false
+  
+  const text = e.dataTransfer?.getData('text/plain')
+  if (!text || !text.trim()) return
+  
+  const rect = canvasRef.value?.getBoundingClientRect()
+  if (!rect) return
+  
+  // 计算画布坐标（考虑 viewport 和 zoom）
+  const canvasX = (e.clientX - rect.left - props.viewport.x) / props.viewport.zoom
+  const canvasY = (e.clientY - rect.top - props.viewport.y) / props.viewport.zoom
+  
+  emit('drop-text', canvasX, canvasY, text.trim())
 }
 
 watch(() => props.viewport, (newViewport) => {
@@ -219,10 +275,24 @@ watch(() => props.viewport, (newViewport) => {
   left: -5000px;
   width: 10000px;
   height: 10000px;
-  background-image: 
+  background-image:
     linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
     linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
   background-size: 20px 20px;
   pointer-events: none;
+}
+
+.drag-hint {
+  position: fixed;
+  background: #4299e1;
+  color: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  pointer-events: none;
+  z-index: 9999;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  white-space: nowrap;
 }
 </style>

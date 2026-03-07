@@ -208,14 +208,15 @@ function handleVoiceNoteMouseDown(e: MouseEvent) {
 
 function handleMouseDown(e: MouseEvent) {
   e.stopPropagation()
-  
+  e.preventDefault()
+
   // Only allow drag if clicking directly on the header, not on text content
   const target = e.target as HTMLElement
-  if (target.closest('.transcript-content') || target.closest('.agent-content') || 
+  if (target.closest('.transcript-content') || target.closest('.agent-content') ||
       target.closest('.transcript-edit') || target.closest('.agent-edit')) {
     return // Don't drag when clicking on text content
   }
-  
+
   // Get the voice-note element (parent of node-header)
   const voiceNoteEl = (e.currentTarget as HTMLElement).parentElement
   if (voiceNoteEl) {
