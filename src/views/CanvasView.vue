@@ -46,8 +46,6 @@
         </span>
         <span v-else class="context-placeholder">拖拽文字到此处</span>
       </div>
-      
-      <button @click="openSettings" class="settings-btn">设置</button>
     </div>
 
     <InfiniteCanvas
@@ -230,10 +228,6 @@ onUnmounted(() => {
 
 function goBack() {
   router.push('/')
-}
-
-function openSettings() {
-  router.push('/settings')
 }
 
 function handleViewportChange(newViewport: Viewport) {
@@ -702,8 +696,7 @@ async function handleDynamicContextDrop(e: DragEvent) {
   z-index: 100;
 }
 
-.back-btn,
-.settings-btn {
+.back-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -716,8 +709,7 @@ async function handleDynamicContextDrop(e: DragEvent) {
   transition: background 0.2s;
 }
 
-.back-btn:hover,
-.settings-btn:hover {
+.back-btn:hover {
   background: var(--border-color);
 }
 
