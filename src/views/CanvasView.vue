@@ -66,6 +66,7 @@
           v-for="node in projectStore.currentProject?.canvas.nodes"
           :key="node.id"
           :node="node"
+          :is-playing="playingNodeId === node.id"
           @delete="handleDeleteNode"
           @play="handlePlayNode"
           @toggle-context="handleToggleContext"
@@ -463,10 +464,75 @@ function handleDeleteNode(nodeId: string) {
   projectStore.removeNode(nodeId)
 }
 
-function handlePlayNode(nodeId: string) {
+// 音频播放相关
+const currentAudio = ref<HTMLAudioElement | null>(null)
+const playingNodeId = ref<string | null>(null)
+
+async function handlePlayNode(nodeId: string) {
   const node = projectStore.currentProject?.canvas.nodes.find(n => n.id === nodeId)
-  if (node?.audioPath) {
-    // 播放音频逻辑
+  if (!node?.audioPath) return
+
+  // 如果正在播放同一个音频，则停止播放
+  if (playingNodeId.value === nodeId && currentAudio.value) {
+    currentAudio.value.pause()
+    currentAudio.value = null
+    playingNodeId.value = null
+    return
+  }
+
+  // 停止当前正在播放的音频
+  if (currentAudio.value) {
+    currentAudio.value.pause()
+    currentAudio.value = null
+  }
+
+  // 创建并播放新音频
+  try {
+    const appDataPath = await window.electronAPI.getAppPath('userData')
+    const project = projectStore.currentProject
+    if (!project) return
+
+    const audioPath = `${appDataPath}/projects/${project.id}/${node.audioPath}`
+    
+    // 读取音频文件
+    const result = await window.electronAPI.readFile(audioPath, 'arraybuffer')
+    if (!result.success || !result.data) return
+
+    // 创建 Blob 并生成 URL
+    const blob = new Blob([result.data], { type: 'audio/webm' })
+    const audioUrl = URL.createObjectURL(blob)
+    
+    // 创建音频对象
+    const audio = new Audio(audioUrl)
+    
+    // 播放结束时清理
+    audio.onended = () => {
+      playingNodeId.value = null
+      currentAudio.value = null
+      URL.revokeObjectURL(audioUrl)
+    }
+    
+    // 播放出错时清理
+    audio.onerror = () => {
+      console.error('音频播放失败')
+      playingNodeId.value = null
+      currentAudio.value = null
+      URL.revokeObjectURL(audioUrl)
+    }
+
+    currentAudio.value = audio
+    playingNodeId.value = nodeId
+    
+    // 开始播放
+    audio.play().catch(err => {
+      console.error('播放失败:', err)
+      playingNodeId.value = null
+      currentAudio.value = null
+      URL.revokeObjectURL(audioUrl)
+    })
+  } catch (error) {
+    console.error('加载音频失败:', error)
+    playingNodeId.value = null
   }
 }
 
