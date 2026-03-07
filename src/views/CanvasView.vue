@@ -9,9 +9,11 @@
       
       <!-- 静态上下文显示（左侧） -->
       <div
+        ref="staticContextDisplayRef"
         class="static-context-display"
-        @dblclick="showStaticContextSelector = true"
-        :title="staticContextFiles.length > 0 ? '双击管理静态上下文' : '双击选择静态上下文'"
+        @click="toggleStaticContextSelector"
+        :class="{ 'active': showStaticContextSelector }"
+        :title="staticContextFiles.length > 0 ? '点击管理静态上下文' : '点击选择静态上下文'"
       >
         <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" class="context-icon">
           <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
@@ -83,29 +85,23 @@
     />
 
     <!-- 静态上下文选择器（支持多选） -->
-    <div v-if="showStaticContextSelector" class="dialog-overlay" @click="showStaticContextSelector = false">
-      <div class="dialog context-selector-dialog" @click.stop>
-        <h3>选择静态上下文（可多选）</h3>
-        <div class="context-list">
-          <div
-            v-for="file in contextStore.staticContextFiles"
-            :key="file.id"
-            class="context-item"
-            :class="{ selected: staticContextFiles.some(f => f.id === file.id) }"
-            @click="toggleStaticContext(file.id)"
-          >
-            <input
-              type="checkbox"
-              :checked="staticContextFiles.some(f => f.id === file.id)"
-              @change="toggleStaticContext(file.id)"
-              @click.stop
-            />
-            <span class="context-item-name">{{ file.name }}</span>
-            <span v-if="staticContextFiles.some(f => f.id === file.id)" class="selected-indicator">✓</span>
-          </div>
-        </div>
-        <div class="dialog-actions">
-          <button @click="showStaticContextSelector = false" class="confirm-btn">完成</button>
+    <div v-if="showStaticContextSelector" ref="staticContextSelectorRef" class="static-context-selector" :style="selectorStyle">
+      <div class="context-list">
+        <div
+          v-for="file in contextStore.staticContextFiles"
+          :key="file.id"
+          class="context-item"
+          :class="{ selected: staticContextFiles.some(f => f.id === file.id) }"
+          @click="toggleStaticContext(file.id)"
+        >
+          <input
+            type="checkbox"
+            :checked="staticContextFiles.some(f => f.id === file.id)"
+            @change="toggleStaticContext(file.id)"
+            @click.stop
+          />
+          <span class="context-item-name">{{ file.name }}</span>
+          <span v-if="staticContextFiles.some(f => f.id === file.id)" class="selected-indicator">✓</span>
         </div>
       </div>
     </div>
@@ -181,6 +177,11 @@ const selectedContextCount = computed(() =>
 
 // 静态上下文（支持多选）
 const showStaticContextSelector = ref(false)
+const staticContextDisplayRef = ref<HTMLElement | null>(null)
+const staticContextSelectorRef = ref<HTMLElement | null>(null)
+
+const selectorStyle = ref<Record<string, string>>({})
+
 const staticContextFiles = computed(() => {
   const staticContextIds = projectStore.currentProject?.context?.staticContextIds || []
   return staticContextIds.map(id => contextStore.getContextFileById(id)).filter(Boolean) as ContextFile[]
@@ -211,10 +212,13 @@ onMounted(async () => {
     projectStore.setCurrentProject(project)
     viewport.value = project.canvas.viewport
   }
-  
+
   // 添加全局鼠标事件监听用于节点拖动
   window.addEventListener('mousemove', handleNodeDragMove)
   window.addEventListener('mouseup', handleNodeDragEnd)
+  
+  // 添加点击外部关闭选择器的监听
+  document.addEventListener('click', handleClickOutside)
 })
 
 onUnmounted(() => {
@@ -224,10 +228,41 @@ onUnmounted(() => {
   // 移除事件监听
   window.removeEventListener('mousemove', handleNodeDragMove)
   window.removeEventListener('mouseup', handleNodeDragEnd)
+  document.removeEventListener('click', handleClickOutside)
 })
 
 function goBack() {
   router.push('/')
+}
+
+function toggleStaticContextSelector() {
+  showStaticContextSelector.value = !showStaticContextSelector.value
+  if (showStaticContextSelector.value) {
+    // 计算选择器位置
+    setTimeout(() => {
+      if (staticContextDisplayRef.value && staticContextSelectorRef.value) {
+        const displayRect = staticContextDisplayRef.value.getBoundingClientRect()
+        const selectorRect = staticContextSelectorRef.value.getBoundingClientRect()
+        
+        // 选择器显示在静态上下文按钮下方，左对齐
+        selectorStyle.value = {
+          top: `${displayRect.bottom + 8}px`,
+          left: `${displayRect.left}px`,
+          position: 'fixed'
+        }
+      }
+    }, 0)
+  }
+}
+
+function handleClickOutside(e: MouseEvent) {
+  if (showStaticContextSelector.value && 
+      staticContextDisplayRef.value && 
+      staticContextSelectorRef.value &&
+      !staticContextDisplayRef.value.contains(e.target as Node) &&
+      !staticContextSelectorRef.value.contains(e.target as Node)) {
+    showStaticContextSelector.value = false
+  }
 }
 
 function handleViewportChange(newViewport: Viewport) {
@@ -771,6 +806,27 @@ async function handleDynamicContextDrop(e: DragEvent) {
   font-style: italic;
 }
 
+.static-context-display.active {
+  background: var(--border-color);
+}
+
+/* 静态上下文选择器（下拉面板） */
+.static-context-selector {
+  position: fixed;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  min-width: 280px;
+  max-width: 350px;
+}
+
+.static-context-selector .context-list {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
 /* 动态上下文显示 */
 .dynamic-context-display {
   display: flex;
@@ -825,10 +881,6 @@ async function handleDynamicContextDrop(e: DragEvent) {
   border-radius: 12px;
   min-width: 400px;
   max-width: 500px;
-}
-
-.context-selector-dialog {
-  min-width: 350px;
 }
 
 .dynamic-context-editor-dialog {
