@@ -403,24 +403,28 @@ async function handleAgentResponse(nodeId: string, transcript: string) {
     const node = projectStore.currentProject?.canvas.nodes.find(n => n.id === nodeId)
     if (!node) return
 
-    // 获取已选择的上下文节点
-    const selectedNodes = projectStore.currentProject?.canvas.nodes.filter(n => n.selectedAsContext) || []
+    // 获取已选择的上下文节点（不包括当前节点）
+    const selectedNodes = projectStore.currentProject?.canvas.nodes.filter(n => n.selectedAsContext && n.id !== nodeId) || []
 
     // 合并多个静态上下文内容
     const staticContextFilesList = staticContextFiles.value
     console.log('staticContextFilesList:', staticContextFilesList.map(f => ({ name: f.name, contentLength: f.content?.length })))
-    
+
     const staticContextContent = staticContextFilesList
       .map(f => f.content)
       .filter(c => c && c.trim())
       .join('\n\n')
 
     console.log('handleAgentResponse:', {
+      nodeId,
       staticContextIds: projectStore.currentProject?.context?.staticContextIds,
       staticContextFiles: staticContextFiles.value.map(f => f.name),
       staticContextContent: staticContextContent?.substring(0, 100) + '...',
       dynamicContextId: projectStore.currentProject?.context?.dynamicContextId,
-      selectedNodesCount: selectedNodes.length
+      dynamicContextContent: dynamicContextFile.value?.content?.substring(0, 50) + '...',
+      selectedNodesCount: selectedNodes.length,
+      selectedNodes: selectedNodes.map(n => ({ id: n.id, transcript: n.transcript?.substring(0, 30) + '...', agentResult: n.agentResult?.substring(0, 30) + '...' })),
+      transcript: transcript.substring(0, 50) + '...'
     })
 
     // 构建完整的提示词（包含静态上下文、动态上下文、已选择上下文）
@@ -605,8 +609,8 @@ async function handleDropText(x: number, y: number, text: string) {
   }
 
   projectStore.addNode(node)
-  
-  // 使用完整上下文触发 AI 回答
+
+  // 使用完整上下文触发 AI 回答（包含静态上下文、动态上下文、已勾选的文本框、当前拖拽的文字）
   await handleAgentResponse(node.id, text)
 }
 
