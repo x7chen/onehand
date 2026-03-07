@@ -466,6 +466,8 @@ function cancelAgentEdit() {
   color: var(--text-primary);
   white-space: pre-wrap;
   word-wrap: break-word;
+  overflow-wrap: break-word;
+  max-width: calc(350px - 25px); /* 容器宽度减去 padding */
   user-select: text;
   cursor: text;
   min-height: 24px;
@@ -560,6 +562,8 @@ function cancelAgentEdit() {
   color: var(--text-primary);
   white-space: pre-wrap;
   word-wrap: break-word;
+  overflow-wrap: break-word;
+  max-width: calc(350px - 25px); /* 容器宽度减去 padding */
   user-select: text;
   cursor: text;
   min-height: 24px;
