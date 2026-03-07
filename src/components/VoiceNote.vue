@@ -44,13 +44,28 @@
         {{ node.transcript }}
         <button @click.stop="retryTranscription">重试</button>
       </div>
-      <div 
-        v-else 
-        class="transcript-content"
-        draggable="true"
-        @dragstart="handleTextDragStart"
-      >
-        {{ node.transcript }}
+      <div v-else class="transcript-content-wrapper">
+        <textarea
+          v-if="isEditingTranscript"
+          v-model="editTranscript"
+          ref="transcriptTextarea"
+          class="transcript-edit"
+          @blur="saveTranscriptEdit"
+          @keydown.enter.exact.prevent="saveTranscriptEdit"
+          @keydown.escape="cancelTranscriptEdit"
+          @mousedown.stop
+          @click.stop
+          @wheel.stop
+        ></textarea>
+        <div 
+          v-else
+          class="transcript-content"
+          draggable="true"
+          @dragstart="handleTextDragStart"
+          @dblclick="startTranscriptEdit"
+        >
+          {{ node.transcript }}
+        </div>
       </div>
     </div>
 
@@ -70,20 +85,35 @@
         {{ node.agentResult }}
         <button @click.stop="retryAgent">重试</button>
       </div>
-      <div 
-        v-else 
-        class="agent-content"
-        draggable="true"
-        @dragstart="handleTextDragStart"
-      >
-        {{ node.agentResult }}
+      <div v-else class="agent-content-wrapper">
+        <textarea
+          v-if="isEditingAgent"
+          v-model="editAgent"
+          ref="agentTextarea"
+          class="agent-edit"
+          @blur="saveAgentEdit"
+          @keydown.enter.exact.prevent="saveAgentEdit"
+          @keydown.escape="cancelAgentEdit"
+          @mousedown.stop
+          @click.stop
+          @wheel.stop
+        ></textarea>
+        <div 
+          v-else
+          class="agent-content"
+          draggable="true"
+          @dragstart="handleTextDragStart"
+          @dblclick="startAgentEdit"
+        >
+          {{ node.agentResult }}
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, nextTick, watch } from 'vue'
 import { formatDuration } from '@/utils/helpers'
 import type { CanvasNode } from '@/types/project'
 
@@ -98,9 +128,64 @@ const emit = defineEmits<{
   (e: 'retry-transcription', nodeId: string): void
   (e: 'retry-agent', nodeId: string): void
   (e: 'drag-start', nodeId: string, offsetX: number, offsetY: number): void
+  (e: 'update-node', nodeId: string, updates: Partial<CanvasNode>): void
 }>()
 
 const isPlaying = ref(false)
+const isEditingTranscript = ref(false)
+const isEditingAgent = ref(false)
+const editTranscript = ref('')
+const editAgent = ref('')
+const transcriptTextarea = ref<HTMLTextAreaElement | null>(null)
+const agentTextarea = ref<HTMLTextAreaElement | null>(null)
+
+// 自动调整textarea高度的函数
+function autoResizeTextarea(textarea: HTMLTextAreaElement | null) {
+  if (textarea) {
+    textarea.style.height = 'auto'
+    textarea.style.height = textarea.scrollHeight + 'px'
+  }
+}
+
+// 监听编辑内容变化，自动调整高度
+watch(editTranscript, () => {
+  nextTick(() => {
+    autoResizeTextarea(transcriptTextarea.value)
+  })
+})
+
+watch(editAgent, () => {
+  nextTick(() => {
+    autoResizeTextarea(agentTextarea.value)
+  })
+})
+
+// 在编辑开始时也调整一次高度
+function startTranscriptEdit() {
+  if (props.node.transcriptStatus !== 'done') return
+  isEditingTranscript.value = true
+  editTranscript.value = props.node.transcript || ''
+  nextTick(() => {
+    if (transcriptTextarea.value) {
+      transcriptTextarea.value.focus()
+      transcriptTextarea.value.select()
+      autoResizeTextarea(transcriptTextarea.value)
+    }
+  })
+}
+
+function startAgentEdit() {
+  if (props.node.agentStatus !== 'done') return
+  isEditingAgent.value = true
+  editAgent.value = props.node.agentResult || ''
+  nextTick(() => {
+    if (agentTextarea.value) {
+      agentTextarea.value.focus()
+      agentTextarea.value.select()
+      autoResizeTextarea(agentTextarea.value)
+    }
+  })
+}
 
 // Prevent cross-node text selection
 function handleVoiceNoteMouseDown(e: MouseEvent) {
@@ -126,7 +211,8 @@ function handleMouseDown(e: MouseEvent) {
   
   // Only allow drag if clicking directly on the header, not on text content
   const target = e.target as HTMLElement
-  if (target.closest('.transcript-content') || target.closest('.agent-content')) {
+  if (target.closest('.transcript-content') || target.closest('.agent-content') || 
+      target.closest('.transcript-edit') || target.closest('.agent-edit')) {
     return // Don't drag when clicking on text content
   }
   
@@ -162,22 +248,24 @@ function handleTextDragStart(e: DragEvent) {
   
   if (selectedText && selectedText.trim() !== '') {
     // User has selected some text - drag only the selection
-    e.dataTransfer?.setData('text/plain', selectedText)
-    e.dataTransfer.effectAllowed = 'copy'
-    
-    // Set drag image/visual feedback
-    const dragGhost = document.createElement('div')
-    dragGhost.style.background = '#4299e1'
-    dragGhost.style.color = 'white'
-    dragGhost.style.padding = '8px 12px'
-    dragGhost.style.borderRadius = '4px'
-    dragGhost.style.fontSize = '12px'
-    dragGhost.style.position = 'absolute'
-    dragGhost.style.top = '-9999px'
-    dragGhost.textContent = `拖拽提问 (${selectedText.length}字)`
-    document.body.appendChild(dragGhost)
-    e.dataTransfer.setDragImage(dragGhost, 0, 0)
-    setTimeout(() => document.body.removeChild(dragGhost), 0)
+    if (e.dataTransfer) {
+      e.dataTransfer.setData('text/plain', selectedText)
+      e.dataTransfer.effectAllowed = 'copy'
+      
+      // Set drag image/visual feedback
+      const dragGhost = document.createElement('div')
+      dragGhost.style.background = '#4299e1'
+      dragGhost.style.color = 'white'
+      dragGhost.style.padding = '8px 12px'
+      dragGhost.style.borderRadius = '4px'
+      dragGhost.style.fontSize = '12px'
+      dragGhost.style.position = 'absolute'
+      dragGhost.style.top = '-9999px'
+      dragGhost.textContent = `拖拽提问 (${selectedText.length}字)`
+      document.body.appendChild(dragGhost)
+      e.dataTransfer.setDragImage(dragGhost, 0, 0)
+      setTimeout(() => document.body.removeChild(dragGhost), 0)
+    }
   } else {
     // No selection - prevent drag (don't drag entire content by default)
     e.preventDefault()
@@ -190,6 +278,32 @@ function retryTranscription() {
 
 function retryAgent() {
   emit('retry-agent', props.node.id)
+}
+
+function saveTranscriptEdit() {
+  if (!isEditingTranscript.value) return
+  const newTranscript = editTranscript.value.trim()
+  if (newTranscript !== (props.node.transcript || '')) {
+    emit('update-node', props.node.id, { transcript: newTranscript })
+  }
+  isEditingTranscript.value = false
+}
+
+function cancelTranscriptEdit() {
+  isEditingTranscript.value = false
+}
+
+function saveAgentEdit() {
+  if (!isEditingAgent.value) return
+  const newAgentResult = editAgent.value.trim()
+  if (newAgentResult !== (props.node.agentResult || '')) {
+    emit('update-node', props.node.id, { agentResult: newAgentResult })
+  }
+  isEditingAgent.value = false
+}
+
+function cancelAgentEdit() {
+  isEditingAgent.value = false
 }
 </script>
 
@@ -303,6 +417,10 @@ function retryAgent() {
   margin-bottom: 8px;
 }
 
+.transcript-content-wrapper {
+  position: relative;
+}
+
 .transcript-content {
   font-size: 14px;
   line-height: 1.6;
@@ -315,6 +433,31 @@ function retryAgent() {
 
 .transcript-content::selection {
   background: rgba(66, 153, 225, 0.3);
+}
+
+.transcript-edit {
+  width: 100%;
+  min-height: 60px;
+  padding: 8px;
+  border: 2px solid #4299e1;
+  border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  /* 使用与全局相同的字体族 */
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  resize: none;
+  outline: none;
+  box-sizing: border-box;
+  overflow: hidden;
+  /* 保持与原始文本相同的换行行为 */
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  /* 解决模糊问题：使用will-change和字体渲染优化 */
+  will-change: transform;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .agent-result-box {
@@ -368,6 +511,10 @@ function retryAgent() {
   }
 }
 
+.agent-content-wrapper {
+  position: relative;
+}
+
 .agent-content {
   font-size: 14px;
   line-height: 1.6;
@@ -380,6 +527,31 @@ function retryAgent() {
 
 .agent-content::selection {
   background: rgba(66, 153, 225, 0.3);
+}
+
+.agent-edit {
+  width: 100%;
+  min-height: 60px;
+  padding: 8px;
+  border: 2px solid #66bb6a;
+  border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  /* 使用与全局相同的字体族 */
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  resize: none;
+  outline: none;
+  box-sizing: border-box;
+  overflow: hidden;
+  /* 保持与原始文本相同的换行行为 */
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  /* 解决模糊问题：使用will-change和字体渲染优化 */
+  will-change: transform;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .status-text {
