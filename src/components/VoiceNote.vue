@@ -353,8 +353,7 @@ function cancelAgentEdit() {
   border-radius: 8px;
   box-shadow: 0 2px 8px var(--shadow-color);
   padding: 12px;
-  min-width: 280px;
-  max-width: 420px;
+  width: 350px;
   contain: layout style paint;
 }
 

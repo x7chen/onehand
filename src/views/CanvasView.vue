@@ -335,7 +335,7 @@ async function handleLongPressEnd() {
       id: nodeId,
       type: 'voice-note',
       position: {
-        x: startX - 200, // 减去一半宽度使中心对齐
+        x: startX - 175, // 减去一半宽度 (350/2=175) 使中心对齐
         y: startY
       },
       audioPath,
@@ -372,7 +372,7 @@ function handleDblClick(x: number, y: number) {
   const node: CanvasNode = {
     id: `node-${Date.now()}`,
     type: 'text-note',
-    position: { x: x - 200, y }, // 减去一半宽度使中心对齐
+    position: { x: x - 175, y }, // 减去一半宽度 (350/2=175) 使中心对齐
     transcript: '',
     transcriptStatus: 'done',
     agentResult: null,
@@ -382,7 +382,7 @@ function handleDblClick(x: number, y: number) {
   }
 
   projectStore.addNode(node)
-  
+
   // 开始编辑
   editingNodeId.value = node.id
   editingText.value = ''
