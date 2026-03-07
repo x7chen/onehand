@@ -36,7 +36,25 @@
       </button>
     </div>
 
-    <div v-if="node.transcript" class="transcript-box">
+    <!-- 编辑模式 -->
+    <div v-if="isEditing" class="editing-box" @dblclick.stop>
+      <textarea
+        v-model="localEditingText"
+        ref="editingTextarea"
+        class="content-edit"
+        placeholder="输入内容..."
+        @keydown.enter.exact.prevent="saveEdit"
+        @keydown.escape="cancelEdit"
+        @blur="saveEdit"
+        @dblclick.stop
+      ></textarea>
+      <div class="edit-actions">
+        <button @click.stop="saveEdit" class="save-btn">保存</button>
+        <button @click.stop="cancelEdit" class="cancel-btn">取消</button>
+      </div>
+    </div>
+
+    <div v-else-if="node.transcript" class="transcript-box" @dblclick.stop>
       <div v-if="node.transcriptStatus === 'processing'" class="status-text">
         转换中...
       </div>
@@ -59,14 +77,14 @@
           class="transcript-content"
           draggable="true"
           @dragstart="handleTextDragStart"
-          @dblclick="startTranscriptEdit"
+          @dblclick.stop="startTranscriptEdit"
         >
           {{ node.transcript }}
         </div>
       </div>
     </div>
 
-    <div v-if="node.agentResult" class="agent-result-box">
+    <div v-if="node.agentResult" class="agent-result-box" @dblclick.stop>
       <div class="agent-header">
         <span class="agent-label">AI 回答</span>
         <span v-if="node.agentStatus === 'processing'" class="streaming-indicator">
@@ -97,7 +115,7 @@
           class="agent-content"
           draggable="true"
           @dragstart="handleTextDragStart"
-          @dblclick="startAgentEdit"
+          @dblclick.stop="startAgentEdit"
         >
           {{ node.agentResult }}
         </div>
@@ -114,6 +132,8 @@ import type { CanvasNode } from '@/types/project'
 const props = defineProps<{
   node: CanvasNode
   isPlaying?: boolean
+  isEditing?: boolean
+  editingText?: string
 }>()
 
 const emit = defineEmits<{
@@ -124,11 +144,32 @@ const emit = defineEmits<{
   (e: 'retry-agent', nodeId: string): void
   (e: 'drag-start', nodeId: string, offsetX: number, offsetY: number): void
   (e: 'update-node', nodeId: string, updates: Partial<CanvasNode>): void
+  (e: 'save-edit', nodeId: string, text: string): void
+  (e: 'cancel-edit', nodeId: string): void
 }>()
 
 // 使用外部传入的 isPlaying 或本地状态
 const localIsPlaying = ref(false)
 const computedIsPlaying = computed(() => props.isPlaying ?? localIsPlaying.value)
+
+// 编辑模式相关
+const localEditingText = ref('')
+const editingTextarea = ref<HTMLTextAreaElement | null>(null)
+
+// 同步外部传入的编辑文本
+watch(() => props.editingText, (newVal) => {
+  if (newVal !== undefined) {
+    localEditingText.value = newVal
+  }
+}, { immediate: true })
+
+function saveEdit() {
+  emit('save-edit', props.node.id, localEditingText.value)
+}
+
+function cancelEdit() {
+  emit('cancel-edit', props.node.id)
+}
 const isEditingTranscript = ref(false)
 const isEditingAgent = ref(false)
 const editTranscript = ref('')
@@ -576,5 +617,65 @@ function cancelAgentEdit() {
 
 .error-text button:hover {
   background: rgba(255, 68, 68, 0.2);
+}
+
+.editing-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+}
+
+.content-edit {
+  width: 350px;
+  min-height: 80px;
+  padding: 12px;
+  border: 2px solid #4299e1;
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.6;
+  resize: vertical;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.content-edit::placeholder {
+  color: var(--text-secondary);
+}
+
+.edit-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.edit-actions button {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.save-btn {
+  background: #4299e1;
+  color: white;
+}
+
+.save-btn:hover {
+  background: #3b82f6;
+}
+
+.cancel-btn {
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+}
+
+.cancel-btn:hover {
+  background: var(--border-color);
 }
 </style>

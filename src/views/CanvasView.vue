@@ -59,6 +59,7 @@
       @long-press="handleLongPress"
       @long-press-end="handleLongPressEnd"
       @click="handleCanvasClick"
+      @dbl-click="handleDblClick"
       @drop-text="handleDropText"
     >
       <template #nodes>
@@ -67,6 +68,8 @@
           :key="node.id"
           :node="node"
           :is-playing="playingNodeId === node.id"
+          :is-editing="editingNodeId === node.id"
+          :editing-text="editingText"
           @delete="handleDeleteNode"
           @play="handlePlayNode"
           @toggle-context="handleToggleContext"
@@ -74,6 +77,8 @@
           @retry-agent="handleRetryAgent"
           @drag-start="handleDragStart"
           @update-node="handleUpdateNode"
+          @save-edit="handleSaveEdit"
+          @cancel-edit="handleCancelEdit"
         />
       </template>
     </InfiniteCanvas>
@@ -357,6 +362,81 @@ function handleCanvasClick(x: number, y: number) {
   // 处理画布点击
 }
 
+function handleDblClick(x: number, y: number) {
+  // 双击空白区域，创建可编辑的文本框
+  const node: CanvasNode = {
+    id: `node-${Date.now()}`,
+    type: 'text-note',
+    position: { x, y },
+    transcript: '',
+    transcriptStatus: 'done',
+    agentResult: null,
+    agentStatus: 'pending',
+    selectedAsContext: false,
+    createdAt: Date.now()
+  }
+
+  projectStore.addNode(node)
+  
+  // 开始编辑
+  editingNodeId.value = node.id
+  editingText.value = ''
+}
+
+function saveTextEdit() {
+  if (editingNodeId.value) {
+    const node = projectStore.currentProject?.canvas.nodes.find(n => n.id === editingNodeId.value)
+    if (node && editingText.value.trim()) {
+      // 更新节点内容
+      projectStore.updateNode(editingNodeId.value, {
+        transcript: editingText.value.trim()
+      })
+      
+      // 提交给大模型回答
+      handleAgentResponse(editingNodeId.value, editingText.value.trim())
+    }
+    editingNodeId.value = null
+    editingText.value = ''
+  }
+}
+
+function cancelTextEdit() {
+  if (editingNodeId.value) {
+    const node = projectStore.currentProject?.canvas.nodes.find(n => n.id === editingNodeId.value)
+    if (node && !node.transcript) {
+      // 如果内容为空，删除节点
+      projectStore.removeNode(editingNodeId.value)
+    }
+    editingNodeId.value = null
+    editingText.value = ''
+  }
+}
+
+function handleSaveEdit(nodeId: string, text: string) {
+  if (text.trim()) {
+    projectStore.updateNode(nodeId, {
+      transcript: text.trim()
+    })
+    // 提交给大模型回答
+    handleAgentResponse(nodeId, text.trim())
+  } else {
+    // 空内容删除节点
+    projectStore.removeNode(nodeId)
+  }
+  editingNodeId.value = null
+  editingText.value = ''
+}
+
+function handleCancelEdit(nodeId: string) {
+  const node = projectStore.currentProject?.canvas.nodes.find(n => n.id === nodeId)
+  if (node && !node.transcript) {
+    // 如果内容为空，删除节点
+    projectStore.removeNode(nodeId)
+  }
+  editingNodeId.value = null
+  editingText.value = ''
+}
+
 async function handleTranscription(node: CanvasNode) {
   const settings = settingsStore.settings
 
@@ -471,6 +551,10 @@ function handleDeleteNode(nodeId: string) {
 // 音频播放相关
 const currentAudio = ref<HTMLAudioElement | null>(null)
 const playingNodeId = ref<string | null>(null)
+
+// 文本框编辑相关
+const editingNodeId = ref<string | null>(null)
+const editingText = ref('')
 
 async function handlePlayNode(nodeId: string) {
   const node = projectStore.currentProject?.canvas.nodes.find(n => n.id === nodeId)

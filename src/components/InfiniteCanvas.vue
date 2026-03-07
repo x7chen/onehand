@@ -8,6 +8,7 @@
     @mouseleave="handleMouseLeave"
     @wheel="handleWheel"
     @contextmenu.prevent
+    @dblclick="handleDblClick"
     @dragover="handleDragOver"
     @dragleave="handleDragLeave"
     @drop="handleDrop"
@@ -56,6 +57,7 @@ const emit = defineEmits<{
   'long-press': [x: number, y: number]
   'long-press-end': []
   'click': [x: number, y: number]
+  'dbl-click': [x: number, y: number]
   'drop-text': [x: number, y: number, text: string]
 }>()
 
@@ -227,18 +229,35 @@ function handleDragLeave() {
 function handleDrop(e: DragEvent) {
   e.preventDefault()
   isDraggingText.value = false
-  
+
   const text = e.dataTransfer?.getData('text/plain')
   if (!text || !text.trim()) return
-  
+
   const rect = canvasRef.value?.getBoundingClientRect()
   if (!rect) return
-  
+
   // 计算画布坐标（考虑 viewport 和 zoom）
   const canvasX = (e.clientX - rect.left - props.viewport.x) / props.viewport.zoom
   const canvasY = (e.clientY - rect.top - props.viewport.y) / props.viewport.zoom
-  
+
   emit('drop-text', canvasX, canvasY, text.trim())
+}
+
+function handleDblClick(e: MouseEvent) {
+  // 双击节点区域不触发
+  const target = e.target as HTMLElement
+  if (target.closest('.voice-note')) {
+    return
+  }
+
+  const rect = canvasRef.value?.getBoundingClientRect()
+  if (!rect) return
+
+  // 计算画布坐标（考虑 viewport 和 zoom）
+  const canvasX = (e.clientX - rect.left - props.viewport.x) / props.viewport.zoom
+  const canvasY = (e.clientY - rect.top - props.viewport.y) / props.viewport.zoom
+
+  emit('dbl-click', canvasX, canvasY)
 }
 
 watch(() => props.viewport, (newViewport) => {
