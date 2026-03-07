@@ -327,16 +327,16 @@ async function handleLongPressEnd() {
     const arrayBuffer = await audioBlob.arrayBuffer()
     await window.electronAPI.saveFileBuffer(`${projectDir}/${audioPath}`, arrayBuffer)
 
-    // 使用保存的开始位置计算节点位置
+    // 使用保存的开始位置计算节点位置（已经是画布坐标）
     const startX = recordingStartPosition.value?.x || 100
     const startY = recordingStartPosition.value?.y || 100
-    
+
     const node: CanvasNode = {
       id: nodeId,
       type: 'voice-note',
       position: {
-        x: startX - viewport.value.x / viewport.value.zoom,
-        y: startY - viewport.value.y / viewport.value.zoom
+        x: startX - 200, // 减去一半宽度使中心对齐
+        y: startY
       },
       audioPath,
       transcript: null,
@@ -372,7 +372,7 @@ function handleDblClick(x: number, y: number) {
   const node: CanvasNode = {
     id: `node-${Date.now()}`,
     type: 'text-note',
-    position: { x, y },
+    position: { x: x - 200, y }, // 减去一半宽度使中心对齐
     transcript: '',
     transcriptStatus: 'done',
     agentResult: null,
