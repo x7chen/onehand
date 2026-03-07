@@ -37,7 +37,7 @@
     </div>
 
     <!-- 编辑模式 -->
-    <div v-if="isEditing" class="editing-box" @dblclick.stop>
+    <div v-if="isEditing" class="editing-box" @click.stop @mousedown.stop>
       <textarea
         v-model="localEditingText"
         ref="editingTextarea"
@@ -45,13 +45,7 @@
         placeholder="输入内容..."
         @keydown.enter.exact.prevent="saveEdit"
         @keydown.escape="cancelEdit"
-        @blur="saveEdit"
-        @dblclick.stop
       ></textarea>
-      <div class="edit-actions">
-        <button @click.stop="saveEdit" class="save-btn">保存</button>
-        <button @click.stop="cancelEdit" class="cancel-btn">取消</button>
-      </div>
     </div>
 
     <div v-else-if="node.transcript" class="transcript-box" @dblclick.stop>
@@ -146,6 +140,7 @@ const emit = defineEmits<{
   (e: 'update-node', nodeId: string, updates: Partial<CanvasNode>): void
   (e: 'save-edit', nodeId: string, text: string): void
   (e: 'cancel-edit', nodeId: string): void
+  (e: 'update:editingText', text: string): void
 }>()
 
 // 使用外部传入的 isPlaying 或本地状态
@@ -162,6 +157,11 @@ watch(() => props.editingText, (newVal) => {
     localEditingText.value = newVal
   }
 }, { immediate: true })
+
+// 同步本地编辑文本到父组件
+watch(localEditingText, (newVal) => {
+  emit('update:editingText', newVal)
+})
 
 function saveEdit() {
   emit('save-edit', props.node.id, localEditingText.value)
@@ -644,38 +644,5 @@ function cancelAgentEdit() {
 
 .content-edit::placeholder {
   color: var(--text-secondary);
-}
-
-.edit-actions {
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-}
-
-.edit-actions button {
-  padding: 6px 12px;
-  border: none;
-  border-radius: 4px;
-  font-size: 13px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.save-btn {
-  background: #4299e1;
-  color: white;
-}
-
-.save-btn:hover {
-  background: #3b82f6;
-}
-
-.cancel-btn {
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
-}
-
-.cancel-btn:hover {
-  background: var(--border-color);
 }
 </style>

@@ -79,6 +79,7 @@
           @update-node="handleUpdateNode"
           @save-edit="handleSaveEdit"
           @cancel-edit="handleCancelEdit"
+          @update:editing-text="editingText = $event"
         />
       </template>
     </InfiniteCanvas>
@@ -222,9 +223,12 @@ onMounted(async () => {
   // 添加全局鼠标事件监听用于节点拖动
   window.addEventListener('mousemove', handleNodeDragMove)
   window.addEventListener('mouseup', handleNodeDragEnd)
-  
+
   // 添加点击外部关闭选择器的监听
   document.addEventListener('click', handleClickOutside)
+  
+  // 添加点击外部取消编辑的监听
+  document.addEventListener('click', handleClickOutsideEditing)
 })
 
 onUnmounted(() => {
@@ -235,6 +239,7 @@ onUnmounted(() => {
   window.removeEventListener('mousemove', handleNodeDragMove)
   window.removeEventListener('mouseup', handleNodeDragEnd)
   document.removeEventListener('click', handleClickOutside)
+  document.removeEventListener('click', handleClickOutsideEditing)
 })
 
 function goBack() {
@@ -430,8 +435,44 @@ function handleSaveEdit(nodeId: string, text: string) {
 function handleCancelEdit(nodeId: string) {
   const node = projectStore.currentProject?.canvas.nodes.find(n => n.id === nodeId)
   if (node && !node.transcript) {
-    // 如果内容为空，删除节点
     projectStore.removeNode(nodeId)
+  }
+  editingNodeId.value = null
+  editingText.value = ''
+}
+
+function handleClickOutsideEditing(e: MouseEvent) {
+  // 如果正在编辑且点击的不是正在编辑的节点，则处理编辑
+  if (!editingNodeId.value) return
+  
+  const target = e.target as HTMLElement
+  
+  // 如果点击的是编辑框内部，不处理
+  if (target.closest('.content-edit')) {
+    return
+  }
+  
+  // 如果点击的是节点内部，不处理
+  if (target.closest('.voice-note')) {
+    return
+  }
+  
+  // 点击了外部区域，处理保存或删除
+  const node = projectStore.currentProject?.canvas.nodes.find(n => n.id === editingNodeId.value)
+  if (node) {
+    if (editingText.value.trim()) {
+      // 有内容则自动保存
+      console.log('自动保存内容:', editingText.value.trim())
+      projectStore.updateNode(editingNodeId.value, {
+        transcript: editingText.value.trim()
+      })
+      // 提交给大模型回答
+      handleAgentResponse(editingNodeId.value, editingText.value.trim())
+    } else {
+      // 内容为空则删除节点
+      console.log('删除空节点')
+      projectStore.removeNode(editingNodeId.value)
+    }
   }
   editingNodeId.value = null
   editingText.value = ''
