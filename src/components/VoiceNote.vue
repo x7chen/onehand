@@ -1,12 +1,12 @@
 <template>
-  <div 
+  <div
     class="voice-note"
     :style="{ left: node.position.x + 'px', top: node.position.y + 'px' }"
     @mousedown="handleVoiceNoteMouseDown"
   >
     <div class="node-header" @mousedown="handleMouseDown">
-      <input 
-        type="checkbox" 
+      <input
+        type="checkbox"
         :checked="node.selectedAsContext"
         :disabled="node.transcriptStatus !== 'done'"
         @change="toggleContext"
@@ -53,11 +53,8 @@
           @blur="saveTranscriptEdit"
           @keydown.enter.exact.prevent="saveTranscriptEdit"
           @keydown.escape="cancelTranscriptEdit"
-          @mousedown.stop
-          @click.stop
-          @wheel.stop
         ></textarea>
-        <div 
+        <div
           v-else
           class="transcript-content"
           draggable="true"
@@ -94,11 +91,8 @@
           @blur="saveAgentEdit"
           @keydown.enter.exact.prevent="saveAgentEdit"
           @keydown.escape="cancelAgentEdit"
-          @mousedown.stop
-          @click.stop
-          @wheel.stop
         ></textarea>
-        <div 
+        <div
           v-else
           class="agent-content"
           draggable="true"
@@ -139,7 +133,7 @@ const editAgent = ref('')
 const transcriptTextarea = ref<HTMLTextAreaElement | null>(null)
 const agentTextarea = ref<HTMLTextAreaElement | null>(null)
 
-// 自动调整textarea高度的函数
+// 自动调整 textarea 高度的函数
 function autoResizeTextarea(textarea: HTMLTextAreaElement | null) {
   if (textarea) {
     textarea.style.height = 'auto'
@@ -246,13 +240,13 @@ function deleteNode() {
 function handleTextDragStart(e: DragEvent) {
   // Get currently selected text
   const selectedText = window.getSelection()?.toString()
-  
+
   if (selectedText && selectedText.trim() !== '') {
     // User has selected some text - drag only the selection
     if (e.dataTransfer) {
       e.dataTransfer.setData('text/plain', selectedText)
       e.dataTransfer.effectAllowed = 'copy'
-      
+
       // Set drag image/visual feedback
       const dragGhost = document.createElement('div')
       dragGhost.style.background = '#4299e1'
@@ -317,7 +311,6 @@ function cancelAgentEdit() {
   padding: 12px;
   min-width: 280px;
   max-width: 420px;
-  /* Limit text selection to within this node */
   contain: layout style paint;
 }
 
@@ -326,8 +319,8 @@ function cancelAgentEdit() {
   align-items: center;
   gap: 8px;
   margin-bottom: 8px;
-  cursor: move; /* Only header is draggable */
-  user-select: none; /* Prevent text selection in header */
+  cursor: move;
+  user-select: none;
 }
 
 .mic-icon-wrapper {
@@ -420,6 +413,8 @@ function cancelAgentEdit() {
 
 .transcript-content-wrapper {
   position: relative;
+  padding: 8px;
+  margin: -8px;
 }
 
 .transcript-content {
@@ -428,8 +423,9 @@ function cancelAgentEdit() {
   color: var(--text-primary);
   white-space: pre-wrap;
   word-wrap: break-word;
-  user-select: text; /* Allow text selection */
+  user-select: text;
   cursor: text;
+  min-height: 24px;
 }
 
 .transcript-content::selection {
@@ -439,12 +435,11 @@ function cancelAgentEdit() {
 .transcript-edit {
   width: 100%;
   min-height: 60px;
-  padding: 8px;
+  padding: 0;
   border: 2px solid #4299e1;
   border-radius: 4px;
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  /* 使用与全局相同的字体族 */
+  background: rgba(255, 255, 255, 0.98);
+  color: #1a1a1a;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   font-size: 14px;
   line-height: 1.6;
@@ -452,13 +447,10 @@ function cancelAgentEdit() {
   outline: none;
   box-sizing: border-box;
   overflow: hidden;
-  /* 保持与原始文本相同的换行行为 */
   white-space: pre-wrap;
   word-wrap: break-word;
-  /* 解决模糊问题：使用will-change和字体渲染优化 */
-  will-change: transform;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  position: relative;
+  z-index: 10;
 }
 
 .agent-result-box {
@@ -514,6 +506,9 @@ function cancelAgentEdit() {
 
 .agent-content-wrapper {
   position: relative;
+  padding: 8px;
+  margin: -8px;
+  width: 350px;
 }
 
 .agent-content {
@@ -522,8 +517,9 @@ function cancelAgentEdit() {
   color: var(--text-primary);
   white-space: pre-wrap;
   word-wrap: break-word;
-  user-select: text; /* Allow text selection */
+  user-select: text;
   cursor: text;
+  min-height: 24px;
 }
 
 .agent-content::selection {
@@ -531,14 +527,13 @@ function cancelAgentEdit() {
 }
 
 .agent-edit {
-  width: 100%;
+  width: 350px;
   min-height: 60px;
-  padding: 8px;
+  padding: 0;
   border: 2px solid #66bb6a;
   border-radius: 4px;
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  /* 使用与全局相同的字体族 */
+  background: rgba(255, 255, 255, 0.98);
+  color: #1a1a1a;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   font-size: 14px;
   line-height: 1.6;
@@ -546,13 +541,10 @@ function cancelAgentEdit() {
   outline: none;
   box-sizing: border-box;
   overflow: hidden;
-  /* 保持与原始文本相同的换行行为 */
   white-space: pre-wrap;
   word-wrap: break-word;
-  /* 解决模糊问题：使用will-change和字体渲染优化 */
-  will-change: transform;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  position: relative;
+  z-index: 10;
 }
 
 .status-text {

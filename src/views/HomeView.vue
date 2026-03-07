@@ -96,9 +96,11 @@
             <h3>{{ project.name }}</h3>
             <p class="project-info">
               {{ project.canvas.nodes.length }} 个笔记 · {{ formatDate(project.updatedAt) }}
-              <span v-if="project.context?.staticContextId || project.context?.dynamicContextId" class="context-indicator">
-                · 
-                <span v-if="project.context.staticContextId" title="静态上下文">📄</span>
+              <span v-if="project.context?.staticContextIds?.length || project.context?.dynamicContextId" class="context-indicator">
+                ·
+                <span v-if="project.context.staticContextIds?.length" :title="`静态上下文 (${project.context.staticContextIds.length}个)`">
+                  📄{{ project.context.staticContextIds.length > 1 ? `(${project.context.staticContextIds.length})` : '' }}
+                </span>
                 <span v-if="project.context.dynamicContextId" title="动态上下文">📝</span>
               </span>
             </p>
@@ -165,15 +167,19 @@
           ref="projectNameInput"
         />
         
-        <!-- 选择静态上下文 -->
+        <!-- 选择静态上下文（多选） -->
         <div class="form-group">
-          <label>静态上下文（可选）：</label>
-          <select v-model="newProjectStaticContext">
-            <option value="">无</option>
-            <option v-for="file in contextStore.staticContextFiles" :key="file.id" :value="file.id">
-              {{ file.name }}
-            </option>
-          </select>
+          <label>静态上下文（可选，可多选）：</label>
+          <div class="checkbox-list">
+            <label class="checkbox-item" v-for="file in contextStore.staticContextFiles" :key="file.id">
+              <input
+                type="checkbox"
+                :value="file.id"
+                v-model="newProjectStaticContexts"
+              />
+              <span class="checkbox-label">{{ file.name }}</span>
+            </label>
+          </div>
         </div>
 
         <!-- 选择动态上下文 -->
@@ -228,7 +234,7 @@ const editingContext = ref<ContextFile | null>(null)
 
 const showNewProjectDialog = ref(false)
 const newProjectName = ref('')
-const newProjectStaticContext = ref('')
+const newProjectStaticContexts = ref<string[]>([])
 const newProjectDynamicContext = ref('')
 const projectNameInput = ref<HTMLInputElement | null>(null)
 
@@ -306,18 +312,18 @@ async function createProject() {
   if (!newProjectName.value.trim()) return
 
   const context = {
-    staticContextId: newProjectStaticContext.value || undefined,
+    staticContextIds: newProjectStaticContexts.value.length > 0 ? newProjectStaticContexts.value : undefined,
     dynamicContextId: newProjectDynamicContext.value || undefined
   }
 
   const project = await projectStore.createProject(
     newProjectName.value,
-    (context.staticContextId || context.dynamicContextId) ? context : undefined
+    (context.staticContextIds || context.dynamicContextId) ? context : undefined
   )
 
   showNewProjectDialog.value = false
   newProjectName.value = ''
-  newProjectStaticContext.value = ''
+  newProjectStaticContexts.value = []
   newProjectDynamicContext.value = ''
   openProject(project.id)
 }
@@ -663,6 +669,45 @@ function openSettings() {
   background: var(--bg-secondary);
   color: var(--text-primary);
   cursor: pointer;
+}
+
+.checkbox-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.checkbox-item:hover {
+  background: var(--border-color);
+}
+
+.checkbox-item input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.checkbox-label {
+  font-size: 14px;
+  color: var(--text-primary);
+  cursor: pointer;
+  flex: 1;
 }
 
 .content-input {

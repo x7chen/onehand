@@ -40,7 +40,7 @@ export const useProjectStore = defineStore('project', () => {
       }
     }
 
-    if (context && (context.staticContextId || context.dynamicContextId)) {
+    if (context && (context.staticContextIds?.length || context.dynamicContextId)) {
       project.context = context
     }
 
@@ -53,7 +53,12 @@ export const useProjectStore = defineStore('project', () => {
     project.updatedAt = Date.now()
     const index = projects.value.findIndex(p => p.id === project.id)
     if (index !== -1) {
-      projects.value[index] = project
+      // 更新现有项目 - 使用 Object.assign 保持响应式
+      Object.assign(projects.value[index], project)
+      // 同步更新 currentProject
+      if (currentProject.value && currentProject.value.id === project.id) {
+        Object.assign(currentProject.value, project)
+      }
     } else {
       projects.value.push(project)
     }

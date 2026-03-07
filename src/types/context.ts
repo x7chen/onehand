@@ -21,8 +21,8 @@ export interface ContextFile {
  * 项目关联的上下文
  */
 export interface ProjectContext {
-  // 静态上下文文件 ID
-  staticContextId?: string
+  // 静态上下文文件 ID 列表（支持多选）
+  staticContextIds?: string[]
   // 动态上下文文件 ID
   dynamicContextId?: string
 }

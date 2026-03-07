@@ -16,7 +16,7 @@
         
         <div class="form-group">
           <label>服务提供商</label>
-          <select v-model="settings.llm.provider">
+          <select v-model="settingsStore.settings.llm.provider">
             <option value="modelscope">ModelScope (默认)</option>
             <option value="qwen">通义千问</option>
             <option value="openai">OpenAI</option>
@@ -27,27 +27,27 @@
 
         <div class="form-group">
           <label>API Key</label>
-          <input 
-            v-model="settings.llm.apiKey" 
-            type="password" 
+          <input
+            v-model="settingsStore.settings.llm.apiKey"
+            type="password"
             placeholder="输入 API Key"
           />
         </div>
 
         <div class="form-group">
           <label>Base URL</label>
-          <input 
-            v-model="settings.llm.baseUrl" 
-            type="text" 
+          <input
+            v-model="settingsStore.settings.llm.baseUrl"
+            type="text"
             placeholder="API 基础地址"
           />
         </div>
 
         <div class="form-group">
           <label>模型</label>
-          <input 
-            v-model="settings.llm.model" 
-            type="text" 
+          <input
+            v-model="settingsStore.settings.llm.model"
+            type="text"
             placeholder="模型名称"
           />
         </div>
@@ -61,29 +61,29 @@
           <label>STT 服务提供商</label>
           <div class="radio-group">
             <label class="radio-label">
-              <input type="radio" v-model="settings.stt.provider" value="funasr" />
+              <input type="radio" v-model="settingsStore.settings.stt.provider" value="funasr" />
               FunASR (本地)
             </label>
             <label class="radio-label">
-              <input type="radio" v-model="settings.stt.provider" value="whisper" />
+              <input type="radio" v-model="settingsStore.settings.stt.provider" value="whisper" />
               OpenAI Whisper
             </label>
           </div>
         </div>
 
-        <template v-if="settings.stt.provider === 'funasr'">
+        <template v-if="settingsStore.settings.stt.provider === 'funasr'">
           <div class="form-group">
             <label>服务地址</label>
-            <input 
-              v-model="settings.stt.funasr.serverUrl" 
-              type="text" 
+            <input
+              v-model="settingsStore.settings.stt.funasr.serverUrl"
+              type="text"
               placeholder="http://localhost:8000"
             />
           </div>
 
           <div class="form-group">
             <label>语言</label>
-            <select v-model="settings.stt.funasr.language">
+            <select v-model="settingsStore.settings.stt.funasr.language">
               <option value="zh">中文</option>
               <option value="en">英文</option>
               <option value="ja">日文</option>
@@ -94,16 +94,16 @@
 
           <div class="form-group">
             <label>热词</label>
-            <input 
-              v-model="settings.stt.funasr.hotwords" 
-              type="text" 
+            <input
+              v-model="settingsStore.settings.stt.funasr.hotwords"
+              type="text"
               placeholder="逗号分隔的专业术语"
             />
           </div>
 
           <div class="form-group">
             <label class="checkbox-label">
-              <input type="checkbox" v-model="settings.stt.funasr.itn" />
+              <input type="checkbox" v-model="settingsStore.settings.stt.funasr.itn" />
               启用文本逆规整（数字、日期格式化）
             </label>
           </div>
@@ -112,23 +112,23 @@
         <template v-else>
           <div class="form-group">
             <label>API Key</label>
-            <input 
-              v-model="settings.stt.whisper.apiKey" 
-              type="password" 
+            <input
+              v-model="settingsStore.settings.stt.whisper.apiKey"
+              type="password"
               placeholder="OpenAI API Key"
             />
           </div>
 
           <div class="form-group">
             <label>模型</label>
-            <select v-model="settings.stt.whisper.model">
+            <select v-model="settingsStore.settings.stt.whisper.model">
               <option value="whisper-1">whisper-1</option>
             </select>
           </div>
 
           <div class="form-group">
             <label>语言</label>
-            <select v-model="settings.stt.whisper.language">
+            <select v-model="settingsStore.settings.stt.whisper.language">
               <option value="auto">自动检测</option>
               <option value="zh">中文</option>
               <option value="en">英文</option>
@@ -145,7 +145,7 @@
 
         <div class="form-group">
           <label>音频格式</label>
-          <select v-model="settings.general.audioFormat">
+          <select v-model="settingsStore.settings.general.audioFormat">
             <option value="webm">WebM</option>
             <option value="wav">WAV</option>
           </select>
@@ -153,7 +153,7 @@
 
         <div class="form-group">
           <label>界面语言</label>
-          <select v-model="settings.general.language">
+          <select v-model="settingsStore.settings.general.language">
             <option value="system">跟随系统</option>
             <option value="zh">中文</option>
             <option value="en">English</option>
@@ -162,44 +162,33 @@
 
         <div class="form-group">
           <label>主题</label>
-          <select v-model="settings.general.theme">
+          <select v-model="settingsStore.settings.general.theme">
             <option value="system">跟随系统</option>
             <option value="light">浅色</option>
             <option value="dark">深色</option>
           </select>
         </div>
       </section>
-
-      <div class="actions">
-        <button @click="saveSettings" class="save-btn">保存设置</button>
-      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSettingsStore } from '@/stores/settingsStore'
-import type { Settings } from '@/types/settings'
 
 const router = useRouter()
 const settingsStore = useSettingsStore()
 
-const settings = ref<Settings>({
-  llm: { ...settingsStore.settings.llm },
-  stt: { ...settingsStore.settings.stt },
-  general: { ...settingsStore.settings.general }
-})
-
-onMounted(() => {
-  settingsStore.loadSettings()
-})
-
-function saveSettings() {
-  settingsStore.updateSettings(settings.value)
-  alert('设置已保存')
-}
+// 监听设置变化，自动保存
+watch(
+  () => settingsStore.settings,
+  () => {
+    settingsStore.saveSettings()
+  },
+  { deep: true }
+)
 
 function goBack() {
   router.push('/')
@@ -321,27 +310,5 @@ function goBack() {
   cursor: pointer;
   font-size: 14px;
   color: var(--text-secondary);
-}
-
-.actions {
-  display: flex;
-  justify-content: center;
-  padding-top: 20px;
-}
-
-.save-btn {
-  padding: 12px 40px;
-  background: #4299e1;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  color: white;
-  font-size: 16px;
-  font-weight: 500;
-  transition: background 0.2s;
-}
-
-.save-btn:hover {
-  background: #3182ce;
 }
 </style>

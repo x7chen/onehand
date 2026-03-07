@@ -8,16 +8,21 @@
       </button>
       
       <!-- 静态上下文显示（左侧） -->
-      <div 
+      <div
         class="static-context-display"
         @dblclick="showStaticContextSelector = true"
-        :title="staticContextFile ? '双击切换静态上下文' : '双击选择静态上下文'"
+        :title="staticContextFiles.length > 0 ? '双击管理静态上下文' : '双击选择静态上下文'"
       >
         <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" class="context-icon">
           <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
         </svg>
-        <span v-if="staticContextFile" class="context-name">{{ staticContextFile.name }}</span>
-        <span v-else class="context-placeholder">点击选择静态上下文</span>
+        <div v-if="staticContextFiles.length > 0" class="static-context-names">
+          <span class="context-name" :title="file.name" v-for="file in staticContextFiles" :key="file.id">
+            {{ file.name }}
+          </span>
+          <span class="context-count" v-if="staticContextFiles.length > 1">+{{ staticContextFiles.length - 1 }}</span>
+        </div>
+        <span v-else class="context-placeholder">选择静态上下文</span>
       </div>
       
       <h2>{{ projectStore.currentProject?.name }}</h2>
@@ -79,32 +84,30 @@
       @ask="handleAskWithNewRecording"
     />
 
-    <!-- 静态上下文选择器 -->
+    <!-- 静态上下文选择器（支持多选） -->
     <div v-if="showStaticContextSelector" class="dialog-overlay" @click="showStaticContextSelector = false">
       <div class="dialog context-selector-dialog" @click.stop>
-        <h3>选择静态上下文</h3>
+        <h3>选择静态上下文（可多选）</h3>
         <div class="context-list">
-          <div 
-            v-for="file in contextStore.staticContextFiles" 
+          <div
+            v-for="file in contextStore.staticContextFiles"
             :key="file.id"
             class="context-item"
-            :class="{ selected: projectStore.currentProject?.context?.staticContextId === file.id }"
-            @click="selectStaticContext(file.id)"
+            :class="{ selected: staticContextFiles.some(f => f.id === file.id) }"
+            @click="toggleStaticContext(file.id)"
           >
+            <input
+              type="checkbox"
+              :checked="staticContextFiles.some(f => f.id === file.id)"
+              @change="toggleStaticContext(file.id)"
+              @click.stop
+            />
             <span class="context-item-name">{{ file.name }}</span>
-            <span v-if="projectStore.currentProject?.context?.staticContextId === file.id" class="selected-indicator">✓</span>
-          </div>
-          <div 
-            class="context-item"
-            :class="{ selected: !projectStore.currentProject?.context?.staticContextId }"
-            @click="selectStaticContext('')"
-          >
-            <span class="context-item-name">无</span>
-            <span v-if="!projectStore.currentProject?.context?.staticContextId" class="selected-indicator">✓</span>
+            <span v-if="staticContextFiles.some(f => f.id === file.id)" class="selected-indicator">✓</span>
           </div>
         </div>
         <div class="dialog-actions">
-          <button @click="showStaticContextSelector = false" class="cancel-btn">关闭</button>
+          <button @click="showStaticContextSelector = false" class="confirm-btn">完成</button>
         </div>
       </div>
     </div>
@@ -174,18 +177,15 @@ const isDraggingNode = ref(false)
 const draggingNodeId = ref<string | null>(null)
 const dragOffset = ref({ x: 0, y: 0 })
 
-const selectedContextCount = computed(() => 
+const selectedContextCount = computed(() =>
   projectStore.currentProject?.canvas.nodes.filter(n => n.selectedAsContext).length || 0
 )
 
-// 静态上下文
+// 静态上下文（支持多选）
 const showStaticContextSelector = ref(false)
-const staticContextFile = computed(() => {
-  const staticContextId = projectStore.currentProject?.context?.staticContextId
-  if (staticContextId) {
-    return contextStore.getContextFileById(staticContextId)
-  }
-  return undefined
+const staticContextFiles = computed(() => {
+  const staticContextIds = projectStore.currentProject?.context?.staticContextIds || []
+  return staticContextIds.map(id => contextStore.getContextFileById(id)).filter(Boolean) as ContextFile[]
 })
 
 // 动态上下文
@@ -366,7 +366,7 @@ async function handleTranscription(node: CanvasNode) {
 
 async function handleAgentResponse(nodeId: string, transcript: string) {
   const settings = settingsStore.settings
-  
+
   try {
     projectStore.updateNode(nodeId, { agentStatus: 'processing' })
 
@@ -375,12 +375,29 @@ async function handleAgentResponse(nodeId: string, transcript: string) {
 
     // 获取已选择的上下文节点
     const selectedNodes = projectStore.currentProject?.canvas.nodes.filter(n => n.selectedAsContext) || []
+
+    // 合并多个静态上下文内容
+    const staticContextFilesList = staticContextFiles.value
+    console.log('staticContextFilesList:', staticContextFilesList.map(f => ({ name: f.name, contentLength: f.content?.length })))
     
+    const staticContextContent = staticContextFilesList
+      .map(f => f.content)
+      .filter(c => c && c.trim())
+      .join('\n\n')
+
+    console.log('handleAgentResponse:', {
+      staticContextIds: projectStore.currentProject?.context?.staticContextIds,
+      staticContextFiles: staticContextFiles.value.map(f => f.name),
+      staticContextContent: staticContextContent?.substring(0, 100) + '...',
+      dynamicContextId: projectStore.currentProject?.context?.dynamicContextId,
+      selectedNodesCount: selectedNodes.length
+    })
+
     // 构建完整的提示词（包含静态上下文、动态上下文、已选择上下文）
     const messages = buildFullContextMessages(
       selectedNodes.map(n => ({ transcript: n.transcript || '', agentResult: n.agentResult || '' })),
       transcript,
-      staticContextFile.value?.content,
+      staticContextContent,
       dynamicContextFile.value?.content
     )
 
@@ -574,17 +591,32 @@ async function handleAskWithNewRecording() {
   }
 }
 
-// 静态上下文选择
-async function selectStaticContext(contextId: string) {
+// 静态上下文选择（支持多选）
+async function toggleStaticContext(contextId: string) {
   if (!projectStore.currentProject) return
-  
-  projectStore.currentProject.context = {
-    ...projectStore.currentProject.context,
-    staticContextId: contextId || undefined
+
+  const currentIds = projectStore.currentProject.context?.staticContextIds || []
+  const newIds = currentIds.includes(contextId)
+    ? currentIds.filter(id => id !== contextId)
+    : [...currentIds, contextId]
+
+  // 确保 context 对象存在
+  if (!projectStore.currentProject.context) {
+    projectStore.currentProject.context = {}
   }
   
+  // 直接修改数组以触发响应式更新
+  if (newIds.length > 0) {
+    if (!projectStore.currentProject.context.staticContextIds) {
+      projectStore.currentProject.context.staticContextIds = []
+    }
+    // 清空并重新赋值以触发响应式
+    projectStore.currentProject.context.staticContextIds.splice(0, projectStore.currentProject.context.staticContextIds.length, ...newIds)
+  } else {
+    projectStore.currentProject.context.staticContextIds = undefined
+  }
+
   await projectStore.saveProject(projectStore.currentProject)
-  showStaticContextSelector.value = false
 }
 
 // 动态上下文编辑
@@ -707,16 +739,20 @@ async function handleDynamicContextDrop(e: DragEvent) {
   cursor: pointer;
   transition: background 0.2s;
   min-width: 150px;
-  max-width: 250px;
+  max-width: 300px;
 }
 
 .static-context-display:hover {
   background: var(--border-color);
 }
 
-.context-icon {
-  flex-shrink: 0;
-  color: #66bb6a;
+.static-context-names {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .context-name {
@@ -725,6 +761,16 @@ async function handleDynamicContextDrop(e: DragEvent) {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 150px;
+}
+
+.context-count {
+  font-size: 11px;
+  color: #66bb6a;
+  background: rgba(102, 187, 106, 0.2);
+  padding: 1px 4px;
+  border-radius: 4px;
+  flex-shrink: 0;
 }
 
 .context-placeholder {
