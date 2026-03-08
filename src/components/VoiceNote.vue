@@ -72,9 +72,8 @@
           draggable="true"
           @dragstart="handleTextDragStart"
           @dblclick.stop="startTranscriptEdit"
-        >
-          {{ node.transcript }}
-        </div>
+          v-html="sanitizedTranscript"
+        ></div>
       </div>
     </div>
 
@@ -110,17 +109,16 @@
           draggable="true"
           @dragstart="handleTextDragStart"
           @dblclick.stop="startAgentEdit"
-        >
-          {{ node.agentResult }}
-        </div>
+          v-html="sanitizedAgentResult"
+        ></div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick, watch, computed } from 'vue'
-import { formatDuration } from '@/utils/helpers'
+import { ref, nextTick, watch, computed, onMounted, onUnmounted } from 'vue'
+import { formatDuration, renderMarkdown } from '@/utils/helpers'
 import type { CanvasNode } from '@/types/project'
 
 const props = defineProps<{
@@ -151,6 +149,10 @@ const computedIsPlaying = computed(() => props.isPlaying ?? localIsPlaying.value
 const localEditingText = ref('')
 const editingTextarea = ref<HTMLTextAreaElement | null>(null)
 
+// Markdown 渲染结果
+const sanitizedTranscript = ref('')
+const sanitizedAgentResult = ref('')
+
 // 同步外部传入的编辑文本
 watch(() => props.editingText, (newVal) => {
   if (newVal !== undefined) {
@@ -170,6 +172,7 @@ function saveEdit() {
 function cancelEdit() {
   emit('cancel-edit', props.node.id)
 }
+
 const isEditingTranscript = ref(false)
 const isEditingAgent = ref(false)
 const editTranscript = ref('')
@@ -344,6 +347,31 @@ function saveAgentEdit() {
 function cancelAgentEdit() {
   isEditingAgent.value = false
 }
+
+// 当组件挂载时渲染 Markdown
+onMounted(async () => {
+  if (props.node.transcript) {
+    sanitizedTranscript.value = await renderMarkdown(props.node.transcript)
+  }
+  
+  if (props.node.agentResult) {
+    sanitizedAgentResult.value = await renderMarkdown(props.node.agentResult)
+  }
+})
+
+// 监听 transcript 变化，重新渲染 Markdown
+watch(() => props.node.transcript, async (newTranscript) => {
+  if (!isEditingTranscript.value) {
+    sanitizedTranscript.value = newTranscript ? await renderMarkdown(newTranscript) : ''
+  }
+})
+
+// 监听 agentResult 变化，重新渲染 Markdown
+watch(() => props.node.agentResult, async (newAgentResult) => {
+  if (!isEditingAgent.value) {
+    sanitizedAgentResult.value = newAgentResult ? await renderMarkdown(newAgentResult) : ''
+  }
+})
 </script>
 
 <style scoped>
@@ -353,7 +381,7 @@ function cancelAgentEdit() {
   border-radius: 8px;
   box-shadow: 0 2px 8px var(--shadow-color);
   padding: 12px;
-  width: 350px;
+  width: 500px;
   contain: layout style paint;
 }
 
@@ -467,7 +495,7 @@ function cancelAgentEdit() {
   white-space: pre-wrap;
   word-wrap: break-word;
   overflow-wrap: break-word;
-  max-width: calc(350px - 25px); /* 容器宽度减去 padding */
+  max-width: calc(500px - 25px); /* 容器宽度减去 padding */
   user-select: text;
   cursor: text;
   min-height: 24px;
@@ -543,9 +571,11 @@ function cancelAgentEdit() {
 @keyframes bounce {
   0%, 80%, 100% {
     transform: scale(0);
+    opacity: 0;
   }
   40% {
     transform: scale(1);
+    opacity: 1;
   }
 }
 
@@ -553,7 +583,7 @@ function cancelAgentEdit() {
   position: relative;
   padding: 8px;
   margin: -8px;
-  width: 350px;
+  width: 500px;
 }
 
 .agent-content {
@@ -563,7 +593,7 @@ function cancelAgentEdit() {
   white-space: pre-wrap;
   word-wrap: break-word;
   overflow-wrap: break-word;
-  max-width: calc(350px - 25px); /* 容器宽度减去 padding */
+  max-width: calc(500px - 25px); /* 容器宽度减去 padding */
   user-select: text;
   cursor: text;
   min-height: 24px;
@@ -574,7 +604,7 @@ function cancelAgentEdit() {
 }
 
 .agent-edit {
-  width: calc(350px - 25px);
+  width: calc(500px - 25px);
   min-height: 60px;
   padding: 0;
   border: 2px solid #66bb6a;
@@ -630,7 +660,7 @@ function cancelAgentEdit() {
 }
 
 .content-edit {
-  width: calc(350px - 25px);
+  width: calc(500px - 25px);
   min-height: 80px;
   padding: 12px;
   border: 2px solid #4299e1;
@@ -647,5 +677,131 @@ function cancelAgentEdit() {
 
 .content-edit::placeholder {
   color: var(--text-secondary);
+}
+
+/* 添加 Markdown 样式 */
+.transcript-content h1,
+.agent-content h1 {
+  font-size: 1.5em;
+  margin: 0.5em 0; /* 进一步减小标题间距 */
+  font-weight: bold;
+}
+
+.transcript-content h2,
+.agent-content h2 {
+  font-size: 1.4em;
+  margin: 0.5em 0; /* 进一步减小标题间距 */
+  font-weight: bold;
+}
+
+.transcript-content h3,
+.agent-content h3 {
+  font-size: 1.3em;
+  margin: 0.4em 0; /* 进一步减小标题间距 */
+  font-weight: bold;
+}
+
+.transcript-content h4,
+.agent-content h4 {
+  font-size: 1.2em;
+  margin: 0.4em 0; /* 进一步减小标题间距 */
+  font-weight: bold;
+}
+
+.transcript-content h5,
+.agent-content h5 {
+  font-size: 1.1em;
+  margin: 0.3em 0; /* 进一步减小标题间距 */
+  font-weight: bold;
+}
+
+.transcript-content h6,
+.agent-content h6 {
+  font-size: 1em;
+  margin: 0.3em 0; /* 进一步减小标题间距 */
+  font-weight: bold;
+}
+
+.transcript-content p,
+.agent-content p {
+  margin: 0.5em 0; /* 进一步减小段落间距 */
+  line-height: 1.4; /* 进一步调整行高 */
+}
+
+.transcript-content ul,
+.agent-content ul {
+  list-style-type: disc;
+  padding-left: 1.5em; /* 减小左边距 */
+  margin: 0.3em 0; /* 进一步减小列表间距 */
+}
+
+.transcript-content ol,
+.agent-content ol {
+  list-style-type: decimal;
+  padding-left: 1.5em; /* 减小左边距 */
+  margin: 0.3em 0; /* 进一步减小列表间距 */
+}
+
+.transcript-content li,
+.agent-content li {
+  margin: 0.15em 0; /* 进一步减小列表项间距 */
+  padding: 0; /* 移除额外内边距 */
+}
+
+.transcript-content strong,
+.agent-content strong {
+  font-weight: bold;
+}
+
+.transcript-content em,
+.agent-content em {
+  font-style: italic;
+}
+
+.transcript-content code,
+.agent-content code {
+  font-family: monospace;
+  background-color: rgba(0, 0, 0, 0.05);
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+  font-size: 0.85em;
+}
+
+.transcript-content pre,
+.agent-content pre {
+  background-color: rgba(0, 0, 0, 0.05);
+  padding: 0.5em; /* 减小内边距 */
+  border-radius: 4px;
+  overflow-x: auto;
+  margin: 0.5em 0; /* 进一步减小代码块间距 */
+}
+
+.transcript-content pre code,
+.agent-content pre code {
+  background: none;
+  padding: 0;
+  font-size: 1em;
+}
+
+.transcript-content blockquote,
+.agent-content blockquote {
+  border-left: 3px solid #ccc;
+  padding-left: 0.8em; /* 减小左边距 */
+  margin: 0.5em 0; /* 进一步减小区块引用间距 */
+  padding: 0.3em 0 0.3em 0.5em; /* 减小内边距 */
+  font-style: italic;
+  color: #666;
+}
+
+.transcript-content a,
+.agent-content a {
+  color: #4299e1;
+  text-decoration: underline;
+}
+
+.transcript-content img,
+.agent-content img {
+  max-width: 100%;
+  border-radius: 4px;
 }
 </style>
