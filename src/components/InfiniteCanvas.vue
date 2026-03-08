@@ -64,6 +64,8 @@ const emit = defineEmits<{
 const isDraggingText = ref(false)
 const dragHintStyle = ref({ left: '0px', top: '0px' })
 const draggedTextLength = ref(0)
+// 添加一个变量跟踪是否在节点上
+const isOverNode = ref(false)
 
 const canvasRef = ref<HTMLElement | null>(null)
 const isDragging = ref(false)
@@ -99,6 +101,11 @@ function handleMouseDown(e: MouseEvent) {
   const target = e.target as HTMLElement
   if (target.closest('.transcript-content') || target.closest('.agent-content')) {
     return // Let the text selection happen normally
+  }
+
+  // Check if we're clicking on an editable textarea (editing mode)
+  if (target.tagName === 'TEXTAREA' || target.closest('textarea')) {
+    return // We're in text editing mode, don't trigger recording
   }
 
   if (e.button === 0) {
@@ -230,12 +237,27 @@ function handleWheel(e: WheelEvent) {
 function handleDragOver(e: DragEvent) {
   e.preventDefault()
   if (e.dataTransfer) {
-    e.dataTransfer.dropEffect = 'copy'
+    // 检测是否在画布节点区域上方
+    const target = e.target as HTMLElement
+    const overNode = !!target.closest('.voice-note')
+    
+    // 根据是否在节点上来设置不同的dropEffect
+    // 在节点上方时设置为none（通常会显示禁止符号），在空白区域时设置为copy
+    e.dataTransfer.dropEffect = overNode ? 'none' : 'copy'
   }
   
   const text = e.dataTransfer?.getData('text/plain')
   if (text && text.trim()) {
-    isDraggingText.value = true
+    // 只有在从节点移出到空白区域，或者在空白区域移动时才显示拖拽提示
+    if (!overNode) {
+      isDraggingText.value = true
+    } else {
+      isDraggingText.value = false
+    }
+    
+    // 更新状态
+    isOverNode.value = overNode
+    
     draggedTextLength.value = text.trim().length
     dragHintStyle.value = {
       left: (e.clientX + 15) + 'px',
@@ -245,7 +267,14 @@ function handleDragOver(e: DragEvent) {
 }
 
 function handleDragLeave() {
-  isDraggingText.value = false
+  // 不立即重置，而是检测是否真正离开了画布容器
+  // 使用setTimeout来延迟检查relatedTarget是否仍在画布元素内
+  setTimeout(() => {
+    if (!document.querySelector('.infinite-canvas:hover')) {
+      isDraggingText.value = false
+      isOverNode.value = false
+    }
+  }, 10)
 }
 
 function handleDrop(e: DragEvent) {
@@ -254,6 +283,13 @@ function handleDrop(e: DragEvent) {
 
   const text = e.dataTransfer?.getData('text/plain')
   if (!text || !text.trim()) return
+
+  // 检查是否在画布空白区域释放，而不是在节点上
+  const target = e.target as HTMLElement
+  // 如果释放目标或其祖先元素包含voice-note类，则不在空白区域，直接返回
+  if (target.closest('.voice-note')) {
+    return
+  }
 
   const rect = canvasRef.value?.getBoundingClientRect()
   if (!rect) return
