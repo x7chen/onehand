@@ -574,7 +574,7 @@ function cancelAgentEdit() {
 }
 
 .agent-edit {
-  width: 350px;
+  width: calc(350px - 25px);
   min-height: 60px;
   padding: 0;
   border: 2px solid #66bb6a;
@@ -630,7 +630,7 @@ function cancelAgentEdit() {
 }
 
 .content-edit {
-  width: 350px;
+  width: calc(350px - 25px);
   min-height: 80px;
   padding: 12px;
   border: 2px solid #4299e1;
