@@ -1,4 +1,4 @@
-# Handbook - 智能语音笔记桌面应用
+# Onehand - 智能语音笔记桌面应用
 
 基于 Electron + Vue 3 + TypeScript 的智能语音笔记应用。
 
@@ -86,7 +86,7 @@ npm run electron:build
 ## 项目结构
 
 ```
-handbook/
+onehand/
 ├── electron/              # Electron 主进程
 │   ├── main.ts           # 主进程入口
 │   └── preload.ts        # 预加载脚本

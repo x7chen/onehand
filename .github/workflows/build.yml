@@ -31,7 +31,7 @@ jobs:
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: handbook-macos
+          name: onehand-macos
           path: release/*.dmg
 
   build-windows:
@@ -58,7 +58,7 @@ jobs:
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: handbook-windows
+          name: onehand-windows
           path: release/*.exe
 
   build-linux:
@@ -85,5 +85,5 @@ jobs:
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: handbook-linux
+          name: onehand-linux
           path: release/*.AppImage
