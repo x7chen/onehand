@@ -1,5 +1,5 @@
-appId: com.handbook.app
-productName: Handbook
+appId: com.onehand.app
+productName: OneHand
 directories:
   output: release
   buildResources: build
@@ -8,17 +8,31 @@ files:
   - dist-electron/**/*
   - package.json
 win:
-  target: 
+  target:
     - target: nsis
       arch:
         - x64
+        - arm64
   icon: build/icon.ico
   signingHashAlgorithms: []
   verifyUpdateCodeSignature: false
   requestedExecutionLevel: asInvoker
 mac:
-  target: dmg
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
   icon: build/icon.icns
+  category: public.app-category.productivity
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  extendInfo:
+    NSCameraUsageDescription: 应用需要访问摄像头
+    NSMicrophoneUsageDescription: 应用需要访问麦克风
+  notarize: false
 linux:
   target: AppImage
   icon: build/icon.png
