@@ -12,6 +12,9 @@ export function formatDuration(ms: number): string {
 // 导入 marked 库进行 Markdown 渲染
 let markedInstance: any = null;
 
+// Markdown 渲染缓存，避免重复解析相同内容
+const markdownCache = new Map<string, string>()
+
 // 初始化 marked 实例
 async function initMarked() {
   if (!markedInstance) {
@@ -32,20 +35,32 @@ async function initMarked() {
 // 渲染 Markdown 为 HTML 的函数
 export async function renderMarkdown(markdown: string): Promise<string> {
   if (!markdown) return '';
-  
+
+  // 检查缓存
+  if (markdownCache.has(markdown)) {
+    return markdownCache.get(markdown)!;
+  }
+
   try {
     // 预处理 Markdown 文本，移除多余的空行
-    const processedMarkdown = markdown
-    
+    const processedMarkdown = markdown;
+
     const marked = await initMarked();
     // 防止 XSS 攻击，只允许安全的 HTML 标签
     const rawHtml = marked.parse(processedMarkdown);
     // 简单过滤，实际项目中可以使用 DOMPurify 进行更全面的过滤
-    return sanitizeHtml(rawHtml);
+    const sanitized = sanitizeHtml(rawHtml);
+
+    // 缓存结果（限制缓存大小）
+    if (markdownCache.size < 100) {
+      markdownCache.set(markdown, sanitized);
+    }
+
+    return sanitized;
   } catch (error) {
     console.error('Error rendering markdown:', error);
     // 如果渲染失败，则返回原始文本，同时移除多余空行
-    return markdown
+    return markdown;
   }
 }
 

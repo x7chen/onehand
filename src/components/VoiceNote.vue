@@ -77,7 +77,7 @@
       </div>
     </div>
 
-    <div v-if="node.agentResult" class="agent-result-box" @dblclick.stop>
+    <div v-if="node.agentResult || node.agentStatus === 'processing'" class="agent-result-box" @dblclick.stop>
       <div class="agent-header">
         <span class="agent-label">AI 回答</span>
         <span v-if="node.agentStatus === 'processing'" class="streaming-indicator">
@@ -86,10 +86,7 @@
           <span class="dot"></span>
         </span>
       </div>
-      <div v-if="node.agentStatus === 'processing'" class="status-text">
-        处理中...
-      </div>
-      <div v-else-if="node.agentStatus === 'error'" class="error-text">
+      <div v-if="node.agentStatus === 'error'" class="error-text">
         {{ node.agentResult }}
         <button @click.stop="retryAgent">重试</button>
       </div>
@@ -348,6 +345,16 @@ function cancelAgentEdit() {
   isEditingAgent.value = false
 }
 
+// 组件卸载时清理定时器
+onUnmounted(() => {
+  if (transcriptDebounceTimer) {
+    clearTimeout(transcriptDebounceTimer)
+  }
+  if (renderDebounceTimer) {
+    clearTimeout(renderDebounceTimer)
+  }
+})
+
 // 当组件挂载时渲染 Markdown
 onMounted(async () => {
   if (props.node.transcript) {
@@ -360,18 +367,47 @@ onMounted(async () => {
 })
 
 // 监听 transcript 变化，重新渲染 Markdown
+// 使用防抖优化渲染性能
+let transcriptDebounceTimer: number | null = null
 watch(() => props.node.transcript, async (newTranscript) => {
+  if (transcriptDebounceTimer) {
+    clearTimeout(transcriptDebounceTimer)
+  }
+  
   if (!isEditingTranscript.value) {
-    sanitizedTranscript.value = newTranscript ? await renderMarkdown(newTranscript) : ''
+    transcriptDebounceTimer = window.setTimeout(async () => {
+      sanitizedTranscript.value = newTranscript ? await renderMarkdown(newTranscript) : ''
+      transcriptDebounceTimer = null
+    }, 100)
   }
 })
 
-// 监听 agentResult 变化，重新渲染 Markdown
+// 监听 agentResult 变化，重新渲染 Markdown（包括流式更新）
+// 使用防抖优化流式渲染性能
+let renderDebounceTimer: number | null = null
 watch(() => props.node.agentResult, async (newAgentResult) => {
-  if (!isEditingAgent.value) {
-    sanitizedAgentResult.value = newAgentResult ? await renderMarkdown(newAgentResult) : ''
+  // 清除之前的定时器
+  if (renderDebounceTimer) {
+    clearTimeout(renderDebounceTimer)
   }
-})
+
+  if (newAgentResult) {
+    // 如果用户正在编辑，同步更新编辑框内容
+    if (isEditingAgent.value) {
+      editAgent.value = newAgentResult
+    }
+    
+    // 流式模式下，使用短延迟渲染 Markdown 以避免频繁重渲染
+    // 在 processing 状态下使用更短的延迟（50ms）以实现流畅的流式效果
+    const delay = props.node.agentStatus === 'processing' ? 50 : 100
+    renderDebounceTimer = window.setTimeout(async () => {
+      sanitizedAgentResult.value = await renderMarkdown(newAgentResult)
+      renderDebounceTimer = null
+    }, delay)
+  } else {
+    sanitizedAgentResult.value = ''
+  }
+}, { immediate: true })
 </script>
 
 <style scoped>
