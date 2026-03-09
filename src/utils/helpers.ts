@@ -17,36 +17,13 @@ async function initMarked() {
   if (!markedInstance) {
     const { marked } = await import('marked');
     const renderer = new marked.Renderer();
-    
-    // 自定义渲染器以确保安全性
-    const defaultRenderer = {
-      heading: renderer.heading,
-      paragraph: renderer.paragraph,
-      code: renderer.code,
-      codespan: renderer.codespan,
-      em: renderer.em,
-      strong: renderer.strong,
-      hr: renderer.hr,
-      list: renderer.list,
-      listitem: renderer.listitem,
-      checkbox: renderer.checkbox,
-      blockquote: renderer.blockquote,
-      link: renderer.link,
-      image: renderer.image,
-      table: renderer.table,
-      tablerow: renderer.tabrow,
-      tablecell: renderer.tablecell,
-      del: renderer.del,
-    };
-    
+
     marked.setOptions({
       renderer,
       gfm: true,
       breaks: true,
-      smartLists: true,
-      smartypants: true,
     });
-    
+
     markedInstance = marked;
   }
   return markedInstance;

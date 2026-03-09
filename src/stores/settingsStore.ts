@@ -5,38 +5,38 @@ import { defaultSettings } from '@/types/settings'
 
 export const useSettingsStore = defineStore('settings', () => {
   const settings = ref<Settings>({ ...defaultSettings })
+  const isLoaded = ref(false)
 
   async function loadSettings() {
+    if (isLoaded.value) return // 避免重复加载
+    
     try {
-      // 首先尝试从配置文件加载
       const configResult = await window.electronAPI.readConfig()
       if (configResult.success && configResult.data) {
         const configSettings = JSON.parse(configResult.data)
         settings.value = { ...defaultSettings, ...configSettings }
-        return
+      } else {
+        // 配置文件不存在或加载失败，使用默认设置
+        settings.value = { ...defaultSettings }
       }
     } catch (error) {
-      console.error('Failed to load config file:', error)
+      console.error('Failed to load config:', error)
+      settings.value = { ...defaultSettings }
     }
-
-    // 配置文件加载失败，尝试从用户数据目录加载
-    try {
-      const appDataPath = await window.electronAPI.getAppPath('userData')
-      const result = await window.electronAPI.readFile(`${appDataPath}/settings.json`)
-      if (result.success && result.data) {
-        settings.value = { ...defaultSettings, ...JSON.parse(result.data) }
-      }
-    } catch (error) {
-      console.error('Failed to load settings:', error)
-    }
+    
+    isLoaded.value = true
   }
 
   async function saveSettings() {
+    if (!isLoaded.value) return // 配置加载完成前不保存
+    
     try {
-      // 保存到配置文件
-      await window.electronAPI.saveConfig(
+      const result = await window.electronAPI.saveConfig(
         JSON.stringify(settings.value, null, 2)
       )
+      if (!result.success) {
+        console.error('Failed to save config:', result.error)
+      }
     } catch (error) {
       console.error('Failed to save settings:', error)
     }
@@ -49,6 +49,7 @@ export const useSettingsStore = defineStore('settings', () => {
 
   return {
     settings,
+    isLoaded,
     loadSettings,
     saveSettings,
     updateSettings

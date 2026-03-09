@@ -49,7 +49,7 @@ export function useVoiceRecorder() {
         resolve(audioBlob)
       }
 
-      mediaRecorder.value.onerror = (event) => {
+      mediaRecorder.value.onerror = () => {
         cleanup()
         reject(new Error('Recording error'))
       }

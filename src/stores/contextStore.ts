@@ -25,8 +25,8 @@ export const useContextStore = defineStore('context', () => {
       const exists = await window.electronAPI.exists(`${contextsDir}/contexts.json`)
 
       if (exists) {
-        const result = await window.electronAPI.readFile(`${contextsDir}/contexts.json`)
-        if (result.success && result.data) {
+        const result = await window.electronAPI.readFile(`${contextsDir}/contexts.json`, 'utf-8')
+        if (result.success && result.data && typeof result.data === 'string') {
           contextFiles.value = JSON.parse(result.data)
         }
       }
@@ -104,8 +104,8 @@ export const useContextStore = defineStore('context', () => {
     try {
       const appDataPath = await window.electronAPI.getAppPath('userData')
       const contextsDir = `${appDataPath}/contexts`
-      const result = await window.electronAPI.readFile(`${contextsDir}/${contextFileId}.md`)
-      if (result.success && result.data) {
+      const result = await window.electronAPI.readFile(`${contextsDir}/${contextFileId}.md`, 'utf-8')
+      if (result.success && result.data && typeof result.data === 'string') {
         return result.data
       }
     } catch (error) {
@@ -143,16 +143,9 @@ export const useContextStore = defineStore('context', () => {
   async function deleteContextFile(contextFileId: string) {
     contextFiles.value = contextFiles.value.filter(f => f.id !== contextFileId)
     await saveContextFiles()
-    
-    // 删除 markdown 文件
-    try {
-      const appDataPath = await window.electronAPI.getAppPath('userData')
-      const contextsDir = `${appDataPath}/contexts`
-      // 注意：electron API 没有提供删除文件的方法，这里只从列表中删除
-      // 如果需要物理删除，需要在 electron 主进程中添加 deleteFile IPC 处理
-    } catch (error) {
-      console.error('Failed to delete context file:', error)
-    }
+
+    // 注意：electron API 没有提供删除文件的方法，这里只从列表中删除
+    // 如果需要物理删除，需要在 electron 主进程中添加 deleteFile IPC 处理
   }
 
   /**

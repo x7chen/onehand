@@ -86,7 +86,7 @@
 
     <ContextToolbar
       v-if="selectedContextCount > 0"
-      :count="selectedContextCount"
+      :selected-count="selectedContextCount"
       @clear="clearContextSelection"
       @ask="handleAskWithNewRecording"
     />
@@ -168,7 +168,7 @@ const voiceRecorder = useVoiceRecorder()
 
 const viewport = ref<Viewport>({ x: 0, y: 0, zoom: 1 })
 const isRecording = ref(false)
-const recordingPosition = ref<{ x: number; y: number } | null>(null)
+const recordingPosition = ref<{ x: number; y: number } | undefined>(undefined)
 const recordingDuration = ref(0)
 const recordingStartPosition = ref<{ x: number; y: number } | null>(null) // 存储长按开始位置
 let recordingTimer: number | null = null
@@ -176,7 +176,7 @@ let recordingTimer: number | null = null
 // 节点拖动相关
 const isDraggingNode = ref(false)
 const draggingNodeId = ref<string | null>(null)
-const dragOffset = ref({ x: 0, y: 0 })
+const dragOffset = ref({ offsetX: 0, offsetY: 0 })
 
 const selectedContextCount = computed(() =>
   projectStore.currentProject?.canvas.nodes.filter(n => n.selectedAsContext).length || 0
@@ -288,10 +288,10 @@ async function handleLongPress(x: number, y: number) {
   const started = await voiceRecorder.startRecording()
   if (!started) {
     isRecording.value = false
-    recordingPosition.value = null
+    recordingPosition.value = undefined
     return
   }
-  
+
   isRecording.value = true
   recordingPosition.value = { x, y }
   recordingStartPosition.value = { x, y } // 保存开始位置
@@ -310,7 +310,7 @@ async function handleLongPressEnd() {
 
   try {
     const audioBlob = await voiceRecorder.stopRecording()
-    const audioFormat = settingsStore.settings.audioFormat
+    const audioFormat = settingsStore.settings.general.audioFormat
     const extension = audioFormat === 'webm' ? 'webm' : 'wav'
 
     // 创建语音节点
@@ -350,7 +350,7 @@ async function handleLongPressEnd() {
 
     projectStore.addNode(node)
     isRecording.value = false
-    recordingPosition.value = null
+    recordingPosition.value = undefined
     recordingStartPosition.value = null
 
     // 自动转写
@@ -358,7 +358,7 @@ async function handleLongPressEnd() {
   } catch (error) {
     console.error('Recording failed:', error)
     isRecording.value = false
-    recordingPosition.value = null
+    recordingPosition.value = undefined
     recordingStartPosition.value = null
   }
 }
@@ -755,10 +755,10 @@ async function handleAskWithNewRecording() {
     const started = await voiceRecorder.startRecording()
     if (!started) {
       isRecording.value = false
-      recordingPosition.value = null
+      recordingPosition.value = undefined
       return
     }
-    
+
     isRecording.value = true
     recordingPosition.value = { x: 100, y: 100 }
     recordingDuration.value = 0
@@ -771,7 +771,7 @@ async function handleAskWithNewRecording() {
     // 这里简化处理，实际应该有一个 UI 来控制录音停止
     setTimeout(async () => {
       const audioBlob = await voiceRecorder.stopRecording()
-      const audioFormat = settingsStore.settings.audioFormat
+      const audioFormat = settingsStore.settings.general.audioFormat
       const extension = audioFormat === 'webm' ? 'webm' : 'wav'
       
       const nodeId = `node-${Date.now()}`
@@ -803,7 +803,7 @@ async function handleAskWithNewRecording() {
 
       projectStore.addNode(node)
       isRecording.value = false
-      recordingPosition.value = null
+      recordingPosition.value = undefined
 
       // 转写完成后会用完整上下文处理
       handleTranscription(node)
@@ -811,7 +811,7 @@ async function handleAskWithNewRecording() {
   } catch (error) {
     console.error('Recording failed:', error)
     isRecording.value = false
-    recordingPosition.value = null
+    recordingPosition.value = undefined
   }
 }
 

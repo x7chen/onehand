@@ -15,10 +15,10 @@ import { formatDuration } from '@/utils/helpers'
 const props = defineProps<{
   x: number  // Screen coordinates (clientX)
   y: number  // Screen coordinates (clientY)
-  duration: number
+  duration?: number
 }>()
 
-const formattedTime = computed(() => formatDuration(props.duration))
+const formattedTime = computed(() => formatDuration(props.duration || 0))
 </script>
 
 <style scoped>

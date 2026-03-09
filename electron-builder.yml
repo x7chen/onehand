@@ -8,10 +8,14 @@ files:
   - dist-electron/**/*
   - package.json
 win:
-  target: nsis
+  target: 
+    - target: nsis
+      arch:
+        - x64
   icon: build/icon.ico
   signingHashAlgorithms: []
   verifyUpdateCodeSignature: false
+  requestedExecutionLevel: asInvoker
 mac:
   target: dmg
   icon: build/icon.icns

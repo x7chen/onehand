@@ -4,13 +4,10 @@ const fs = require('fs')
 
 let mainWindow = null
 
-// 配置文件路径
+// 配置文件路径 - 始终使用用户数据目录
 const getConfigPath = () => {
-  const isDev = process.argv.includes('--dev') || !fs.existsSync(path.join(__dirname, '../dist/index.html'))
-  if (isDev) {
-    return path.join(__dirname, '../config.json')
-  }
-  return path.join(__dirname, '../config.json')
+  const userDataPath = app.getPath('userData')
+  return path.join(userDataPath, 'config.json')
 }
 
 function createWindow() {

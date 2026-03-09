@@ -31,8 +31,8 @@
     />
 
     <!-- 拖拽提示 -->
-    <div 
-      v-if="isDraggingText" 
+    <div
+      v-if="isDraggingText"
       class="drag-hint"
       :style="dragHintStyle"
     >
@@ -137,24 +137,24 @@ function handleMouseDown(e: MouseEvent) {
 function handleMouseMove(e: MouseEvent) {
   // Must have mouse button pressed to drag
   if (!isMouseDown.value) return
-  
+
   // If already recording, don't handle pan/drag
   if (isLongPressing.value) return
-  
+
   // Don't drag canvas if user is selecting text in a note
   const selection = window.getSelection()
   if (selection && selection.toString().length > 0) {
     return // User is selecting text, don't interfere
   }
-  
+
   const dx = e.clientX - lastPosition.value.x
   const dy = e.clientY - lastPosition.value.y
-  
+
   // Check total distance from start position
   const totalDx = e.clientX - dragStart.value.x
   const totalDy = e.clientY - dragStart.value.y
   const totalDistance = Math.sqrt(totalDx * totalDx + totalDy * totalDy)
-  
+
   if (!hasMovedBeyondThreshold.value) {
     // Haven't crossed threshold yet
     if (totalDistance > panThreshold) {
@@ -171,11 +171,11 @@ function handleMouseMove(e: MouseEvent) {
     // Don't pan until we've crossed the threshold
     return
   }
-  
+
   // Has moved beyond threshold - this is a drag operation
   if (isDragging.value) {
     lastPosition.value = { x: e.clientX, y: e.clientY }
-    
+
     emit('viewport-change', {
       x: props.viewport.x + dx,
       y: props.viewport.y + dy,
@@ -186,18 +186,18 @@ function handleMouseMove(e: MouseEvent) {
 
 function handleMouseUp(e: MouseEvent) {
   isMouseDown.value = false
-  
+
   if (longPressTimer.value) {
     clearTimeout(longPressTimer.value)
     longPressTimer.value = null
   }
-  
+
   // If releasing from a long press, stop recording
   if (isLongPressing.value && props.isRecording) {
     isLongPressing.value = false
     emit('long-press-end')
   }
-  
+
   // Reset drag state
   isDragging.value = false
   hasMovedBeyondThreshold.value = false
@@ -236,28 +236,29 @@ function handleWheel(e: WheelEvent) {
 // 拖拽处理
 function handleDragOver(e: DragEvent) {
   e.preventDefault()
+  let isOverNodeLocal = false
   if (e.dataTransfer) {
     // 检测是否在画布节点区域上方
     const target = e.target as HTMLElement
-    const overNode = !!target.closest('.voice-note')
-    
-    // 根据是否在节点上来设置不同的dropEffect
-    // 在节点上方时设置为none（通常会显示禁止符号），在空白区域时设置为copy
-    e.dataTransfer.dropEffect = overNode ? 'none' : 'copy'
+    isOverNodeLocal = !!target.closest('.voice-note')
+
+    // 根据是否在节点上来设置不同的 dropEffect
+    // 在节点上方时设置为 none（通常会显示禁止符号），在空白区域时设置为 copy
+    e.dataTransfer.dropEffect = isOverNodeLocal ? 'none' : 'copy'
   }
-  
+
   const text = e.dataTransfer?.getData('text/plain')
   if (text && text.trim()) {
     // 只有在从节点移出到空白区域，或者在空白区域移动时才显示拖拽提示
-    if (!overNode) {
+    if (!isOverNodeLocal) {
       isDraggingText.value = true
     } else {
       isDraggingText.value = false
     }
-    
+
     // 更新状态
-    isOverNode.value = overNode
-    
+    isOverNode.value = isOverNodeLocal
+
     draggedTextLength.value = text.trim().length
     dragHintStyle.value = {
       left: (e.clientX + 15) + 'px',
@@ -268,7 +269,7 @@ function handleDragOver(e: DragEvent) {
 
 function handleDragLeave() {
   // 不立即重置，而是检测是否真正离开了画布容器
-  // 使用setTimeout来延迟检查relatedTarget是否仍在画布元素内
+  // 使用 setTimeout 来延迟检查 relatedTarget 是否仍在画布元素内
   setTimeout(() => {
     if (!document.querySelector('.infinite-canvas:hover')) {
       isDraggingText.value = false
@@ -286,7 +287,7 @@ function handleDrop(e: DragEvent) {
 
   // 检查是否在画布空白区域释放，而不是在节点上
   const target = e.target as HTMLElement
-  // 如果释放目标或其祖先元素包含voice-note类，则不在空白区域，直接返回
+  // 如果释放目标或其祖先元素包含 voice-note 类，则不在空白区域，直接返回
   if (target.closest('.voice-note')) {
     return
   }

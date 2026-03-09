@@ -181,7 +181,9 @@ const settingsStore = useSettingsStore()
 watch(
   () => settingsStore.settings,
   () => {
-    settingsStore.saveSettings()
+    if (settingsStore.isLoaded) {
+      settingsStore.saveSettings()
+    }
   },
   { deep: true }
 )

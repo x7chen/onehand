@@ -3,11 +3,17 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted } from 'vue'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useTheme } from '@/composables/useTheme'
 
 const settingsStore = useSettingsStore()
 useTheme(settingsStore)
+
+// 在应用启动时加载设置
+onMounted(() => {
+  settingsStore.loadSettings()
+})
 </script>
 
 <style>

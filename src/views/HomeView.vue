@@ -134,7 +134,7 @@
     </div>
 
     <!-- Edit Context Dialog -->
-    <div v-if="showEditContextDialog" class="dialog-overlay" @click="closeEditDialog">
+    <div v-if="showEditContextDialog && editingContext" class="dialog-overlay" @click="closeEditDialog">
       <div class="dialog edit-dialog" @click.stop>
         <h3>编辑上下文文件</h3>
         <input
@@ -230,7 +230,7 @@ const newContextName = ref('')
 const newContextType = ref<ContextType>('static')
 
 const showEditContextDialog = ref(false)
-const editingContext = ref<ContextFile | null>(null)
+const editingContext = ref<ContextFile | undefined>(undefined)
 
 const showNewProjectDialog = ref(false)
 const newProjectName = ref('')
@@ -280,7 +280,7 @@ function editContextFile(file: ContextFile) {
 
 function closeEditDialog() {
   showEditContextDialog.value = false
-  editingContext.value = null
+  editingContext.value = undefined
 }
 
 async function saveContextEdit() {

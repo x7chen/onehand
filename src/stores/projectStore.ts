@@ -16,8 +16,8 @@ export const useProjectStore = defineStore('project', () => {
       const exists = await window.electronAPI.exists(`${projectsDir}/projects.json`)
 
       if (exists) {
-        const result = await window.electronAPI.readFile(`${projectsDir}/projects.json`)
-        if (result.success && result.data) {
+        const result = await window.electronAPI.readFile(`${projectsDir}/projects.json`, 'utf-8')
+        if (result.success && result.data && typeof result.data === 'string') {
           projects.value = JSON.parse(result.data)
         }
       }
