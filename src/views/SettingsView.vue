@@ -17,10 +17,6 @@
         <div class="form-group">
           <label>服务提供商</label>
           <select v-model="settingsStore.settings.llm.provider">
-            <option value="modelscope">ModelScope (默认)</option>
-            <option value="qwen">通义千问</option>
-            <option value="openai">OpenAI</option>
-            <option value="deepseek">DeepSeek</option>
             <option value="custom">自定义</option>
           </select>
         </div>

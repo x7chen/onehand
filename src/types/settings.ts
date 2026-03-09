@@ -5,7 +5,7 @@ export interface Settings {
 }
 
 export interface LLMSettings {
-  provider: 'modelscope' | 'qwen' | 'openai' | 'deepseek' | 'custom'
+  provider: 'custom'
   apiKey: string
   baseUrl: string
   model: string
@@ -36,11 +36,11 @@ export interface GeneralSettings {
 
 export const defaultSettings: Settings = {
   llm: {
-    provider: 'modelscope',
-    apiKey: 'ms-551063a1-7a2e-4415-93ff-223e3bf30d8e',
+    provider: 'custom',
+    apiKey: '',
     baseUrl: 'https://api-inference.modelscope.cn/v1',
     model: 'Qwen/Qwen3-235B-A22B-Instruct-2507',
-    enabledProviders: ['modelscope'],
+    enabledProviders: ['custom'],
     enabledModels: ['Qwen/Qwen3-235B-A22B-Instruct-2507']
   },
   stt: {

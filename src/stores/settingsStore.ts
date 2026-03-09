@@ -8,6 +8,19 @@ export const useSettingsStore = defineStore('settings', () => {
 
   async function loadSettings() {
     try {
+      // 首先尝试从配置文件加载
+      const configResult = await window.electronAPI.readConfig()
+      if (configResult.success && configResult.data) {
+        const configSettings = JSON.parse(configResult.data)
+        settings.value = { ...defaultSettings, ...configSettings }
+        return
+      }
+    } catch (error) {
+      console.error('Failed to load config file:', error)
+    }
+
+    // 配置文件加载失败，尝试从用户数据目录加载
+    try {
       const appDataPath = await window.electronAPI.getAppPath('userData')
       const result = await window.electronAPI.readFile(`${appDataPath}/settings.json`)
       if (result.success && result.data) {
@@ -20,9 +33,8 @@ export const useSettingsStore = defineStore('settings', () => {
 
   async function saveSettings() {
     try {
-      const appDataPath = await window.electronAPI.getAppPath('userData')
-      await window.electronAPI.saveFile(
-        `${appDataPath}/settings.json`,
+      // 保存到配置文件
+      await window.electronAPI.saveConfig(
         JSON.stringify(settings.value, null, 2)
       )
     } catch (error) {

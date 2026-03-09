@@ -4,6 +4,15 @@ const fs = require('fs')
 
 let mainWindow = null
 
+// 配置文件路径
+const getConfigPath = () => {
+  const isDev = process.argv.includes('--dev') || !fs.existsSync(path.join(__dirname, '../dist/index.html'))
+  if (isDev) {
+    return path.join(__dirname, '../config.json')
+  }
+  return path.join(__dirname, '../config.json')
+}
+
 function createWindow() {
   // Default to dark mode background
   const backgroundColor = '#2d2d2d'
@@ -166,6 +175,29 @@ ipcMain.handle('mkdir', async (event, dirPath) => {
     if (!fs.existsSync(dirPath)) {
       fs.mkdirSync(dirPath, { recursive: true })
     }
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: String(error) }
+  }
+})
+
+ipcMain.handle('read-config', async () => {
+  try {
+    const configPath = getConfigPath()
+    if (!fs.existsSync(configPath)) {
+      return { success: false, error: 'Config file not found' }
+    }
+    const data = fs.readFileSync(configPath, 'utf-8')
+    return { success: true, data }
+  } catch (error) {
+    return { success: false, error: String(error) }
+  }
+})
+
+ipcMain.handle('save-config', async (event, data) => {
+  try {
+    const configPath = getConfigPath()
+    fs.writeFileSync(configPath, data, 'utf-8')
     return { success: true }
   } catch (error) {
     return { success: false, error: String(error) }
