@@ -11,8 +11,7 @@
     "electron:dev": "concurrently \"vite\" \"wait-on -t 60000 http://localhost:5173 || true && tsc -p tsconfig.electron.json && electron .\"",
     "electron:build": "vite build && tsc -p tsconfig.electron.json && electron-builder",
     "electron:build:win": "vite build && tsc -p tsconfig.electron.json && electron-builder --win",
-    "electron:build:mac": "vite build && tsc -p tsconfig.electron.json && electron-builder --mac",
-    "electron:build:linux": "vite build && tsc -p tsconfig.electron.json && electron-builder --linux"
+    "electron:build:mac": "vite build && tsc -p tsconfig.electron.json && electron-builder --mac"
   },
   "keywords": [
     "electron",

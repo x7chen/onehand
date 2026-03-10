@@ -32,16 +32,6 @@ mac:
     NSCameraUsageDescription: 应用需要访问摄像头
     NSMicrophoneUsageDescription: 应用需要访问麦克风
   notarize: false
-linux:
-  target:
-    - target: AppImage
-      arch:
-        - x64
-    - target: deb
-      arch:
-        - x64
-  icon: build/icon.png
-  category: Utility
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true

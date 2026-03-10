@@ -51,7 +51,6 @@ npm run electron:build
 # 或指定平台
 npm run electron:build:win    # Windows
 npm run electron:build:mac    # macOS
-npm run electron:build:linux  # Linux
 ```
 
 ## GitHub Actions 自动构建

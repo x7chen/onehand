@@ -78,53 +78,8 @@ jobs:
           path: release/*.dmg
           if-no-files-found: error
 
-  build-linux:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: |
-          rm -rf node_modules package-lock.json
-          npm install
-
-      - name: Install Linux dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libgtk-3-dev \
-            libnotify-dev \
-            libnss3 \
-            libxss1 \
-            libxtst6 \
-            xdg-utils \
-            libatspi2.0-2t64 \
-            libdrm2 \
-            libgbm1 \
-            libasound2
-
-      - name: Build Linux
-        run: npm run electron:build
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload Linux artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: onehand-linux
-          path: release/*.AppImage
-          if-no-files-found: error
-
   release:
-    needs: [build-windows, build-macos, build-linux]
+    needs: [build-windows, build-macos]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
 
@@ -141,12 +96,6 @@ jobs:
           name: onehand-macos
           path: release-macos
 
-      - name: Download Linux artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: onehand-linux
-          path: release-linux
-
       - name: Download Windows portable
         uses: actions/download-artifact@v4
         with:
@@ -161,9 +110,6 @@ jobs:
           cd ../release-macos
           echo "macOS files:"
           ls -la
-          cd ../release-linux
-          echo "Linux files:"
-          ls -la
           cd ../release-windows-portable
           echo "Windows portable files:"
           ls -la
@@ -174,7 +120,6 @@ jobs:
           files: |
             release-windows/*.exe
             release-macos/*.dmg
-            release-linux/*.AppImage
           draft: false
           generate_release_notes: true
         env:
