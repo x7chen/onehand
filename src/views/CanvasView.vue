@@ -329,7 +329,7 @@ async function handleLongPressEnd() {
       id: nodeId,
       type: 'voice-note',
       position: {
-        x: startX - 175, // 减去一半宽度 (350/2=175) 使中心对齐
+        x: startX,
         y: startY
       },
       audioPath,
@@ -366,7 +366,7 @@ function handleDblClick(x: number, y: number) {
   const node: CanvasNode = {
     id: `node-${Date.now()}`,
     type: 'text-note',
-    position: { x: x - 175, y }, // 减去一半宽度 (350/2=175) 使中心对齐
+    position: { x: x, y }, 
     transcript: '',
     transcriptStatus: 'done',
     agentResult: null,
