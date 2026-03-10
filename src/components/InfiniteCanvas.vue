@@ -218,18 +218,30 @@ function handleMouseLeave() {
 
 function handleWheel(e: WheelEvent) {
   e.preventDefault()
-  const delta = e.deltaY > 0 ? 0.9 : 1.1
-  const newZoom = Math.min(Math.max(props.viewport.zoom * delta, 0.5), 2)
 
-  const rect = canvasRef.value?.getBoundingClientRect()
-  if (rect) {
-    const mouseX = e.clientX - rect.left
-    const mouseY = e.clientY - rect.top
+  // Ctrl + 滚轮：缩放画布
+  if (e.ctrlKey) {
+    const delta = e.deltaY > 0 ? 0.9 : 1.1
+    const newZoom = Math.min(Math.max(props.viewport.zoom * delta, 0.5), 2)
 
-    const newX = mouseX - (mouseX - props.viewport.x) * (newZoom / props.viewport.zoom)
-    const newY = mouseY - (mouseY - props.viewport.y) * (newZoom / props.viewport.zoom)
+    const rect = canvasRef.value?.getBoundingClientRect()
+    if (rect) {
+      const mouseX = e.clientX - rect.left
+      const mouseY = e.clientY - rect.top
 
-    emit('viewport-change', { x: newX, y: newY, zoom: newZoom })
+      const newX = mouseX - (mouseX - props.viewport.x) * (newZoom / props.viewport.zoom)
+      const newY = mouseY - (mouseY - props.viewport.y) * (newZoom / props.viewport.zoom)
+
+      emit('viewport-change', { x: newX, y: newY, zoom: newZoom })
+    }
+  }
+  // 滚轮：上下滚动画布
+  else {
+    emit('viewport-change', {
+      x: props.viewport.x,
+      y: props.viewport.y - e.deltaY,
+      zoom: props.viewport.zoom
+    })
   }
 }
 
