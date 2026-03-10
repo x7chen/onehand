@@ -6,37 +6,14 @@ on:
       - 'v*'
   workflow_dispatch:
 
+permissions:
+  contents: write
+  packages: write
+
 jobs:
-  build-macos:
-    runs-on: macos-latest
-    
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build macOS
-        run: npm run electron:build
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload macOS artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: onehand-macos
-          path: release/*.dmg
-
   build-windows:
     runs-on: windows-latest
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -58,12 +35,20 @@ jobs:
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: onehand-windows
-          path: release/*.exe
+          name: onehand-windows-x64
+          path: release/OneHand*.exe
+          if-no-files-found: error
 
-  build-linux:
-    runs-on: ubuntu-latest
-    
+      - name: Upload Windows portable
+        uses: actions/upload-artifact@v4
+        with:
+          name: onehand-windows-portable
+          path: release/win-unpacked/
+          if-no-files-found: error
+
+  build-macos:
+    runs-on: macos-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -77,6 +62,49 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Build macOS
+        run: npm run electron:build
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: onehand-macos-x64
+          path: release/*.dmg
+          if-no-files-found: error
+
+  build-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgtk-3-dev \
+            libnotify-dev \
+            libnss3 \
+            libxss1 \
+            libxtst6 \
+            xdg-utils \
+            libatspi2.0-2t64 \
+            libdrm2 \
+            libgbm1 \
+            libasound2
+
       - name: Build Linux
         run: npm run electron:build
         env:
@@ -87,3 +115,61 @@ jobs:
         with:
           name: onehand-linux
           path: release/*.AppImage
+          if-no-files-found: error
+
+  release:
+    needs: [build-windows, build-macos, build-linux]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Download Windows artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: onehand-windows-x64
+          path: release-windows
+
+      - name: Download macOS artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: onehand-macos-x64
+          path: release-macos
+
+      - name: Download Linux artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: onehand-linux
+          path: release-linux
+
+      - name: Download Windows portable
+        uses: actions/download-artifact@v4
+        with:
+          name: onehand-windows-portable
+          path: release-windows-portable
+
+      - name: Prepare release assets
+        run: |
+          cd release-windows
+          echo "Windows installer files:"
+          ls -la
+          cd ../release-macos
+          echo "macOS files:"
+          ls -la
+          cd ../release-linux
+          echo "Linux files:"
+          ls -la
+          cd ../release-windows-portable
+          echo "Windows portable files:"
+          ls -la
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release-windows/*.exe
+            release-macos/*.dmg
+            release-linux/*.AppImage
+          draft: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

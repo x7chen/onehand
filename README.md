@@ -45,8 +45,31 @@ npm run electron:dev
 ### 3. 构建生产版本
 
 ```bash
+# 构建当前平台
 npm run electron:build
+
+# 或指定平台
+npm run electron:build:win    # Windows
+npm run electron:build:mac    # macOS
+npm run electron:build:linux  # Linux
 ```
+
+## GitHub Actions 自动构建
+
+项目支持 GitHub Actions 自动构建 Windows、macOS 和 Linux 三个平台。
+
+### 触发构建
+
+```bash
+# 1. 更新版本号（在 package.json 中）
+# 2. 提交并推送标签
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+推送标签后，GitHub Actions 会自动构建所有平台并创建 GitHub Release。
+
+详细说明请参考：[.github/BUILD.md](.github/BUILD.md)
 
 ## 配置说明
 
