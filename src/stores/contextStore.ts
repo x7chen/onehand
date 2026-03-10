@@ -1,19 +1,34 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { ContextFile, ContextType } from '@/types/context'
+import type { ContextFile, ContextType, ContextColor } from '@/types/context'
+import { CONTEXT_COLORS } from '@/types/context'
 
 export const useContextStore = defineStore('context', () => {
   const contextFiles = ref<ContextFile[]>([])
 
   const allContextFiles = computed(() => contextFiles.value)
-  
-  const staticContextFiles = computed(() => 
+
+  const staticContextFiles = computed(() =>
     contextFiles.value.filter(f => f.type === 'static')
   )
-  
-  const dynamicContextFiles = computed(() => 
+
+  const dynamicContextFiles = computed(() =>
     contextFiles.value.filter(f => f.type === 'dynamic')
   )
+
+  /**
+   * 获取下一个可用的标签颜色
+   */
+  function getNextColor(existingFiles: ContextFile[]): ContextColor {
+    const usedColors = new Set(existingFiles.map(f => f.color))
+    for (const color of CONTEXT_COLORS) {
+      if (!usedColors.has(color)) {
+        return color
+      }
+    }
+    // 如果所有颜色都用过，随机返回一个
+    return CONTEXT_COLORS[Math.floor(Math.random() * CONTEXT_COLORS.length)]
+  }
 
   /**
    * 加载上下文文件列表
@@ -27,7 +42,17 @@ export const useContextStore = defineStore('context', () => {
       if (exists) {
         const result = await window.electronAPI.readFile(`${contextsDir}/contexts.json`, 'utf-8')
         if (result.success && result.data && typeof result.data === 'string') {
-          contextFiles.value = JSON.parse(result.data)
+          const files = JSON.parse(result.data) as ContextFile[]
+          // 兼容旧数据：为没有 color 属性的文件分配颜色
+          files.forEach(file => {
+            if (!file.color) {
+              const sameTypeFiles = files.filter(f => f.type === file.type)
+              file.color = getNextColor(sameTypeFiles)
+            }
+          })
+          contextFiles.value = files
+          // 保存更新后的数据
+          await saveContextFiles()
         }
       }
     } catch (error) {
@@ -61,10 +86,12 @@ export const useContextStore = defineStore('context', () => {
     content: string = '',
     projectId?: string
   ): Promise<ContextFile> {
+    const existingFiles = type === 'static' ? staticContextFiles.value : dynamicContextFiles.value
     const contextFile: ContextFile = {
       id: `ctx-${Date.now()}`,
       name,
       type,
+      color: getNextColor(existingFiles),
       content,
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -73,10 +100,10 @@ export const useContextStore = defineStore('context', () => {
 
     contextFiles.value.push(contextFile)
     await saveContextFiles()
-    
+
     // 同时保存内容到单独的 markdown 文件
     await saveContextFileContent(contextFile)
-    
+
     return contextFile
   }
 
@@ -129,11 +156,26 @@ export const useContextStore = defineStore('context', () => {
         updatedAt: Date.now()
       })
       await saveContextFiles()
-      
+
       // 如果内容更新了，保存到 markdown 文件
       if (updates.content !== undefined) {
         await saveContextFileContent(file)
       }
+    }
+  }
+
+  /**
+   * 更新上下文文件颜色
+   */
+  async function updateContextColor(
+    contextFileId: string,
+    color: string
+  ) {
+    const index = contextFiles.value.findIndex(f => f.id === contextFileId)
+    if (index !== -1) {
+      contextFiles.value[index].color = color
+      contextFiles.value[index].updatedAt = Date.now()
+      await saveContextFiles()
     }
   }
 
@@ -184,10 +226,12 @@ export const useContextStore = defineStore('context', () => {
     loadContextFiles,
     createContextFile,
     updateContextFile,
+    updateContextColor,
     deleteContextFile,
     getContextFileById,
     appendToDynamicContext,
     loadContextFileContent,
-    saveContextFileContent
+    saveContextFileContent,
+    getNextColor
   }
 })

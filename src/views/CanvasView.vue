@@ -18,11 +18,29 @@
         <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" class="context-icon">
           <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
         </svg>
-        <div v-if="staticContextFiles.length > 0" class="static-context-names">
-          <span class="context-name" :title="file.name" v-for="file in staticContextFiles" :key="file.id">
+        <div v-if="showStaticContextSelector" class="static-context-tags">
+          <span
+            v-for="file in contextStore.staticContextFiles"
+            :key="file.id"
+            class="context-tag-mini"
+            :class="{ selected: staticContextFiles.some(f => f.id === file.id) }"
+            :style="{
+              backgroundColor: staticContextFiles.some(f => f.id === file.id) ? file.color + '40' : 'var(--bg-secondary)',
+              borderColor: staticContextFiles.some(f => f.id === file.id) ? file.color : 'var(--border-color)',
+              color: staticContextFiles.some(f => f.id === file.id) ? file.color : 'var(--text-secondary)'
+            }"
+            @click.stop="toggleStaticContext(file.id)"
+          >
             {{ file.name }}
           </span>
-          <span class="context-count" v-if="staticContextFiles.length > 1">+{{ staticContextFiles.length - 1 }}</span>
+        </div>
+        <div v-else-if="staticContextFiles.length > 0" class="static-context-names">
+          <template v-for="(file, index) in staticContextFiles" :key="file.id">
+            <span v-if="index < 4" class="context-name-tag" :title="file.name" :style="{ backgroundColor: file.color + '20', borderColor: file.color, color: file.color }">
+              {{ file.name }}
+            </span>
+          </template>
+          <span v-if="staticContextFiles.length > 4" class="context-count">+{{ staticContextFiles.length - 4 }}</span>
         </div>
         <span v-else class="context-placeholder">选择静态上下文</span>
       </div>
@@ -30,7 +48,26 @@
       <h2>{{ projectStore.currentProject?.name }}</h2>
       
       <!-- 动态上下文显示（右侧） -->
-      <div 
+      <div class="context-toolbar-group">
+        <button @click="handleSelectAllContext" class="context-action-btn" title="全选所有已完成节点">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M19 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.11 0 2-.9 2-2V5c0-1.1-.89-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+          </svg>
+        </button>
+        <button @click="handleInvertSelection" class="context-action-btn" title="反选所有已完成节点">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M7 19V5h2v14H7zm4 0V5h2v14h-2zm4 0V5h2v14h-2z"/>
+            <path d="M5 19V5H3v14h2zm16 0V5h-2v14h2z"/>
+          </svg>
+        </button>
+        <button @click="handleClearContextSelection" class="context-action-btn" title="清空选择">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+          </svg>
+        </button>
+      </div>
+
+      <div
         class="dynamic-context-display"
         :class="{ 'has-content': dynamicContextFile && dynamicContextFile.content }"
         @dblclick="openDynamicContextEditor"
@@ -90,28 +127,6 @@
       @clear="clearContextSelection"
       @ask="handleAskWithNewRecording"
     />
-
-    <!-- 静态上下文选择器（支持多选） -->
-    <div v-if="showStaticContextSelector" ref="staticContextSelectorRef" class="static-context-selector" :style="selectorStyle">
-      <div class="context-list">
-        <div
-          v-for="file in contextStore.staticContextFiles"
-          :key="file.id"
-          class="context-item"
-          :class="{ selected: staticContextFiles.some(f => f.id === file.id) }"
-          @click="toggleStaticContext(file.id)"
-        >
-          <input
-            type="checkbox"
-            :checked="staticContextFiles.some(f => f.id === file.id)"
-            @change="toggleStaticContext(file.id)"
-            @click.stop
-          />
-          <span class="context-item-name">{{ file.name }}</span>
-          <span v-if="staticContextFiles.some(f => f.id === file.id)" class="selected-indicator">✓</span>
-        </div>
-      </div>
-    </div>
 
     <!-- 动态上下文编辑器 -->
     <div v-if="showDynamicContextEditor" class="dialog-overlay" @click="showDynamicContextEditor = false">
@@ -185,9 +200,6 @@ const selectedContextCount = computed(() =>
 // 静态上下文（支持多选）
 const showStaticContextSelector = ref(false)
 const staticContextDisplayRef = ref<HTMLElement | null>(null)
-const staticContextSelectorRef = ref<HTMLElement | null>(null)
-
-const selectorStyle = ref<Record<string, string>>({})
 
 const staticContextFiles = computed(() => {
   const staticContextIds = projectStore.currentProject?.context?.staticContextIds || []
@@ -248,30 +260,12 @@ function goBack() {
 
 function toggleStaticContextSelector() {
   showStaticContextSelector.value = !showStaticContextSelector.value
-  if (showStaticContextSelector.value) {
-    // 计算选择器位置
-    setTimeout(() => {
-      if (staticContextDisplayRef.value && staticContextSelectorRef.value) {
-        const displayRect = staticContextDisplayRef.value.getBoundingClientRect()
-        const selectorRect = staticContextSelectorRef.value.getBoundingClientRect()
-        
-        // 选择器显示在静态上下文按钮下方，左对齐
-        selectorStyle.value = {
-          top: `${displayRect.bottom + 8}px`,
-          left: `${displayRect.left}px`,
-          position: 'fixed'
-        }
-      }
-    }, 0)
-  }
 }
 
 function handleClickOutside(e: MouseEvent) {
-  if (showStaticContextSelector.value && 
-      staticContextDisplayRef.value && 
-      staticContextSelectorRef.value &&
-      !staticContextDisplayRef.value.contains(e.target as Node) &&
-      !staticContextSelectorRef.value.contains(e.target as Node)) {
+  if (showStaticContextSelector.value &&
+      staticContextDisplayRef.value &&
+      !staticContextDisplayRef.value.contains(e.target as Node)) {
     showStaticContextSelector.value = false
   }
 }
@@ -674,6 +668,41 @@ function handleToggleContext(nodeId: string) {
   }
 }
 
+// 节点上下文选择工具栏功能
+function handleSelectAllContext() {
+  if (!projectStore.currentProject) return
+  
+  // 选中所有已完成转写的节点
+  for (const node of projectStore.currentProject.canvas.nodes) {
+    if (node.transcriptStatus === 'done') {
+      node.selectedAsContext = true
+    }
+  }
+  projectStore.saveProject(projectStore.currentProject)
+}
+
+function handleInvertSelection() {
+  if (!projectStore.currentProject) return
+  
+  // 反选所有已完成转写的节点
+  for (const node of projectStore.currentProject.canvas.nodes) {
+    if (node.transcriptStatus === 'done') {
+      node.selectedAsContext = !node.selectedAsContext
+    }
+  }
+  projectStore.saveProject(projectStore.currentProject)
+}
+
+function handleClearContextSelection() {
+  if (!projectStore.currentProject) return
+  
+  // 清空所有节点的选中状态
+  for (const node of projectStore.currentProject.canvas.nodes) {
+    node.selectedAsContext = false
+  }
+  projectStore.saveProject(projectStore.currentProject)
+}
+
 function handleRetryTranscription(nodeId: string) {
   const node = projectStore.currentProject?.canvas.nodes.find(n => n.id === nodeId)
   if (node) {
@@ -943,6 +972,34 @@ async function handleDynamicContextDrop(e: DragEvent) {
   background: var(--border-color);
 }
 
+.context-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  background: var(--bg-secondary);
+  border-radius: 6px;
+}
+
+.context-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+}
+
+.context-action-btn:hover {
+  background: var(--border-color);
+  color: var(--text-primary);
+}
+
 .canvas-header h2 {
   font-size: 18px;
   color: var(--text-primary);
@@ -961,35 +1018,79 @@ async function handleDynamicContextDrop(e: DragEvent) {
   cursor: pointer;
   transition: background 0.2s;
   min-width: 150px;
-  max-width: 300px;
+  max-width: 400px;
 }
 
 .static-context-display:hover {
   background: var(--border-color);
 }
 
+.static-context-tags {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.context-tag-mini {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 12px;
+  border: 1px solid;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.context-tag-mini:hover {
+  transform: scale(1.05);
+}
+
+.context-tag-mini.selected {
+  font-weight: 600;
+}
+
 .static-context-names {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   flex: 1;
   min-width: 0;
   overflow: hidden;
 }
 
+.context-name-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 10px;
+  border: 1px solid;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .context-name {
   font-size: 13px;
-  color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 150px;
+  max-width: 100px;
+  font-weight: 500;
 }
 
 .context-count {
   font-size: 11px;
-  color: #66bb6a;
-  background: rgba(102, 187, 106, 0.2);
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
   padding: 1px 4px;
   border-radius: 4px;
   flex-shrink: 0;
@@ -1003,23 +1104,6 @@ async function handleDynamicContextDrop(e: DragEvent) {
 
 .static-context-display.active {
   background: var(--border-color);
-}
-
-/* 静态上下文选择器（下拉面板） */
-.static-context-selector {
-  position: fixed;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 1000;
-  min-width: 280px;
-  max-width: 350px;
-}
-
-.static-context-selector .context-list {
-  max-height: 300px;
-  overflow-y: auto;
 }
 
 /* 动态上下文显示 */
@@ -1087,46 +1171,6 @@ async function handleDynamicContextDrop(e: DragEvent) {
   margin-bottom: 16px;
   font-size: 20px;
   color: var(--text-primary);
-}
-
-.context-list {
-  max-height: 300px;
-  overflow-y: auto;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-}
-
-.context-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  cursor: pointer;
-  transition: background 0.2s;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.context-item:last-child {
-  border-bottom: none;
-}
-
-.context-item:hover {
-  background: var(--bg-secondary);
-}
-
-.context-item.selected {
-  background: rgba(66, 153, 225, 0.1);
-}
-
-.context-item-name {
-  font-size: 14px;
-  color: var(--text-primary);
-}
-
-.selected-indicator {
-  color: #4299e1;
-  font-weight: bold;
-  font-size: 16px;
 }
 
 .no-dynamic-context {

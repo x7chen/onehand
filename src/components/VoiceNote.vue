@@ -5,13 +5,15 @@
     @mousedown="handleVoiceNoteMouseDown"
   >
     <div class="node-header" @mousedown="handleMouseDown">
-      <input
-        type="checkbox"
-        :checked="node.selectedAsContext"
-        :disabled="node.transcriptStatus !== 'done'"
-        @change="toggleContext"
-        @click.stop
-      />
+      <div class="header-left">
+        <input
+          type="checkbox"
+          :checked="node.selectedAsContext"
+          :disabled="node.transcriptStatus !== 'done'"
+          @change="toggleContext"
+          @click.stop
+        />
+      </div>
       <!-- Only show mic icon for voice-note type -->
       <div v-if="node.type === 'voice-note'" class="mic-icon-wrapper" @click="playAudio">
         <div class="mic-icon">
@@ -428,6 +430,13 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
   margin-bottom: 8px;
   cursor: move;
   user-select: none;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
 }
 
 .mic-icon-wrapper {
