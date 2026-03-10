@@ -33,3 +33,6 @@ audio/
 pdfs/
 
 nul
+
+# Package locks (to avoid cross-platform dependency issues)
+package-lock.json

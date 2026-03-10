@@ -25,7 +25,9 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          Remove-Item -Recurse -Force node_modules, package-lock.json -ErrorAction SilentlyContinue
+          npm install
 
       - name: Build Windows
         run: npm run electron:build
@@ -60,7 +62,9 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          rm -rf node_modules package-lock.json
+          npm install
 
       - name: Build macOS
         run: npm run electron:build
@@ -70,7 +74,7 @@ jobs:
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: onehand-macos-x64
+          name: onehand-macos
           path: release/*.dmg
           if-no-files-found: error
 
@@ -88,7 +92,9 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          rm -rf node_modules package-lock.json
+          npm install
 
       - name: Install Linux dependencies
         run: |
@@ -132,7 +138,7 @@ jobs:
       - name: Download macOS artifacts
         uses: actions/download-artifact@v4
         with:
-          name: onehand-macos-x64
+          name: onehand-macos
           path: release-macos
 
       - name: Download Linux artifacts
