@@ -70,11 +70,12 @@ git push origin v0.1.0
 
 ### 构建产物
 
-| 平台 | 类型 | 文件格式 |
-|------|------|----------|
-| Windows | 安装程序 | `.exe` |
-| Windows | 便携版 | `.zip` |
-| macOS | 磁盘镜像 | `.dmg` (x64 + ARM64) |
+| 平台 | 类型 | 文件格式 | 文件名示例 |
+|------|------|----------|------------|
+| Windows | 安装程序 | `.exe` | `OneHand-0.1.0-Windows-Setup-x64.exe` |
+| Windows | 便携版 | `.zip` | `OneHand-0.1.0-Windows-x64.zip` |
+| macOS | 磁盘镜像 | `.dmg` | `OneHand-0.1.0-macOS-x64.dmg` |
+| macOS | 磁盘镜像 | `.dmg` | `OneHand-0.1.0-macOS-arm64.dmg` |
 
 详细说明请参考：[.github/BUILD.md](.github/BUILD.md)
 

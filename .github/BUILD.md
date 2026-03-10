@@ -26,11 +26,12 @@ git push origin v0.1.0
 ## 构建产物
 
 ### Windows
-- `OneHand Setup *.exe` - 安装程序（x64）
-- `OneHand-*.zip` - 便携版（x64，解压即用）
+- `OneHand-<version>-Windows-Setup-x64.exe` - 安装程序（x64）
+- `OneHand-<version>-Windows-x64.zip` - 便携版（x64，解压即用）
 
 ### macOS
-- `*.dmg` - 磁盘镜像（x64 + ARM64 通用）
+- `OneHand-<version>-macOS-x64.dmg` - 磁盘镜像（Intel）
+- `OneHand-<version>-macOS-arm64.dmg` - 磁盘镜像（Apple Silicon）
 
 ## 发布流程
 
@@ -64,7 +65,7 @@ npm run electron:build:mac
 
 ## Windows 便携版使用说明
 
-1. 下载 `OneHand-*.zip`
+1. 下载 `OneHand-<version>-Windows-x64.zip`
 2. 解压到任意目录
 3. 运行 `OneHand.exe` 即可启动
 4. 无需安装，不写入注册表

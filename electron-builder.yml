@@ -9,16 +9,17 @@ files:
   - package.json
 win:
   target:
-    - target: nsis
+    - target: zip
       arch:
         - x64
-    - target: zip
+    - target: nsis
       arch:
         - x64
   icon: build/icon.ico
   signingHashAlgorithms: []
   verifyUpdateCodeSignature: false
   requestedExecutionLevel: asInvoker
+  artifactName: ${productName}-${version}-Windows-${arch}.${ext}
 mac:
   target:
     - target: dmg
@@ -35,9 +36,11 @@ mac:
     NSCameraUsageDescription: 应用需要访问摄像头
     NSMicrophoneUsageDescription: 应用需要访问麦克风
   notarize: false
+  artifactName: ${productName}-${version}-macOS-${arch}.${ext}
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: OneHand
+  artifactName: ${productName}-${version}-Windows-Setup-${arch}.${ext}

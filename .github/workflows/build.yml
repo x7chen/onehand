@@ -38,14 +38,14 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: onehand-windows-installer
-          path: release/OneHand*.exe
+          path: release/OneHand-*-Windows-Setup-x64*.exe
           if-no-files-found: error
 
       - name: Upload Windows Portable
         uses: actions/upload-artifact@v4
         with:
           name: onehand-windows-portable
-          path: release/*.zip
+          path: release/OneHand-*-Windows-x64.zip
           if-no-files-found: error
 
   build-macos:
@@ -115,9 +115,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            release-windows/OneHand Setup *.exe
-            release-windows/*.zip
-            release-macos/*.dmg
+            release-windows/OneHand-*-Windows-Setup-x64*.exe
+            release-windows/OneHand-*-Windows-x64.zip
+            release-macos/OneHand-*-macOS-*.dmg
           draft: false
           generate_release_notes: true
         env:
