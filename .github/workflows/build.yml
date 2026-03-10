@@ -29,23 +29,23 @@ jobs:
           Remove-Item -Recurse -Force node_modules, package-lock.json -ErrorAction SilentlyContinue
           npm install
 
-      - name: Build Windows
+      - name: Build Windows (NSIS + Portable ZIP)
         run: npm run electron:build
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Windows artifacts
+      - name: Upload Windows Installer
         uses: actions/upload-artifact@v4
         with:
-          name: onehand-windows-x64
+          name: onehand-windows-installer
           path: release/OneHand*.exe
           if-no-files-found: error
 
-      - name: Upload Windows portable
+      - name: Upload Windows Portable
         uses: actions/upload-artifact@v4
         with:
           name: onehand-windows-portable
-          path: release/win-unpacked/
+          path: release/*.zip
           if-no-files-found: error
 
   build-macos:
@@ -84,10 +84,16 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/')
 
     steps:
-      - name: Download Windows artifacts
+      - name: Download Windows Installer
         uses: actions/download-artifact@v4
         with:
-          name: onehand-windows-x64
+          name: onehand-windows-installer
+          path: release-windows
+
+      - name: Download Windows Portable
+        uses: actions/download-artifact@v4
+        with:
+          name: onehand-windows-portable
           path: release-windows
 
       - name: Download macOS artifacts
@@ -96,29 +102,21 @@ jobs:
           name: onehand-macos
           path: release-macos
 
-      - name: Download Windows portable
-        uses: actions/download-artifact@v4
-        with:
-          name: onehand-windows-portable
-          path: release-windows-portable
-
       - name: Prepare release assets
         run: |
           cd release-windows
-          echo "Windows installer files:"
+          echo "Windows files:"
           ls -la
           cd ../release-macos
           echo "macOS files:"
-          ls -la
-          cd ../release-windows-portable
-          echo "Windows portable files:"
           ls -la
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            release-windows/*.exe
+            release-windows/OneHand Setup *.exe
+            release-windows/*.zip
             release-macos/*.dmg
           draft: false
           generate_release_notes: true

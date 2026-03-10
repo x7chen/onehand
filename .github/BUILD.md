@@ -2,7 +2,7 @@
 
 ## 概述
 
-本项目使用 GitHub Actions 自动构建 Windows、macOS 和 Linux 三个平台的应用程序。
+本项目使用 GitHub Actions 自动构建 Windows 和 macOS 平台的应用程序。
 
 ## 触发条件
 
@@ -27,14 +27,10 @@ git push origin v0.1.0
 
 ### Windows
 - `OneHand Setup *.exe` - 安装程序（x64）
-- `win-unpacked/` - 便携版（仅 Artifact）
+- `OneHand-*.zip` - 便携版（x64，解压即用）
 
 ### macOS
 - `*.dmg` - 磁盘镜像（x64 + ARM64 通用）
-
-### Linux
-- `*.AppImage` - AppImage 包（x64）
-- `*.deb` - Debian 包（x64）
 
 ## 发布流程
 
@@ -64,19 +60,21 @@ npm run electron:build:win
 
 # 构建 macOS（仅在 macOS 上）
 npm run electron:build:mac
-
-# 构建 Linux（仅在 Linux 上）
-npm run electron:build:linux
 ```
+
+## Windows 便携版使用说明
+
+1. 下载 `OneHand-*.zip`
+2. 解压到任意目录
+3. 运行 `OneHand.exe` 即可启动
+4. 无需安装，不写入注册表
 
 ## 注意事项
 
 1. **macOS 签名**：当前配置禁用了代码签名和公证，生产环境建议配置证书
-2. **Linux 依赖**：构建 Linux 版本需要安装相关依赖库
-3. **图标文件**：请确保 `build/` 目录包含以下图标文件：
+2. **图标文件**：请确保 `build/` 目录包含以下图标文件：
    - `build/icon.ico` (Windows)
    - `build/icon.icns` (macOS)
-   - `build/icon.png` (Linux, 512x512px)
 
 ## 故障排除
 

@@ -55,7 +55,7 @@ npm run electron:build:mac    # macOS
 
 ## GitHub Actions 自动构建
 
-项目支持 GitHub Actions 自动构建 Windows、macOS 和 Linux 三个平台。
+项目支持 GitHub Actions 自动构建 Windows 和 macOS 两个平台。
 
 ### 触发构建
 
@@ -67,6 +67,14 @@ git push origin v0.1.0
 ```
 
 推送标签后，GitHub Actions 会自动构建所有平台并创建 GitHub Release。
+
+### 构建产物
+
+| 平台 | 类型 | 文件格式 |
+|------|------|----------|
+| Windows | 安装程序 | `.exe` |
+| Windows | 便携版 | `.zip` |
+| macOS | 磁盘镜像 | `.dmg` (x64 + ARM64) |
 
 详细说明请参考：[.github/BUILD.md](.github/BUILD.md)
 
