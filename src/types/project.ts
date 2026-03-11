@@ -32,6 +32,7 @@ export interface CanvasNode {
   agentResult: string | null
   agentStatus: 'pending' | 'processing' | 'done' | 'error'
   selectedAsContext?: boolean
+  isFavorite?: boolean // 收藏状态
   createdAt: number
   duration?: number // Recording duration in milliseconds
 }

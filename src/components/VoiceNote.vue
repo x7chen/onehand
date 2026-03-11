@@ -29,6 +29,30 @@
           <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
         </svg>
       </div>
+      <!-- 功能按钮组 -->
+      <div class="action-buttons">
+        <!-- 收藏按钮 -->
+        <button class="action-btn favorite-btn" :class="{ active: isFavorite }" @click.stop="toggleFavorite" :title="isFavorite ? '取消收藏' : '收藏'">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
+          </svg>
+        </button>
+        <!-- 隐藏 AI 回答按钮 -->
+        <button class="action-btn hide-ai-btn" @click.stop="toggleHideAiResult" :title="isAiResultHidden ? '显示 AI 回答' : '隐藏 AI 回答'">
+          <svg v-if="!isAiResultHidden" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+          </svg>
+          <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"/>
+          </svg>
+        </button>
+        <!-- 重新生成按钮 -->
+        <button class="action-btn regenerate-btn" @click.stop="handleRegenerate" :disabled="!canRegenerate" :title="canRegenerate ? '重新生成' : '无法重新生成'">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+          </svg>
+        </button>
+      </div>
       <button class="delete-btn" @click.stop="deleteNode">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
           <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
@@ -77,7 +101,7 @@
       </div>
     </div>
 
-    <div v-if="node.agentResult || node.agentStatus === 'processing'" class="agent-result-box" @dblclick.stop>
+    <div v-if="(node.agentResult || node.agentStatus === 'processing') && !isAiResultHidden" class="agent-result-box" @dblclick.stop>
       <div class="agent-header">
         <span class="agent-label">AI 回答</span>
         <span v-if="node.agentStatus === 'processing'" class="streaming-indicator">
@@ -123,6 +147,7 @@ const props = defineProps<{
   isPlaying?: boolean
   isEditing?: boolean
   editingText?: string
+  globalHideAiResult?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -131,6 +156,8 @@ const emit = defineEmits<{
   (e: 'toggle-context', nodeId: string): void
   (e: 'retry-transcription', nodeId: string): void
   (e: 'retry-agent', nodeId: string): void
+  (e: 'regenerate-agent', nodeId: string): void
+  (e: 'toggle-favorite', nodeId: string): void
   (e: 'drag-start', nodeId: string, offsetX: number, offsetY: number): void
   (e: 'update-node', nodeId: string, updates: Partial<CanvasNode>): void
   (e: 'save-edit', nodeId: string, text: string): void
@@ -141,6 +168,30 @@ const emit = defineEmits<{
 // 使用外部传入的 isPlaying 或本地状态
 const localIsPlaying = ref(false)
 const computedIsPlaying = computed(() => props.isPlaying ?? localIsPlaying.value)
+
+// 本地 AI 回答隐藏状态
+const isAiResultHidden = ref(false)
+
+// 监听全局隐藏状态变化
+watch(() => props.globalHideAiResult, (newVal) => {
+  if (newVal !== undefined) {
+    isAiResultHidden.value = newVal
+  }
+}, { immediate: true })
+
+// 收藏状态计算属性
+const isFavorite = computed(() => props.node.isFavorite ?? false)
+
+// 重新生成按钮是否可用
+// 如果 agent-content 内容不为空且 agent-result-box 隐藏，则重新生成按钮失效，否则重新生成按钮有效
+const canRegenerate = computed(() => {
+  // 如果 agent-content 内容不为空且 agent-result-box 隐藏，则失效
+  if (props.node.agentResult && isAiResultHidden.value) {
+    return false
+  }
+  // 否则有效
+  return true
+})
 
 // 编辑模式相关
 const localEditingText = ref('')
@@ -279,6 +330,22 @@ function playAudio() {
 
 function deleteNode() {
   emit('delete', props.node.id)
+}
+
+// 收藏功能
+function toggleFavorite() {
+  emit('toggle-favorite', props.node.id)
+}
+
+// 隐藏/显示 AI 回答
+function toggleHideAiResult() {
+  isAiResultHidden.value = !isAiResultHidden.value
+}
+
+// 重新生成 AI 回答
+function handleRegenerate() {
+  if (!canRegenerate.value) return
+  emit('regenerate-agent', props.node.id)
 }
 
 function handleTextDragStart(e: DragEvent) {
@@ -508,6 +575,67 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
 .delete-btn:hover {
   background: rgba(255, 68, 68, 0.1);
   color: #f44;
+}
+
+/* 功能按钮组 */
+.action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+}
+
+.action-btn:hover {
+  background: var(--border-color);
+  color: var(--text-primary);
+}
+
+.action-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.action-btn:disabled:hover {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+/* 收藏按钮 */
+.favorite-btn {
+  color: var(--text-secondary);
+}
+
+.favorite-btn.active,
+.favorite-btn:active {
+  color: #ffc107 !important;
+}
+
+/* 隐藏 AI 按钮 */
+.hide-ai-btn {
+  color: var(--text-secondary);
+}
+
+/* 重新生成按钮 */
+.regenerate-btn {
+  color: var(--text-secondary);
+}
+
+.regenerate-btn:not(:disabled):hover {
+  color: #4299e1;
 }
 
 .transcript-box {

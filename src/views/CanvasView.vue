@@ -46,6 +46,31 @@
       </div>
       
       <h2>{{ projectStore.currentProject?.name }}</h2>
+
+      <!-- 总隐藏 AI 回答开关 -->
+      <button 
+        @click="toggleGlobalHideAiResult" 
+        class="global-hide-ai-btn" 
+        :class="{ active: globalHideAiResult }"
+        :title="globalHideAiResult ? '显示所有 AI 回答' : '隐藏所有 AI 回答'"
+      >
+        <svg v-if="!globalHideAiResult" viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+          <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+        </svg>
+        <svg v-else viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+          <path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"/>
+        </svg>
+      </button>
+
+      <!-- AI 回答开关 -->
+      <button 
+        @click="toggleAiAnswer" 
+        class="ai-answer-toggle-btn" 
+        :class="{ active: aiAnswerEnabled }"
+        :title="aiAnswerEnabled ? '关闭 AI 回答' : '开启 AI 回答'"
+      >
+        <span class="ai-icon-text">AI</span>
+      </button>
       
       <!-- 动态上下文显示（右侧） -->
       <div class="context-toolbar-group">
@@ -107,11 +132,14 @@
           :is-playing="playingNodeId === node.id"
           :is-editing="editingNodeId === node.id"
           :editing-text="editingText"
+          :global-hide-ai-result="globalHideAiResult"
           @delete="handleDeleteNode"
           @play="handlePlayNode"
           @toggle-context="handleToggleContext"
           @retry-transcription="handleRetryTranscription"
           @retry-agent="handleRetryAgent"
+          @regenerate-agent="handleRegenerateAgent"
+          @toggle-favorite="handleToggleFavorite"
           @drag-start="handleDragStart"
           @update-node="handleUpdateNode"
           @save-edit="handleSaveEdit"
@@ -192,6 +220,12 @@ let recordingTimer: number | null = null
 const isDraggingNode = ref(false)
 const draggingNodeId = ref<string | null>(null)
 const dragOffset = ref({ offsetX: 0, offsetY: 0 })
+
+// 全局 AI 回答隐藏状态
+const globalHideAiResult = ref(false)
+
+// AI 回答开关状态（默认开启）
+const aiAnswerEnabled = ref(true)
 
 const selectedContextCount = computed(() =>
   projectStore.currentProject?.canvas.nodes.filter(n => n.selectedAsContext).length || 0
@@ -417,7 +451,9 @@ function handleSaveEdit(nodeId: string, text: string) {
       transcript: text.trim()
     })
     // 提交给大模型回答
-    handleAgentResponse(nodeId, text.trim())
+    if (aiAnswerEnabled.value) {
+      handleAgentResponse(nodeId, text.trim())
+    }
   } else {
     // 空内容删除节点
     projectStore.removeNode(nodeId)
@@ -461,7 +497,9 @@ function handleClickOutsideEditing(e: MouseEvent) {
         transcript: editingText.value.trim()
       })
       // 提交给大模型回答
-      handleAgentResponse(editingNodeId.value, editingText.value.trim())
+      if (aiAnswerEnabled.value) {
+        handleAgentResponse(editingNodeId.value, editingText.value.trim())
+      }
     } else {
       // 内容为空则删除节点
       console.log('删除空节点')
@@ -496,7 +534,9 @@ async function handleTranscription(node: CanvasNode) {
         })
 
         // 转写完成后自动触发 AI 回答
-        handleAgentResponse(node.id, transcriptResult.text)
+        if (aiAnswerEnabled.value) {
+          handleAgentResponse(node.id, transcriptResult.text)
+        }
       } else {
         throw new Error(transcriptResult.error || '转写失败')
       }
@@ -717,6 +757,34 @@ function handleRetryAgent(nodeId: string) {
   }
 }
 
+// 重新生成 AI 回答
+function handleRegenerateAgent(nodeId: string) {
+  const node = projectStore.currentProject?.canvas.nodes.find(n => n.id === nodeId)
+  if (node && node.transcript) {
+    handleAgentResponse(nodeId, node.transcript)
+  }
+}
+
+// 收藏/取消收藏
+function handleToggleFavorite(nodeId: string) {
+  const node = projectStore.currentProject?.canvas.nodes.find(n => n.id === nodeId)
+  if (node) {
+    projectStore.updateNode(nodeId, {
+      isFavorite: !node.isFavorite
+    })
+  }
+}
+
+// 切换全局 AI 回答隐藏状态
+function toggleGlobalHideAiResult() {
+  globalHideAiResult.value = !globalHideAiResult.value
+}
+
+// 切换 AI 回答开关
+function toggleAiAnswer() {
+  aiAnswerEnabled.value = !aiAnswerEnabled.value
+}
+
 function handleDragStart(nodeId: string, offsetX: number, offsetY: number) {
   draggingNodeId.value = nodeId
   dragOffset.value = { offsetX, offsetY }
@@ -765,7 +833,9 @@ async function handleDropText(x: number, y: number, text: string) {
   projectStore.addNode(node)
 
   // 使用完整上下文触发 AI 回答（包含静态上下文、动态上下文、已勾选的文本框、当前拖拽的文字）
-  await handleAgentResponse(node.id, text)
+  if (aiAnswerEnabled.value) {
+    await handleAgentResponse(node.id, text)
+  }
 }
 
 function clearContextSelection() {
@@ -970,6 +1040,59 @@ async function handleDynamicContextDrop(e: DragEvent) {
 
 .back-btn:hover {
   background: var(--border-color);
+}
+
+/* 全局隐藏 AI 回答按钮 */
+.global-hide-ai-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+}
+
+.global-hide-ai-btn:hover {
+  background: var(--border-color);
+}
+
+.global-hide-ai-btn.active {
+  background: rgba(255, 152, 0, 0.15);
+  color: #ff9800;
+}
+
+/* AI 回答开关按钮 */
+.ai-answer-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ai-answer-toggle-btn .ai-icon-text {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  transition: color 0.2s;
+}
+
+.ai-answer-toggle-btn:hover {
+  background: var(--border-color);
+}
+
+.ai-answer-toggle-btn.active .ai-icon-text {
+  color: #4299e1 !important;
 }
 
 .context-toolbar-group {
