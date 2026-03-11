@@ -222,7 +222,7 @@ function handleWheel(e: WheelEvent) {
   // Ctrl + 滚轮：缩放画布
   if (e.ctrlKey) {
     const delta = e.deltaY > 0 ? 0.9 : 1.1
-    const newZoom = Math.min(Math.max(props.viewport.zoom * delta, 0.5), 2)
+    const newZoom = Math.min(Math.max(props.viewport.zoom * delta, 0.1), 2)
 
     const rect = canvasRef.value?.getBoundingClientRect()
     if (rect) {
