@@ -128,16 +128,23 @@
       :is-recording="isRecording"
       :recording-position="recordingPosition"
       :recording-duration="recordingDuration"
+      :has-prev-page="projectStore.hasPrevPage"
+      :has-next-page="projectStore.hasNextPage"
+      :is-current-canvas-empty="projectStore.isCurrentCanvasEmpty"
+      :current-page-number="projectStore.currentPageNumber"
+      :total-pages="projectStore.totalPages"
       @viewport-change="handleViewportChange"
       @long-press="handleLongPress"
       @long-press-end="handleLongPressEnd"
       @click="handleCanvasClick"
       @dbl-click="handleDblClick"
       @drop-text="handleDropText"
+      @prev-page="handlePrevPage"
+      @next-page="handleNextPage"
     >
       <template #nodes>
         <VoiceNote
-          v-for="node in projectStore.currentProject?.canvas.nodes"
+          v-for="node in projectStore.currentCanvas?.nodes"
           :key="node.id"
           :ref="(el) => { if (el) voiceNoteRefs[node.id] = el }"
           :node="node"
@@ -248,7 +255,7 @@ const globalHideAiResult = ref(false)
 const aiAnswerEnabled = ref(true)
 
 const selectedContextCount = computed(() =>
-  projectStore.currentProject?.canvas.nodes.filter(n => n.selectedAsContext).length || 0
+  projectStore.currentCanvas?.nodes.filter(n => n.selectedAsContext).length || 0
 )
 
 // 静态上下文（支持多选）
@@ -283,7 +290,8 @@ onMounted(async () => {
   const project = projectStore.projects.find(p => p.id === projectId)
   if (project) {
     projectStore.setCurrentProject(project)
-    viewport.value = project.canvas.viewport
+    // 使用当前画布的 viewport
+    viewport.value = projectStore.getCurrentViewport()
   }
 
   // 添加全局鼠标事件监听用于节点拖动
@@ -292,7 +300,7 @@ onMounted(async () => {
 
   // 添加点击外部关闭选择器的监听
   document.addEventListener('click', handleClickOutside)
-  
+
   // 添加点击外部取消编辑的监听
   document.addEventListener('click', handleClickOutsideEditing)
 })
@@ -309,6 +317,9 @@ onUnmounted(() => {
 })
 
 function goBack() {
+  // 返回前清理所有空页
+  projectStore.cleanupEmptyPages()
+  cancelTextEdit() 
   router.push('/')
 }
 
@@ -326,9 +337,30 @@ function handleClickOutside(e: MouseEvent) {
 
 function handleViewportChange(newViewport: Viewport) {
   viewport.value = newViewport
-  if (projectStore.currentProject) {
-    projectStore.currentProject.canvas.viewport = newViewport
-    projectStore.saveProject(projectStore.currentProject)
+  projectStore.updateCurrentViewport(newViewport)
+}
+
+// 切换到上一页
+function handlePrevPage() {
+  cancelTextEdit() 
+  projectStore.goToPrevPage()
+  // 切换后更新 viewport
+  viewport.value = projectStore.getCurrentViewport()
+}
+
+// 切换到下一页或新增一页
+function handleNextPage() {
+  cancelTextEdit() 
+  if (projectStore.hasNextPage) {
+    // 有下一页，直接切换
+    projectStore.goToNextPage()
+    viewport.value = projectStore.getCurrentViewport()
+  } else {
+    // 没有下一页，尝试新增一页
+    const success = projectStore.addNewPage()
+    if (success) {
+      viewport.value = projectStore.getCurrentViewport()
+    }
   }
 }
 
@@ -439,7 +471,7 @@ function handleDblClick(x: number, y: number) {
 
 function saveTextEdit() {
   if (editingNodeId.value) {
-    const node = projectStore.currentProject?.canvas.nodes.find(n => n.id === editingNodeId.value)
+    const node = projectStore.currentCanvas?.nodes.find(n => n.id === editingNodeId.value)
     if (node && editingText.value.trim()) {
       // 更新节点内容
       projectStore.updateNode(editingNodeId.value, {
@@ -456,7 +488,7 @@ function saveTextEdit() {
 
 function cancelTextEdit() {
   if (editingNodeId.value) {
-    const node = projectStore.currentProject?.canvas.nodes.find(n => n.id === editingNodeId.value)
+    const node = projectStore.currentCanvas?.nodes.find(n => n.id === editingNodeId.value)
     if (node && !node.transcript) {
       // 如果内容为空，删除节点
       projectStore.removeNode(editingNodeId.value)
@@ -484,7 +516,7 @@ function handleSaveEdit(nodeId: string, text: string) {
 }
 
 function handleCancelEdit(nodeId: string) {
-  const node = projectStore.currentProject?.canvas.nodes.find(n => n.id === nodeId)
+  const node = projectStore.currentCanvas?.nodes.find(n => n.id === nodeId)
   if (node && !node.transcript) {
     projectStore.removeNode(nodeId)
   }
@@ -509,7 +541,7 @@ function handleClickOutsideEditing(e: MouseEvent) {
   }
   
   // 点击了外部区域，处理保存或删除
-  const node = projectStore.currentProject?.canvas.nodes.find(n => n.id === editingNodeId.value)
+  const node = projectStore.currentCanvas?.nodes.find(n => n.id === editingNodeId.value)
   if (node) {
     if (editingText.value.trim()) {
       // 有内容则自动保存
@@ -576,11 +608,11 @@ async function handleAgentResponse(nodeId: string, transcript: string) {
   try {
     projectStore.updateNode(nodeId, { agentStatus: 'processing' })
 
-    const node = projectStore.currentProject?.canvas.nodes.find(n => n.id === nodeId)
+    const node = projectStore.currentCanvas?.nodes.find(n => n.id === nodeId)
     if (!node) return
 
     // 获取已选择的上下文节点（不包括当前节点）
-    const selectedNodes = projectStore.currentProject?.canvas.nodes.filter(n => n.selectedAsContext && n.id !== nodeId) || []
+    const selectedNodes = projectStore.currentCanvas?.nodes.filter(n => n.selectedAsContext && n.id !== nodeId) || []
 
     // 合并多个静态上下文内容
     const staticContextFilesList = staticContextFiles.value
@@ -653,7 +685,7 @@ const editingNodeId = ref<string | null>(null)
 const editingText = ref('')
 
 async function handlePlayNode(nodeId: string) {
-  const node = projectStore.currentProject?.canvas.nodes.find(n => n.id === nodeId)
+  const node = projectStore.currentCanvas?.nodes.find(n => n.id === nodeId)
   if (!node?.audioPath) return
 
   // 如果正在播放同一个音频，则停止播放
@@ -721,7 +753,7 @@ async function handlePlayNode(nodeId: string) {
 }
 
 function handleToggleContext(nodeId: string) {
-  const node = projectStore.currentProject?.canvas.nodes.find(n => n.id === nodeId)
+  const node = projectStore.currentCanvas?.nodes.find(n => n.id === nodeId)
   if (node && node.transcriptStatus === 'done') {
     projectStore.updateNode(nodeId, {
       selectedAsContext: !node.selectedAsContext
@@ -734,7 +766,7 @@ function handleSelectAllContext() {
   if (!projectStore.currentProject) return
   
   // 选中所有已完成转写的节点
-  for (const node of projectStore.currentProject.canvas.nodes) {
+  for (const node of projectStore.currentCanvas?.nodes) {
     if (node.transcriptStatus === 'done') {
       node.selectedAsContext = true
     }
@@ -746,7 +778,7 @@ function handleInvertSelection() {
   if (!projectStore.currentProject) return
   
   // 反选所有已完成转写的节点
-  for (const node of projectStore.currentProject.canvas.nodes) {
+  for (const node of projectStore.currentCanvas?.nodes) {
     if (node.transcriptStatus === 'done') {
       node.selectedAsContext = !node.selectedAsContext
     }
@@ -758,21 +790,21 @@ function handleClearContextSelection() {
   if (!projectStore.currentProject) return
   
   // 清空所有节点的选中状态
-  for (const node of projectStore.currentProject.canvas.nodes) {
+  for (const node of projectStore.currentCanvas?.nodes) {
     node.selectedAsContext = false
   }
   projectStore.saveProject(projectStore.currentProject)
 }
 
 function handleRetryTranscription(nodeId: string) {
-  const node = projectStore.currentProject?.canvas.nodes.find(n => n.id === nodeId)
+  const node = projectStore.currentCanvas?.nodes.find(n => n.id === nodeId)
   if (node) {
     handleTranscription(node)
   }
 }
 
 function handleRetryAgent(nodeId: string) {
-  const node = projectStore.currentProject?.canvas.nodes.find(n => n.id === nodeId)
+  const node = projectStore.currentCanvas?.nodes.find(n => n.id === nodeId)
   if (node && node.transcript) {
     handleAgentResponse(nodeId, node.transcript)
   }
@@ -780,7 +812,7 @@ function handleRetryAgent(nodeId: string) {
 
 // 重新生成 AI 回答
 function handleRegenerateAgent(nodeId: string) {
-  const node = projectStore.currentProject?.canvas.nodes.find(n => n.id === nodeId)
+  const node = projectStore.currentCanvas?.nodes.find(n => n.id === nodeId)
   if (node && node.transcript) {
     handleAgentResponse(nodeId, node.transcript)
   }
@@ -788,7 +820,7 @@ function handleRegenerateAgent(nodeId: string) {
 
 // 收藏/取消收藏
 function handleToggleFavorite(nodeId: string) {
-  const node = projectStore.currentProject?.canvas.nodes.find(n => n.id === nodeId)
+  const node = projectStore.currentCanvas?.nodes.find(n => n.id === nodeId)
   if (node) {
     projectStore.updateNode(nodeId, {
       isFavorite: !node.isFavorite
@@ -798,7 +830,7 @@ function handleToggleFavorite(nodeId: string) {
 
 // 自动排版功能
 async function handleAutoLayout() {
-  const nodes = projectStore.currentProject?.canvas.nodes
+  const nodes = projectStore.currentCanvas?.nodes
   if (!nodes || nodes.length === 0) return
 
   // 过滤出voice-note和text-note类型的节点
@@ -992,7 +1024,7 @@ async function handleDropText(x: number, y: number, text: string) {
 
 function clearContextSelection() {
   if (projectStore.currentProject) {
-    for (const node of projectStore.currentProject.canvas.nodes) {
+    for (const node of projectStore.currentCanvas?.nodes) {
       node.selectedAsContext = false
     }
     projectStore.saveProject(projectStore.currentProject)

@@ -13,6 +13,62 @@
     @dragleave="handleDragLeave"
     @drop="handleDrop"
   >
+    <!-- 左侧边缘悬浮按钮区域 -->
+    <div
+      class="edge-trigger left-edge"
+      :class="{ 'active': showLeftButton }"
+      @mouseenter="showLeftButton = true"
+      @mouseleave="showLeftButton = false"
+      @mousedown.stop
+      @mouseup.stop
+      @click.stop
+    >
+      <div class="edge-button-container" v-if="showLeftButton" @mousedown.stop @mouseup.stop @click.stop>
+        <div class="page-indicator">第 {{ currentPageNumber || 1 }} 页 / 共 {{ totalPages || 1 }} 页</div>
+        <button
+          class="edge-button"
+          :class="{ 'disabled': !hasPrevPage }"
+          :disabled="!hasPrevPage"
+          @click.stop="handlePrevPage"
+          @mousedown.stop
+          @mouseup.stop
+        >
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+            <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
+          </svg>
+          <span>{{ hasPrevPage ? '上一页' : '当前为第一页' }}</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 右侧边缘悬浮按钮区域 -->
+    <div
+      class="edge-trigger right-edge"
+      :class="{ 'active': showRightButton }"
+      @mouseenter="showRightButton = true"
+      @mouseleave="showRightButton = false"
+      @mousedown.stop
+      @mouseup.stop
+      @click.stop
+    >
+      <div class="edge-button-container" v-if="showRightButton" @mousedown.stop @mouseup.stop @click.stop>
+        <div class="page-indicator">第 {{ currentPageNumber || 1 }} 页 / 共 {{ totalPages || 1 }} 页</div>
+        <button
+          class="edge-button"
+          :class="{ 'disabled': !hasNextPage && isCurrentCanvasEmpty }"
+          :disabled="!hasNextPage && isCurrentCanvasEmpty"
+          @click.stop="handleNextPage"
+          @mousedown.stop
+          @mouseup.stop
+        >
+          <span>{{ hasNextPage ? '下一页' : '新增一页' }}</span>
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+            <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
     <div
       class="canvas-content"
       :style="transformStyle"
@@ -50,6 +106,11 @@ const props = defineProps<{
   isRecording?: boolean
   recordingPosition?: { x: number; y: number }
   recordingDuration?: number
+  hasPrevPage?: boolean
+  hasNextPage?: boolean
+  isCurrentCanvasEmpty?: boolean
+  currentPageNumber?: number
+  totalPages?: number
 }>()
 
 const emit = defineEmits<{
@@ -59,7 +120,25 @@ const emit = defineEmits<{
   'click': [x: number, y: number]
   'dbl-click': [x: number, y: number]
   'drop-text': [x: number, y: number, text: string]
+  'prev-page': []
+  'next-page': []
 }>()
+
+// 边缘按钮显示状态
+const showLeftButton = ref(false)
+const showRightButton = ref(false)
+
+// 处理上一页
+function handlePrevPage() {
+  if (props.hasPrevPage) {
+    emit('prev-page')
+  }
+}
+
+// 处理下一页/新增一页
+function handleNextPage() {
+  emit('next-page')
+}
 
 const isDraggingText = ref(false)
 const dragHintStyle = ref({ left: '0px', top: '0px' })
@@ -106,6 +185,11 @@ function handleMouseDown(e: MouseEvent) {
   // Check if we're clicking on an editable textarea (editing mode)
   if (target.tagName === 'TEXTAREA' || target.closest('textarea')) {
     return // We're in text editing mode, don't trigger recording
+  }
+
+  // Check if clicking on edge buttons or their containers
+  if (target.closest('.edge-button') || target.closest('.edge-button-container')) {
+    return // Don't trigger canvas events when clicking edge buttons
   }
 
   if (e.button === 0) {
@@ -321,6 +405,11 @@ function handleDblClick(e: MouseEvent) {
     return
   }
 
+  // 双击边缘按钮区域不触发
+  if (target.closest('.edge-button') || target.closest('.edge-button-container')) {
+    return
+  }
+
   const rect = canvasRef.value?.getBoundingClientRect()
   if (!rect) return
 
@@ -384,5 +473,155 @@ watch(() => props.viewport, (newViewport) => {
   z-index: 9999;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   white-space: nowrap;
+}
+
+/* 边缘触发区域 */
+.edge-trigger {
+  position: absolute;
+  top: 0;
+  width: 60px;
+  height: 100%;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  pointer-events: auto;
+}
+
+.edge-trigger.left-edge {
+  left: 0;
+}
+
+.edge-trigger.right-edge {
+  right: 0;
+}
+
+.edge-trigger.active {
+  background: linear-gradient(to right, rgba(0, 0, 0, 0.05), transparent);
+}
+
+.edge-trigger.right-edge.active {
+  background: linear-gradient(to left, rgba(0, 0, 0, 0.05), transparent);
+}
+
+/* 边缘按钮容器 */
+.edge-button-container {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0;
+  animation: fadeIn 0.2s ease forwards;
+}
+
+.edge-trigger.left-edge .edge-button-container {
+  left: 8px;
+}
+
+.edge-trigger.right-edge .edge-button-container {
+  right: 8px;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-50%) translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
+  }
+}
+
+.edge-trigger.right-edge .edge-button-container {
+  animation: fadeInRight 0.2s ease forwards;
+}
+
+@keyframes fadeInRight {
+  from {
+    opacity: 0;
+    transform: translateY(-50%) translateX(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
+  }
+}
+
+/* 边缘按钮样式 */
+.edge-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  background: var(--bg-primary, #ffffff);
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary, #333333);
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.edge-button:hover:not(.disabled) {
+  background: var(--bg-secondary, #f5f5f5);
+  transform: scale(1.02);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.edge-button:active:not(.disabled) {
+  transform: scale(0.98);
+}
+
+.edge-button.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  color: var(--text-secondary, #666666);
+}
+
+/* 页码指示器 */
+.page-indicator {
+  font-size: 12px;
+  color: var(--text-secondary, #666666);
+  margin-bottom: 8px;
+  text-align: center;
+  white-space: nowrap;
+  background: var(--bg-primary, #ffffff);
+  padding: 4px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color, #e0e0e0);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* 深色模式适配 */
+@media (prefers-color-scheme: dark) {
+  .edge-button {
+    background: #3d3d3d;
+    border-color: #555555;
+    color: #e0e0e0;
+  }
+
+  .edge-button:hover:not(.disabled) {
+    background: #4d4d4d;
+  }
+
+  .edge-button.disabled {
+    color: #888888;
+  }
+
+  .edge-trigger.active {
+    background: linear-gradient(to right, rgba(255, 255, 255, 0.05), transparent);
+  }
+
+  .edge-trigger.right-edge.active {
+    background: linear-gradient(to left, rgba(255, 255, 255, 0.05), transparent);
+  }
+
+  .page-indicator {
+    background: #3d3d3d;
+    border-color: #555555;
+    color: #aaaaaa;
+  }
 }
 </style>

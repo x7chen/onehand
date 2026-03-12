@@ -5,16 +5,23 @@ export interface Project {
   name: string
   createdAt: number
   updatedAt: number
-  canvas: Canvas
+  /** @deprecated 使用 canvases 数组替代 */
+  canvas?: Canvas
+  canvases?: CanvasPage[]
+  currentCanvasIndex?: number
   context?: ProjectContext
 }
 
-export interface Canvas {
+export interface CanvasPage {
   id: string
   type: 'infinite' | 'pdf'
   viewport: Viewport
   nodes: CanvasNode[]
+  createdAt: number
 }
+
+/** @deprecated 使用 CanvasPage 替代 */
+export interface Canvas extends CanvasPage {}
 
 export interface Viewport {
   x: number
