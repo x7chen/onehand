@@ -86,7 +86,7 @@
           >
             <h3>{{ project.name }}</h3>
             <p class="project-info">
-              {{ project.canvas.nodes.length }} 个笔记 · {{ formatDate(project.updatedAt) }}
+              {{ (project.canvases?.[0]?.nodes?.length || project.canvas?.nodes?.length || 0) }} 个笔记 · {{ formatDate(project.updatedAt) }}
               <span v-if="project.context?.staticContextIds?.length || project.context?.dynamicContextId" class="context-indicator">
                 ·
                 <span v-if="project.context.staticContextIds?.length" :title="`静态上下文 (${project.context.staticContextIds.length}个)`">

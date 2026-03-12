@@ -56,6 +56,7 @@
           </svg>
         </button>
       </div>
+      <span class="created-time">{{ formatCreatedTime }}</span>
       <button class="delete-btn" @click.stop="deleteNode">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
           <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
@@ -304,6 +305,19 @@ defineExpose({
 
 // 收藏状态计算属性
 const isFavorite = computed(() => props.node.isFavorite ?? false)
+
+// 格式化创建时间
+const formatCreatedTime = computed(() => {
+  const timestamp = props.node.createdAt
+  if (!timestamp) return ''
+  const date = new Date(timestamp)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${year}-${month}-${day} ${hours}:${minutes}`
+})
 
 // 重新生成按钮是否可用
 // 如果 agent-content 内容不为空且 agent-result-box 隐藏，则重新生成按钮失效，否则重新生成按钮有效
@@ -697,8 +711,15 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
   min-width: 40px;
 }
 
-.delete-btn {
+.created-time {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
   margin-left: auto;
+  margin-right: 8px;
+}
+
+.delete-btn {
   background: none;
   border: none;
   cursor: pointer;
