@@ -79,6 +79,9 @@
             v-for="project in projectStore.projects"
             :key="project.id"
             class="project-card"
+            draggable="true"
+            @dragstart="handleProjectDragStart($event, project)"
+            @dragend="handleProjectDragEnd"
             @click="openProject(project.id)"
           >
             <h3>{{ project.name }}</h3>
@@ -235,6 +238,32 @@
         </div>
       </div>
     </div>
+
+    <!-- 垃圾桶区域 -->
+    <div
+      class="trash-zone"
+      :class="{ 'drag-over': isDragOverTrash }"
+      @dragover="handleTrashDragOver"
+      @dragleave="handleTrashDragLeave"
+      @drop="handleTrashDrop"
+    >
+      <svg viewBox="0 0 24 24" width="32" height="32" fill="currentColor" class="trash-icon">
+        <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+      </svg>
+      <span class="trash-text">拖拽到此处删除</span>
+    </div>
+
+    <!-- 项目删除确认对话框 -->
+    <div v-if="showProjectDeleteConfirm" class="dialog-overlay" @click="showProjectDeleteConfirm = false">
+      <div class="dialog confirm-dialog" @click.stop>
+        <h3>确认删除项目</h3>
+        <p>确定要删除项目 "{{ projectToDelete?.name }}" 吗？此操作不可恢复。</p>
+        <div class="dialog-actions">
+          <button @click="showProjectDeleteConfirm = false" class="cancel-btn">取消</button>
+          <button @click="confirmDeleteProject" class="delete-btn confirm-delete">删除</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -245,6 +274,7 @@ import { useProjectStore } from '@/stores/projectStore'
 import { useContextStore } from '@/stores/contextStore'
 import type { ContextFile, ContextType } from '@/types/context'
 import { CONTEXT_COLORS } from '@/types/context'
+import type { Project } from '@/types/project'
 
 const router = useRouter()
 const projectStore = useProjectStore()
@@ -268,6 +298,12 @@ const projectNameInput = ref<HTMLInputElement | null>(null)
 const showDeleteConfirm = ref(false)
 const contextToDelete = ref<string | null>(null)
 const shouldCloseEditDialogAfterDelete = ref(false)
+
+// 拖拽删除相关
+const isDragOverTrash = ref(false)
+const draggedProject = ref<Project | null>(null)
+const showProjectDeleteConfirm = ref(false)
+const projectToDelete = ref<Project | null>(null)
 
 onMounted(() => {
   projectStore.loadProjects()
@@ -378,6 +414,56 @@ function openProject(projectId: string) {
 
 function openSettings() {
   router.push('/settings')
+}
+
+// 项目拖拽删除功能
+function handleProjectDragStart(e: DragEvent, project: Project) {
+  draggedProject.value = project
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', project.id)
+    // 设置拖拽时的半透明效果
+    const target = e.target as HTMLElement
+    target.style.opacity = '0.5'
+  }
+}
+
+function handleProjectDragEnd(e: DragEvent) {
+  const target = e.target as HTMLElement
+  target.style.opacity = '1'
+  draggedProject.value = null
+  isDragOverTrash.value = false
+}
+
+function handleTrashDragOver(e: DragEvent) {
+  e.preventDefault()
+  if (e.dataTransfer) {
+    e.dataTransfer.dropEffect = 'move'
+  }
+  isDragOverTrash.value = true
+}
+
+function handleTrashDragLeave() {
+  isDragOverTrash.value = false
+}
+
+function handleTrashDrop(e: DragEvent) {
+  e.preventDefault()
+  isDragOverTrash.value = false
+
+  const projectId = e.dataTransfer?.getData('text/plain')
+  if (projectId && draggedProject.value) {
+    projectToDelete.value = draggedProject.value
+    showProjectDeleteConfirm.value = true
+  }
+}
+
+async function confirmDeleteProject() {
+  if (projectToDelete.value) {
+    await projectStore.deleteProject(projectToDelete.value.id)
+    showProjectDeleteConfirm.value = false
+    projectToDelete.value = null
+  }
 }
 </script>
 
@@ -801,5 +887,67 @@ function openSettings() {
 
 .confirm-delete:hover {
   background: #d32f2f;
+}
+
+/* 垃圾桶区域样式 */
+.trash-zone {
+  position: fixed;
+  left: 24px;
+  bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px 24px;
+  background: var(--bg-primary);
+  border: 2px dashed var(--border-color);
+  border-radius: 12px;
+  color: var(--text-secondary);
+  transition: all 0.3s ease;
+  z-index: 100;
+  cursor: pointer;
+  box-shadow: 0 2px 8px var(--shadow-color);
+}
+
+.trash-zone:hover {
+  border-color: #f44;
+  color: #f44;
+  transform: scale(1.05);
+}
+
+.trash-zone.drag-over {
+  border-color: #f44;
+  background: rgba(255, 68, 68, 0.1);
+  color: #f44;
+  transform: scale(1.1);
+}
+
+.trash-icon {
+  transition: transform 0.3s ease;
+}
+
+.trash-zone.drag-over .trash-icon {
+  transform: rotate(-15deg) scale(1.1);
+}
+
+.trash-text {
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* 拖拽时的项目卡片样式 */
+.project-card {
+  cursor: grab;
+  user-select: none;
+}
+
+.project-card:active {
+  cursor: grabbing;
+}
+
+.project-card[draggable="true"] {
+  -webkit-user-drag: element;
 }
 </style>
