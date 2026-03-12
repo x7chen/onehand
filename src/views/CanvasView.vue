@@ -47,10 +47,21 @@
       
       <h2>{{ projectStore.currentProject?.name }}</h2>
 
+      <!-- 自动排版按钮 -->
+      <button
+        @click="handleAutoLayout"
+        class="auto-layout-btn"
+        title="自动排版"
+      >
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+          <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
+        </svg>
+      </button>
+
       <!-- 总隐藏 AI 回答开关 -->
-      <button 
-        @click="toggleGlobalHideAiResult" 
-        class="global-hide-ai-btn" 
+      <button
+        @click="toggleGlobalHideAiResult"
+        class="global-hide-ai-btn"
         :class="{ active: globalHideAiResult }"
         :title="globalHideAiResult ? '显示所有 AI 回答' : '隐藏所有 AI 回答'"
       >
@@ -128,11 +139,13 @@
         <VoiceNote
           v-for="node in projectStore.currentProject?.canvas.nodes"
           :key="node.id"
+          :ref="(el) => { if (el) voiceNoteRefs[node.id] = el }"
           :node="node"
           :is-playing="playingNodeId === node.id"
           :is-editing="editingNodeId === node.id"
           :editing-text="editingText"
           :global-hide-ai-result="globalHideAiResult"
+          :is-active="activeNodeId === node.id"
           @delete="handleDeleteNode"
           @play="handlePlayNode"
           @toggle-context="handleToggleContext"
@@ -145,6 +158,7 @@
           @save-edit="handleSaveEdit"
           @cancel-edit="handleCancelEdit"
           @update:editing-text="editingText = $event"
+          @activate="handleActivateNode"
         />
       </template>
     </InfiniteCanvas>
@@ -220,6 +234,12 @@ let recordingTimer: number | null = null
 const isDraggingNode = ref(false)
 const draggingNodeId = ref<string | null>(null)
 const dragOffset = ref({ offsetX: 0, offsetY: 0 })
+
+// VoiceNote组件引用
+const voiceNoteRefs = ref<Record<string, any>>({})
+
+// 当前激活的节点ID
+const activeNodeId = ref<string | null>(null)
 
 // 全局 AI 回答隐藏状态
 const globalHideAiResult = ref(false)
@@ -392,7 +412,8 @@ async function handleLongPressEnd() {
 }
 
 function handleCanvasClick(x: number, y: number) {
-  // 处理画布点击
+  // 点击画布空白处，取消激活节点
+  deactivateNode()
 }
 
 function handleDblClick(x: number, y: number) {
@@ -775,6 +796,127 @@ function handleToggleFavorite(nodeId: string) {
   }
 }
 
+// 自动排版功能
+async function handleAutoLayout() {
+  const nodes = projectStore.currentProject?.canvas.nodes
+  if (!nodes || nodes.length === 0) return
+
+  // 过滤出voice-note和text-note类型的节点
+  const layoutNodes = nodes.filter(n => n.type === 'voice-note' || n.type === 'text-note')
+  if (layoutNodes.length === 0) return
+
+  // 第一步：预排版 - 展开所有节点并测量实际高度
+  // 先展开所有节点
+  for (const node of layoutNodes) {
+    const voiceNoteRef = voiceNoteRefs.value[node.id]
+    if (voiceNoteRef?.setCollapseState) {
+      voiceNoteRef.setCollapseState(false, false) // 展开所有
+    }
+  }
+
+  // 等待DOM更新
+  await new Promise(resolve => setTimeout(resolve, 100))
+
+  // 测量每个节点的实际高度
+  const nodeDimensions: Record<string, { width: number; height: number; transcriptHeight: number; agentResultHeight: number }> = {}
+
+  for (const node of layoutNodes) {
+    const voiceNoteRef = voiceNoteRefs.value[node.id]
+    if (voiceNoteRef?.measureActualHeight) {
+      const dims = voiceNoteRef.measureActualHeight()
+      nodeDimensions[node.id] = {
+        width: 500, // 固定宽度
+        height: dims.totalHeight,
+        transcriptHeight: dims.transcriptHeight,
+        agentResultHeight: dims.agentResultHeight
+      }
+    } else {
+      // 如果无法测量，使用默认值
+      nodeDimensions[node.id] = {
+        width: 500,
+        height: 200,
+        transcriptHeight: 100,
+        agentResultHeight: 0
+      }
+    }
+  }
+
+  // 第二步：再排版 - 根据高度判断是否需要折叠
+  const TRANSCRIPT_MAX_HEIGHT = 300
+  const AGENT_RESULT_MAX_HEIGHT = 800
+
+  for (const node of layoutNodes) {
+    const dims = nodeDimensions[node.id]
+    const needsTranscriptCollapse = dims.transcriptHeight > TRANSCRIPT_MAX_HEIGHT
+    const needsAgentResultCollapse = dims.agentResultHeight > AGENT_RESULT_MAX_HEIGHT
+
+    const voiceNoteRef = voiceNoteRefs.value[node.id]
+    if (voiceNoteRef?.setCollapseState) {
+      voiceNoteRef.setCollapseState(needsTranscriptCollapse, needsAgentResultCollapse)
+    }
+  }
+
+  // 等待DOM更新以获取折叠后的高度
+  await new Promise(resolve => setTimeout(resolve, 100))
+
+  // 重新测量折叠后的高度
+  for (const node of layoutNodes) {
+    const voiceNoteRef = voiceNoteRefs.value[node.id]
+    if (voiceNoteRef?.measureActualHeight) {
+      const dims = voiceNoteRef.measureActualHeight()
+      nodeDimensions[node.id].height = dims.totalHeight
+    }
+  }
+
+  // 第三步：网格布局计算
+  const NODES_PER_ROW = 5
+  const HORIZONTAL_GAP = 40
+  const VERTICAL_GAP = 80
+  const START_X = 100
+  const START_Y = 100
+
+  // 按创建时间排序
+  const sortedNodes = [...layoutNodes].sort((a, b) => a.createdAt - b.createdAt)
+
+  // 计算每排位置
+  let currentRow = 0
+  let currentCol = 0
+  let currentRowMaxHeight = 0
+  let currentRowTop = START_Y
+
+  for (let i = 0; i < sortedNodes.length; i++) {
+    const node = sortedNodes[i]
+    const dims = nodeDimensions[node.id]
+
+    // 计算当前节点位置
+    const x = START_X + currentCol * (dims.width + HORIZONTAL_GAP)
+    const y = currentRowTop
+
+    // 更新节点位置
+    projectStore.updateNode(node.id, { position: { x, y } })
+
+    // 更新当前排的最大高度
+    currentRowMaxHeight = Math.max(currentRowMaxHeight, dims.height)
+
+    // 移动到下一个位置
+    currentCol++
+
+    // 如果当前排已满，或者这是最后一个节点，开始新排
+    if (currentCol >= NODES_PER_ROW || i === sortedNodes.length - 1) {
+      // 准备下一排
+      currentRow++
+      currentCol = 0
+      currentRowTop += currentRowMaxHeight + VERTICAL_GAP
+      currentRowMaxHeight = 0
+    }
+  }
+
+  // 保存项目
+  if (projectStore.currentProject) {
+    projectStore.saveProject(projectStore.currentProject)
+  }
+}
+
 // 切换全局 AI 回答隐藏状态
 function toggleGlobalHideAiResult() {
   globalHideAiResult.value = !globalHideAiResult.value
@@ -783,6 +925,16 @@ function toggleGlobalHideAiResult() {
 // 切换 AI 回答开关
 function toggleAiAnswer() {
   aiAnswerEnabled.value = !aiAnswerEnabled.value
+}
+
+// 激活节点（置顶显示）
+function handleActivateNode(nodeId: string) {
+  activeNodeId.value = nodeId
+}
+
+// 取消激活节点
+function deactivateNode() {
+  activeNodeId.value = null
 }
 
 function handleDragStart(nodeId: string, offsetX: number, offsetY: number) {
@@ -1040,6 +1192,26 @@ async function handleDynamicContextDrop(e: DragEvent) {
 
 .back-btn:hover {
   background: var(--border-color);
+}
+
+/* 自动排版按钮 */
+.auto-layout-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+}
+
+.auto-layout-btn:hover {
+  background: var(--border-color);
+  color: var(--text-primary);
 }
 
 /* 全局隐藏 AI 回答按钮 */

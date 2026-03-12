@@ -109,3 +109,11 @@
 在CanvasView视图中的canvas-header中添加一个总隐藏开关按钮和AI回答按钮：
 1. 总隐藏开关按钮：点击后可以控制所有voice-note中agent-result-box的显示和隐藏。
 2. 如果AI回答按钮处于关闭状态，新建VoiceNote时完成转写或者新建文本编辑后，不触发AI回答，否则触发AI回答。
+
+增加自动排版功能：
+
+1. 在CanvasView视图的canvas-header中添加一个自动排版按钮（放到隐藏按钮左边），点击后自动排版画布中所有voice-note节点。
+2. 排版分两步：预排版：展开所有折叠的文本框，统计画布中每个voice-note节点的宽度和高度；再排版：用统计好的宽度和高度，判断文本框是否需要折叠，如果需要折叠则限制transcript-box和agent-result-box高度，并激活展开按钮。
+3. 排版时，每5个节点为一排（顶部对齐），两个节点水平间隔为20px
+4. 自动折叠超过高度的文本框（用户手动展开的也要折叠），需要让transcript-box高度不超过300px，agent-result-box高度不超过800px。transcript-box高度超过300px，折叠为300px，agent-result-box的高度超过800px，折叠为800px， 不超过不折叠。需要折叠时，​在agent-result-box和transcript-box下显示折叠按钮，折叠按钮设计得细长一点，折叠按钮点击可展开剩下的内容，再次点击后折叠内容。
+5. 把5个节点最高的那个节点为这一排的高度，下一排把这个节点底部作为顶部对齐位置，竖直间隔为20px，直到所有节点排完。
