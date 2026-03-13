@@ -218,7 +218,7 @@ import ContextToolbar from '@/components/ContextToolbar.vue'
 import type { CanvasNode, Viewport } from '@/types/project'
 import type { ContextFile } from '@/types/context'
 import { useVoiceRecorder } from '@/composables/useVoiceRecorder'
-import { transcribeWithFunASR } from '@/composables/useFunASR'
+import { transcribeWithSherpaOnnx } from '@/composables/useSherpaOnnx'
 import { chatWithLLM, buildFullContextMessages } from '@/composables/useQwenAgent'
 
 const router = useRouter()
@@ -566,6 +566,20 @@ function handleClickOutsideEditing(e: MouseEvent) {
 async function handleTranscription(node: CanvasNode) {
   const settings = settingsStore.settings
 
+  // 确保配置已加载
+  if (!settingsStore.isLoaded) {
+    await settingsStore.loadSettings()
+  }
+
+  // 检查 sherpaOnnx 配置
+  if (!settings.stt.sherpaOnnx) {
+    projectStore.updateNode(node.id, {
+      transcript: '语音识别配置错误，请检查设置',
+      transcriptStatus: 'error'
+    })
+    return
+  }
+
   try {
     projectStore.updateNode(node.id, { transcriptStatus: 'processing' })
 
@@ -578,7 +592,7 @@ async function handleTranscription(node: CanvasNode) {
 
     if (result.success && result.data) {
       const blob = new Blob([result.data], { type: 'audio/webm' })
-      const transcriptResult = await transcribeWithFunASR(blob, settings.stt.funasr)
+      const transcriptResult = await transcribeWithSherpaOnnx(blob, settings.stt.sherpaOnnx)
 
       if (transcriptResult.success && transcriptResult.text) {
         projectStore.updateNode(node.id, {

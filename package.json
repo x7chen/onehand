@@ -1,6 +1,6 @@
 {
   "name": "onehand",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "智能语音笔记桌面应用 - Intelligent Voice Notebook Desktop Application",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -38,6 +38,7 @@
     "wait-on": "^7.2.0"
   },
   "dependencies": {
-    "marked": "^17.0.4"
+    "marked": "^17.0.4",
+    "sherpa-onnx": "^1.12.29"
   }
 }

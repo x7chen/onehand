@@ -13,7 +13,7 @@
       <!-- LLM Settings -->
       <section class="settings-section">
         <h3>大模型配置</h3>
-        
+
         <div class="form-group">
           <label>服务提供商</label>
           <select v-model="settingsStore.settings.llm.provider">
@@ -52,87 +52,57 @@
       <!-- STT Settings -->
       <section class="settings-section">
         <h3>语音转文本配置</h3>
-        
+
         <div class="form-group">
           <label>STT 服务提供商</label>
-          <div class="radio-group">
-            <label class="radio-label">
-              <input type="radio" v-model="settingsStore.settings.stt.provider" value="funasr" />
-              FunASR (本地)
-            </label>
-            <label class="radio-label">
-              <input type="radio" v-model="settingsStore.settings.stt.provider" value="whisper" />
-              OpenAI Whisper
-            </label>
+          <div class="info-box">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+            </svg>
+            <span>使用 Sherpa-ONNX 本地语音识别引擎，无需联网</span>
           </div>
         </div>
 
-        <template v-if="settingsStore.settings.stt.provider === 'funasr'">
-          <div class="form-group">
-            <label>服务地址</label>
-            <input
-              v-model="settingsStore.settings.stt.funasr.serverUrl"
-              type="text"
-              placeholder="http://localhost:8000"
-            />
-          </div>
+        <div class="form-group">
+          <label>模型路径</label>
+          <input
+            :value="settingsStore.settings.stt.sherpaOnnx?.modelPath || ''"
+            type="text"
+            placeholder="模型文件路径"
+            readonly
+          />
+          <span class="field-hint">默认使用内置的 Paraformer 中文模型</span>
+        </div>
 
-          <div class="form-group">
-            <label>语言</label>
-            <select v-model="settingsStore.settings.stt.funasr.language">
-              <option value="zh">中文</option>
-              <option value="en">英文</option>
-              <option value="ja">日文</option>
-              <option value="yue">粤语</option>
-              <option value="ko">韩语</option>
-            </select>
-          </div>
+        <div class="form-group">
+          <label>词表路径</label>
+          <input
+            :value="settingsStore.settings.stt.sherpaOnnx?.tokensPath || ''"
+            type="text"
+            placeholder="词表文件路径"
+            readonly
+          />
+        </div>
 
-          <div class="form-group">
-            <label>热词</label>
-            <input
-              v-model="settingsStore.settings.stt.funasr.hotwords"
-              type="text"
-              placeholder="逗号分隔的专业术语"
-            />
-          </div>
+        <div class="form-group">
+          <label>解码线程数</label>
+          <input
+            :value="settingsStore.settings.stt.sherpaOnnx?.numThreads || 4"
+            type="number"
+            min="1"
+            max="8"
+            readonly
+          />
+          <span class="field-hint">根据 CPU 核心数调整，建议 4 线程</span>
+        </div>
 
-          <div class="form-group">
-            <label class="checkbox-label">
-              <input type="checkbox" v-model="settingsStore.settings.stt.funasr.itn" />
-              启用文本逆规整（数字、日期格式化）
-            </label>
-          </div>
-        </template>
-
-        <template v-else>
-          <div class="form-group">
-            <label>API Key</label>
-            <input
-              v-model="settingsStore.settings.stt.whisper.apiKey"
-              type="password"
-              placeholder="OpenAI API Key"
-            />
-          </div>
-
-          <div class="form-group">
-            <label>模型</label>
-            <select v-model="settingsStore.settings.stt.whisper.model">
-              <option value="whisper-1">whisper-1</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label>语言</label>
-            <select v-model="settingsStore.settings.stt.whisper.language">
-              <option value="auto">自动检测</option>
-              <option value="zh">中文</option>
-              <option value="en">英文</option>
-              <option value="ja">日语</option>
-              <option value="ko">韩语</option>
-            </select>
-          </div>
-        </template>
+        <div class="form-group">
+          <label>解码方法</label>
+          <select :value="settingsStore.settings.stt.sherpaOnnx?.decodingMethod || 'greedy_search'" disabled>
+            <option value="greedy_search">贪心搜索 (Greedy Search)</option>
+            <option value="modified_beam_search">束搜索 (Beam Search)</option>
+          </select>
+        </div>
       </section>
 
       <!-- General Settings -->
@@ -170,12 +140,19 @@
 </template>
 
 <script setup lang="ts">
-import { watch } from 'vue'
+import { watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSettingsStore } from '@/stores/settingsStore'
 
 const router = useRouter()
 const settingsStore = useSettingsStore()
+
+// 确保配置已加载
+onMounted(async () => {
+  if (!settingsStore.isLoaded) {
+    await settingsStore.loadSettings()
+  }
+})
 
 // 监听设置变化，自动保存
 watch(
@@ -270,6 +247,7 @@ function goBack() {
 
 .form-group input[type="text"],
 .form-group input[type="password"],
+.form-group input[type="number"],
 .form-group select {
   width: 100%;
   padding: 10px 12px;
@@ -285,6 +263,36 @@ function goBack() {
 .form-group select:focus {
   outline: none;
   border-color: #4299e1;
+}
+
+.form-group input[readonly] {
+  background: var(--bg-secondary);
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.field-hint {
+  display: block;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+  opacity: 0.7;
+}
+
+.info-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.info-box svg {
+  flex-shrink: 0;
+  color: #4299e1;
 }
 
 .radio-group {

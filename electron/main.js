@@ -2,6 +2,15 @@ const { app, BrowserWindow, ipcMain, dialog } = require('electron')
 const path = require('path')
 const fs = require('fs')
 
+// Sherpa-ONNX 相关
+let sherpaOnnx = null
+try {
+  sherpaOnnx = require('sherpa-onnx')
+  console.log('Sherpa-ONNX loaded successfully')
+} catch (e) {
+  console.warn('Failed to load sherpa-onnx:', e.message)
+}
+
 let mainWindow = null
 
 // 配置文件路径 - 始终使用用户数据目录
@@ -10,10 +19,99 @@ const getConfigPath = () => {
   return path.join(userDataPath, 'config.json')
 }
 
+// 项目根目录（根据当前文件位置计算）
+const PROJECT_ROOT = path.join(__dirname, '..')
+
+// 获取模型路径 - 尝试多个可能的位置
+const getModelPath = () => {
+  const possiblePaths = [
+    // 开发环境：从 electron 目录往上到项目根目录
+    path.join(PROJECT_ROOT, 'build/models/sherpa-onnx-paraformer-zh-small-2024-03-09'),
+    // 生产环境：resources/app/build/models
+    path.join(process.resourcesPath || '', 'app/build/models/sherpa-onnx-paraformer-zh-small-2024-03-09'),
+    // 生产环境备选：resources/build/models
+    path.join(process.resourcesPath || '', 'build/models/sherpa-onnx-paraformer-zh-small-2024-03-09'),
+    // 当前工作目录
+    path.join(process.cwd(), 'build/models/sherpa-onnx-paraformer-zh-small-2024-03-09'),
+  ]
+
+  for (const modelPath of possiblePaths) {
+    const modelFile = path.join(modelPath, 'model.int8.onnx')
+    const tokensFile = path.join(modelPath, 'tokens.txt')
+
+    if (fs.existsSync(modelFile) && fs.existsSync(tokensFile)) {
+      console.log('Found model at:', modelPath)
+      return modelPath
+    }
+  }
+
+  // 返回项目根目录下的路径作为默认值
+  console.warn('Model not found, using default path:', possiblePaths[0])
+  return possiblePaths[0]
+}
+
+// 创建语音识别器
+let recognizer = null
+function createRecognizer() {
+  if (!sherpaOnnx) {
+    console.error('Sherpa-ONNX not available - module failed to load')
+    return null
+  }
+
+  console.log('Sherpa-ONNX module loaded, creating recognizer...')
+  console.log('Available APIs:', Object.keys(sherpaOnnx))
+
+  try {
+    const modelPath = getModelPath()
+    const modelFile = path.join(modelPath, 'model.int8.onnx')
+    const tokensFile = path.join(modelPath, 'tokens.txt')
+
+    console.log('Model path:', modelPath)
+    console.log('Model file:', modelFile)
+    console.log('Tokens file:', tokensFile)
+    console.log('Model exists:', fs.existsSync(modelFile))
+    console.log('Tokens exists:', fs.existsSync(tokensFile))
+
+    if (!fs.existsSync(modelFile)) {
+      console.error('Model file not found:', modelFile)
+      return null
+    }
+    if (!fs.existsSync(tokensFile)) {
+      console.error('Tokens file not found:', tokensFile)
+      return null
+    }
+
+    // 检查 createOfflineRecognizer 是否存在
+    if (!sherpaOnnx.createOfflineRecognizer) {
+      console.error('createOfflineRecognizer not found in sherpa-onnx module')
+      return null
+    }
+
+    // 使用正确的配置格式
+    const config = {
+      modelConfig: {
+        paraformer: {
+          model: modelFile,
+        },
+        tokens: tokensFile,
+      },
+    }
+
+    console.log('Creating recognizer with config:', JSON.stringify(config, null, 2))
+    recognizer = sherpaOnnx.createOfflineRecognizer(config)
+    console.log('Sherpa-ONNX recognizer created successfully')
+    return recognizer
+  } catch (error) {
+    console.error('Failed to create recognizer:', error)
+    console.error('Error stack:', error.stack)
+    return null
+  }
+}
+
 function createWindow() {
   // Default to dark mode background
   const backgroundColor = '#2d2d2d'
-  
+
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -34,12 +132,12 @@ function createWindow() {
   // In development, load from Vite dev server
   // In production, load from built files
   const isDev = process.argv.includes('--dev') || !fs.existsSync(path.join(__dirname, '../dist/index.html'))
-  
+
   if (isDev) {
     // Try ports 5173, 5174, 5175, 5176, 5177 in case one is occupied
     const ports = [5173, 5174, 5175, 5176, 5177]
     let loaded = false
-    
+
     for (const port of ports) {
       try {
         const url = `http://localhost:${port}`
@@ -52,7 +150,7 @@ function createWindow() {
         console.log(`Port ${port} failed, trying next...`)
       }
     }
-    
+
     if (!loaded) {
       console.error('Could not connect to Vite dev server on any port')
     }
@@ -83,6 +181,9 @@ function createWindow() {
 app.whenReady().then(() => {
   createWindow()
 
+  // 初始化语音识别器
+  createRecognizer()
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow()
@@ -91,6 +192,16 @@ app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', () => {
+  // 清理识别器
+  if (recognizer) {
+    try {
+      recognizer.free()
+    } catch (e) {
+      console.error('Error freeing recognizer:', e)
+    }
+    recognizer = null
+  }
+
   if (process.platform !== 'darwin') {
     app.quit()
   }
@@ -137,13 +248,13 @@ ipcMain.handle('read-file', async (event, filePath, encoding = 'utf-8') => {
     if (!fs.existsSync(filePath)) {
       return { success: false, error: 'File not found' }
     }
-    
+
     // 如果请求的是 arraybuffer，返回 buffer
     if (encoding === 'arraybuffer') {
       const data = fs.readFileSync(filePath)
       return { success: true, data: data.buffer }
     }
-    
+
     // 否则返回文本
     const data = fs.readFileSync(filePath, 'utf-8')
     return { success: true, data }
@@ -198,5 +309,70 @@ ipcMain.handle('save-config', async (event, data) => {
     return { success: true }
   } catch (error) {
     return { success: false, error: String(error) }
+  }
+})
+
+// 音频转写 IPC 处理
+ipcMain.handle('transcribe-audio', async (event, audioData, mimeType, config) => {
+  try {
+    if (!sherpaOnnx) {
+      return { success: false, error: 'Sherpa-ONNX not available' }
+    }
+
+    if (!recognizer) {
+      recognizer = createRecognizer()
+      if (!recognizer) {
+        return { success: false, error: 'Failed to create recognizer' }
+      }
+    }
+
+    // 将数组转换为 Buffer
+    const buffer = Buffer.from(audioData)
+
+    // 创建临时文件保存音频
+    const tempDir = path.join(app.getPath('temp'), 'sherpa-onnx')
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true })
+    }
+
+    const tempWavPath = path.join(tempDir, `audio_${Date.now()}.wav`)
+
+    // 如果是 webm/opus 格式，需要转换为 wav
+    // 这里我们假设输入是 16kHz 单声道 16bit PCM 的 wav 格式
+    // 实际应用中可能需要使用 ffmpeg 或其他库进行转换
+    // 为简化起见，我们先尝试直接处理
+
+    // 写入临时文件
+    fs.writeFileSync(tempWavPath, buffer)
+
+    // 使用 Sherpa-ONNX 进行识别
+    const stream = recognizer.createStream()
+    const wave = sherpaOnnx.readWave(tempWavPath)
+
+    stream.acceptWaveform(wave.sampleRate, wave.samples)
+
+    recognizer.decode(stream)
+    const result = recognizer.getResult(stream)
+
+    // 清理资源
+    stream.free()
+
+    // 删除临时文件
+    try {
+      fs.unlinkSync(tempWavPath)
+    } catch (e) {
+      console.warn('Failed to delete temp file:', e)
+    }
+
+    return {
+      success: true,
+      text: result.text
+    }
+  } catch (error) {
+    console.error('Transcription error:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error)
+    }
   }
 })

@@ -10,5 +10,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   mkdir: (dirPath) => ipcRenderer.invoke('mkdir', dirPath),
   setTheme: (isDark) => ipcRenderer.invoke('set-theme', isDark),
   readConfig: () => ipcRenderer.invoke('read-config'),
-  saveConfig: (data) => ipcRenderer.invoke('save-config', data)
+  saveConfig: (data) => ipcRenderer.invoke('save-config', data),
+  transcribeAudio: (audioData, mimeType, config) => ipcRenderer.invoke('transcribe-audio', audioData, mimeType, config)
 })

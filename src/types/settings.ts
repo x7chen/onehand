@@ -14,17 +14,12 @@ export interface LLMSettings {
 }
 
 export interface STTSettings {
-  provider: 'funasr' | 'whisper'
-  funasr: {
-    serverUrl: string
-    language: string
-    hotwords: string
-    itn: boolean
-  }
-  whisper: {
-    apiKey: string
-    model: string
-    language: string
+  provider: 'sherpa-onnx'
+  sherpaOnnx: {
+    modelPath: string
+    tokensPath: string
+    numThreads: number
+    decodingMethod: 'greedy_search' | 'modified_beam_search'
   }
 }
 
@@ -44,17 +39,12 @@ export const defaultSettings: Settings = {
     enabledModels: ['Qwen/Qwen3-235B-A22B-Instruct-2507']
   },
   stt: {
-    provider: 'whisper',  // 改为 Whisper 作为默认，因为不需要本地服务
-    funasr: {
-      serverUrl: 'http://localhost:8000',
-      language: 'zh',
-      hotwords: '',
-      itn: true
-    },
-    whisper: {
-      apiKey: '',  // 用户需要自己填写
-      model: 'whisper-1',
-      language: 'auto'
+    provider: 'sherpa-onnx',
+    sherpaOnnx: {
+      modelPath: 'build/models/sherpa-onnx-paraformer-zh-small-2024-03-09/model.int8.onnx',
+      tokensPath: 'build/models/sherpa-onnx-paraformer-zh-small-2024-03-09/tokens.txt',
+      numThreads: 4,
+      decodingMethod: 'greedy_search'
     }
   },
   general: {
