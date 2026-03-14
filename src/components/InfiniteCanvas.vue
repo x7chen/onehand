@@ -203,7 +203,14 @@ function handleMouseDown(e: MouseEvent) {
     longPressTimer.value = window.setTimeout(() => {
       // Only trigger recording if haven't moved beyond threshold
       if (!hasMovedBeyondThreshold.value && isMouseDown.value) {
+        // 如果已经在录音，不要重复触发
+        if (props.isRecording) {
+          console.log('[InfiniteCanvas] Already recording, skipping long press')
+          return
+        }
+        
         isLongPressing.value = true
+        console.log('[InfiniteCanvas] Long press triggered, isLongPressing:', isLongPressing.value)
         // 计算画布坐标（考虑 viewport 和 zoom）
         const rect = canvasRef.value?.getBoundingClientRect()
         if (rect) {
@@ -213,6 +220,11 @@ function handleMouseDown(e: MouseEvent) {
         } else {
           emit('long-press', dragStart.value.x, dragStart.value.y)
         }
+      } else {
+        console.log('[InfiniteCanvas] Long press cancelled', {
+          hasMovedBeyondThreshold: hasMovedBeyondThreshold.value,
+          isMouseDown: isMouseDown.value
+        })
       }
     }, 500)
   }
@@ -269,6 +281,12 @@ function handleMouseMove(e: MouseEvent) {
 }
 
 function handleMouseUp(e: MouseEvent) {
+  console.log('[InfiniteCanvas] handleMouseUp', {
+    isLongPressing: isLongPressing.value,
+    isRecording: props.isRecording,
+    isMouseDown: isMouseDown.value
+  })
+
   isMouseDown.value = false
 
   if (longPressTimer.value) {
@@ -279,6 +297,7 @@ function handleMouseUp(e: MouseEvent) {
   // If releasing from a long press, stop recording
   if (isLongPressing.value && props.isRecording) {
     isLongPressing.value = false
+    console.log('[InfiniteCanvas] Emitting long-press-end')
     emit('long-press-end')
   }
 

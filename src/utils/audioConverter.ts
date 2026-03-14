@@ -2,15 +2,50 @@
  * 将音频 Blob 转换为 WAV 格式
  * 使用 Web Audio API 进行解码和重采样
  */
+
+// 调试日志：确认此模块被加载
+console.log('🔵 audioConverter.ts module loaded')
+
 export async function convertToWav(audioBlob: Blob, targetSampleRate = 16000): Promise<Blob> {
+  console.log('🔵 convertToWav called with blob type:', audioBlob.type)
+  
   const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
 
   try {
     // 读取音频数据
     const arrayBuffer = await audioBlob.arrayBuffer()
 
-    // 解码音频
-    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
+    console.log('Audio blob info:', {
+      type: audioBlob.type,
+      size: audioBlob.size,
+      arrayBufferSize: arrayBuffer.byteLength
+    })
+
+    // 解码音频 - 添加错误处理以处理不支持的格式
+    let audioBuffer: AudioBuffer
+    try {
+      audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
+      console.log('Audio decoded successfully:', {
+        duration: audioBuffer.duration,
+        sampleRate: audioBuffer.sampleRate,
+        numberOfChannels: audioBuffer.numberOfChannels,
+        length: audioBuffer.length
+      })
+    } catch (decodeError) {
+      console.error('decodeAudioData failed:', decodeError)
+      console.error('Audio blob type:', audioBlob.type)
+      console.error('ArrayBuffer size:', arrayBuffer.byteLength)
+
+      // 提供更有用的错误信息
+      let errorMessage = '无法解码音频数据'
+      if (audioBlob.type === 'audio/webm' || audioBlob.type.includes('webm')) {
+        errorMessage = '音频格式问题：某些浏览器可能不支持此 webm 编码格式。请尝试使用最新版本的 Chrome 或 Edge 浏览器。'
+      } else if (audioBlob.type === 'audio/mp4' || audioBlob.type.includes('mp4')) {
+        errorMessage = '音频格式问题：Safari 可能无法正确解码录制的 mp4 音频。请尝试重新录制。'
+      }
+
+      throw new Error(errorMessage)
+    }
 
     // 重采样到目标采样率
     const offlineContext = new OfflineAudioContext(
@@ -28,6 +63,11 @@ export async function convertToWav(audioBlob: Blob, targetSampleRate = 16000): P
 
     // 转换为 WAV 格式
     const wavBlob = audioBufferToWav(renderedBuffer)
+
+    console.log('WAV conversion complete:', {
+      size: wavBlob.size,
+      targetSampleRate
+    })
 
     return wavBlob
   } finally {

@@ -48,7 +48,7 @@ export const defaultSettings: Settings = {
     }
   },
   general: {
-    audioFormat: 'webm',
+    audioFormat: 'wav', // 默认使用 WAV 格式，避免 decodeAudioData 问题
     language: 'system',
     theme: 'system'
   }

@@ -218,6 +218,7 @@ import ContextToolbar from '@/components/ContextToolbar.vue'
 import type { CanvasNode, Viewport } from '@/types/project'
 import type { ContextFile } from '@/types/context'
 import { useVoiceRecorder } from '@/composables/useVoiceRecorder'
+import { createAudioWorkletRecorder } from '@/utils/audioWorkletRecorder'
 import { transcribeWithSherpaOnnx } from '@/composables/useSherpaOnnx'
 import { chatWithLLM, buildFullContextMessages } from '@/composables/useQwenAgent'
 
@@ -229,6 +230,7 @@ const settingsStore = useSettingsStore()
 
 // 录音实例 - 在组件级别保持同一个实例
 const voiceRecorder = useVoiceRecorder()
+const simpleRecorder = createAudioWorkletRecorder() // 使用 AudioWorklet 录音器
 
 const viewport = ref<Viewport>({ x: 0, y: 0, zoom: 1 })
 const isRecording = ref(false)
@@ -365,33 +367,47 @@ function handleNextPage() {
 }
 
 async function handleLongPress(x: number, y: number) {
-  const started = await voiceRecorder.startRecording()
-  if (!started) {
+  console.log('🎤 handleLongPress called')
+  try {
+    console.log('🎤 Starting audio worklet recorder...')
+    await simpleRecorder.start()
+    isRecording.value = true
+    recordingPosition.value = { x, y }
+    recordingStartPosition.value = { x, y }
+    recordingDuration.value = 0
+
+    recordingTimer = window.setInterval(() => {
+      recordingDuration.value += 100
+    }, 100)
+    
+    console.log('🎤 Recording started at', x, y)
+  } catch (error) {
+    console.error('🎤 Failed to start recording:', error)
     isRecording.value = false
     recordingPosition.value = undefined
-    return
   }
-
-  isRecording.value = true
-  recordingPosition.value = { x, y }
-  recordingStartPosition.value = { x, y } // 保存开始位置
-  recordingDuration.value = 0
-
-  recordingTimer = window.setInterval(() => {
-    recordingDuration.value += 100
-  }, 100)
 }
 
 async function handleLongPressEnd() {
+  console.log('🎤 handleLongPressEnd called, recordingTimer:', !!recordingTimer, 'isRecording:', isRecording.value)
+  
   if (!recordingTimer) return
 
   clearInterval(recordingTimer)
   recordingTimer = null
 
   try {
-    const audioBlob = await voiceRecorder.stopRecording()
-    const audioFormat = settingsStore.settings.general.audioFormat
-    const extension = audioFormat === 'webm' ? 'webm' : 'wav'
+    console.log('🎤 Stopping recorder, duration:', recordingDuration.value, 'ms')
+    const audioBlob = await simpleRecorder.stop()
+    
+    // 根据实际 Blob 类型决定扩展名
+    const extension = audioBlob.type === 'audio/wav' ? 'wav' : 'webm'
+    
+    console.log('🎤 Recording stopped:', {
+      blobType: audioBlob.type,
+      blobSize: audioBlob.size,
+      extension
+    })
 
     // 创建语音节点
     const nodeId = `node-${Date.now()}`
@@ -405,6 +421,12 @@ async function handleLongPressEnd() {
     await window.electronAPI.mkdir(`${projectDir}/audio`)
 
     const arrayBuffer = await audioBlob.arrayBuffer()
+    console.log('🎤 Saving audio file:', {
+      path: `${projectDir}/${audioPath}`,
+      extension,
+      blobType: audioBlob.type,
+      bufferSize: arrayBuffer.byteLength
+    })
     await window.electronAPI.saveFileBuffer(`${projectDir}/${audioPath}`, arrayBuffer)
 
     // 使用保存的开始位置计算节点位置（已经是画布坐标）
@@ -591,7 +613,18 @@ async function handleTranscription(node: CanvasNode) {
     const result = await window.electronAPI.readFile(audioPath, 'arraybuffer')
 
     if (result.success && result.data) {
-      const blob = new Blob([result.data], { type: 'audio/webm' })
+      // 根据文件扩展名判断 MIME 类型
+      const extension = node.audioPath.split('.').pop()?.toLowerCase()
+      const mimeType = extension === 'wav' ? 'audio/wav' : 'audio/webm'
+      
+      console.log('Transcribing audio:', {
+        path: audioPath,
+        extension,
+        mimeType,
+        size: result.data.byteLength
+      })
+      
+      const blob = new Blob([result.data], { type: mimeType })
       const transcriptResult = await transcribeWithSherpaOnnx(blob, settings.stt.sherpaOnnx)
 
       if (transcriptResult.success && transcriptResult.text) {
@@ -1046,16 +1079,12 @@ function clearContextSelection() {
 }
 
 async function handleAskWithNewRecording() {
-  // 结合已选择上下文和新录音提问
-  // 触发新的录音流程
+  console.log('🎤 handleAskWithNewRecording called')
   try {
-    const started = await voiceRecorder.startRecording()
-    if (!started) {
-      isRecording.value = false
-      recordingPosition.value = undefined
-      return
-    }
-
+    console.log('🎤 Starting simpleRecorder...')
+    await simpleRecorder.start()
+    console.log('🎤 simpleRecorder.start() completed')
+    
     isRecording.value = true
     recordingPosition.value = { x: 100, y: 100 }
     recordingDuration.value = 0
@@ -1064,12 +1093,18 @@ async function handleAskWithNewRecording() {
       recordingDuration.value += 100
     }, 100)
 
-    // 等待用户停止录音（通过再次点击或释放）
-    // 这里简化处理，实际应该有一个 UI 来控制录音停止
+    // 3 秒后自动停止录音
     setTimeout(async () => {
-      const audioBlob = await voiceRecorder.stopRecording()
-      const audioFormat = settingsStore.settings.general.audioFormat
-      const extension = audioFormat === 'webm' ? 'webm' : 'wav'
+      console.log('🎤 Auto-stopping recording after timeout, duration:', recordingDuration.value, 'ms')
+      const audioBlob = await simpleRecorder.stop()
+      
+      const extension = audioBlob.type === 'audio/wav' ? 'wav' : 'webm'
+      
+      console.log('🎤 Recording stopped:', {
+        blobType: audioBlob.type,
+        blobSize: audioBlob.size,
+        extension
+      })
       
       const nodeId = `node-${Date.now()}`
       const audioPath = `audio/${nodeId}.${extension}`
@@ -1077,13 +1112,13 @@ async function handleAskWithNewRecording() {
       const appDataPath = await window.electronAPI.getAppPath('userData')
       const project = projectStore.currentProject
       if (!project) return
-
+      
       const projectDir = `${appDataPath}/projects/${project.id}`
       await window.electronAPI.mkdir(`${projectDir}/audio`)
-
+      
       const arrayBuffer = await audioBlob.arrayBuffer()
       await window.electronAPI.saveFileBuffer(`${projectDir}/${audioPath}`, arrayBuffer)
-
+      
       const node: CanvasNode = {
         id: nodeId,
         type: 'voice-note',
@@ -1097,14 +1132,14 @@ async function handleAskWithNewRecording() {
         createdAt: Date.now(),
         duration: recordingDuration.value
       }
-
+      
       projectStore.addNode(node)
       isRecording.value = false
       recordingPosition.value = undefined
-
+      
       // 转写完成后会用完整上下文处理
       handleTranscription(node)
-    }, 3000) // 简化：3 秒后自动停止
+    }, 3000) // 3 秒
   } catch (error) {
     console.error('Recording failed:', error)
     isRecording.value = false

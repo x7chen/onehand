@@ -329,6 +329,12 @@ ipcMain.handle('transcribe-audio', async (event, audioData, mimeType, config) =>
     // 将数组转换为 Buffer
     const buffer = Buffer.from(audioData)
 
+    console.log('Transcribe audio received:', {
+      mimeType,
+      bufferSize: buffer.length,
+      audioDataLength: audioData.length
+    })
+
     // 创建临时文件保存音频
     const tempDir = path.join(app.getPath('temp'), 'sherpa-onnx')
     if (!fs.existsSync(tempDir)) {
@@ -336,30 +342,63 @@ ipcMain.handle('transcribe-audio', async (event, audioData, mimeType, config) =>
     }
 
     const tempWavPath = path.join(tempDir, `audio_${Date.now()}.wav`)
+    const tempInputPath = path.join(tempDir, `input_${Date.now()}.${mimeType.split('/')[1] || 'webm'}`)
 
-    // 如果是 webm/opus 格式，需要转换为 wav
-    // 这里我们假设输入是 16kHz 单声道 16bit PCM 的 wav 格式
-    // 实际应用中可能需要使用 ffmpeg 或其他库进行转换
-    // 为简化起见，我们先尝试直接处理
+    // 写入原始音频文件
+    fs.writeFileSync(tempInputPath, buffer)
+    console.log('Input audio saved to:', tempInputPath, 'size:', buffer.length)
 
-    // 写入临时文件
-    fs.writeFileSync(tempWavPath, buffer)
+    // 如果是 webm 格式，尝试使用 ffmpeg 转换，或者直接使用 sherpa-onnx 读取
+    let wave = null
+    let finalWavPath = tempInputPath
+
+    // 检查是否是 WAV 格式
+    if (mimeType === 'audio/wav' || tempInputPath.endsWith('.wav')) {
+      // 直接读取 WAV
+      wave = sherpaOnnx.readWave(tempInputPath)
+      if (!wave || wave.samples.length === 0) {
+        console.error('Failed to read wave file or empty samples')
+        fs.unlinkSync(tempInputPath)
+        return { success: false, error: '无法读取音频文件或音频为空' }
+      }
+    } else {
+      // 对于非 WAV 格式，尝试直接读取（sherpa-onnx 可能支持）
+      // 如果失败，则需要使用 ffmpeg 转换
+      try {
+        wave = sherpaOnnx.readWave(tempInputPath)
+        if (wave && wave.samples.length > 0) {
+          console.log('Successfully read non-WAV file')
+        } else {
+          throw new Error('Empty samples')
+        }
+      } catch (readError) {
+        console.warn('Cannot read non-WAV file directly, need ffmpeg conversion:', readError)
+        // TODO: 集成 ffmpeg 进行格式转换
+        fs.unlinkSync(tempInputPath)
+        return { 
+          success: false, 
+          error: '不支持的音频格式。请使用 WAV 格式录音，或安装 ffmpeg 进行格式转换。' 
+        }
+      }
+    }
 
     // 使用 Sherpa-ONNX 进行识别
     const stream = recognizer.createStream()
-    const wave = sherpaOnnx.readWave(tempWavPath)
-
     stream.acceptWaveform(wave.sampleRate, wave.samples)
-
     recognizer.decode(stream)
     const result = recognizer.getResult(stream)
+
+    console.log('Transcription result:', result)
 
     // 清理资源
     stream.free()
 
     // 删除临时文件
     try {
-      fs.unlinkSync(tempWavPath)
+      fs.unlinkSync(tempInputPath)
+      if (finalWavPath !== tempInputPath && fs.existsSync(finalWavPath)) {
+        fs.unlinkSync(finalWavPath)
+      }
     } catch (e) {
       console.warn('Failed to delete temp file:', e)
     }
