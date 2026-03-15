@@ -953,12 +953,13 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
 .transcript-content :deep(blockquote),
 .transcript-content :deep(a),
 .transcript-content :deep(img),
-.transcript-content :deep(.hljs),
 .transcript-content :deep(.katex),
 .transcript-content :deep(.mermaid),
 .transcript-content :deep(.mermaid-wrapper) {
   all: revert; /* 重置继承的样式 */
 }
+
+/* .hljs 不应用 all: revert，保留 highlight.js 语法高亮颜色 */
 
 .transcript-edit {
   width: 100%;
@@ -1113,12 +1114,13 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
 .agent-content :deep(blockquote),
 .agent-content :deep(a),
 .agent-content :deep(img),
-.agent-content :deep(.hljs),
 .agent-content :deep(.katex),
 .agent-content :deep(.mermaid),
 .agent-content :deep(.mermaid-wrapper) {
   all: revert; /* 重置继承的样式 */
 }
+
+/* .hljs 不应用 all: revert，保留 highlight.js 语法高亮颜色 */
 
 .agent-edit {
   width: calc(500px - 25px);
@@ -1376,7 +1378,7 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
 /* ========================================
    代码高亮样式 (Highlight.js)
    ======================================== */
-/* 代码块容器 - 所有 pre 元素都应用背景 */
+/* 代码块容器 */
 .transcript-content :deep(pre),
 .agent-content :deep(pre) {
   border-radius: 6px;
@@ -1386,69 +1388,40 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
   margin: 0.5em 0;
   padding: 16px;
   display: block;
+  /* 背景色和颜色由 highlight.js 主题控制 */
 }
 
-/* 浅色模式背景 - 比文本框背景 (#f5f5f5) 稍深 */
+/* 浅色主题下代码块背景色 */
 .transcript-content :deep(pre.hljs),
 .agent-content :deep(pre.hljs) {
-  background: #e1e4e8 !important;
+  background-color: #f6f8fa !important;
 }
 
-/* 深色模式背景 - 比文本框背景 (#2d2d2d) 稍浅 */
+/* 深色主题下代码块颜色和背景由 highlight.js 主题控制 */
 :root.dark .transcript-content :deep(pre.hljs),
 :root.dark .agent-content :deep(pre.hljs) {
-  background: #1e2328 !important;
+  color: unset;
+  background-color: #0d1117 !important;
 }
 
-/* 深色模式下确保代码有颜色 */
-:root.dark .transcript-content :deep(.hljs),
-:root.dark .agent-content :deep(.hljs) {
-  color: #c9d1d9 !important;
+:root.dark .transcript-content :deep(pre.hljs code),
+:root.dark .agent-content :deep(pre.hljs code) {
+  color: unset;
+  background-color: transparent !important;
 }
 
-:root.dark .transcript-content :deep(.hljs .hljs-attr),
-:root.dark .agent-content :deep(.hljs .hljs-attr) {
-  color: #79c0ff !important;
-}
+/* 不要为 pre.hljs span 设置颜色，让 highlight.js 主题控制 */
+/* :root.dark .transcript-content :deep(pre.hljs span),
+:root.dark .agent-content :deep(pre.hljs span) {
+  color: inherit;
+} */
 
-:root.dark .transcript-content :deep(.hljs .hljs-string),
-:root.dark .agent-content :deep(.hljs .hljs-string) {
-  color: #a5d6ff !important;
-}
-
-:root.dark .transcript-content :deep(.hljs .hljs-keyword),
-:root.dark .agent-content :deep(.hljs .hljs-keyword) {
-  color: #ff7b72 !important;
-}
-
-:root.dark .transcript-content :deep(.hljs .hljs-function),
-:root.dark .agent-content :deep(.hljs .hljs-function) {
-  color: #d2a8ff !important;
-}
-
-:root.dark .transcript-content :deep(.hljs .hljs-number),
-:root.dark .agent-content :deep(.hljs .hljs-number) {
-  color: #79c0ff !important;
-}
-
-:root.dark .transcript-content :deep(.hljs .hljs-comment),
-:root.dark .agent-content :deep(.hljs .hljs-comment) {
-  color: #8b949e !important;
-}
-
-/* Mermaid 的 pre 元素不应用背景色 */
-.transcript-content :deep(pre.mermaid),
-.agent-content :deep(pre.mermaid) {
-  background: transparent !important;
-}
-
-/* 确保 hljs 类应用正确的颜色 - 不覆盖 highlight.js 的颜色 */
-.transcript-content :deep(.hljs),
-.agent-content :deep(.hljs) {
+/* 确保 hljs 类的样式由主题控制 - 只针对 code.hljs，不覆盖 pre.hljs 的 padding */
+.transcript-content :deep(code.hljs),
+.agent-content :deep(code.hljs) {
   background: transparent !important;
   padding: 0;
   margin: 0;
-  /* 不设置 color，让 highlight.js 主题控制颜色 */
 }
 
 /* 代码块内的 code 元素 */
@@ -1458,8 +1431,14 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
   padding: 0;
   border-radius: 0;
   font-family: 'SF Mono', Monaco, 'Cascadia Code', Consolas, monospace;
-  /* 不设置 color，让 highlight.js 主题控制颜色 */
-  color: inherit;
+}
+
+/* Mermaid 的 pre 元素不应用代码高亮背景 */
+.transcript-content :deep(pre.mermaid),
+.agent-content :deep(pre.mermaid) {
+  background: transparent !important;
+  padding: 0;
+  margin: 0;
 }
 
 /* 行内代码 */

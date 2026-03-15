@@ -15,7 +15,7 @@ onMounted(() => {
   settingsStore.loadSettings()
 })
 
-// 监听主题变化，切换 highlight.js 主题
+// 监听主题变化，切换 highlight.js 和 Mermaid 主题
 watchEffect(() => {
   const isDark = document.documentElement.classList.contains('dark')
   const lightTheme = document.querySelector('.hljs-theme-light') as HTMLLinkElement
@@ -114,15 +114,33 @@ body {
 :root.dark h3,
 :root.dark h4,
 :root.dark p,
-:root.dark span,
 :root.dark label,
 :root.dark a {
   color: var(--text-primary) !important;
 }
 
+/* 排除代码块内的元素，让 highlight.js 主题控制代码颜色 */
+:root.dark span:not(.hljs *):not(.katex *):not(.mermaid *) {
+  color: var(--text-primary) !important;
+}
+
+/* 确保 highlight.js 代码块内的颜色不被覆盖 - 不覆盖子元素 */
+:root.dark .hljs,
+:root.dark pre.hljs code {
+  color: unset;
+}
+
 :root.dark .transcript-content,
 :root.dark .agent-content {
-  color: var(--text-primary) !important;
+  color: var(--text-primary);
+}
+
+/* 代码块内的文本颜色由 highlight.js 主题控制 */
+:root.dark .transcript-content pre.hljs,
+:root.dark .agent-content pre.hljs,
+:root.dark .transcript-content pre.hljs code,
+:root.dark .agent-content pre.hljs code {
+  color: unset !important;
 }
 
 :root.dark button {
