@@ -573,7 +573,7 @@ watch(() => props.viewport, (newViewport) => {
 .edge-trigger {
   position: absolute;
   top: 0;
-  width: 60px;
+  width: 30px;
   height: 100%;
   z-index: 100;
   display: flex;

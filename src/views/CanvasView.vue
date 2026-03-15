@@ -968,7 +968,7 @@ async function handleAutoLayout() {
   }
 
   // 第三步：网格布局计算
-  const NODES_PER_ROW = 5
+  const NODES_PER_ROW = 10
   const HORIZONTAL_GAP = 40
   const VERTICAL_GAP = 80
   const START_X = 100
