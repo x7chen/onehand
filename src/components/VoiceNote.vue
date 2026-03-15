@@ -7,8 +7,9 @@
     :style="{ left: node.position.x + 'px', top: node.position.y + 'px', zIndex: isActive ? 1000 : 'auto' }"
     @mousedown="handleVoiceNoteMouseDown"
     @click="handleClick"
+    @mousedown.right.stop
   >
-    <div class="node-header" @mousedown="handleMouseDown">
+    <div class="node-header" @mousedown="handleMouseDown" @mousedown.right.stop>
       <input
         type="checkbox"
         :checked="node.selectedAsContext"
@@ -443,6 +444,11 @@ function handleClick(e: MouseEvent) {
 }
 
 function handleMouseDown(e: MouseEvent) {
+  // 右键不处理，让画布捕获用于拖拽
+  if (e.button === 2) {
+    return
+  }
+
   e.stopPropagation()
   e.preventDefault()
 

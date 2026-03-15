@@ -47,6 +47,17 @@
       
       <h2>{{ projectStore.currentProject?.name }}</h2>
 
+      <!-- 回到原点按钮 -->
+      <button
+        @click="handleResetViewport"
+        class="reset-viewport-btn"
+        title="回到原点"
+      >
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm-5-9h10v2H7l3.5 3.5-1.42 1.42L4.16 13l4.92-4.92L10.5 9.5 7 13z"/>
+        </svg>
+      </button>
+
       <!-- 自动排版按钮 -->
       <button
         @click="handleAutoLayout"
@@ -342,9 +353,16 @@ function handleViewportChange(newViewport: Viewport) {
   projectStore.updateCurrentViewport(newViewport)
 }
 
+// 回到原点
+function handleResetViewport() {
+  const resetViewport: Viewport = { x: 0, y: 0, zoom: 1 }
+  viewport.value = resetViewport
+  projectStore.updateCurrentViewport(resetViewport)
+}
+
 // 切换到上一页
 function handlePrevPage() {
-  cancelTextEdit() 
+  cancelTextEdit()
   projectStore.goToPrevPage()
   // 切换后更新 viewport
   viewport.value = projectStore.getCurrentViewport()
@@ -1275,6 +1293,26 @@ async function handleDynamicContextDrop(e: DragEvent) {
 
 .back-btn:hover {
   background: var(--border-color);
+}
+
+/* 回到原点按钮 */
+.reset-viewport-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+}
+
+.reset-viewport-btn:hover {
+  background: var(--border-color);
+  color: var(--text-primary);
 }
 
 /* 自动排版按钮 */

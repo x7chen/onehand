@@ -12,6 +12,7 @@
     @dragover="handleDragOver"
     @dragleave="handleDragLeave"
     @drop="handleDrop"
+    @mousedown.right.capture="handleRightMouseDownCapture"
   >
     <!-- 左侧边缘悬浮按钮区域 -->
     <div
@@ -98,7 +99,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import RecordingIndicator from './RecordingIndicator.vue'
 
 const props = defineProps<{
@@ -154,7 +155,9 @@ const dragStart = ref({ x: 0, y: 0 })
 const isLongPressing = ref(false)
 const panThreshold = 30 // 移动超过这个距离才算是拖动，避免误触发录音
 const hasMovedBeyondThreshold = ref(false) // 是否已经超过阈值
-const isMouseDown = ref(false) // 鼠标左键是否按下
+const isMouseDown = ref(false) // 鼠标是否按下
+const isRightMouseDown = ref(false) // 鼠标右键是否按下
+const isSpacePressed = ref(false) // 空格键是否按下
 
 // 屏幕坐标位置的录音指示器（用于显示）
 const screenRecordingPosition = ref({ x: 0, y: 0 })
@@ -173,6 +176,19 @@ watch(() => props.recordingPosition, (newVal) => {
 const transformStyle = computed(() => ({
   transform: `translate(${props.viewport.x}px, ${props.viewport.y}px) scale(${props.viewport.zoom})`
 }))
+
+// 在捕获阶段处理右键，确保即使在元素上也能拖动画布
+function handleRightMouseDownCapture(e: MouseEvent) {
+  if (e.button === 2) {
+    // 阻止事件继续传播，防止被节点捕获
+    e.stopPropagation()
+    
+    isRightMouseDown.value = true
+    isDragging.value = true
+    lastPosition.value = { x: e.clientX, y: e.clientY }
+    dragStart.value = { x: e.clientX, y: e.clientY }
+  }
+}
 
 function handleMouseDown(e: MouseEvent) {
   // Don't handle mousedown if clicking on draggable text content
@@ -193,7 +209,7 @@ function handleMouseDown(e: MouseEvent) {
   }
 
   if (e.button === 0) {
-    // Left click - start panning and check for long press
+    // Left click - check for long press (recording)
     isMouseDown.value = true
     isDragging.value = false
     isLongPressing.value = false
@@ -208,7 +224,7 @@ function handleMouseDown(e: MouseEvent) {
           console.log('[InfiniteCanvas] Already recording, skipping long press')
           return
         }
-        
+
         isLongPressing.value = true
         console.log('[InfiniteCanvas] Long press triggered, isLongPressing:', isLongPressing.value)
         // 计算画布坐标（考虑 viewport 和 zoom）
@@ -228,9 +244,24 @@ function handleMouseDown(e: MouseEvent) {
       }
     }, 500)
   }
+  // Right click is handled in capture phase
 }
 
 function handleMouseMove(e: MouseEvent) {
+  // Handle right mouse button drag (panning)
+  if (isRightMouseDown.value && isDragging.value) {
+    const dx = e.clientX - lastPosition.value.x
+    const dy = e.clientY - lastPosition.value.y
+    lastPosition.value = { x: e.clientX, y: e.clientY }
+
+    emit('viewport-change', {
+      x: props.viewport.x + dx,
+      y: props.viewport.y + dy,
+      zoom: props.viewport.zoom
+    })
+    return
+  }
+
   // Must have mouse button pressed to drag
   if (!isMouseDown.value) return
 
@@ -284,8 +315,17 @@ function handleMouseUp(e: MouseEvent) {
   console.log('[InfiniteCanvas] handleMouseUp', {
     isLongPressing: isLongPressing.value,
     isRecording: props.isRecording,
-    isMouseDown: isMouseDown.value
+    isMouseDown: isMouseDown.value,
+    isRightMouseDown: isRightMouseDown.value,
+    button: e.button
   })
+
+  // Handle right mouse button release
+  if (e.button === 2) {
+    isRightMouseDown.value = false
+    isDragging.value = false
+    return
+  }
 
   isMouseDown.value = false
 
@@ -309,6 +349,7 @@ function handleMouseUp(e: MouseEvent) {
 function handleMouseLeave() {
   // Mouse left canvas - reset everything
   isMouseDown.value = false
+  isRightMouseDown.value = false
 
   if (longPressTimer.value) {
     clearTimeout(longPressTimer.value)
@@ -322,8 +363,18 @@ function handleMouseLeave() {
 function handleWheel(e: WheelEvent) {
   e.preventDefault()
 
-  // Ctrl + 滚轮：缩放画布
-  if (e.ctrlKey) {
+  // Shift + 滚轮：左右滚动画布
+  if (e.shiftKey) {
+    // 在某些系统上，Shift+ 滚轮会产生 deltaX，有些则产生 deltaY
+    const delta = e.deltaX !== 0 ? e.deltaX : e.deltaY
+    emit('viewport-change', {
+      x: props.viewport.x - delta,
+      y: props.viewport.y,
+      zoom: props.viewport.zoom
+    })
+  }
+  // 空格 + 滚轮：缩放画布
+  else if (isSpacePressed.value) {
     const delta = e.deltaY > 0 ? 0.9 : 1.1
     const newZoom = Math.min(Math.max(props.viewport.zoom * delta, 0.1), 5)
 
@@ -438,6 +489,30 @@ function handleDblClick(e: MouseEvent) {
 
   emit('dbl-click', canvasX, canvasY)
 }
+
+// 键盘事件处理
+function handleKeyDown(e: KeyboardEvent) {
+  if (e.code === 'Space' && !e.repeat) {
+    isSpacePressed.value = true
+  }
+}
+
+function handleKeyUp(e: KeyboardEvent) {
+  if (e.code === 'Space') {
+    isSpacePressed.value = false
+  }
+}
+
+// 添加和移除键盘事件监听
+onMounted(() => {
+  window.addEventListener('keydown', handleKeyDown)
+  window.addEventListener('keyup', handleKeyUp)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeyDown)
+  window.removeEventListener('keyup', handleKeyUp)
+})
 
 watch(() => props.viewport, (newViewport) => {
   emit('viewport-change', newViewport)
