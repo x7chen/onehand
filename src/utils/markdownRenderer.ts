@@ -64,6 +64,12 @@ async function initMarked() {
     breaks: false,
   })
 
+  // 重写链接渲染，添加 target="_blank"
+  renderer.link = ({ href, title, text }: Tokens.Link) => {
+    const titleAttr = title ? ` title="${title}"` : ''
+    return `<a href="${href}" target="_blank" rel="noopener noreferrer"${titleAttr}>${text}</a>`
+  }
+
   return marked
 }
 

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron')
+const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron')
 const path = require('path')
 const fs = require('fs')
 
@@ -175,6 +175,23 @@ function createWindow() {
 
   mainWindow.on('closed', () => {
     mainWindow = null
+  })
+
+  // 处理链接点击，使用外部浏览器打开
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    // 所有新窗口都在外部浏览器中打开
+    shell.openExternal(url)
+    return { action: 'deny' }
+  })
+
+  // 处理页面内链接点击
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    // 允许内部导航（如路由跳转）
+    const isInternal = url.startsWith('http://localhost:') || url.startsWith('file://')
+    if (!isInternal) {
+      event.preventDefault()
+      shell.openExternal(url)
+    }
   })
 }
 
