@@ -356,6 +356,18 @@ watch(localEditingText, (newVal) => {
   emit('update:editingText', newVal)
 })
 
+// 监听 isEditing 变化，自动聚焦
+watch(() => props.isEditing, (newVal) => {
+  if (newVal) {
+    nextTick(() => {
+      if (editingTextarea.value) {
+        editingTextarea.value.focus()
+        editingTextarea.value.select()
+      }
+    })
+  }
+}, { immediate: true })
+
 function saveEdit() {
   emit('save-edit', props.node.id, localEditingText.value)
 }
