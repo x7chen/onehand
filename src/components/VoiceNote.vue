@@ -73,7 +73,8 @@
         ref="editingTextarea"
         class="content-edit"
         placeholder="输入内容..."
-        @keydown.enter.exact.prevent="saveEdit"
+        @keydown.ctrl.enter.exact.prevent="saveEdit"
+        @keydown.meta.enter.exact.prevent="saveEdit"
         @keydown.escape="cancelEdit"
       ></textarea>
     </div>
@@ -93,7 +94,8 @@
           ref="transcriptTextarea"
           class="transcript-edit"
           @blur="saveTranscriptEdit"
-          @keydown.enter.exact.prevent="saveTranscriptEdit"
+          @keydown.ctrl.enter.exact.prevent="saveTranscriptEdit"
+          @keydown.meta.enter.exact.prevent="saveTranscriptEdit"
           @keydown.escape="cancelTranscriptEdit"
         ></textarea>
         <div
@@ -140,7 +142,8 @@
           ref="agentTextarea"
           class="agent-edit"
           @blur="saveAgentEdit"
-          @keydown.enter.exact.prevent="saveAgentEdit"
+          @keydown.ctrl.enter.exact.prevent="saveAgentEdit"
+          @keydown.meta.enter.exact.prevent="saveAgentEdit"
           @keydown.escape="cancelAgentEdit"
         ></textarea>
         <div
