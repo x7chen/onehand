@@ -3,7 +3,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, watchEffect } from 'vue'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useTheme } from '@/composables/useTheme'
 
@@ -13,6 +13,25 @@ useTheme(settingsStore)
 // 在应用启动时加载设置
 onMounted(() => {
   settingsStore.loadSettings()
+})
+
+// 监听主题变化，切换 highlight.js 主题
+watchEffect(() => {
+  const isDark = document.documentElement.classList.contains('dark')
+  const lightTheme = document.querySelector('.hljs-theme-light') as HTMLLinkElement
+  const darkTheme = document.querySelector('.hljs-theme-dark') as HTMLLinkElement
+  
+  if (isDark) {
+    // 深色模式：启用深色主题，禁用浅色主题
+    if (lightTheme) lightTheme.disabled = true
+    if (darkTheme) darkTheme.disabled = false
+    console.log('[App] Switched to dark theme for highlight.js')
+  } else {
+    // 浅色模式：启用浅色主题，禁用深色主题
+    if (lightTheme) lightTheme.disabled = false
+    if (darkTheme) darkTheme.disabled = true
+    console.log('[App] Switched to light theme for highlight.js')
+  }
 })
 </script>
 

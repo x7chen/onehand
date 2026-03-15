@@ -10,10 +10,14 @@ function deepMerge<T extends Record<string, any>>(target: T, source: Partial<T>)
   const result = { ...target }
 
   for (const key in source) {
-    if (source[key] !== null && typeof source[key] === 'object' && !Array.isArray(source[key])) {
-      result[key] = deepMerge(target[key] || {}, source[key] as any)
-    } else if (source[key] !== undefined) {
-      result[key] = source[key] as any
+    if (Object.prototype.hasOwnProperty.call(source, key)) {
+      const sourceValue = source[key]
+      if (sourceValue !== null && typeof sourceValue === 'object' && !Array.isArray(sourceValue)) {
+        const targetValue = target[key] as any
+        result[key] = deepMerge(targetValue || {}, sourceValue)
+      } else if (sourceValue !== undefined) {
+        result[key] = sourceValue as any
+      }
     }
   }
 

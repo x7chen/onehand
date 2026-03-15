@@ -67,21 +67,21 @@ export async function renderMarkdown(markdown: string): Promise<string> {
 // 简单的 HTML 净化函数，过滤潜在危险标签和属性，并处理HTML中的空行
 function sanitizeHtml(html: string): string {
   // 移除潜在危险的标签和属性
-  let sanitized = html
-    // 移除 script, iframe, object, embed, form 等标签
-    .replace(/<(script|iframe|object|embed|form)[^>]*>.*?<\/\1>|<(script|iframe|object|embed|form)[^>]*\/?>/gi, '')
-    // 移除 on 开头的事件属性
-    .replace(/\s+on\w+="[^"]*"/gi, '')
-    // 移除 javascript:, vbscript:, data: 等协议
-    .replace(/(javascript|vbscript|data):/gi, '')
-    // 去除HTML标签之间的所有空行和空白字符
-    .replace(/\s*\n\s*\n\s*/g, '\n')  // 替换多个换行符为单个换行符
-    // 处理HTML中的空行 - 合并多个连续的<br>标签为单个<br>
-    .replace(/(<br\s*\/?>\s*){2,}/gi, '<br/>')
-    // 去除标签间的空白字符
-    .replace(/>[\s\n]+</g, '><')
-    // 移除行首和行尾的空白字符
-    .trim();
+  let sanitized = html;
+    // // 移除 script, iframe, object, embed, form 等标签
+    // .replace(/<(script|iframe|object|embed|form)[^>]*>.*?<\/\1>|<(script|iframe|object|embed|form)[^>]*\/?>/gi, '')
+    // // 移除 on 开头的事件属性
+    // .replace(/\s+on\w+="[^"]*"/gi, '')
+    // // 移除 javascript:, vbscript:, data: 等协议
+    // .replace(/(javascript|vbscript|data):/gi, '')
+    // // 去除HTML标签之间的所有空行和空白字符
+    // .replace(/\s*\n\s*\n\s*/g, '\n')  // 替换多个换行符为单个换行符
+    // // 处理HTML中的空行 - 合并多个连续的<br>标签为单个<br>
+    // .replace(/(<br\s*\/?>\s*){2,}/gi, '<br/>')
+    // // 去除标签间的空白字符
+    // .replace(/>[\s\n]+</g, '><')
+    // // 移除行首和行尾的空白字符
+    // .trim();
 
   return sanitized;
 }

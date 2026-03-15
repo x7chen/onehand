@@ -810,10 +810,10 @@ function handleToggleContext(nodeId: string) {
 
 // 节点上下文选择工具栏功能
 function handleSelectAllContext() {
-  if (!projectStore.currentProject) return
-  
+  if (!projectStore.currentProject || !projectStore.currentCanvas) return
+
   // 选中所有已完成转写的节点
-  for (const node of projectStore.currentCanvas?.nodes) {
+  for (const node of projectStore.currentCanvas.nodes) {
     if (node.transcriptStatus === 'done') {
       node.selectedAsContext = true
     }
@@ -822,10 +822,10 @@ function handleSelectAllContext() {
 }
 
 function handleInvertSelection() {
-  if (!projectStore.currentProject) return
-  
+  if (!projectStore.currentProject || !projectStore.currentCanvas) return
+
   // 反选所有已完成转写的节点
-  for (const node of projectStore.currentCanvas?.nodes) {
+  for (const node of projectStore.currentCanvas.nodes) {
     if (node.transcriptStatus === 'done') {
       node.selectedAsContext = !node.selectedAsContext
     }
@@ -834,10 +834,10 @@ function handleInvertSelection() {
 }
 
 function handleClearContextSelection() {
-  if (!projectStore.currentProject) return
-  
+  if (!projectStore.currentProject || !projectStore.currentCanvas) return
+
   // 清空所有节点的选中状态
-  for (const node of projectStore.currentCanvas?.nodes) {
+  for (const node of projectStore.currentCanvas.nodes) {
     node.selectedAsContext = false
   }
   projectStore.saveProject(projectStore.currentProject)
@@ -1070,12 +1070,12 @@ async function handleDropText(x: number, y: number, text: string) {
 }
 
 function clearContextSelection() {
-  if (projectStore.currentProject) {
-    for (const node of projectStore.currentCanvas?.nodes) {
-      node.selectedAsContext = false
-    }
-    projectStore.saveProject(projectStore.currentProject)
+  if (!projectStore.currentProject || !projectStore.currentCanvas) return
+  
+  for (const node of projectStore.currentCanvas.nodes) {
+    node.selectedAsContext = false
   }
+  projectStore.saveProject(projectStore.currentProject)
 }
 
 async function handleAskWithNewRecording() {

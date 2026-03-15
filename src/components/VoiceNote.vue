@@ -1,5 +1,6 @@
 <template>
   <div
+    ref="voiceNoteRef"
     class="voice-note"
     :data-node-id="node.id"
     :class="{ active: isActive }"
@@ -168,8 +169,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick, watch, computed, onMounted, onUnmounted } from 'vue'
-import { formatDuration, renderMarkdown } from '@/utils/helpers'
+import { ref, nextTick, watch, computed, onMounted, onUnmounted, watchEffect } from 'vue'
+import { formatDuration } from '@/utils/helpers'
+import { renderMarkdown, renderMermaidCharts } from '@/utils/markdownRenderer'
 import type { CanvasNode } from '@/types/project'
 
 const props = defineProps<{
@@ -531,29 +533,59 @@ function retryAgent() {
   emit('retry-agent', props.node.id)
 }
 
-function saveTranscriptEdit() {
-  if (!isEditingTranscript.value) return
-  const newTranscript = editTranscript.value.trim()
-  if (newTranscript !== (props.node.transcript || '')) {
-    emit('update-node', props.node.id, { transcript: newTranscript })
+async function saveTranscriptEdit() {
+  console.log('[VoiceNote] saveTranscriptEdit called')
+  if (!isEditingTranscript.value) {
+    console.log('[VoiceNote] Not in edit mode, returning')
+    return
   }
+  const newTranscript = editTranscript.value.trim()
   isEditingTranscript.value = false
+  
+  console.log('[VoiceNote] New transcript:', newTranscript.substring(0, 50))
+  
+  // 重新渲染
+  console.log('[VoiceNote] Rendering transcript...')
+  sanitizedTranscript.value = await renderMarkdown(newTranscript)
+  await nextTick()
+  console.log('[VoiceNote] Rendering mermaid...')
+  await renderMermaid()
+  console.log('[VoiceNote] Transcript edit saved and rendered')
+  
+  // 通知父组件保存
+  emit('update-node', props.node.id, { transcript: newTranscript })
 }
 
 function cancelTranscriptEdit() {
+  console.log('[VoiceNote] cancelTranscriptEdit called')
   isEditingTranscript.value = false
 }
 
-function saveAgentEdit() {
-  if (!isEditingAgent.value) return
-  const newAgentResult = editAgent.value.trim()
-  if (newAgentResult !== (props.node.agentResult || '')) {
-    emit('update-node', props.node.id, { agentResult: newAgentResult })
+async function saveAgentEdit() {
+  console.log('[VoiceNote] saveAgentEdit called')
+  if (!isEditingAgent.value) {
+    console.log('[VoiceNote] Not in edit mode, returning')
+    return
   }
+  const newAgentResult = editAgent.value.trim()
   isEditingAgent.value = false
+  
+  console.log('[VoiceNote] New agent result:', newAgentResult.substring(0, 50))
+  
+  // 重新渲染
+  console.log('[VoiceNote] Rendering agent result...')
+  sanitizedAgentResult.value = await renderMarkdown(newAgentResult)
+  await nextTick()
+  console.log('[VoiceNote] Rendering mermaid...')
+  await renderMermaid()
+  console.log('[VoiceNote] Agent edit saved and rendered')
+  
+  // 通知父组件保存
+  emit('update-node', props.node.id, { agentResult: newAgentResult })
 }
 
 function cancelAgentEdit() {
+  console.log('[VoiceNote] cancelAgentEdit called')
   isEditingAgent.value = false
 }
 
@@ -567,15 +599,47 @@ onUnmounted(() => {
   }
 })
 
-// 当组件挂载时渲染 Markdown
+// 组件引用
+const voiceNoteRef = ref<HTMLElement | null>(null)
+
+// 渲染 Mermaid 图表
+async function renderMermaid() {
+  if (voiceNoteRef.value) {
+    // 等待 DOM 完全更新
+    await nextTick()
+    console.log('[VoiceNote] Calling renderMermaidCharts')
+    const result = await renderMermaidCharts(voiceNoteRef.value)
+    
+    // 如果渲染了 Mermaid 图表，触发重新测量高度
+    if (result && result > 0) {
+      console.log('[VoiceNote] Mermaid rendered, emitting height update')
+      // 通知父组件重新测量高度
+      emit('update-node', props.node.id, {})
+    }
+  } else {
+    console.warn('[VoiceNote] voiceNoteRef is null')
+  }
+}
+
+// 当组件挂载时渲染 Markdown 和 Mermaid
 onMounted(async () => {
+  console.log('[VoiceNote] onMounted, rendering markdown...')
+
   if (props.node.transcript) {
+    console.log('[VoiceNote] Rendering transcript...')
     sanitizedTranscript.value = await renderMarkdown(props.node.transcript)
   }
-  
+
   if (props.node.agentResult) {
+    console.log('[VoiceNote] Rendering agent result...')
     sanitizedAgentResult.value = await renderMarkdown(props.node.agentResult)
   }
+
+  // 渲染 Mermaid 图表 - 等待 DOM 更新
+  await nextTick()
+  await nextTick()
+  console.log('[VoiceNote] onMounted calling renderMermaid')
+  await renderMermaid()
 })
 
 // 监听 transcript 变化，重新渲染 Markdown
@@ -585,11 +649,15 @@ watch(() => props.node.transcript, async (newTranscript) => {
   if (transcriptDebounceTimer) {
     clearTimeout(transcriptDebounceTimer)
   }
-  
+
   if (!isEditingTranscript.value) {
     transcriptDebounceTimer = window.setTimeout(async () => {
       sanitizedTranscript.value = newTranscript ? await renderMarkdown(newTranscript) : ''
       transcriptDebounceTimer = null
+      // 渲染 Mermaid
+      await nextTick()
+      await nextTick()
+      await renderMermaid()
     }, 100)
   }
 })
@@ -608,13 +676,17 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
     if (isEditingAgent.value) {
       editAgent.value = newAgentResult
     }
-    
+
     // 流式模式下，使用短延迟渲染 Markdown 以避免频繁重渲染
     // 在 processing 状态下使用更短的延迟（50ms）以实现流畅的流式效果
     const delay = props.node.agentStatus === 'processing' ? 50 : 100
     renderDebounceTimer = window.setTimeout(async () => {
       sanitizedAgentResult.value = await renderMarkdown(newAgentResult)
       renderDebounceTimer = null
+      // 渲染 Mermaid
+      await nextTick()
+      await nextTick()
+      await renderMermaid()
     }, delay)
   } else {
     sanitizedAgentResult.value = ''
@@ -834,17 +906,58 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
   font-size: 14px;
   line-height: 1.6;
   color: var(--text-primary);
-  white-space: pre-wrap;
+  white-space: normal;
   word-wrap: break-word;
   overflow-wrap: break-word;
-  max-width: calc(500px - 25px); /* 容器宽度减去 padding */
+  max-width: calc(500px - 25px);
   user-select: text;
   cursor: text;
   min-height: 24px;
 }
 
+/* 确保段落有正确的间距 */
+.transcript-content :deep(p) {
+  margin: 0.5em 0;
+  line-height: 1.6;
+}
+
+/* 确保换行符正常工作 */
+.transcript-content :deep(br) {
+  line-height: 1.6;
+}
+
+/* LaTeX 占位符隐藏 */
+.transcript-content :deep(.latex-placeholder) {
+  display: inline;
+  padding: 0;
+  margin: 0;
+}
+
 .transcript-content::selection {
   background: rgba(66, 153, 225, 0.3);
+}
+
+/* 深度选择器，确保样式应用到 v-html 渲染的内容 */
+.transcript-content :deep(h1),
+.transcript-content :deep(h2),
+.transcript-content :deep(h3),
+.transcript-content :deep(h4),
+.transcript-content :deep(h5),
+.transcript-content :deep(h6),
+.transcript-content :deep(p),
+.transcript-content :deep(ul),
+.transcript-content :deep(ol),
+.transcript-content :deep(li),
+.transcript-content :deep(code),
+.transcript-content :deep(pre),
+.transcript-content :deep(blockquote),
+.transcript-content :deep(a),
+.transcript-content :deep(img),
+.transcript-content :deep(.hljs),
+.transcript-content :deep(.katex),
+.transcript-content :deep(.mermaid),
+.transcript-content :deep(.mermaid-wrapper) {
+  all: revert; /* 重置继承的样式 */
 }
 
 .transcript-edit {
@@ -953,17 +1066,58 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
   font-size: 14px;
   line-height: 1.6;
   color: var(--text-primary);
-  white-space: pre-wrap;
+  white-space: normal;
   word-wrap: break-word;
   overflow-wrap: break-word;
-  max-width: calc(500px - 25px); /* 容器宽度减去 padding */
+  max-width: calc(500px - 25px);
   user-select: text;
   cursor: text;
   min-height: 24px;
 }
 
+/* 确保段落有正确的间距 */
+.agent-content :deep(p) {
+  margin: 0.5em 0;
+  line-height: 1.6;
+}
+
+/* 确保换行符正常工作 */
+.agent-content :deep(br) {
+  line-height: 1.6;
+}
+
+/* LaTeX 占位符隐藏 */
+.agent-content :deep(.latex-placeholder) {
+  display: inline;
+  padding: 0;
+  margin: 0;
+}
+
 .agent-content::selection {
   background: rgba(66, 153, 225, 0.3);
+}
+
+/* 深度选择器，确保样式应用到 v-html 渲染的内容 */
+.agent-content :deep(h1),
+.agent-content :deep(h2),
+.agent-content :deep(h3),
+.agent-content :deep(h4),
+.agent-content :deep(h5),
+.agent-content :deep(h6),
+.agent-content :deep(p),
+.agent-content :deep(ul),
+.agent-content :deep(ol),
+.agent-content :deep(li),
+.agent-content :deep(code),
+.agent-content :deep(pre),
+.agent-content :deep(blockquote),
+.agent-content :deep(a),
+.agent-content :deep(img),
+.agent-content :deep(.hljs),
+.agent-content :deep(.katex),
+.agent-content :deep(.mermaid),
+.agent-content :deep(.mermaid-wrapper) {
+  all: revert; /* 重置继承的样式 */
 }
 
 .agent-edit {
@@ -1042,128 +1196,145 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
   color: var(--text-secondary);
 }
 
-/* 添加 Markdown 样式 */
-.transcript-content h1,
-.agent-content h1 {
+/* ========================================
+   Markdown 渲染样式
+   ======================================== */
+/* 标题 */
+.transcript-content :deep(h1),
+.agent-content :deep(h1) {
   font-size: 1.5em;
-  margin: 0.5em 0; /* 进一步减小标题间距 */
+  margin: 0.5em 0;
   font-weight: bold;
 }
 
-.transcript-content h2,
-.agent-content h2 {
+.transcript-content :deep(h2),
+.agent-content :deep(h2) {
   font-size: 1.4em;
-  margin: 0.5em 0; /* 进一步减小标题间距 */
+  margin: 0.5em 0;
   font-weight: bold;
 }
 
-.transcript-content h3,
-.agent-content h3 {
+.transcript-content :deep(h3),
+.agent-content :deep(h3) {
   font-size: 1.3em;
-  margin: 0.4em 0; /* 进一步减小标题间距 */
+  margin: 0.4em 0;
   font-weight: bold;
 }
 
-.transcript-content h4,
-.agent-content h4 {
+.transcript-content :deep(h4),
+.agent-content :deep(h4) {
   font-size: 1.2em;
-  margin: 0.4em 0; /* 进一步减小标题间距 */
+  margin: 0.4em 0;
   font-weight: bold;
 }
 
-.transcript-content h5,
-.agent-content h5 {
+.transcript-content :deep(h5),
+.agent-content :deep(h5) {
   font-size: 1.1em;
-  margin: 0.3em 0; /* 进一步减小标题间距 */
+  margin: 0.3em 0;
   font-weight: bold;
 }
 
-.transcript-content h6,
-.agent-content h6 {
+.transcript-content :deep(h6),
+.agent-content :deep(h6) {
   font-size: 1em;
-  margin: 0.3em 0; /* 进一步减小标题间距 */
+  margin: 0.3em 0;
   font-weight: bold;
 }
 
-.transcript-content p,
-.agent-content p {
-  margin: 0.5em 0; /* 进一步减小段落间距 */
-  line-height: 1.4; /* 进一步调整行高 */
+/* 段落 */
+.transcript-content :deep(p),
+.agent-content :deep(p) {
+  margin: 0.5em 0;
+  line-height: 1.4;
 }
 
-.transcript-content ul,
-.agent-content ul {
+/* 列表 */
+.transcript-content :deep(ul),
+.agent-content :deep(ul) {
   list-style-type: disc;
-  padding-left: 1.5em; /* 减小左边距 */
-  margin: 0.3em 0; /* 进一步减小列表间距 */
+  padding-left: 1.5em;
+  margin: 0.3em 0;
 }
 
-.transcript-content ol,
-.agent-content ol {
+.transcript-content :deep(ol),
+.agent-content :deep(ol) {
   list-style-type: decimal;
-  padding-left: 1.5em; /* 减小左边距 */
-  margin: 0.3em 0; /* 进一步减小列表间距 */
+  padding-left: 1.5em;
+  margin: 0.3em 0;
 }
 
-.transcript-content li,
-.agent-content li {
-  margin: 0.15em 0; /* 进一步减小列表项间距 */
-  padding: 0; /* 移除额外内边距 */
+.transcript-content :deep(li),
+.agent-content :deep(li) {
+  margin: 0.15em 0;
+  padding: 0;
 }
 
-.transcript-content strong,
-.agent-content strong {
+/* 强调 */
+.transcript-content :deep(strong),
+.agent-content :deep(strong) {
   font-weight: bold;
 }
 
-.transcript-content em,
-.agent-content em {
+.transcript-content :deep(em),
+.agent-content :deep(em) {
   font-style: italic;
 }
 
-.transcript-content code,
-.agent-content code {
-  font-family: monospace;
+/* 行内代码 */
+.transcript-content :deep(.inline-code),
+.agent-content :deep(.inline-code) {
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, monospace;
   background-color: rgba(0, 0, 0, 0.05);
-  padding: 0.1em 0.3em;
+  padding: 0.1em 0.4em;
   border-radius: 3px;
   font-size: 0.85em;
+  white-space: nowrap;
 }
 
-.transcript-content pre,
-.agent-content pre {
+:root.dark .transcript-content :deep(.inline-code),
+:root.dark .agent-content :deep(.inline-code) {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* 代码块 */
+.transcript-content :deep(pre),
+.agent-content :deep(pre) {
   background-color: rgba(0, 0, 0, 0.05);
-  padding: 0.5em; /* 减小内边距 */
+  padding: 0.5em;
   border-radius: 4px;
   overflow-x: auto;
-  margin: 0.5em 0; /* 进一步减小代码块间距 */
+  margin: 0.5em 0;
 }
 
-.transcript-content pre code,
-.agent-content pre code {
+.transcript-content :deep(pre code),
+.agent-content :deep(pre code) {
   background: none;
   padding: 0;
   font-size: 1em;
 }
 
-.transcript-content blockquote,
-.agent-content blockquote {
+/* 引用 */
+.transcript-content :deep(blockquote),
+.agent-content :deep(blockquote) {
   border-left: 3px solid #ccc;
-  padding-left: 0.8em; /* 减小左边距 */
-  margin: 0.5em 0; /* 进一步减小区块引用间距 */
-  padding: 0.3em 0 0.3em 0.5em; /* 减小内边距 */
+  padding-left: 0.8em;
+  margin: 0.5em 0;
+  padding: 0.3em 0 0.3em 0.5em;
   font-style: italic;
   color: #666;
 }
 
-.transcript-content a,
-.agent-content a {
+/* 链接 */
+.transcript-content :deep(a),
+.agent-content :deep(a) {
   color: #4299e1;
   text-decoration: underline;
 }
 
-.transcript-content img,
-.agent-content img {
+/* 图片 */
+.transcript-content :deep(img),
+.agent-content :deep(img) {
   max-width: 100%;
   border-radius: 4px;
 }
@@ -1200,5 +1371,219 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
 
 .collapse-btn svg.rotated {
   transform: rotate(180deg);
+}
+
+/* ========================================
+   代码高亮样式 (Highlight.js)
+   ======================================== */
+/* 代码块容器 - 所有 pre 元素都应用背景 */
+.transcript-content :deep(pre),
+.agent-content :deep(pre) {
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: 0.85em;
+  line-height: 1.5;
+  margin: 0.5em 0;
+  padding: 16px;
+  display: block;
+}
+
+/* 浅色模式背景 - 比文本框背景 (#f5f5f5) 稍深 */
+.transcript-content :deep(pre.hljs),
+.agent-content :deep(pre.hljs) {
+  background: #e1e4e8 !important;
+}
+
+/* 深色模式背景 - 比文本框背景 (#2d2d2d) 稍浅 */
+:root.dark .transcript-content :deep(pre.hljs),
+:root.dark .agent-content :deep(pre.hljs) {
+  background: #1e2328 !important;
+}
+
+/* 深色模式下确保代码有颜色 */
+:root.dark .transcript-content :deep(.hljs),
+:root.dark .agent-content :deep(.hljs) {
+  color: #c9d1d9 !important;
+}
+
+:root.dark .transcript-content :deep(.hljs .hljs-attr),
+:root.dark .agent-content :deep(.hljs .hljs-attr) {
+  color: #79c0ff !important;
+}
+
+:root.dark .transcript-content :deep(.hljs .hljs-string),
+:root.dark .agent-content :deep(.hljs .hljs-string) {
+  color: #a5d6ff !important;
+}
+
+:root.dark .transcript-content :deep(.hljs .hljs-keyword),
+:root.dark .agent-content :deep(.hljs .hljs-keyword) {
+  color: #ff7b72 !important;
+}
+
+:root.dark .transcript-content :deep(.hljs .hljs-function),
+:root.dark .agent-content :deep(.hljs .hljs-function) {
+  color: #d2a8ff !important;
+}
+
+:root.dark .transcript-content :deep(.hljs .hljs-number),
+:root.dark .agent-content :deep(.hljs .hljs-number) {
+  color: #79c0ff !important;
+}
+
+:root.dark .transcript-content :deep(.hljs .hljs-comment),
+:root.dark .agent-content :deep(.hljs .hljs-comment) {
+  color: #8b949e !important;
+}
+
+/* Mermaid 的 pre 元素不应用背景色 */
+.transcript-content :deep(pre.mermaid),
+.agent-content :deep(pre.mermaid) {
+  background: transparent !important;
+}
+
+/* 确保 hljs 类应用正确的颜色 - 不覆盖 highlight.js 的颜色 */
+.transcript-content :deep(.hljs),
+.agent-content :deep(.hljs) {
+  background: transparent !important;
+  padding: 0;
+  margin: 0;
+  /* 不设置 color，让 highlight.js 主题控制颜色 */
+}
+
+/* 代码块内的 code 元素 */
+.transcript-content :deep(pre code),
+.agent-content :deep(pre code) {
+  background: transparent !important;
+  padding: 0;
+  border-radius: 0;
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', Consolas, monospace;
+  /* 不设置 color，让 highlight.js 主题控制颜色 */
+  color: inherit;
+}
+
+/* 行内代码 */
+.transcript-content :deep(.inline-code),
+.agent-content :deep(.inline-code) {
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, monospace;
+  background-color: rgba(0, 0, 0, 0.05);
+  padding: 0.1em 0.4em;
+  border-radius: 3px;
+  font-size: 0.85em;
+  white-space: nowrap;
+}
+
+:root.dark .transcript-content :deep(.inline-code),
+:root.dark .agent-content :deep(.inline-code) {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* ========================================
+   LaTeX 公式样式 (KaTeX)
+   ======================================== */
+/* KaTeX 公式容器 - 确保 KaTeX CSS 能正确应用 */
+.transcript-content :deep(.katex),
+.agent-content :deep(.katex) {
+  font-size: 1.1em;
+  margin: 0 0.2em;
+}
+
+.transcript-content :deep(.katex-display),
+.agent-content :deep(.katex-display) {
+  display: block;
+  margin: 0.8em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  text-align: center;
+}
+
+.transcript-content :deep(.katex-display .katex),
+.agent-content :deep(.katex-display .katex) {
+  display: inline-block;
+}
+
+/* 公式错误提示 */
+.transcript-content :deep(.latex-error),
+.agent-content :deep(.latex-error) {
+  display: inline-block;
+  background: rgba(255, 68, 68, 0.1);
+  border: 1px solid rgba(255, 68, 68, 0.3);
+  color: #f44;
+  padding: 0.5em 0.8em;
+  border-radius: 3px;
+  font-size: 0.85em;
+  font-style: italic;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ========================================
+   Mermaid 图表样式
+   ======================================== */
+/* Mermaid 容器 */
+.transcript-content :deep(.mermaid-wrapper),
+.agent-content :deep(.mermaid-wrapper) {
+  margin: 1em 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  overflow-x: auto;
+  text-align: center;
+  display: block;
+}
+
+/* Mermaid 渲染后的 SVG */
+.transcript-content :deep(.mermaid-svg),
+.agent-content :deep(.mermaid-svg) {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+
+/* 确保 SVG 内的元素可见 */
+.transcript-content :deep(.mermaid-svg svg),
+.agent-content :deep(.mermaid-svg svg) {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* Mermaid 元素 */
+.transcript-content :deep(.mermaid),
+.agent-content :deep(.mermaid) {
+  display: inline-block;
+  width: 100%;
+}
+
+.transcript-content :deep(.mermaid svg),
+.agent-content :deep(.mermaid svg) {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Mermaid 渲染后移除背景 */
+.transcript-content :deep(.mermaid-wrapper.mermaid-rendered),
+.agent-content :deep(.mermaid-wrapper.mermaid-rendered) {
+  background: transparent;
+  border: none;
+  padding: 0.5em 0;
+}
+
+/* Mermaid 错误提示 */
+.transcript-content :deep(.mermaid-error),
+.agent-content :deep(.mermaid-error) {
+  display: inline-block;
+  background: rgba(255, 68, 68, 0.1);
+  border: 1px solid rgba(255, 68, 68, 0.3);
+  color: #f44;
+  padding: 0.5em 1em;
+  border-radius: 4px;
+  font-size: 0.85em;
+  font-style: italic;
+  text-align: left;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-width: 100%;
 }
 </style>
