@@ -609,6 +609,8 @@ async function handleTranscription(node: CanvasNode) {
     const project = projectStore.currentProject
     if (!project) return
 
+    if (!node.audioPath) return
+
     const audioPath = `${appDataPath}/projects/${project.id}/${node.audioPath}`
     const result = await window.electronAPI.readFile(audioPath, 'arraybuffer')
 
@@ -616,12 +618,12 @@ async function handleTranscription(node: CanvasNode) {
       // 根据文件扩展名判断 MIME 类型
       const extension = node.audioPath.split('.').pop()?.toLowerCase()
       const mimeType = extension === 'wav' ? 'audio/wav' : 'audio/webm'
-      
+
       console.log('Transcribing audio:', {
         path: audioPath,
         extension,
         mimeType,
-        size: result.data.byteLength
+        size: (result.data as ArrayBuffer).byteLength
       })
       
       const blob = new Blob([result.data], { type: mimeType })
