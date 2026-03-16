@@ -1,0 +1,58 @@
+// 自动排版功能 - 3 栏瀑布式布局
+async function handleAutoLayout() {
+  const nodes = projectStore.currentCanvas?.nodes
+  if (!nodes || nodes.length === 0) return
+
+  // 过滤出 voice-note 和 text-note 类型的节点
+  const layoutNodes = nodes.filter(n => n.type === 'voice-note' || n.type === 'text-note')
+  if (layoutNodes.length === 0) return
+
+  // 按创建时间排序
+  const sortedNodes = [...layoutNodes].sort((a, b) => a.createdAt - b.createdAt)
+
+  // 瀑布式布局参数
+  const COLUMN_COUNT = 3 // 3 栏
+  const NODE_WIDTH = 500 // 节点固定宽度
+  const COLUMN_GAP = 40 // 栏间距
+  const ROW_GAP = 30 // 行间距
+  const START_X = 100 // 起始 X 坐标
+  const START_Y = 100 // 起始 Y 坐标
+
+  // 初始化每列的高度和位置追踪
+  const columnHeights = [0, 0, 0] // 每列的当前高度
+  const columnTops = [START_Y, START_Y, START_Y] // 每列的顶部位置
+
+  // 为每个节点计算位置
+  for (let i = 0; i < sortedNodes.length; i++) {
+    const node = sortedNodes[i]
+    
+    // 选择当前高度最小的列（贪心算法）
+    let minColumn = 0
+    let minHeight = columnHeights[0]
+    for (let col = 1; col < COLUMN_COUNT; col++) {
+      if (columnHeights[col] < minHeight) {
+        minHeight = columnHeights[col]
+        minColumn = col
+      }
+    }
+
+    // 计算当前节点位置
+    const x = START_X + minColumn * (NODE_WIDTH + COLUMN_GAP)
+    const y = columnTops[minColumn]
+
+    // 更新节点位置
+    projectStore.updateNode(node.id, { position: { x, y } })
+
+    // 估算节点高度（使用默认值，因为不再折叠）
+    const estimatedHeight = 250 // 默认估算高度
+
+    // 更新该列的高度和下一个节点的顶部位置
+    columnHeights[minColumn] = y + estimatedHeight + ROW_GAP
+    columnTops[minColumn] = columnHeights[minColumn]
+  }
+
+  // 保存项目
+  if (projectStore.currentProject) {
+    projectStore.saveProject(projectStore.currentProject)
+  }
+}

@@ -79,7 +79,7 @@
       ></textarea>
     </div>
 
-    <div v-else-if="node.transcript" class="transcript-box" @dblclick.stop :class="{ collapsed: needsTranscriptCollapse && !isTranscriptExpanded }">
+    <div v-else-if="node.transcript" class="transcript-box" @dblclick.stop>
       <div v-if="node.transcriptStatus === 'processing'" class="status-text">
         转换中...
       </div>
@@ -101,28 +101,15 @@
         <div
           v-else
           class="transcript-content"
-          :class="{ 'content-collapsed': needsTranscriptCollapse && !isTranscriptExpanded }"
-          :style="(needsTranscriptCollapse && !isTranscriptExpanded) ? { maxHeight: TRANSCRIPT_MAX_HEIGHT + 'px' } : {}"
           draggable="true"
           @dragstart="handleTextDragStart"
           @dblclick.stop="startTranscriptEdit"
           v-html="sanitizedTranscript"
         ></div>
       </div>
-      <!-- 折叠/展开按钮 -->
-      <button
-        v-if="needsTranscriptCollapse"
-        class="collapse-btn"
-        @click.stop="toggleTranscriptExpand"
-        :title="isTranscriptExpanded ? '收起' : '展开'"
-      >
-        <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" :class="{ rotated: isTranscriptExpanded }">
-          <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
-        </svg>
-      </button>
     </div>
 
-    <div v-if="(node.agentResult || node.agentStatus === 'processing') && !isAiResultHidden" class="agent-result-box" @dblclick.stop :class="{ collapsed: needsAgentResultCollapse && !isAgentResultExpanded }">
+    <div v-if="(node.agentResult || node.agentStatus === 'processing') && !isAiResultHidden" class="agent-result-box" @dblclick.stop>
       <div class="agent-header">
         <span class="agent-label">AI 回答</span>
         <span v-if="node.agentStatus === 'processing'" class="streaming-indicator">
@@ -149,25 +136,12 @@
         <div
           v-else
           class="agent-content"
-          :class="{ 'content-collapsed': needsAgentResultCollapse && !isAgentResultExpanded }"
-          :style="(needsAgentResultCollapse && !isAgentResultExpanded) ? { maxHeight: AGENT_RESULT_MAX_HEIGHT + 'px' } : {}"
           draggable="true"
           @dragstart="handleTextDragStart"
           @dblclick.stop="startAgentEdit"
           v-html="sanitizedAgentResult"
         ></div>
       </div>
-      <!-- 折叠/展开按钮 -->
-      <button
-        v-if="needsAgentResultCollapse"
-        class="collapse-btn"
-        @click.stop="toggleAgentResultExpand"
-        :title="isAgentResultExpanded ? '收起' : '展开'"
-      >
-        <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" :class="{ rotated: isAgentResultExpanded }">
-          <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
-        </svg>
-      </button>
     </div>
   </div>
 </template>
@@ -217,95 +191,8 @@ watch(() => props.globalHideAiResult, (newVal) => {
   }
 }, { immediate: true })
 
-// 折叠状态 - 由父组件控制
-const isTranscriptExpanded = ref(false)
-const isAgentResultExpanded = ref(false)
-
-// 折叠高度限制
-const TRANSCRIPT_MAX_HEIGHT = 300
-const AGENT_RESULT_MAX_HEIGHT = 800
-
-// 实际内容高度（用于判断是否显示折叠按钮）
-const transcriptContentHeight = ref(0)
-const agentResultContentHeight = ref(0)
-
-// 是否需要折叠
-const needsTranscriptCollapse = computed(() => transcriptContentHeight.value > TRANSCRIPT_MAX_HEIGHT)
-const needsAgentResultCollapse = computed(() => agentResultContentHeight.value > AGENT_RESULT_MAX_HEIGHT)
-
-// 切换折叠状态
-function toggleTranscriptExpand() {
-  isTranscriptExpanded.value = !isTranscriptExpanded.value
-}
-
-function toggleAgentResultExpand() {
-  isAgentResultExpanded.value = !isAgentResultExpanded.value
-}
-
-// 获取实际内容高度（供父组件调用）
-function measureActualHeight(): { transcriptHeight: number; agentResultHeight: number; totalHeight: number } {
-  // 获取当前DOM元素
-  const voiceNoteEl = document.querySelector(`[data-node-id="${props.node.id}"]`) as HTMLElement
-  if (!voiceNoteEl) {
-    return { transcriptHeight: 0, agentResultHeight: 0, totalHeight: 200 }
-  }
-
-  // 测量transcript-content实际高度
-  const transcriptEl = voiceNoteEl.querySelector('.transcript-content') as HTMLElement
-  if (transcriptEl) {
-    // 临时移除maxHeight限制以获取实际高度
-    const originalMaxHeight = transcriptEl.style.maxHeight
-    transcriptEl.style.maxHeight = 'none'
-    transcriptContentHeight.value = transcriptEl.scrollHeight
-    transcriptEl.style.maxHeight = originalMaxHeight
-  }
-
-  // 测量agent-content实际高度
-  const agentResultEl = voiceNoteEl.querySelector('.agent-content') as HTMLElement
-  if (agentResultEl) {
-    // 临时移除maxHeight限制以获取实际高度
-    const originalMaxHeight = agentResultEl.style.maxHeight
-    agentResultEl.style.maxHeight = 'none'
-    agentResultContentHeight.value = agentResultEl.scrollHeight
-    agentResultEl.style.maxHeight = originalMaxHeight
-  }
-
-  // 计算总高度
-  const headerHeight = 48 // node-header高度
-  const padding = 24 // 上下padding
-  const transcriptBoxPadding = 20 // transcript-box的padding
-  const agentBoxMargin = 8 // agent-result-box的margin-bottom
-
-  // 根据当前折叠状态计算实际显示高度
-  const transcriptDisplayHeight = needsTranscriptCollapse.value && !isTranscriptExpanded.value
-    ? TRANSCRIPT_MAX_HEIGHT
-    : transcriptContentHeight.value
-
-  const agentResultDisplayHeight = needsAgentResultCollapse.value && !isAgentResultExpanded.value
-    ? AGENT_RESULT_MAX_HEIGHT
-    : agentResultContentHeight.value
-
-  const totalHeight = headerHeight + padding + transcriptBoxPadding +
-    (transcriptDisplayHeight > 0 ? transcriptDisplayHeight : 0) +
-    (props.node.agentResult && !isAiResultHidden.value ? agentResultDisplayHeight + agentBoxMargin + transcriptBoxPadding : 0)
-
-  return {
-    transcriptHeight: transcriptContentHeight.value,
-    agentResultHeight: agentResultContentHeight.value,
-    totalHeight
-  }
-}
-
-// 设置折叠状态（供父组件调用）
-function setCollapseState(transcriptCollapsed: boolean, agentResultCollapsed: boolean) {
-  isTranscriptExpanded.value = !transcriptCollapsed
-  isAgentResultExpanded.value = !agentResultCollapsed
-}
-
-// 暴露方法给父组件
+// 暴露属性给父组件
 defineExpose({
-  measureActualHeight,
-  setCollapseState,
   nodeId: computed(() => props.node.id)
 })
 
@@ -897,26 +784,6 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
   position: relative;
 }
 
-.transcript-box.collapsed {
-  padding-bottom: 24px;
-}
-
-.transcript-content.content-collapsed {
-  overflow: hidden;
-  position: relative;
-}
-
-.transcript-content.content-collapsed::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 20px;
-  background: linear-gradient(transparent, rgba(66, 153, 225, 0.15));
-  pointer-events: none;
-}
-
 .transcript-content-wrapper {
   position: relative;
   padding: 8px;
@@ -1009,26 +876,6 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
   padding: 10px;
   border-radius: 4px;
   position: relative;
-}
-
-.agent-result-box.collapsed {
-  padding-bottom: 24px;
-}
-
-.agent-content.content-collapsed {
-  overflow: hidden;
-  position: relative;
-}
-
-.agent-content.content-collapsed::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 20px;
-  background: linear-gradient(transparent, rgba(102, 187, 106, 0.15));
-  pointer-events: none;
 }
 
 .agent-header {
@@ -1360,40 +1207,6 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
 .agent-content :deep(img) {
   max-width: 100%;
   border-radius: 4px;
-}
-
-/* 折叠按钮样式 */
-.collapse-btn {
-  position: absolute;
-  bottom: 2px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 60px;
-  height: 16px;
-  padding: 0;
-  border: none;
-  border-radius: 8px;
-  background: var(--bg-secondary);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-secondary);
-  transition: all 0.2s;
-  box-shadow: 0 1px 3px var(--shadow-color);
-}
-
-.collapse-btn:hover {
-  background: var(--border-color);
-  color: var(--text-primary);
-}
-
-.collapse-btn svg {
-  transition: transform 0.2s;
-}
-
-.collapse-btn svg.rotated {
-  transform: rotate(180deg);
 }
 
 /* ========================================

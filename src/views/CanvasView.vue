@@ -901,119 +901,64 @@ function handleToggleFavorite(nodeId: string) {
   }
 }
 
-// 自动排版功能
+// 自动排版功能 - 3 栏瀑布式布局
 async function handleAutoLayout() {
   const nodes = projectStore.currentCanvas?.nodes
   if (!nodes || nodes.length === 0) return
 
-  // 过滤出voice-note和text-note类型的节点
+  // 过滤出 voice-note 和 text-note 类型的节点
   const layoutNodes = nodes.filter(n => n.type === 'voice-note' || n.type === 'text-note')
   if (layoutNodes.length === 0) return
-
-  // 第一步：预排版 - 展开所有节点并测量实际高度
-  // 先展开所有节点
-  for (const node of layoutNodes) {
-    const voiceNoteRef = voiceNoteRefs.value[node.id]
-    if (voiceNoteRef?.setCollapseState) {
-      voiceNoteRef.setCollapseState(false, false) // 展开所有
-    }
-  }
-
-  // 等待DOM更新
-  await new Promise(resolve => setTimeout(resolve, 100))
-
-  // 测量每个节点的实际高度
-  const nodeDimensions: Record<string, { width: number; height: number; transcriptHeight: number; agentResultHeight: number }> = {}
-
-  for (const node of layoutNodes) {
-    const voiceNoteRef = voiceNoteRefs.value[node.id]
-    if (voiceNoteRef?.measureActualHeight) {
-      const dims = voiceNoteRef.measureActualHeight()
-      nodeDimensions[node.id] = {
-        width: 500, // 固定宽度
-        height: dims.totalHeight,
-        transcriptHeight: dims.transcriptHeight,
-        agentResultHeight: dims.agentResultHeight
-      }
-    } else {
-      // 如果无法测量，使用默认值
-      nodeDimensions[node.id] = {
-        width: 500,
-        height: 200,
-        transcriptHeight: 100,
-        agentResultHeight: 0
-      }
-    }
-  }
-
-  // 第二步：再排版 - 根据高度判断是否需要折叠
-  const TRANSCRIPT_MAX_HEIGHT = 300
-  const AGENT_RESULT_MAX_HEIGHT = 800
-
-  for (const node of layoutNodes) {
-    const dims = nodeDimensions[node.id]
-    const needsTranscriptCollapse = dims.transcriptHeight > TRANSCRIPT_MAX_HEIGHT
-    const needsAgentResultCollapse = dims.agentResultHeight > AGENT_RESULT_MAX_HEIGHT
-
-    const voiceNoteRef = voiceNoteRefs.value[node.id]
-    if (voiceNoteRef?.setCollapseState) {
-      voiceNoteRef.setCollapseState(needsTranscriptCollapse, needsAgentResultCollapse)
-    }
-  }
-
-  // 等待DOM更新以获取折叠后的高度
-  await new Promise(resolve => setTimeout(resolve, 100))
-
-  // 重新测量折叠后的高度
-  for (const node of layoutNodes) {
-    const voiceNoteRef = voiceNoteRefs.value[node.id]
-    if (voiceNoteRef?.measureActualHeight) {
-      const dims = voiceNoteRef.measureActualHeight()
-      nodeDimensions[node.id].height = dims.totalHeight
-    }
-  }
-
-  // 第三步：网格布局计算
-  const NODES_PER_ROW = 10
-  const HORIZONTAL_GAP = 40
-  const VERTICAL_GAP = 80
-  const START_X = 100
-  const START_Y = 100
 
   // 按创建时间排序
   const sortedNodes = [...layoutNodes].sort((a, b) => a.createdAt - b.createdAt)
 
-  // 计算每排位置
-  let currentRow = 0
-  let currentCol = 0
-  let currentRowMaxHeight = 0
-  let currentRowTop = START_Y
+  // 瀑布式布局参数
+  const COLUMN_COUNT = 3 // 3 栏
+  const NODE_WIDTH = 500 // 节点固定宽度
+  const COLUMN_GAP = 10+24 // 栏间距
+  const ROW_GAP = 10 // 行间距
+  const START_X = 0 // 起始 X 坐标
+  const START_Y = 0 // 起始 Y 坐标
 
-  for (let i = 0; i < sortedNodes.length; i++) {
-    const node = sortedNodes[i]
-    const dims = nodeDimensions[node.id]
+  // 测量每个节点的实际高度
+  const nodeHeights: Record<string, number> = {}
+  for (const node of sortedNodes) {
+    const el = document.querySelector(`[data-node-id="${node.id}"]`) as HTMLElement
+    if (el) {
+      nodeHeights[node.id] = el.offsetHeight
+    } else {
+      nodeHeights[node.id] = 200 // 默认高度
+    }
+  }
+
+  // 初始化每列的高度追踪
+  const columnHeights: number[] = Array(COLUMN_COUNT).fill(START_Y)
+
+  // 为每个节点计算位置
+  for (const node of sortedNodes) {
+    // 选择当前高度最小的列（贪心算法）
+    let minColumn = 0
+    let minHeight = columnHeights[0]
+    for (let col = 1; col < COLUMN_COUNT; col++) {
+      if (columnHeights[col] < minHeight) {
+        minHeight = columnHeights[col]
+        minColumn = col
+      }
+    }
 
     // 计算当前节点位置
-    const x = START_X + currentCol * (dims.width + HORIZONTAL_GAP)
-    const y = currentRowTop
+    const x = START_X + minColumn * (NODE_WIDTH + COLUMN_GAP)
+    const y = columnHeights[minColumn]
 
     // 更新节点位置
     projectStore.updateNode(node.id, { position: { x, y } })
 
-    // 更新当前排的最大高度
-    currentRowMaxHeight = Math.max(currentRowMaxHeight, dims.height)
+    // 获取节点实际高度
+    const nodeHeight = nodeHeights[node.id] || 200
 
-    // 移动到下一个位置
-    currentCol++
-
-    // 如果当前排已满，或者这是最后一个节点，开始新排
-    if (currentCol >= NODES_PER_ROW || i === sortedNodes.length - 1) {
-      // 准备下一排
-      currentRow++
-      currentCol = 0
-      currentRowTop += currentRowMaxHeight + VERTICAL_GAP
-      currentRowMaxHeight = 0
-    }
+    // 更新该列的高度
+    columnHeights[minColumn] = y + nodeHeight + ROW_GAP
   }
 
   // 保存项目
