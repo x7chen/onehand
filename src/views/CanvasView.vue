@@ -146,7 +146,7 @@
       :total-pages="projectStore.totalPages"
       @viewport-change="handleViewportChange"
       @long-press="handleLongPress"
-      @long-press-end="handleLongPressEnd"
+      @long-press-end="handleLongPressEnd($event)"
       @click="handleCanvasClick"
       @dbl-click="handleDblClick"
       @drop-text="handleDropText"
@@ -385,9 +385,7 @@ function handleNextPage() {
 }
 
 async function handleLongPress(x: number, y: number) {
-  console.log('🎤 handleLongPress called')
   try {
-    console.log('🎤 Starting audio worklet recorder...')
     await simpleRecorder.start()
     isRecording.value = true
     recordingPosition.value = { x, y }
@@ -397,25 +395,34 @@ async function handleLongPress(x: number, y: number) {
     recordingTimer = window.setInterval(() => {
       recordingDuration.value += 100
     }, 100)
-    
-    console.log('🎤 Recording started at', x, y)
   } catch (error) {
-    console.error('🎤 Failed to start recording:', error)
+    console.error('Failed to start recording:', error)
     isRecording.value = false
     recordingPosition.value = undefined
   }
 }
 
-async function handleLongPressEnd() {
-  console.log('🎤 handleLongPressEnd called, recordingTimer:', !!recordingTimer, 'isRecording:', isRecording.value)
-  
+async function handleLongPressEnd(isCancel = false) {
   if (!recordingTimer) return
 
   clearInterval(recordingTimer)
   recordingTimer = null
 
+  // 如果是取消录音（用户再次点击），则不保存录音数据
+  if (isCancel) {
+    try {
+      await simpleRecorder.stop() // 停止录音但不保存
+    } catch (error) {
+      console.error('Failed to stop recorder:', error)
+    }
+    isRecording.value = false
+    recordingPosition.value = undefined
+    recordingStartPosition.value = null
+    recordingDuration.value = 0
+    return
+  }
+
   try {
-    console.log('🎤 Stopping recorder, duration:', recordingDuration.value, 'ms')
     const audioBlob = await simpleRecorder.stop()
     
     // 根据实际 Blob 类型决定扩展名
@@ -729,8 +736,7 @@ async function handleAgentResponse(nodeId: string, transcript: string) {
       agentStatus: 'done'
     })
 
-    // 清空上下文选择
-    clearContextSelection()
+    // 注意：不清空上下文选择状态，方便用户继续提问
   } catch (error) {
     projectStore.updateNode(nodeId, {
       agentResult: String(error),
