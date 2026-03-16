@@ -616,6 +616,7 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
   box-shadow: 0 2px 8px var(--shadow-color);
   padding: 4px;
   width: var(--node-width);
+  box-sizing: border-box;
   contain: layout style paint;
   transition: box-shadow 0.2s;
 }
