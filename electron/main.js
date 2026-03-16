@@ -306,6 +306,29 @@ ipcMain.handle('mkdir', async (event, dirPath) => {
   }
 })
 
+ipcMain.handle('readdir', async (event, dirPath) => {
+  try {
+    if (!fs.existsSync(dirPath)) {
+      return { success: true, data: [] }
+    }
+    const files = fs.readdirSync(dirPath)
+    return { success: true, data: files }
+  } catch (error) {
+    return { success: false, error: String(error) }
+  }
+})
+
+ipcMain.handle('unlink', async (event, filePath) => {
+  try {
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath)
+    }
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: String(error) }
+  }
+})
+
 ipcMain.handle('read-config', async () => {
   try {
     const configPath = getConfigPath()

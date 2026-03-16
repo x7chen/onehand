@@ -8,6 +8,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAppPath: (name) => ipcRenderer.invoke('get-app-path', name),
   exists: (filePath) => ipcRenderer.invoke('exists', filePath),
   mkdir: (dirPath) => ipcRenderer.invoke('mkdir', dirPath),
+  readdir: (dirPath) => ipcRenderer.invoke('readdir', dirPath),
+  unlink: (filePath) => ipcRenderer.invoke('unlink', filePath),
   setTheme: (isDark) => ipcRenderer.invoke('set-theme', isDark),
   readConfig: () => ipcRenderer.invoke('read-config'),
   saveConfig: (data) => ipcRenderer.invoke('save-config', data),

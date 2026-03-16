@@ -41,6 +41,18 @@ function migrateProject(project: Project): Project {
   return project
 }
 
+// 获取项目目录路径
+async function getProjectsDir(): Promise<string> {
+  const appDataPath = await window.electronAPI.getAppPath('userData')
+  return `${appDataPath}/projects`
+}
+
+// 获取单个项目文件路径
+async function getProjectFilePath(projectId: string): Promise<string> {
+  const projectsDir = await getProjectsDir()
+  return `${projectsDir}/${projectId}.json`
+}
+
 export const useProjectStore = defineStore('project', () => {
   const projects = ref<Project[]>([])
   const currentProject = ref<Project | null>(null)
@@ -75,25 +87,50 @@ export const useProjectStore = defineStore('project', () => {
     return !currentCanvas.value?.nodes || currentCanvas.value.nodes.length === 0
   })
 
+  // 加载所有项目（扫描项目目录）
   async function loadProjects() {
     try {
-      const appDataPath = await window.electronAPI.getAppPath('userData')
-      const projectsDir = `${appDataPath}/projects`
-      const exists = await window.electronAPI.exists(`${projectsDir}/projects.json`)
+      const projectsDir = await getProjectsDir()
+      const exists = await window.electronAPI.exists(projectsDir)
 
-      if (exists) {
-        const result = await window.electronAPI.readFile(`${projectsDir}/projects.json`, 'utf-8')
-        if (result.success && result.data && typeof result.data === 'string') {
-          const loadedProjects = JSON.parse(result.data) as Project[]
-          // 迁移所有项目到多页格式
-          projects.value = loadedProjects.map(migrateProject)
+      if (!exists) {
+        projects.value = []
+        return
+      }
+
+      const result = await window.electronAPI.readdir(projectsDir)
+      if (!result.success || !result.data) {
+        projects.value = []
+        return
+      }
+
+      // 过滤出 .json 文件并加载
+      const jsonFiles = result.data.filter(f => f.endsWith('.json'))
+      const loadedProjects: Project[] = []
+
+      for (const file of jsonFiles) {
+        const filePath = `${projectsDir}/${file}`
+        const fileResult = await window.electronAPI.readFile(filePath, 'utf-8')
+
+        if (fileResult.success && fileResult.data && typeof fileResult.data === 'string') {
+          try {
+            const project = JSON.parse(fileResult.data) as Project
+            loadedProjects.push(migrateProject(project))
+          } catch (parseError) {
+            console.error(`Failed to parse project file ${file}:`, parseError)
+          }
         }
       }
+
+      // 按更新时间排序
+      loadedProjects.sort((a, b) => (b.updatedAt || b.createdAt) - (a.updatedAt || a.createdAt))
+      projects.value = loadedProjects
     } catch (error) {
       console.error('Failed to load projects:', error)
     }
   }
 
+  // 创建新项目
   async function createProject(name: string, context?: ProjectContext) {
     const project: Project = {
       id: Date.now().toString(),
@@ -108,11 +145,24 @@ export const useProjectStore = defineStore('project', () => {
       project.context = context
     }
 
+    // 保存到独立文件
+    await saveProjectFile(project)
+
     projects.value.push(project)
-    await saveProjects()
     return project
   }
 
+  // 保存单个项目到独立文件
+  async function saveProjectFile(project: Project) {
+    try {
+      const filePath = await getProjectFilePath(project.id)
+      await window.electronAPI.saveFile(filePath, JSON.stringify(project, null, 2))
+    } catch (error) {
+      console.error('Failed to save project file:', error)
+    }
+  }
+
+  // 保存项目（更新内存和文件）
   async function saveProject(project: Project) {
     project.updatedAt = Date.now()
     const index = projects.value.findIndex(p => p.id === project.id)
@@ -126,26 +176,22 @@ export const useProjectStore = defineStore('project', () => {
     } else {
       projects.value.push(project)
     }
-    await saveProjects()
+    // 保存到独立文件
+    await saveProjectFile(project)
   }
 
-  async function saveProjects() {
-    try {
-      const appDataPath = await window.electronAPI.getAppPath('userData')
-      const projectsDir = `${appDataPath}/projects`
-      await window.electronAPI.mkdir(projectsDir)
-      await window.electronAPI.saveFile(
-        `${projectsDir}/projects.json`,
-        JSON.stringify(projects.value, null, 2)
-      )
-    } catch (error) {
-      console.error('Failed to save projects:', error)
-    }
-  }
-
+  // 删除项目
   async function deleteProject(projectId: string) {
+    try {
+      // 删除项目文件
+      const filePath = await getProjectFilePath(projectId)
+      await window.electronAPI.unlink(filePath)
+    } catch (error) {
+      console.error('Failed to delete project file:', error)
+    }
+
+    // 从内存中移除
     projects.value = projects.value.filter(p => p.id !== projectId)
-    await saveProjects()
   }
 
   function setCurrentProject(project: Project | null) {

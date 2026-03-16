@@ -27,6 +27,8 @@ interface ElectronAPI {
   getAppPath: (name: string) => Promise<string>
   exists: (filePath: string) => Promise<boolean>
   mkdir: (dirPath: string) => Promise<{ success: boolean; error?: string }>
+  readdir: (dirPath: string) => Promise<{ success: boolean; data?: string[]; error?: string }>
+  unlink: (filePath: string) => Promise<{ success: boolean; error?: string }>
   setTheme: (isDark: boolean) => Promise<{ success: boolean }>
   readConfig: () => Promise<{ success: boolean; data?: string; error?: string }>
   saveConfig: (data: string) => Promise<{ success: boolean; error?: string }>
