@@ -8,6 +8,7 @@
     @mousedown="handleVoiceNoteMouseDown"
     @click="handleClick"
     @mousedown.right.stop
+    @mouseenter="handleMouseEnter"
   >
     <div class="node-header" @mousedown="handleMouseDown" @mousedown.right.stop>
       <input
@@ -345,6 +346,11 @@ function handleClick(e: MouseEvent) {
   emit('activate', props.node.id)
 }
 
+function handleMouseEnter() {
+  // 鼠标移入时激活节点，将其置于顶层
+  emit('activate', props.node.id)
+}
+
 function handleMouseDown(e: MouseEvent) {
   // 右键不处理，让画布捕获用于拖拽
   if (e.button === 2) {
@@ -608,7 +614,7 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
   background: var(--bg-primary);
   border-radius: 8px;
   box-shadow: 0 2px 8px var(--shadow-color);
-  padding: 3px;
+  padding: 4px;
   width: 500px;
   contain: layout style paint;
   transition: box-shadow 0.2s;
@@ -792,7 +798,7 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
   border-left: 3px solid #4299e1;
   padding: 10px;
   border-radius: 4px;
-  margin-bottom: 8px;
+  margin-bottom: 3px;
   position: relative;
 }
 
@@ -809,7 +815,8 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
   white-space: normal;
   word-wrap: break-word;
   overflow-wrap: break-word;
-  max-width: calc(500px - 25px);
+  width: 100%;
+  box-sizing: border-box;
   user-select: text;
   cursor: text;
   min-height: 24px;
@@ -940,7 +947,6 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
   position: relative;
   padding: 8px;
   margin: -8px;
-  width: 500px;
 }
 
 .agent-content {
@@ -950,7 +956,8 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
   white-space: normal;
   word-wrap: break-word;
   overflow-wrap: break-word;
-  max-width: calc(500px - 25px);
+  width: 100%;
+  box-sizing: border-box;
   user-select: text;
   cursor: text;
   min-height: 24px;
@@ -1003,7 +1010,7 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
 /* .hljs 不应用 all: revert，保留 highlight.js 语法高亮颜色 */
 
 .agent-edit {
-  width: calc(500px - 25px);
+  width: 100%;
   min-height: 60px;
   padding: 0;
   border: 2px solid #66bb6a;
@@ -1059,7 +1066,7 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
 }
 
 .content-edit {
-  width: calc(500px - 25px);
+  width: 100%;
   min-height: 80px;
   padding: 12px;
   border: 2px solid #4299e1;
