@@ -3,7 +3,7 @@
     ref="voiceNoteRef"
     class="voice-note"
     :data-node-id="node.id"
-    :class="{ active: isActive }"
+    :class="{ active: isActive, selected: node.selectedAsContext }"
     :style="{ left: node.position.x + 'px', top: node.position.y + 'px', zIndex: isActive ? 1000 : 'auto' }"
     @mousedown="handleVoiceNoteMouseDown"
     @click="handleClick"
@@ -608,7 +608,7 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
   background: var(--bg-primary);
   border-radius: 8px;
   box-shadow: 0 2px 8px var(--shadow-color);
-  padding: 12px;
+  padding: 3px;
   width: 500px;
   contain: layout style paint;
   transition: box-shadow 0.2s;
@@ -625,6 +625,18 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
   margin-bottom: 8px;
   cursor: move;
   user-select: none;
+  opacity: 0;
+  height: 0;
+  margin-bottom: 0;
+  overflow: hidden;
+  transition: opacity 0.2s, height 0.2s, margin-bottom 0.2s;
+}
+
+.voice-note:hover .node-header,
+.voice-note.selected .node-header {
+  opacity: 1;
+  height: 32px;
+  margin-bottom: 8px;
 }
 
 .mic-icon-wrapper {

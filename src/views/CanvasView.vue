@@ -916,8 +916,8 @@ async function handleAutoLayout() {
   // 瀑布式布局参数
   const COLUMN_COUNT = 3 // 3 栏
   const NODE_WIDTH = 500 // 节点固定宽度
-  const COLUMN_GAP = 10+24 // 栏间距
-  const ROW_GAP = 10 // 行间距
+  const COLUMN_GAP = 5+6 // 栏间距
+  const ROW_GAP = 5 // 行间距
   const START_X = 0 // 起始 X 坐标
   const START_Y = 0 // 起始 Y 坐标
 
