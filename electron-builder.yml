@@ -1,5 +1,6 @@
 appId: com.onehand.app
 productName: OneHand
+generateUpdatesFilesForAllChannels: false
 directories:
   output: release
   buildResources: build
