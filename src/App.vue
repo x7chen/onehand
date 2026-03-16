@@ -51,6 +51,7 @@ body {
   --border-color: #e0e0e0;
   --shadow-color: rgba(0, 0, 0, 0.08);
   --grid-line: rgba(0, 0, 0, 0.05);
+  --node-width: 400px;
 }
 
 :root.dark {

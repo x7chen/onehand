@@ -915,11 +915,11 @@ async function handleAutoLayout() {
 
   // 瀑布式布局参数
   const COLUMN_COUNT = 3 // 3 栏
-  const NODE_WIDTH = 500 // 节点固定宽度
-  const COLUMN_GAP = 5+6 // 栏间距
+  const NODE_WIDTH = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--node-width'))
+  const COLUMN_GAP = 5+8 // 栏间距
   const ROW_GAP = 5 // 行间距
-  const START_X = 0 // 起始 X 坐标
-  const START_Y = 0 // 起始 Y 坐标
+  const START_X = 100 // 起始 X 坐标
+  const START_Y = 100 // 起始 Y 坐标
 
   // 测量每个节点的实际高度
   const nodeHeights: Record<string, number> = {}
