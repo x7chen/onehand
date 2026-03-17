@@ -27,7 +27,9 @@ build
 *.njsproj
 *.sln
 *.sw?
+*.pyc
 
+__pycache__/
 projects/
 audio/
 pdfs/
