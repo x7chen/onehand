@@ -82,19 +82,27 @@
             draggable="true"
             @dragstart="handleProjectDragStart($event, project)"
             @dragend="handleProjectDragEnd"
-            @click="openProject(project.id)"
           >
-            <h3>{{ project.name }}</h3>
-            <p class="project-info">
-              {{ (project.canvases?.[0]?.nodes?.length || project.canvas?.nodes?.length || 0) }} 个笔记 · {{ formatDate(project.updatedAt) }}
-              <span v-if="project.context?.staticContextIds?.length || project.context?.dynamicContextId" class="context-indicator">
-                ·
-                <span v-if="project.context.staticContextIds?.length" :title="`静态上下文 (${project.context.staticContextIds.length}个)`">
-                  📄{{ project.context.staticContextIds.length > 1 ? `(${project.context.staticContextIds.length})` : '' }}
+            <div class="project-card-content" @click="openProject(project.id)">
+              <h3>{{ project.name }}</h3>
+              <p class="project-info">
+                {{ (project.canvases?.[0]?.nodes?.length || project.canvas?.nodes?.length || 0) }} 个笔记 · {{ formatDate(project.updatedAt) }}
+                <span v-if="project.context?.staticContextIds?.length || project.context?.dynamicContextId" class="context-indicator">
+                  ·
+                  <span v-if="project.context.staticContextIds?.length" :title="`静态上下文 (${project.context.staticContextIds.length}个)`">
+                    📄{{ project.context.staticContextIds.length > 1 ? `(${project.context.staticContextIds.length})` : '' }}
+                  </span>
+                  <span v-if="project.context.dynamicContextId" title="动态上下文">📝</span>
                 </span>
-                <span v-if="project.context.dynamicContextId" title="动态上下文">📝</span>
-              </span>
-            </p>
+              </p>
+            </div>
+            <div class="project-card-actions">
+              <button class="chat-btn" @click.stop="openChat(project.id)" title="对话模式">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                  <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/>
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -412,6 +420,14 @@ function openProject(projectId: string) {
   }
 }
 
+function openChat(projectId: string) {
+  const project = projectStore.projects.find(p => p.id === projectId)
+  if (project) {
+    projectStore.setCurrentProject(project)
+    router.push(`/chat/${projectId}`)
+  }
+}
+
 function openSettings() {
   router.push('/settings')
 }
@@ -627,11 +643,44 @@ async function confirmDeleteProject() {
   box-shadow: 0 2px 8px var(--shadow-color);
   cursor: pointer;
   transition: transform 0.2s, box-shadow 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .project-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px var(--shadow-color);
+}
+
+.project-card-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.project-card-actions {
+  flex-shrink: 0;
+  display: flex;
+  gap: 8px;
+}
+
+.chat-btn {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.chat-btn:hover {
+  background: #4299e1;
+  color: white;
 }
 
 .project-card h3 {

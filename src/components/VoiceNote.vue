@@ -3,7 +3,7 @@
     ref="voiceNoteRef"
     class="voice-note"
     :data-node-id="node.id"
-    :class="{ active: isActive, selected: node.selectedAsContext }"
+    :class="{ active: isActive, selected: node.selectedAsContext, 'show-header': showHeader }"
     :style="{ left: node.position.x + 'px', top: node.position.y + 'px', zIndex: isActive ? 1000 : 'auto' }"
     @mousedown="handleVoiceNoteMouseDown"
     @click="handleClick"
@@ -162,6 +162,8 @@ const props = defineProps<{
   editingText?: string
   globalHideAiResult?: boolean
   isActive?: boolean
+  activateOnHover?: boolean
+  showHeader?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -349,8 +351,10 @@ function handleClick(e: MouseEvent) {
 }
 
 function handleMouseEnter() {
-  // 鼠标移入时激活节点，将其置于顶层
-  emit('activate', props.node.id)
+  // 鼠标移入时激活节点，将其置于顶层（仅当 activateOnHover 为 true 时）
+  if (props.activateOnHover !== false) {
+    emit('activate', props.node.id)
+  }
 }
 
 function handleMouseDown(e: MouseEvent) {
@@ -642,7 +646,8 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
 }
 
 .voice-note:hover .node-header,
-.voice-note.selected .node-header {
+.voice-note.selected .node-header,
+.voice-note.show-header .node-header {
   opacity: 1;
   height: 32px;
   margin-bottom: 8px;
