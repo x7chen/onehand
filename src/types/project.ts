@@ -32,6 +32,7 @@ export interface Viewport {
 export interface CanvasNode {
   id: string
   type: 'voice-note' | 'text-note' // Added text-note type
+  title?: string // 节点标题
   position: { x: number; y: number }
   audioPath?: string // Optional for text-note
   transcript: string | null

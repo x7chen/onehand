@@ -14,28 +14,41 @@ function createCanvasPage(id?: string): CanvasPage {
   }
 }
 
-// 迁移旧项目数据到多页格式
+// 为节点设置默认的运行时状态
+function ensureNodeRuntimeState(node: CanvasNode): CanvasNode {
+  return {
+    ...node,
+    transcriptStatus: node.transcriptStatus || (node.transcript ? 'done' : 'pending'),
+    agentStatus: node.agentStatus || (node.agentResult ? 'done' : 'pending')
+  }
+}
+
+// 迁移旧项目数据到多页格式并设置运行时状态
 function migrateProject(project: Project): Project {
   // 如果已经有 canvases 数组，不需要迁移
   if (project.canvases && project.canvases.length > 0) {
     if (project.currentCanvasIndex === undefined) {
       project.currentCanvasIndex = 0
     }
-    return project
-  }
-
-  // 迁移旧数据：将单个 canvas 转换为 canvases 数组
-  if (project.canvas) {
+  } else if (project.canvas) {
+    // 迁移旧数据：将单个 canvas 转换为 canvases 数组
     project.canvases = [{
       ...project.canvas,
       createdAt: project.createdAt
     }]
     project.currentCanvasIndex = 0
-    // 保留旧的 canvas 字段以兼容旧版本
   } else {
     // 如果没有 canvas 数据，创建一个默认的
     project.canvases = [createCanvasPage()]
     project.currentCanvasIndex = 0
+  }
+
+  // 为每个节点设置运行时状态
+  if (project.canvases) {
+    project.canvases = project.canvases.map(canvas => ({
+      ...canvas,
+      nodes: canvas.nodes.map(ensureNodeRuntimeState)
+    }))
   }
 
   return project
@@ -91,11 +104,35 @@ export const useProjectStore = defineStore('project', () => {
   async function loadProjects() {
     try {
       const projectsDir = await getProjectsDir()
-      const exists = await window.electronAPI.exists(projectsDir)
+      const dirExists = await window.electronAPI.exists(projectsDir)
 
-      if (!exists) {
+      if (!dirExists) {
         projects.value = []
         return
+      }
+
+      // 检查是否存在旧格式的 projects.json 文件
+      const oldProjectsFile = `${projectsDir}/projects.json`
+      const oldFileExists = await window.electronAPI.exists(oldProjectsFile)
+
+      if (oldFileExists) {
+        // 迁移旧格式数据
+        const oldResult = await window.electronAPI.readFile(oldProjectsFile, 'utf-8')
+        if (oldResult.success && oldResult.data && typeof oldResult.data === 'string') {
+          try {
+            const oldProjects = JSON.parse(oldResult.data) as Project[]
+            // 将每个项目保存到独立文件
+            for (const project of oldProjects) {
+              const migratedProject = migrateProject(project)
+              await saveProjectFile(migratedProject)
+            }
+            // 删除旧文件
+            await window.electronAPI.unlink(oldProjectsFile)
+            console.log(`Migrated ${oldProjects.length} projects from old format`)
+          } catch (parseError) {
+            console.error('Failed to parse old projects.json:', parseError)
+          }
+        }
       }
 
       const result = await window.electronAPI.readdir(projectsDir)
@@ -152,11 +189,25 @@ export const useProjectStore = defineStore('project', () => {
     return project
   }
 
+  // 清理节点中的运行时状态字段（不保存到文件）
+  function cleanNodeForSave(node: CanvasNode): Omit<CanvasNode, 'transcriptStatus' | 'agentStatus'> {
+    const { transcriptStatus, agentStatus, ...rest } = node
+    return rest
+  }
+
   // 保存单个项目到独立文件
   async function saveProjectFile(project: Project) {
     try {
       const filePath = await getProjectFilePath(project.id)
-      await window.electronAPI.saveFile(filePath, JSON.stringify(project, null, 2))
+      // 清理节点中的运行时状态字段
+      const projectToSave = {
+        ...project,
+        canvases: project.canvases?.map(canvas => ({
+          ...canvas,
+          nodes: canvas.nodes.map(cleanNodeForSave)
+        }))
+      }
+      await window.electronAPI.saveFile(filePath, JSON.stringify(projectToSave, null, 2))
     } catch (error) {
       console.error('Failed to save project file:', error)
     }
