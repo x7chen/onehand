@@ -20,6 +20,11 @@ const router = createRouter({
       component: () => import('../views/ChatView.vue')
     },
     {
+      path: '/node-list/:projectId',
+      name: 'node-list',
+      component: () => import('../views/NodeListView.vue')
+    },
+    {
       path: '/settings',
       name: 'settings',
       component: () => import('../views/SettingsView.vue')

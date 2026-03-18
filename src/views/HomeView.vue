@@ -97,7 +97,12 @@
               </p>
             </div>
             <div class="project-card-actions">
-              <button class="chat-btn" @click.stop="openChat(project.id)" title="对话模式">
+              <button class="action-btn node-list-btn" @click.stop="openNodeList(project.id)" title="列表视图">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                  <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
+                </svg>
+              </button>
+              <button class="action-btn chat-btn" @click.stop="openChat(project.id)" title="对话模式">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
                   <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/>
                 </svg>
@@ -428,6 +433,14 @@ function openChat(projectId: string) {
   }
 }
 
+function openNodeList(projectId: string) {
+  const project = projectStore.projects.find(p => p.id === projectId)
+  if (project) {
+    projectStore.setCurrentProject(project)
+    router.push(`/node-list/${projectId}`)
+  }
+}
+
 function openSettings() {
   router.push('/settings')
 }
@@ -664,7 +677,7 @@ async function confirmDeleteProject() {
   gap: 8px;
 }
 
-.chat-btn {
+.action-btn {
   width: 36px;
   height: 36px;
   border: none;
@@ -678,9 +691,16 @@ async function confirmDeleteProject() {
   transition: all 0.2s;
 }
 
+.action-btn:hover {
+  color: white;
+}
+
+.node-list-btn:hover {
+  background: #66bb6a;
+}
+
 .chat-btn:hover {
   background: #4299e1;
-  color: white;
 }
 
 .project-card h3 {
