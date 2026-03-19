@@ -128,32 +128,43 @@
         class="left-panel" 
         :style="{ width: leftPanelWidth + 'px' }"
       >
-        <div class="node-container">
-          <VoiceNote
-            v-for="node in sortedNodes"
-            :key="node.id"
-            :ref="(el) => { if (el) voiceNoteRefs[node.id] = el }"
-            :node="node"
-            :is-playing="playingNodeId === node.id"
-            :is-editing="editingNodeId === node.id"
-            :editing-text="editingText"
-            :global-hide-ai-result="globalHideAiResult"
-            :is-active="selectedNode?.id === node.id"
-            :activate-on-hover="false"
-            :show-header="false"
-            @delete="handleDeleteNode"
-            @play="handlePlayNode"
-            @toggle-context="handleToggleContext"
-            @retry-transcription="handleRetryTranscription"
-            @retry-agent="handleRetryAgent"
-            @regenerate-agent="handleRegenerateAgent"
-            @toggle-favorite="handleToggleFavorite"
-            @update-node="handleUpdateNode"
-            @save-edit="handleSaveEdit"
-            @cancel-edit="handleCancelEdit"
-            @update:editingText="editingText = $event"
-            @activate="handleNodeActivate"
-          />
+        <div ref="nodeContainerRef" class="node-container">
+          <div
+            v-for="col in masonryColumns"
+            :key="col.index"
+            class="masonry-column"
+          >
+            <div
+              v-for="node in col.nodes"
+              :key="node.id"
+              class="masonry-item"
+              :data-node-id="node.id"
+            >
+              <VoiceNote
+                :ref="(el) => { if (el) voiceNoteRefs[node.id] = el }"
+                :node="node"
+                :is-playing="playingNodeId === node.id"
+                :is-editing="editingNodeId === node.id"
+                :editing-text="editingText"
+                :global-hide-ai-result="true"
+                :is-active="selectedNode?.id === node.id"
+                :activate-on-hover="false"
+                :show-header="false"
+                @delete="handleDeleteNode"
+                @play="handlePlayNode"
+                @toggle-context="handleToggleContext"
+                @retry-transcription="handleRetryTranscription"
+                @retry-agent="handleRetryAgent"
+                @regenerate-agent="handleRegenerateAgent"
+                @toggle-favorite="handleToggleFavorite"
+                @update-node="handleUpdateNode"
+                @save-edit="handleSaveEdit"
+                @cancel-edit="handleCancelEdit"
+                @update:editingText="editingText = $event"
+                @activate="handleNodeActivate"
+              />
+            </div>
+          </div>
         </div>
       </div>
 
@@ -205,15 +216,34 @@
           <div class="chat-input-wrapper">
             <textarea
               v-model="chatInput"
-              placeholder="输入问题，将当前节点作为上下文..."
+              :placeholder="selectedNode ? '输入问题，将当前节点作为上下文...' : '输入内容创建新节点...'"
               @keydown.enter.exact.prevent="sendChat"
               @keydown.shift.enter.exact="() => {}"
-              :disabled="isChatting"
+              :disabled="isChatting || isRecording"
             ></textarea>
+            <button
+              @mousedown="handleVoiceButtonDown"
+              @mouseup="handleVoiceButtonUp"
+              @mouseleave="handleVoiceButtonLeave"
+              class="voice-btn"
+              :class="{ recording: isRecording }"
+              :disabled="isChatting"
+              :title="isRecording ? '松开停止录音' : '长按语音输入'"
+            >
+              <svg v-if="!isRecording" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+              </svg>
+              <span v-else class="recording-indicator">
+                <span class="dot"></span>
+                <span class="dot"></span>
+                <span class="dot"></span>
+              </span>
+            </button>
             <button
               @click="sendChat"
               class="send-btn"
-              :disabled="!chatInput.trim() || isChatting || !selectedNode"
+              :disabled="!chatInput.trim() || isChatting || isRecording"
             >
               <svg v-if="!isChatting" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
                 <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
@@ -221,8 +251,16 @@
               <span v-else class="loading-spinner"></span>
             </button>
           </div>
-          <p class="input-hint">按 Enter 发送，Shift+Enter 换行</p>
+          <p class="input-hint">按 Enter 发送，Shift+Enter 换行，长按麦克风语音输入</p>
         </div>
+
+        <!-- 录音指示器 -->
+        <RecordingIndicator
+          v-if="isRecording"
+          :x="recordingPosition.x"
+          :y="recordingPosition.y"
+          :duration="recordingDuration"
+        />
       </div>
     </div>
 
@@ -259,7 +297,10 @@ import { useProjectStore } from '@/stores/projectStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useContextStore } from '@/stores/contextStore'
 import VoiceNote from '@/components/VoiceNote.vue'
+import RecordingIndicator from '@/components/RecordingIndicator.vue'
 import { chatWithLLM, buildFullContextMessages } from '@/composables/useQwenAgent'
+import { createAudioWorkletRecorder } from '@/utils/audioWorkletRecorder'
+import { transcribeWithSherpaOnnx } from '@/composables/useSherpaOnnx'
 import type { CanvasNode } from '@/types/project'
 
 const route = useRoute()
@@ -285,15 +326,15 @@ function startResize(e: MouseEvent) {
 
 function handleResize(e: MouseEvent) {
   if (!isResizing.value) return
-  
+
   const containerRect = document.querySelector('.panel-container')?.getBoundingClientRect()
   if (!containerRect) return
-  
+
   const newWidth = e.clientX - containerRect.left
   // 限制最小和最大宽度
-  const minWidth = 300
+  const minWidth = NODE_MIN_WIDTH + CONTAINER_PADDING * 2 // 250 + 48 = 298
   const maxWidth = containerRect.width - 400 // 右侧面板至少保留 400px
-  
+
   leftPanelWidth.value = Math.max(minWidth, Math.min(maxWidth, newWidth))
 }
 
@@ -307,6 +348,91 @@ function stopResize() {
 
 // 节点引用
 const voiceNoteRefs = ref<Record<string, any>>({})
+
+// 瀑布流容器引用
+const nodeContainerRef = ref<HTMLElement | null>(null)
+
+// 瀑布流布局参数
+const NODE_MIN_WIDTH = 250 // 节点最小宽度
+const COLUMN_GAP = 6 // 列间距
+const CONTAINER_PADDING = 24 // 容器内边距
+
+// 响应式列数计算
+const columnCount = computed(() => {
+  const panelWidth = leftPanelWidth.value - CONTAINER_PADDING * 2
+  // 计算可容纳的列数：(panelWidth - (columns - 1) * gap) / columns >= NODE_MIN_WIDTH
+  // 简化：panelWidth / columns - gap * (columns - 1) / columns >= NODE_MIN_WIDTH
+  for (let cols = 3; cols >= 1; cols--) {
+    const availableWidth = panelWidth - (cols - 1) * COLUMN_GAP
+    const nodeWidth = availableWidth / cols
+    if (nodeWidth >= NODE_MIN_WIDTH) {
+      return cols
+    }
+  }
+  return 1
+})
+
+// 瀑布流列数据
+interface MasonryColumn {
+  index: number
+  nodes: CanvasNode[]
+  height: number
+}
+
+// 节点高度缓存
+const nodeHeights = ref<Record<string, number>>({})
+
+// 瀑布流列计算
+const masonryColumns = computed(() => {
+  const nodes = sortedNodes.value
+  const cols = columnCount.value
+
+  if (!nodes.length) {
+    return Array.from({ length: cols }, (_, i) => ({ index: i, nodes: [], height: 0 }))
+  }
+
+  // 初始化列
+  const columns: MasonryColumn[] = Array.from({ length: cols }, (_, i) => ({
+    index: i,
+    nodes: [] as CanvasNode[],
+    height: 0
+  }))
+
+  // 将节点分配到最短的列
+  for (const node of nodes) {
+    // 找到当前最短的列
+    let minHeight = columns[0].height
+    let minCol = 0
+    for (let i = 1; i < cols; i++) {
+      if (columns[i].height < minHeight) {
+        minHeight = columns[i].height
+        minCol = i
+      }
+    }
+
+    // 将节点添加到最短的列
+    columns[minCol].nodes.push(node)
+    // 使用缓存的高度，如果没有则使用固定估算高度（避免依赖内容导致频繁重算）
+    const height = nodeHeights.value[node.id] || 200
+    columns[minCol].height += height
+  }
+
+  return columns
+})
+
+// 更新节点高度缓存
+function updateNodeHeights() {
+  if (!nodeContainerRef.value) return
+
+  const items = nodeContainerRef.value.querySelectorAll('.masonry-item')
+  items.forEach(item => {
+    const nodeId = item.getAttribute('data-node-id')
+    if (nodeId) {
+      const height = (item as HTMLElement).offsetHeight
+      nodeHeights.value[nodeId] = height
+    }
+  })
+}
 
 // 选中的节点
 const selectedNode = ref<CanvasNode | null>(null)
@@ -328,6 +454,13 @@ const aiAnswerEnabled = ref(true)
 // 对话相关
 const chatInput = ref('')
 const isChatting = ref(false)
+
+// 录音相关
+const simpleRecorder = createAudioWorkletRecorder()
+const isRecording = ref(false)
+const recordingDuration = ref(0)
+const recordingPosition = ref({ x: 0, y: 0 })
+let recordingTimer: number | null = null
 
 // 静态上下文
 const staticContextDisplayRef = ref<HTMLElement | null>(null)
@@ -365,6 +498,11 @@ onMounted(async () => {
 
   // 添加键盘事件监听
   window.addEventListener('keydown', handleKeyDown)
+
+  // 初始化节点高度缓存
+  nextTick(() => {
+    updateNodeHeights()
+  })
 })
 
 onUnmounted(() => {
@@ -420,6 +558,42 @@ function handleNodeActivate(nodeId: string) {
     selectedNode.value = node
   }
 }
+
+// 监听选中节点变化，自动滚动到中央
+watch(selectedNode, (newNode) => {
+  if (!newNode || !leftPanelRef.value) return
+
+  nextTick(() => {
+    const nodeEl = document.querySelector(`[data-node-id="${newNode.id}"]`) as HTMLElement
+    if (!nodeEl) return
+
+    const container = leftPanelRef.value?.querySelector('.node-container') as HTMLElement
+    if (!container) return
+
+    // 计算滚动位置，使节点居中
+    const containerRect = container.getBoundingClientRect()
+    const nodeRect = nodeEl.getBoundingClientRect()
+
+    // 计算节点相对于容器的位置
+    const nodeTop = nodeRect.top - containerRect.top + container.scrollTop
+    const nodeHeight = nodeRect.height
+    const containerHeight = container.clientHeight
+
+    // 滚动到使节点居中的位置
+    const scrollTo = nodeTop - (containerHeight / 2) + (nodeHeight / 2)
+    container.scrollTo({
+      top: scrollTo,
+      behavior: 'smooth'
+    })
+  })
+})
+
+// 监听节点数量变化，更新高度缓存（只在节点增删时触发，不监听内容变化）
+watch(() => sortedNodes.value.length, () => {
+  nextTick(() => {
+    updateNodeHeights()
+  })
+})
 
 // 节点操作
 function handleDeleteNode(nodeId: string) {
@@ -620,7 +794,7 @@ function toggleAiAnswer() {
 
 // 发送对话
 async function sendChat() {
-  if (!chatInput.value.trim() || isChatting.value || !selectedNode.value) return
+  if (!chatInput.value.trim() || isChatting.value) return
 
   const prompt = chatInput.value.trim()
   chatInput.value = ''
@@ -628,66 +802,126 @@ async function sendChat() {
 
   try {
     const settings = settingsStore.settings
-    const node = selectedNode.value
 
-    // 获取已选择的上下文节点
-    const selectedNodes = projectStore.currentCanvas?.nodes.filter(n => n.selectedAsContext && n.id !== node.id) || []
+    // 如果没有选中节点，创建新节点
+    if (!selectedNode.value) {
+      const newNodeId = `node-${Date.now()}`
+      const newNode: CanvasNode = {
+        id: newNodeId,
+        type: 'text-note',
+        title: prompt.slice(0, 50) + (prompt.length > 50 ? '...' : ''),
+        position: { x: 100, y: 100 },
+        transcript: prompt,
+        transcriptStatus: 'done',
+        agentResult: '',
+        agentStatus: 'processing',
+        selectedAsContext: false,
+        createdAt: Date.now()
+      }
 
-    // 合并静态上下文内容
-    const staticContextContent = staticContextFiles.value
-      .map(f => f.content)
-      .filter(c => c && c.trim())
-      .join('\n\n')
+      projectStore.addNode(newNode)
+      selectedNode.value = newNode
 
-    // 构建消息
-    const messages = buildFullContextMessages(
-      selectedNodes.map(n => ({ transcript: n.transcript || '', agentResult: n.agentResult || '' })),
-      prompt,
-      staticContextContent,
-      dynamicContextFile.value?.content
-    )
+      // 获取已选择的上下文节点
+      const selectedNodes = projectStore.currentCanvas?.nodes.filter(n => n.selectedAsContext && n.id !== newNodeId) || []
 
-    let accumulatedContent = ''
+      // 合并静态上下文内容
+      const staticContextContent = staticContextFiles.value
+        .map(f => f.content)
+        .filter(c => c && c.trim())
+        .join('\n\n')
 
-    // 创建新节点显示回答
-    const newNodeId = `node-${Date.now()}`
-    const newNode: CanvasNode = {
-      id: newNodeId,
-      type: 'text-note',
-      title: prompt.slice(0, 50) + (prompt.length > 50 ? '...' : ''),
-      position: {
-        x: node.position.x + 50,
-        y: node.position.y + 300
-      },
-      transcript: prompt,
-      transcriptStatus: 'done',
-      agentResult: '',
-      agentStatus: 'processing',
-      selectedAsContext: false,
-      createdAt: Date.now()
-    }
+      // 构建消息
+      const messages = buildFullContextMessages(
+        selectedNodes.map(n => ({ transcript: n.transcript || '', agentResult: n.agentResult || '' })),
+        prompt,
+        staticContextContent,
+        dynamicContextFile.value?.content
+      )
 
-    projectStore.addNode(newNode)
-    selectedNode.value = newNode
+      let accumulatedContent = ''
 
-    const result = await chatWithLLM(messages, {
-      baseUrl: settings.llm.baseUrl,
-      apiKey: settings.llm.apiKey,
-      model: settings.llm.model
-    }, (chunk) => {
-      accumulatedContent += chunk
+      const result = await chatWithLLM(messages, {
+        baseUrl: settings.llm.baseUrl,
+        apiKey: settings.llm.apiKey,
+        model: settings.llm.model
+      }, (chunk) => {
+        accumulatedContent += chunk
+        projectStore.updateNode(newNodeId, {
+          agentResult: accumulatedContent,
+          agentStatus: 'processing'
+        })
+        selectedNode.value = projectStore.currentCanvas?.nodes.find(n => n.id === newNodeId) || null
+      })
+
       projectStore.updateNode(newNodeId, {
-        agentResult: accumulatedContent,
-        agentStatus: 'processing'
+        agentResult: result,
+        agentStatus: 'done'
       })
       selectedNode.value = projectStore.currentCanvas?.nodes.find(n => n.id === newNodeId) || null
-    })
+    } else {
+      // 有选中节点，正常处理
+      const node = selectedNode.value
 
-    projectStore.updateNode(newNodeId, {
-      agentResult: result,
-      agentStatus: 'done'
-    })
-    selectedNode.value = projectStore.currentCanvas?.nodes.find(n => n.id === newNodeId) || null
+      // 获取已选择的上下文节点
+      const selectedNodes = projectStore.currentCanvas?.nodes.filter(n => n.selectedAsContext && n.id !== node.id) || []
+
+      // 合并静态上下文内容
+      const staticContextContent = staticContextFiles.value
+        .map(f => f.content)
+        .filter(c => c && c.trim())
+        .join('\n\n')
+
+      // 构建消息
+      const messages = buildFullContextMessages(
+        selectedNodes.map(n => ({ transcript: n.transcript || '', agentResult: n.agentResult || '' })),
+        prompt,
+        staticContextContent,
+        dynamicContextFile.value?.content
+      )
+
+      let accumulatedContent = ''
+
+      // 创建新节点显示回答
+      const newNodeId = `node-${Date.now()}`
+      const newNode: CanvasNode = {
+        id: newNodeId,
+        type: 'text-note',
+        title: prompt.slice(0, 50) + (prompt.length > 50 ? '...' : ''),
+        position: {
+          x: node.position.x + 50,
+          y: node.position.y + 300
+        },
+        transcript: prompt,
+        transcriptStatus: 'done',
+        agentResult: '',
+        agentStatus: 'processing',
+        selectedAsContext: false,
+        createdAt: Date.now()
+      }
+
+      projectStore.addNode(newNode)
+      selectedNode.value = newNode
+
+      const result = await chatWithLLM(messages, {
+        baseUrl: settings.llm.baseUrl,
+        apiKey: settings.llm.apiKey,
+        model: settings.llm.model
+      }, (chunk) => {
+        accumulatedContent += chunk
+        projectStore.updateNode(newNodeId, {
+          agentResult: accumulatedContent,
+          agentStatus: 'processing'
+        })
+        selectedNode.value = projectStore.currentCanvas?.nodes.find(n => n.id === newNodeId) || null
+      })
+
+      projectStore.updateNode(newNodeId, {
+        agentResult: result,
+        agentStatus: 'done'
+      })
+      selectedNode.value = projectStore.currentCanvas?.nodes.find(n => n.id === newNodeId) || null
+    }
 
   } catch (error) {
     console.error('Chat failed:', error)
@@ -699,6 +933,226 @@ async function sendChat() {
     }
   } finally {
     isChatting.value = false
+  }
+}
+
+// 录音按钮按下
+async function handleVoiceButtonDown(e: MouseEvent) {
+  if (isChatting.value || isRecording.value) return
+
+  try {
+    await simpleRecorder.start()
+    isRecording.value = true
+    recordingDuration.value = 0
+
+    // 设置录音指示器位置（在按钮上方）
+    const target = e.target as HTMLElement
+    const rect = target.getBoundingClientRect()
+    recordingPosition.value = {
+      x: rect.left + rect.width / 2,
+      y: rect.top
+    }
+
+    recordingTimer = window.setInterval(() => {
+      recordingDuration.value += 100
+    }, 100)
+  } catch (error) {
+    console.error('Failed to start recording:', error)
+    isRecording.value = false
+  }
+}
+
+// 录音按钮松开
+async function handleVoiceButtonUp() {
+  if (!isRecording.value) return
+
+  await stopVoiceRecording()
+}
+
+// 录音按钮离开（取消录音）
+async function handleVoiceButtonLeave() {
+  if (!isRecording.value) return
+
+  // 取消录音
+  try {
+    await simpleRecorder.stop()
+  } catch (error) {
+    console.error('Failed to cancel recording:', error)
+  }
+
+  isRecording.value = false
+  if (recordingTimer) {
+    clearInterval(recordingTimer)
+    recordingTimer = null
+  }
+  recordingDuration.value = 0
+}
+
+// 停止语音录音
+async function stopVoiceRecording() {
+  if (!isRecording.value) return
+
+  try {
+    const audioBlob = await simpleRecorder.stop()
+    isRecording.value = false
+
+    if (recordingTimer) {
+      clearInterval(recordingTimer)
+      recordingTimer = null
+    }
+
+    // 创建语音节点
+    await createVoiceNode(audioBlob, recordingDuration.value)
+  } catch (error) {
+    console.error('Failed to stop recording:', error)
+    isRecording.value = false
+    if (recordingTimer) {
+      clearInterval(recordingTimer)
+      recordingTimer = null
+    }
+  }
+}
+
+// 创建语音节点
+async function createVoiceNode(audioBlob: Blob, duration: number) {
+  const extension = audioBlob.type === 'audio/wav' ? 'wav' : 'webm'
+  const nodeId = `node-${Date.now()}`
+  const audioPath = `audio/${nodeId}.${extension}`
+
+  const appDataPath = await window.electronAPI.getAppPath('userData')
+  const project = projectStore.currentProject
+  if (!project) return
+
+  const projectDir = `${appDataPath}/projects/${project.id}`
+  await window.electronAPI.mkdir(`${projectDir}/audio`)
+
+  const arrayBuffer = await audioBlob.arrayBuffer()
+  await window.electronAPI.saveFileBuffer(`${projectDir}/${audioPath}`, arrayBuffer)
+
+  const node: CanvasNode = {
+    id: nodeId,
+    type: 'voice-note',
+    position: { x: 100, y: 100 },
+    audioPath,
+    transcript: null,
+    transcriptStatus: 'pending',
+    agentResult: null,
+    agentStatus: 'pending',
+    selectedAsContext: false,
+    createdAt: Date.now(),
+    duration
+  }
+
+  projectStore.addNode(node)
+  selectedNode.value = node
+
+  // 开始转写
+  await handleTranscription(node)
+}
+
+// 处理语音转写
+async function handleTranscription(node: CanvasNode) {
+  const settings = settingsStore.settings
+
+  if (!settingsStore.isLoaded) {
+    await settingsStore.loadSettings()
+  }
+
+  if (!settings.stt.sherpaOnnx) {
+    projectStore.updateNode(node.id, {
+      transcript: '语音识别配置错误，请检查设置',
+      transcriptStatus: 'error'
+    })
+    return
+  }
+
+  try {
+    projectStore.updateNode(node.id, { transcriptStatus: 'processing' })
+
+    const appDataPath = await window.electronAPI.getAppPath('userData')
+    const project = projectStore.currentProject
+    if (!project) return
+
+    if (!node.audioPath) return
+
+    const audioPath = `${appDataPath}/projects/${project.id}/${node.audioPath}`
+    const result = await window.electronAPI.readFile(audioPath, 'arraybuffer')
+
+    if (result.success && result.data) {
+      const extension = node.audioPath.split('.').pop()?.toLowerCase()
+      const mimeType = extension === 'wav' ? 'audio/wav' : 'audio/webm'
+
+      const blob = new Blob([result.data], { type: mimeType })
+      const transcriptResult = await transcribeWithSherpaOnnx(blob, settings.stt.sherpaOnnx)
+
+      if (transcriptResult.success && transcriptResult.text) {
+        projectStore.updateNode(node.id, {
+          transcript: transcriptResult.text,
+          transcriptStatus: 'done'
+        })
+
+        // 转写完成后自动触发 AI 回答
+        if (aiAnswerEnabled.value) {
+          await handleAgentResponseForVoice(node.id, transcriptResult.text)
+        }
+      } else {
+        throw new Error(transcriptResult.error || '转写失败')
+      }
+    }
+  } catch (error) {
+    projectStore.updateNode(node.id, {
+      transcript: String(error),
+      transcriptStatus: 'error'
+    })
+  }
+}
+
+// 语音节点的 AI 回答
+async function handleAgentResponseForVoice(nodeId: string, transcript: string) {
+  const settings = settingsStore.settings
+
+  try {
+    projectStore.updateNode(nodeId, { agentStatus: 'processing' })
+
+    // 获取已选择的上下文节点
+    const selectedNodes = projectStore.currentCanvas?.nodes.filter(n => n.selectedAsContext && n.id !== nodeId) || []
+
+    // 合并静态上下文内容
+    const staticContextContent = staticContextFiles.value
+      .map(f => f.content)
+      .filter(c => c && c.trim())
+      .join('\n\n')
+
+    const messages = buildFullContextMessages(
+      selectedNodes.map(n => ({ transcript: n.transcript || '', agentResult: n.agentResult || '' })),
+      transcript,
+      staticContextContent,
+      dynamicContextFile.value?.content
+    )
+
+    let accumulatedContent = ''
+
+    const result = await chatWithLLM(messages, {
+      baseUrl: settings.llm.baseUrl,
+      apiKey: settings.llm.apiKey,
+      model: settings.llm.model
+    }, (chunk) => {
+      accumulatedContent += chunk
+      projectStore.updateNode(nodeId, {
+        agentResult: accumulatedContent,
+        agentStatus: 'processing'
+      })
+    })
+
+    projectStore.updateNode(nodeId, {
+      agentResult: result,
+      agentStatus: 'done'
+    })
+  } catch (error) {
+    projectStore.updateNode(nodeId, {
+      agentResult: String(error),
+      agentStatus: 'error'
+    })
   }
 }
 
@@ -752,13 +1206,13 @@ async function sendAgentRequest(nodeId: string, transcript: string) {
   overflow: hidden;
 }
 
-/* 左侧面板 - 3 栏瀑布流节点容器 */
+/* 左侧面板 - 响应式瀑布流节点容器 */
 .left-panel {
   display: flex;
   flex-direction: column;
   overflow: hidden;
   background: var(--bg-secondary);
-  min-width: 300px;
+  min-width: 298px; /* NODE_MIN_WIDTH + CONTAINER_PADDING * 2 */
   flex-shrink: 0;
 }
 
@@ -766,21 +1220,31 @@ async function sendAgentRequest(nodeId: string, transcript: string) {
   flex: 1;
   overflow-y: auto;
   padding: 24px;
-  /* CSS 多列布局实现瀑布流 */
-  column-count: 3;
-  column-gap: 6px;
+  display: flex;
+  gap: 6px;
 }
 
-/* 确保节点在容器中相对定位，不被分割 */
-.node-container :deep(.voice-note) {
+/* 瀑布流列 */
+.masonry-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0; /* 允许列收缩 */
+}
+
+/* 瀑布流项 */
+.masonry-item {
+  width: 100%;
+}
+
+/* 确保节点在容器中相对定位 */
+.masonry-item :deep(.voice-note) {
   position: relative !important;
   left: 0 !important;
   top: 0 !important;
   margin: 0;
-  margin-bottom: 6px;
   width: 100% !important;
-  break-inside: avoid; /* 防止节点被分割到两列 */
-  display: inline-block; /* 配合 break-inside 使用 */
 }
 
 /* 可拖动分隔线 */
@@ -1144,6 +1608,78 @@ async function sendAgentRequest(nodeId: string, transcript: string) {
 .chat-input-wrapper textarea:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* 语音按钮 */
+.voice-btn {
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 12px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.voice-btn:hover:not(:disabled) {
+  background: var(--border-color);
+  color: var(--text-primary);
+}
+
+.voice-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.voice-btn.recording {
+  background: #f44;
+  color: white;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.recording-indicator {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+}
+
+.recording-indicator .dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: white;
+  animation: bounce 1.4s infinite ease-in-out both;
+}
+
+.recording-indicator .dot:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.recording-indicator .dot:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+@keyframes bounce {
+  0%, 80%, 100% {
+    transform: scale(0);
+  }
+  40% {
+    transform: scale(1);
+  }
 }
 
 .send-btn {

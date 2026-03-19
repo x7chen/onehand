@@ -628,7 +628,8 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
 }
 
 .voice-note.active {
-  box-shadow: 0 4px 20px rgba(66, 153, 225, 0.4), 0 0 0 2px #4299e1;
+  box-shadow: 0 4px 20px rgba(66, 153, 225, 0.4), 0 0 0 3px #4299e1;
+  border: 1px solid #4299e1;
 }
 
 .node-header {
@@ -645,7 +646,6 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
   transition: opacity 0.2s, height 0.2s, margin-bottom 0.2s;
 }
 
-.voice-note:hover .node-header,
 .voice-note.selected .node-header,
 .voice-note.show-header .node-header {
   opacity: 1;

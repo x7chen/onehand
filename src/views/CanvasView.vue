@@ -164,6 +164,7 @@
           :editing-text="editingText"
           :global-hide-ai-result="globalHideAiResult"
           :is-active="activeNodeId === node.id"
+          :show-header="activeNodeId === node.id"
           @delete="handleDeleteNode"
           @play="handlePlayNode"
           @toggle-context="handleToggleContext"

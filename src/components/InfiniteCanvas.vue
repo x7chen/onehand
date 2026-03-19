@@ -512,6 +512,11 @@ onUnmounted(() => {
 watch(() => props.viewport, (newViewport) => {
   emit('viewport-change', newViewport)
 }, { deep: true })
+
+// 暴露给父组件
+defineExpose({
+  canvasRef
+})
 </script>
 
 <style scoped>

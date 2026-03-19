@@ -145,7 +145,7 @@
     <!-- 主内容区域 -->
     <div class="panel-container">
       <!-- 左侧面板：画布视图 -->
-      <div class="left-panel">
+      <div class="left-panel" :style="{ width: leftPanelWidth + 'px' }">
         <InfiniteCanvas
           ref="infiniteCanvasRef"
           :viewport="projectStore.getCurrentViewport()"
@@ -181,6 +181,14 @@
             />
           </template>
         </InfiniteCanvas>
+      </div>
+
+      <!-- 可拖动分隔线 -->
+      <div
+        class="panel-resizer"
+        @mousedown="startResize"
+      >
+        <div class="resizer-line"></div>
       </div>
 
       <!-- 右侧面板：聊天栏 -->
@@ -271,7 +279,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useProjectStore } from '@/stores/projectStore'
 import { useSettingsStore } from '@/stores/settingsStore'
@@ -291,6 +299,40 @@ const contextStore = useContextStore()
 // 画布相关
 const infiniteCanvasRef = ref<any>(null)
 const voiceNoteRefs = ref<Record<string, any>>({})
+
+// 面板宽度相关
+const leftPanelWidth = ref(600) // 默认左侧面板宽度
+const isResizing = ref(false)
+
+function startResize(e: MouseEvent) {
+  isResizing.value = true
+  document.addEventListener('mousemove', handleResize)
+  document.addEventListener('mouseup', stopResize)
+  document.body.style.cursor = 'col-resize'
+  document.body.style.userSelect = 'none'
+}
+
+function handleResize(e: MouseEvent) {
+  if (!isResizing.value) return
+
+  const containerRect = document.querySelector('.panel-container')?.getBoundingClientRect()
+  if (!containerRect) return
+
+  const newWidth = e.clientX - containerRect.left
+  // 限制最小和最大宽度
+  const minWidth = 300
+  const maxWidth = containerRect.width - 400 // 右侧面板至少保留 400px
+
+  leftPanelWidth.value = Math.max(minWidth, Math.min(maxWidth, newWidth))
+}
+
+function stopResize() {
+  isResizing.value = false
+  document.removeEventListener('mousemove', handleResize)
+  document.removeEventListener('mouseup', stopResize)
+  document.body.style.cursor = ''
+  document.body.style.userSelect = ''
+}
 
 // 选中的节点
 const selectedNode = ref<CanvasNode | null>(null)
@@ -356,6 +398,9 @@ onMounted(async () => {
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyDown)
+  // 清理拖拽事件
+  document.removeEventListener('mousemove', handleResize)
+  document.removeEventListener('mouseup', stopResize)
 })
 
 // 键盘事件处理 - 左右键切换节点
@@ -406,6 +451,63 @@ function handleNodeActivate(nodeId: string) {
   if (node) {
     selectedNode.value = node
   }
+}
+
+// 监听选中节点变化，移动画布视口到节点位置
+watch(selectedNode, (newNode) => {
+  if (!newNode) return
+
+  nextTick(() => {
+    if (!infiniteCanvasRef.value) return
+
+    // 获取画布容器尺寸
+    const canvasEl = infiniteCanvasRef.value.canvasRef
+    if (!canvasEl) return
+
+    const rect = canvasEl.getBoundingClientRect()
+    const centerX = rect.width / 2
+    const centerY = rect.height / 2
+
+    // 计算新的视口位置，使节点居中
+    const zoom = projectStore.getCurrentViewport().zoom
+    const targetX = centerX - newNode.position.x * zoom
+    const targetY = centerY - newNode.position.y * zoom
+
+    // 平滑动画移动视口
+    animateViewportTo(targetX, targetY, zoom)
+  })
+})
+
+// 平滑动画移动视口
+function animateViewportTo(targetX: number, targetY: number, zoom: number) {
+  const currentViewport = projectStore.getCurrentViewport()
+  const startX = currentViewport.x
+  const startY = currentViewport.y
+  const duration = 300 // 动画持续时间（毫秒）
+  const startTime = performance.now()
+
+  function animate(currentTime: number) {
+    const elapsed = currentTime - startTime
+    const progress = Math.min(elapsed / duration, 1)
+
+    // 使用 easeOutCubic 缓动函数
+    const easeProgress = 1 - Math.pow(1 - progress, 3)
+
+    const newX = startX + (targetX - startX) * easeProgress
+    const newY = startY + (targetY - startY) * easeProgress
+
+    projectStore.updateCurrentViewport({
+      x: newX,
+      y: newY,
+      zoom
+    })
+
+    if (progress < 1) {
+      requestAnimationFrame(animate)
+    }
+  }
+
+  requestAnimationFrame(animate)
 }
 
 // 画布点击
@@ -835,10 +937,39 @@ async function sendAgentRequest(nodeId: string, transcript: string) {
 
 /* 左侧面板 - 画布 */
 .left-panel {
-  flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  flex-shrink: 0;
+  min-width: 300px;
+}
+
+/* 可拖动分隔线 */
+.panel-resizer {
+  width: 8px;
+  background: var(--bg-primary);
+  cursor: col-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+
+.panel-resizer:hover {
+  background: var(--border-color);
+}
+
+.resizer-line {
+  width: 2px;
+  height: 40px;
+  background: var(--border-color);
+  border-radius: 1px;
+  transition: background 0.2s;
+}
+
+.panel-resizer:hover .resizer-line {
+  background: #4299e1;
 }
 
 .canvas-header {
@@ -1074,9 +1205,8 @@ async function sendAgentRequest(nodeId: string, transcript: string) {
 
 /* 右侧面板 - 聊天栏 */
 .right-panel {
-  width: 650px;
-  min-width: 600px;
-  max-width: 1000px;
+  flex: 1;
+  min-width: 400px;
   display: flex;
   flex-direction: column;
   background: var(--bg-primary);
