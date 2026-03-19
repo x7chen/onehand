@@ -96,20 +96,17 @@
       
       <!-- 动态上下文显示（右侧） -->
       <div class="context-toolbar-group">
-        <button @click="handleSelectAllContext" class="context-action-btn" title="全选所有已完成节点">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+        <button @click="handleToggleAllContext" class="context-action-btn" :title="isAllContextSelected ? '清空选择' : '全选所有已完成节点'">
+          <svg v-if="!isAllContextSelected" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
             <path d="M19 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.11 0 2-.9 2-2V5c0-1.1-.89-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+          </svg>
+          <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
           </svg>
         </button>
         <button @click="handleInvertSelection" class="context-action-btn" title="反选所有已完成节点">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-            <path d="M7 19V5h2v14H7zm4 0V5h2v14h-2zm4 0V5h2v14h-2z"/>
-            <path d="M5 19V5H3v14h2zm16 0V5h-2v14h2z"/>
-          </svg>
-        </button>
-        <button @click="handleClearContextSelection" class="context-action-btn" title="清空选择">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+            <path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z"/>
           </svg>
         </button>
       </div>
@@ -270,6 +267,16 @@ const aiAnswerEnabled = ref(true)
 
 const selectedContextCount = computed(() =>
   projectStore.currentCanvas?.nodes.filter(n => n.selectedAsContext).length || 0
+)
+
+// 已完成节点数量
+const completedNodesCount = computed(() =>
+  projectStore.currentCanvas?.nodes.filter(n => n.transcriptStatus === 'done').length || 0
+)
+
+// 是否全选
+const isAllContextSelected = computed(() =>
+  completedNodesCount.value > 0 && selectedContextCount.value === completedNodesCount.value
 )
 
 // 静态上下文（支持多选）
@@ -726,12 +733,14 @@ async function handleAgentResponse(nodeId: string, transcript: string) {
       model: settings.llm.model
     }, (chunk) => {
       accumulatedContent += chunk
+      // 流式更新时跳过保存，避免频繁IO导致卡顿
       projectStore.updateNode(nodeId, {
         agentResult: accumulatedContent,
         agentStatus: 'processing'
-      })
+      }, true)
     })
 
+    // 最终完成时保存
     projectStore.updateNode(nodeId, {
       agentResult: result,
       agentStatus: 'done'
@@ -836,13 +845,20 @@ function handleToggleContext(nodeId: string) {
 }
 
 // 节点上下文选择工具栏功能
-function handleSelectAllContext() {
+function handleToggleAllContext() {
   if (!projectStore.currentProject || !projectStore.currentCanvas) return
 
-  // 选中所有已完成转写的节点
-  for (const node of projectStore.currentCanvas.nodes) {
-    if (node.transcriptStatus === 'done') {
-      node.selectedAsContext = true
+  if (isAllContextSelected.value) {
+    // 清空选择
+    for (const node of projectStore.currentCanvas.nodes) {
+      node.selectedAsContext = false
+    }
+  } else {
+    // 全选
+    for (const node of projectStore.currentCanvas.nodes) {
+      if (node.transcriptStatus === 'done') {
+        node.selectedAsContext = true
+      }
     }
   }
   projectStore.saveProject(projectStore.currentProject)
@@ -856,16 +872,6 @@ function handleInvertSelection() {
     if (node.transcriptStatus === 'done') {
       node.selectedAsContext = !node.selectedAsContext
     }
-  }
-  projectStore.saveProject(projectStore.currentProject)
-}
-
-function handleClearContextSelection() {
-  if (!projectStore.currentProject || !projectStore.currentCanvas) return
-
-  // 清空所有节点的选中状态
-  for (const node of projectStore.currentCanvas.nodes) {
-    node.selectedAsContext = false
   }
   projectStore.saveProject(projectStore.currentProject)
 }

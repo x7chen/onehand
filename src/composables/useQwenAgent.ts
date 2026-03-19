@@ -88,7 +88,7 @@ export function buildFullContextMessages(
   if (staticContext && staticContext.trim()) {
     messages.push({
       role: 'user',
-      content: `【静态上下文】\n${staticContext}`
+      content: staticContext
     })
   }
 
@@ -96,7 +96,7 @@ export function buildFullContextMessages(
   if (dynamicContext && dynamicContext.trim()) {
     messages.push({
       role: 'user',
-      content: `【动态上下文】\n${dynamicContext}`
+      content: dynamicContext
     })
   }
 
@@ -104,8 +104,8 @@ export function buildFullContextMessages(
   for (const node of contextNodes) {
     if (node.transcript && node.agentResult) {
       messages.push(
-        { role: 'user', content: `【上下文记录】${node.transcript}` },
-        { role: 'assistant', content: `【AI 回答】${node.agentResult}` }
+        { role: 'user', content: node.transcript },
+        { role: 'assistant', content: node.agentResult }
       )
     }
   }
@@ -113,7 +113,7 @@ export function buildFullContextMessages(
   // 4. 当前问题
   messages.push({
     role: 'user',
-    content: `【当前问题】${currentTranscript}`
+    content: currentTranscript
   })
 
   return [systemMessage, ...messages]

@@ -2,6 +2,7 @@ export interface Settings {
   llm: LLMSettings
   stt: STTSettings
   general: GeneralSettings
+  view: ViewSettings
 }
 
 export interface LLMSettings {
@@ -29,6 +30,12 @@ export interface GeneralSettings {
   theme: 'dark' | 'light' | 'system'
 }
 
+export interface ViewSettings {
+  // 面板宽度比例（左侧面板占比，0-1）
+  chatViewLeftPanelRatio: number
+  nodeListViewLeftPanelRatio: number
+}
+
 export const defaultSettings: Settings = {
   llm: {
     provider: 'custom',
@@ -51,5 +58,10 @@ export const defaultSettings: Settings = {
     audioFormat: 'wav', // 默认使用 WAV 格式，避免 decodeAudioData 问题
     language: 'system',
     theme: 'system'
+  },
+  view: {
+    // 默认 3:2 比例，左侧占 60%
+    chatViewLeftPanelRatio: 0.6,
+    nodeListViewLeftPanelRatio: 0.6
   }
 }

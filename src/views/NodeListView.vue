@@ -81,20 +81,17 @@
 
         <!-- 动态上下文显示 -->
         <div class="context-toolbar-group">
-          <button @click="handleSelectAllContext" class="context-action-btn" title="全选所有已完成节点">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+          <button @click="handleToggleAllContext" class="context-action-btn" :title="isAllContextSelected ? '清空选择' : '全选所有已完成节点'">
+            <svg v-if="!isAllContextSelected" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
               <path d="M19 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.11 0 2-.9 2-2V5c0-1.1-.89-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+            <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
             </svg>
           </button>
           <button @click="handleInvertSelection" class="context-action-btn" title="反选所有已完成节点">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-              <path d="M7 19V5h2v14H7zm4 0V5h2v14h-2zm4 0V5h2v14h-2z"/>
-              <path d="M5 19V5H3v14h2zm16 0V5h-2v14h2z"/>
-            </svg>
-          </button>
-          <button @click="handleClearContextSelection" class="context-action-btn" title="清空选择">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+              <path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z"/>
             </svg>
           </button>
         </div>
@@ -287,6 +284,13 @@
         </div>
       </div>
     </div>
+
+    <!-- 上下文选择工具栏 -->
+    <ContextToolbar
+      v-if="selectedContextCount > 0"
+      :selected-count="selectedContextCount"
+      @clear="clearContextSelection"
+    />
   </div>
 </template>
 
@@ -298,6 +302,7 @@ import { useSettingsStore } from '@/stores/settingsStore'
 import { useContextStore } from '@/stores/contextStore'
 import VoiceNote from '@/components/VoiceNote.vue'
 import RecordingIndicator from '@/components/RecordingIndicator.vue'
+import ContextToolbar from '@/components/ContextToolbar.vue'
 import { chatWithLLM, buildFullContextMessages } from '@/composables/useQwenAgent'
 import { createAudioWorkletRecorder } from '@/utils/audioWorkletRecorder'
 import { transcribeWithSherpaOnnx } from '@/composables/useSherpaOnnx'
@@ -315,6 +320,7 @@ const leftPanelWidth = ref(600) // 默认左侧面板宽度
 
 // 拖拽调整宽度相关
 const isResizing = ref(false)
+let savePanelRatioTimer: number | null = null
 
 function startResize(e: MouseEvent) {
   isResizing.value = true
@@ -344,6 +350,41 @@ function stopResize() {
   document.removeEventListener('mouseup', stopResize)
   document.body.style.cursor = ''
   document.body.style.userSelect = ''
+
+  // 保存面板宽度比例到设置
+  savePanelRatio()
+}
+
+// 保存面板宽度比例到设置（防抖）
+function savePanelRatio() {
+  if (savePanelRatioTimer) {
+    clearTimeout(savePanelRatioTimer)
+  }
+  savePanelRatioTimer = window.setTimeout(() => {
+    const containerRect = document.querySelector('.panel-container')?.getBoundingClientRect()
+    if (!containerRect) return
+
+    const ratio = leftPanelWidth.value / containerRect.width
+    settingsStore.updateSettings({
+      view: {
+        ...settingsStore.settings.view,
+        nodeListViewLeftPanelRatio: ratio
+      }
+    })
+    savePanelRatioTimer = null
+  }, 500)
+}
+
+// 根据设置初始化面板宽度
+function initPanelWidth() {
+  const containerRect = document.querySelector('.panel-container')?.getBoundingClientRect()
+  if (!containerRect) return
+
+  const ratio = settingsStore.settings.view?.nodeListViewLeftPanelRatio || 0.6
+  const minWidth = NODE_MIN_WIDTH + CONTAINER_PADDING * 2
+  const maxWidth = containerRect.width - 400
+
+  leftPanelWidth.value = Math.max(minWidth, Math.min(maxWidth, containerRect.width * ratio))
 }
 
 // 节点引用
@@ -484,6 +525,21 @@ const sortedNodes = computed(() => {
   return [...nodes].sort((a, b) => a.createdAt - b.createdAt)
 })
 
+// 选中的上下文数量
+const selectedContextCount = computed(() => {
+  return projectStore.currentCanvas?.nodes.filter(n => n.selectedAsContext && n.transcriptStatus === 'done').length || 0
+})
+
+// 已完成节点数量
+const completedNodesCount = computed(() => {
+  return projectStore.currentCanvas?.nodes.filter(n => n.transcriptStatus === 'done').length || 0
+})
+
+// 是否全选
+const isAllContextSelected = computed(() => {
+  return completedNodesCount.value > 0 && selectedContextCount.value === completedNodesCount.value
+})
+
 // 加载项目
 onMounted(async () => {
   const projectId = route.params.projectId as string
@@ -499,9 +555,17 @@ onMounted(async () => {
   // 添加键盘事件监听
   window.addEventListener('keydown', handleKeyDown)
 
+  // 添加点击外部关闭静态上下文选择器
+  document.addEventListener('click', handleClickOutside)
+
   // 初始化节点高度缓存
   nextTick(() => {
     updateNodeHeights()
+  })
+
+  // 初始化面板宽度
+  nextTick(() => {
+    initPanelWidth()
   })
 })
 
@@ -510,9 +574,11 @@ onUnmounted(() => {
   // 清理拖拽事件
   document.removeEventListener('mousemove', handleResize)
   document.removeEventListener('mouseup', stopResize)
+  // 清理点击外部事件
+  document.removeEventListener('click', handleClickOutside)
 })
 
-// 键盘事件处理 - 左右键切换节点
+// 键盘事件处理 - 方向键切换节点
 function handleKeyDown(event: KeyboardEvent) {
   // 如果正在输入框中输入，不处理
   const target = event.target as HTMLElement
@@ -523,7 +589,9 @@ function handleKeyDown(event: KeyboardEvent) {
   const nodes = sortedNodes.value
   if (!nodes || nodes.length === 0) return
 
-  if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+  // 上/左：上一个节点，下/右：下一个节点
+  if (event.key === 'ArrowLeft' || event.key === 'ArrowRight' ||
+      event.key === 'ArrowUp' || event.key === 'ArrowDown') {
     event.preventDefault()
 
     const currentIndex = selectedNode.value
@@ -531,7 +599,7 @@ function handleKeyDown(event: KeyboardEvent) {
       : -1
 
     let newIndex: number
-    if (event.key === 'ArrowLeft') {
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
       newIndex = currentIndex <= 0 ? nodes.length - 1 : currentIndex - 1
     } else {
       newIndex = currentIndex >= nodes.length - 1 ? 0 : currentIndex + 1
@@ -693,19 +761,40 @@ function toggleStaticContextSelector() {
   showStaticContextSelector.value = !showStaticContextSelector.value
 }
 
-function toggleStaticContext(fileId: string) {
-  const currentIds = projectStore.currentProject?.context?.staticContextIds || []
-  const newIds = currentIds.includes(fileId)
-    ? currentIds.filter(id => id !== fileId)
-    : [...currentIds, fileId]
-
-  if (projectStore.currentProject) {
-    projectStore.currentProject.context = {
-      ...projectStore.currentProject.context,
-      staticContextIds: newIds
-    }
-    projectStore.saveProject(projectStore.currentProject)
+function handleClickOutside(e: MouseEvent) {
+  if (showStaticContextSelector.value &&
+      staticContextDisplayRef.value &&
+      !staticContextDisplayRef.value.contains(e.target as Node)) {
+    showStaticContextSelector.value = false
   }
+}
+
+// 静态上下文选择（支持多选）
+async function toggleStaticContext(contextId: string) {
+  if (!projectStore.currentProject) return
+
+  const currentIds = projectStore.currentProject.context?.staticContextIds || []
+  const newIds = currentIds.includes(contextId)
+    ? currentIds.filter(id => id !== contextId)
+    : [...currentIds, contextId]
+
+  // 确保 context 对象存在
+  if (!projectStore.currentProject.context) {
+    projectStore.currentProject.context = {}
+  }
+
+  // 直接修改数组以触发响应式更新
+  if (newIds.length > 0) {
+    if (!projectStore.currentProject.context.staticContextIds) {
+      projectStore.currentProject.context.staticContextIds = []
+    }
+    // 清空并重新赋值以触发响应式
+    projectStore.currentProject.context.staticContextIds.splice(0, projectStore.currentProject.context.staticContextIds.length, ...newIds)
+  } else {
+    projectStore.currentProject.context.staticContextIds = undefined
+  }
+
+  await projectStore.saveProject(projectStore.currentProject)
 }
 
 // 动态上下文操作
@@ -755,13 +844,23 @@ async function handleDynamicContextDrop(e: DragEvent) {
 }
 
 // 上下文选择操作
-function handleSelectAllContext() {
+function handleToggleAllContext() {
   const nodes = projectStore.currentCanvas?.nodes || []
-  nodes.forEach(node => {
-    if (node.transcriptStatus === 'done') {
-      projectStore.updateNode(node.id, { selectedAsContext: true })
-    }
-  })
+  if (isAllContextSelected.value) {
+    // 清空选择
+    nodes.forEach(node => {
+      if (node.selectedAsContext) {
+        projectStore.updateNode(node.id, { selectedAsContext: false })
+      }
+    })
+  } else {
+    // 全选
+    nodes.forEach(node => {
+      if (node.transcriptStatus === 'done') {
+        projectStore.updateNode(node.id, { selectedAsContext: true })
+      }
+    })
+  }
 }
 
 function handleInvertSelection() {
@@ -773,7 +872,7 @@ function handleInvertSelection() {
   })
 }
 
-function handleClearContextSelection() {
+function clearContextSelection() {
   const nodes = projectStore.currentCanvas?.nodes || []
   nodes.forEach(node => {
     if (node.selectedAsContext) {
@@ -1162,7 +1261,23 @@ async function sendAgentRequest(nodeId: string, transcript: string) {
     projectStore.updateNode(nodeId, { agentStatus: 'processing' })
 
     const settings = settingsStore.settings
-    const messages = buildFullContextMessages([], transcript, undefined, undefined)
+
+    // 获取已选择的上下文节点（排除当前节点）
+    const selectedNodes = projectStore.currentCanvas?.nodes.filter(n => n.selectedAsContext && n.id !== nodeId) || []
+
+    // 合并静态上下文内容
+    const staticContextContent = staticContextFiles.value
+      .map(f => f.content)
+      .filter(c => c && c.trim())
+      .join('\n\n')
+
+    // 构建消息
+    const messages = buildFullContextMessages(
+      selectedNodes.map(n => ({ transcript: n.transcript || '', agentResult: n.agentResult || '' })),
+      transcript,
+      staticContextContent,
+      dynamicContextFile.value?.content
+    )
 
     let accumulatedContent = ''
 
@@ -1396,7 +1511,7 @@ async function sendAgentRequest(nodeId: string, transcript: string) {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  z-index: 100;
+  z-index: 2000;
   min-width: 150px;
 }
 
@@ -1452,6 +1567,7 @@ async function sendAgentRequest(nodeId: string, transcript: string) {
 /* 上下文工具栏 */
 .context-toolbar-group {
   display: flex;
+  align-items: center;
   gap: 4px;
 }
 

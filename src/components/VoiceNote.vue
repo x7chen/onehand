@@ -647,7 +647,8 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
 }
 
 .voice-note.selected .node-header,
-.voice-note.show-header .node-header {
+.voice-note.show-header .node-header,
+.voice-note.active .node-header {
   opacity: 1;
   height: 32px;
   margin-bottom: 8px;

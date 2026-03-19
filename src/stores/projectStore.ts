@@ -416,12 +416,14 @@ export const useProjectStore = defineStore('project', () => {
     }
   }
 
-  function updateNode(nodeId: string, updates: Partial<CanvasNode>) {
+  function updateNode(nodeId: string, updates: Partial<CanvasNode>, skipSave = false) {
     if (currentProject.value && currentCanvas.value) {
       const node = currentCanvas.value.nodes.find(n => n.id === nodeId)
       if (node) {
         Object.assign(node, updates)
-        saveProject(currentProject.value)
+        if (!skipSave) {
+          saveProject(currentProject.value)
+        }
       }
     }
   }

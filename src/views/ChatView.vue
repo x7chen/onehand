@@ -103,20 +103,17 @@
 
         <!-- 动态上下文显示 -->
         <div class="context-toolbar-group">
-          <button @click="handleSelectAllContext" class="context-action-btn" title="全选所有已完成节点">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+          <button @click="handleToggleAllContext" class="context-action-btn" :title="isAllContextSelected ? '清空选择' : '全选所有已完成节点'">
+            <svg v-if="!isAllContextSelected" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
               <path d="M19 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.11 0 2-.9 2-2V5c0-1.1-.89-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+            <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
             </svg>
           </button>
           <button @click="handleInvertSelection" class="context-action-btn" title="反选所有已完成节点">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-              <path d="M7 19V5h2v14H7zm4 0V5h2v14h-2zm4 0V5h2v14h-2z"/>
-              <path d="M5 19V5H3v14h2zm16 0V5h-2v14h2z"/>
-            </svg>
-          </button>
-          <button @click="handleClearContextSelection" class="context-action-btn" title="清空选择">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+              <path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z"/>
             </svg>
           </button>
         </div>
@@ -149,9 +146,15 @@
         <InfiniteCanvas
           ref="infiniteCanvasRef"
           :viewport="projectStore.getCurrentViewport()"
+          :is-recording="isRecording"
+          :recording-position="recordingPosition"
+          :recording-duration="recordingDuration"
           @viewport-change="handleViewportChange"
           @click="handleCanvasClick"
           @dblclick="handleCanvasDblClick"
+          @long-press="handleLongPress"
+          @long-press-end="handleLongPressEnd($event)"
+          @drop-text="handleDropText"
         >
           <template #nodes>
             <VoiceNote
@@ -275,6 +278,13 @@
         </div>
       </div>
     </div>
+
+    <!-- 上下文选择工具栏 -->
+    <ContextToolbar
+      v-if="selectedContextCount > 0"
+      :selected-count="selectedContextCount"
+      @clear="clearContextSelection"
+    />
   </div>
 </template>
 
@@ -286,7 +296,10 @@ import { useSettingsStore } from '@/stores/settingsStore'
 import { useContextStore } from '@/stores/contextStore'
 import VoiceNote from '@/components/VoiceNote.vue'
 import InfiniteCanvas from '@/components/InfiniteCanvas.vue'
+import ContextToolbar from '@/components/ContextToolbar.vue'
 import { chatWithLLM, buildFullContextMessages } from '@/composables/useQwenAgent'
+import { createAudioWorkletRecorder } from '@/utils/audioWorkletRecorder'
+import { transcribeWithSherpaOnnx } from '@/composables/useSherpaOnnx'
 import type { CanvasNode } from '@/types/project'
 import type { ContextFile } from '@/types/context'
 
@@ -296,6 +309,9 @@ const projectStore = useProjectStore()
 const settingsStore = useSettingsStore()
 const contextStore = useContextStore()
 
+// 录音器实例
+const simpleRecorder = createAudioWorkletRecorder()
+
 // 画布相关
 const infiniteCanvasRef = ref<any>(null)
 const voiceNoteRefs = ref<Record<string, any>>({})
@@ -303,6 +319,7 @@ const voiceNoteRefs = ref<Record<string, any>>({})
 // 面板宽度相关
 const leftPanelWidth = ref(600) // 默认左侧面板宽度
 const isResizing = ref(false)
+let savePanelRatioTimer: number | null = null
 
 function startResize(e: MouseEvent) {
   isResizing.value = true
@@ -332,6 +349,41 @@ function stopResize() {
   document.removeEventListener('mouseup', stopResize)
   document.body.style.cursor = ''
   document.body.style.userSelect = ''
+
+  // 保存面板宽度比例到设置
+  savePanelRatio()
+}
+
+// 保存面板宽度比例到设置（防抖）
+function savePanelRatio() {
+  if (savePanelRatioTimer) {
+    clearTimeout(savePanelRatioTimer)
+  }
+  savePanelRatioTimer = window.setTimeout(() => {
+    const containerRect = document.querySelector('.panel-container')?.getBoundingClientRect()
+    if (!containerRect) return
+
+    const ratio = leftPanelWidth.value / containerRect.width
+    settingsStore.updateSettings({
+      view: {
+        ...settingsStore.settings.view,
+        chatViewLeftPanelRatio: ratio
+      }
+    })
+    savePanelRatioTimer = null
+  }, 500)
+}
+
+// 根据设置初始化面板宽度
+function initPanelWidth() {
+  const containerRect = document.querySelector('.panel-container')?.getBoundingClientRect()
+  if (!containerRect) return
+
+  const ratio = settingsStore.settings.view?.chatViewLeftPanelRatio || 0.6
+  const minWidth = 300
+  const maxWidth = containerRect.width - 400
+
+  leftPanelWidth.value = Math.max(minWidth, Math.min(maxWidth, containerRect.width * ratio))
 }
 
 // 选中的节点
@@ -355,9 +407,17 @@ const aiAnswerEnabled = ref(true)
 const chatInput = ref('')
 const isChatting = ref(false)
 
-// 拖拽相关
+// 节点拖拽相关
+const isDraggingNode = ref(false)
 const draggingNodeId = ref<string | null>(null)
 const dragOffset = ref({ offsetX: 0, offsetY: 0 })
+
+// 录音相关
+const isRecording = ref(false)
+const recordingPosition = ref<{ x: number; y: number } | undefined>(undefined)
+const recordingDuration = ref(0)
+const recordingStartPosition = ref<{ x: number; y: number } | null>(null)
+let recordingTimer: number | null = null
 
 // 静态上下文
 const staticContextDisplayRef = ref<HTMLElement | null>(null)
@@ -380,6 +440,16 @@ const selectedContextCount = computed(() => {
   return projectStore.currentCanvas?.nodes.filter(n => n.selectedAsContext && n.transcriptStatus === 'done').length || 0
 })
 
+// 已完成节点数量
+const completedNodesCount = computed(() => {
+  return projectStore.currentCanvas?.nodes.filter(n => n.transcriptStatus === 'done').length || 0
+})
+
+// 是否全选
+const isAllContextSelected = computed(() => {
+  return completedNodesCount.value > 0 && selectedContextCount.value === completedNodesCount.value
+})
+
 // 加载项目
 onMounted(async () => {
   const projectId = route.params.projectId as string
@@ -394,6 +464,18 @@ onMounted(async () => {
 
   // 添加键盘事件监听
   window.addEventListener('keydown', handleKeyDown)
+
+  // 添加全局鼠标事件监听用于节点拖动
+  window.addEventListener('mousemove', handleNodeDragMove)
+  window.addEventListener('mouseup', handleNodeDragEnd)
+
+  // 添加点击外部关闭静态上下文选择器
+  document.addEventListener('click', handleClickOutside)
+
+  // 初始化面板宽度
+  nextTick(() => {
+    initPanelWidth()
+  })
 })
 
 onUnmounted(() => {
@@ -401,9 +483,19 @@ onUnmounted(() => {
   // 清理拖拽事件
   document.removeEventListener('mousemove', handleResize)
   document.removeEventListener('mouseup', stopResize)
+  // 清理节点拖动事件
+  window.removeEventListener('mousemove', handleNodeDragMove)
+  window.removeEventListener('mouseup', handleNodeDragEnd)
+  // 清理点击外部事件
+  document.removeEventListener('click', handleClickOutside)
+  // 清理录音计时器
+  if (recordingTimer) {
+    clearInterval(recordingTimer)
+    recordingTimer = null
+  }
 })
 
-// 键盘事件处理 - 左右键切换节点
+// 键盘事件处理 - 方向键切换节点
 function handleKeyDown(event: KeyboardEvent) {
   // 如果正在输入框中输入，不处理
   const target = event.target as HTMLElement
@@ -417,7 +509,9 @@ function handleKeyDown(event: KeyboardEvent) {
   // 按 createdAt 排序的节点列表
   const sortedNodes = [...nodes].sort((a, b) => a.createdAt - b.createdAt)
 
-  if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+  // 上/左：上一个节点，下/右：下一个节点
+  if (event.key === 'ArrowLeft' || event.key === 'ArrowRight' ||
+      event.key === 'ArrowUp' || event.key === 'ArrowDown') {
     event.preventDefault()
 
     const currentIndex = selectedNode.value
@@ -425,7 +519,7 @@ function handleKeyDown(event: KeyboardEvent) {
       : -1
 
     let newIndex: number
-    if (event.key === 'ArrowLeft') {
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
       newIndex = currentIndex <= 0 ? sortedNodes.length - 1 : currentIndex - 1
     } else {
       newIndex = currentIndex >= sortedNodes.length - 1 ? 0 : currentIndex + 1
@@ -465,12 +559,30 @@ watch(selectedNode, (newNode) => {
     if (!canvasEl) return
 
     const rect = canvasEl.getBoundingClientRect()
-    const centerX = rect.width / 2
-    const centerY = rect.height / 2
-
-    // 计算新的视口位置，使节点居中
     const zoom = projectStore.getCurrentViewport().zoom
-    const targetX = centerX - newNode.position.x * zoom
+    const currentViewport = projectStore.getCurrentViewport()
+
+    // 节点尺寸
+    const nodeWidth = 450 // --node-width
+
+    // 节点在屏幕上的位置
+    const nodeScreenLeft = newNode.position.x * zoom + currentViewport.x
+    const nodeScreenRight = nodeScreenLeft + nodeWidth * zoom
+
+    // 计算目标X：只调整到让节点完全可见，不居中
+    let targetX = currentViewport.x
+    const padding = 20 // 边距
+
+    if (nodeScreenLeft < padding) {
+      // 节点左边超出，向右移动
+      targetX = padding - newNode.position.x * zoom
+    } else if (nodeScreenRight > rect.width - padding) {
+      // 节点右边超出，向左移动
+      targetX = rect.width - padding - (newNode.position.x + nodeWidth) * zoom
+    }
+
+    // 计算目标Y：节点顶部居中
+    const centerY = rect.height / 2
     const targetY = centerY - newNode.position.y * zoom
 
     // 平滑动画移动视口
@@ -532,6 +644,175 @@ function handleCanvasDblClick(x: number, y: number) {
   selectedNode.value = node
   editingNodeId.value = node.id
   editingText.value = ''
+}
+
+// 长按开始录音
+async function handleLongPress(x: number, y: number) {
+  try {
+    await simpleRecorder.start()
+    isRecording.value = true
+    recordingPosition.value = { x, y }
+    recordingStartPosition.value = { x, y }
+    recordingDuration.value = 0
+
+    recordingTimer = window.setInterval(() => {
+      recordingDuration.value += 100
+    }, 100)
+  } catch (error) {
+    console.error('Failed to start recording:', error)
+    isRecording.value = false
+    recordingPosition.value = undefined
+  }
+}
+
+// 长按结束录音
+async function handleLongPressEnd(isCancel = false) {
+  if (!recordingTimer) return
+
+  clearInterval(recordingTimer)
+  recordingTimer = null
+
+  // 如果是取消录音，不保存
+  if (isCancel) {
+    try {
+      await simpleRecorder.stop()
+    } catch (error) {
+      console.error('Failed to stop recorder:', error)
+    }
+    isRecording.value = false
+    recordingPosition.value = undefined
+    recordingStartPosition.value = null
+    recordingDuration.value = 0
+    return
+  }
+
+  try {
+    const audioBlob = await simpleRecorder.stop()
+    const extension = audioBlob.type === 'audio/wav' ? 'wav' : 'webm'
+
+    const nodeId = `node-${Date.now()}`
+    const audioPath = `audio/${nodeId}.${extension}`
+
+    const appDataPath = await window.electronAPI.getAppPath('userData')
+    const project = projectStore.currentProject
+    if (!project) return
+
+    const projectDir = `${appDataPath}/projects/${project.id}`
+    await window.electronAPI.mkdir(`${projectDir}/audio`)
+
+    const arrayBuffer = await audioBlob.arrayBuffer()
+    await window.electronAPI.saveFileBuffer(`${projectDir}/${audioPath}`, arrayBuffer)
+
+    const startX = recordingStartPosition.value?.x || 100
+    const startY = recordingStartPosition.value?.y || 100
+
+    const node: CanvasNode = {
+      id: nodeId,
+      type: 'voice-note',
+      position: { x: startX, y: startY },
+      audioPath,
+      transcript: null,
+      transcriptStatus: 'pending',
+      agentResult: null,
+      agentStatus: 'pending',
+      selectedAsContext: false,
+      createdAt: Date.now(),
+      duration: recordingDuration.value
+    }
+
+    projectStore.addNode(node)
+    isRecording.value = false
+    recordingPosition.value = undefined
+    recordingStartPosition.value = null
+
+    // 自动转写
+    handleTranscription(node)
+  } catch (error) {
+    console.error('Recording failed:', error)
+    isRecording.value = false
+    recordingPosition.value = undefined
+    recordingStartPosition.value = null
+  }
+}
+
+// 拖拽文字创建节点
+async function handleDropText(x: number, y: number, text: string) {
+  const node: CanvasNode = {
+    id: `node-${Date.now()}`,
+    type: 'text-note',
+    position: { x, y },
+    transcript: text,
+    transcriptStatus: 'done',
+    agentResult: null,
+    agentStatus: 'pending',
+    selectedAsContext: false,
+    createdAt: Date.now()
+  }
+
+  projectStore.addNode(node)
+  selectedNode.value = node
+
+  // 触发 AI 回答
+  if (aiAnswerEnabled.value) {
+    await sendAgentRequest(node.id, text)
+  }
+}
+
+// 语音转写
+async function handleTranscription(node: CanvasNode) {
+  const settings = settingsStore.settings
+
+  if (!settingsStore.isLoaded) {
+    await settingsStore.loadSettings()
+  }
+
+  if (!settings.stt.sherpaOnnx) {
+    projectStore.updateNode(node.id, {
+      transcript: '语音识别配置错误，请检查设置',
+      transcriptStatus: 'error'
+    })
+    return
+  }
+
+  try {
+    projectStore.updateNode(node.id, { transcriptStatus: 'processing' })
+
+    const appDataPath = await window.electronAPI.getAppPath('userData')
+    const project = projectStore.currentProject
+    if (!project) return
+
+    if (!node.audioPath) return
+
+    const audioPath = `${appDataPath}/projects/${project.id}/${node.audioPath}`
+    const result = await window.electronAPI.readFile(audioPath, 'arraybuffer')
+
+    if (result.success && result.data) {
+      const extension = node.audioPath.split('.').pop()?.toLowerCase()
+      const mimeType = extension === 'wav' ? 'audio/wav' : 'audio/webm'
+
+      const blob = new Blob([result.data], { type: mimeType })
+      const transcriptResult = await transcribeWithSherpaOnnx(blob, settings.stt.sherpaOnnx)
+
+      if (transcriptResult.success && transcriptResult.text) {
+        projectStore.updateNode(node.id, {
+          transcript: transcriptResult.text,
+          transcriptStatus: 'done'
+        })
+
+        // 转写完成后自动触发 AI 回答
+        if (aiAnswerEnabled.value) {
+          await sendAgentRequest(node.id, transcriptResult.text)
+        }
+      } else {
+        throw new Error(transcriptResult.error || '转写失败')
+      }
+    }
+  } catch (error) {
+    projectStore.updateNode(node.id, {
+      transcript: String(error),
+      transcriptStatus: 'error'
+    })
+  }
 }
 
 // 视口变化
@@ -692,10 +973,33 @@ function handleCancelEdit(nodeId: string) {
   editingText.value = ''
 }
 
-// 拖拽
+// 节点拖拽
 function handleDragStart(nodeId: string, offsetX: number, offsetY: number) {
   draggingNodeId.value = nodeId
   dragOffset.value = { offsetX, offsetY }
+  isDraggingNode.value = true
+}
+
+// 节点拖动处理
+function handleNodeDragMove(e: MouseEvent) {
+  if (!isDraggingNode.value || !draggingNodeId.value) return
+
+  const canvas = document.querySelector('.infinite-canvas') as HTMLElement
+  if (!canvas) return
+
+  const viewport = projectStore.getCurrentViewport()
+  const rect = canvas.getBoundingClientRect()
+  const canvasX = (e.clientX - rect.left - dragOffset.value.offsetX - viewport.x) / viewport.zoom
+  const canvasY = (e.clientY - rect.top - dragOffset.value.offsetY - viewport.y) / viewport.zoom
+
+  projectStore.updateNode(draggingNodeId.value, {
+    position: { x: canvasX, y: canvasY }
+  })
+}
+
+function handleNodeDragEnd() {
+  isDraggingNode.value = false
+  draggingNodeId.value = null
 }
 
 // 静态上下文操作
@@ -703,19 +1007,40 @@ function toggleStaticContextSelector() {
   showStaticContextSelector.value = !showStaticContextSelector.value
 }
 
-function toggleStaticContext(fileId: string) {
-  const currentIds = projectStore.currentProject?.context?.staticContextIds || []
-  const newIds = currentIds.includes(fileId)
-    ? currentIds.filter(id => id !== fileId)
-    : [...currentIds, fileId]
-  
-  if (projectStore.currentProject) {
-    projectStore.currentProject.context = {
-      ...projectStore.currentProject.context,
-      staticContextIds: newIds
-    }
-    projectStore.saveProject(projectStore.currentProject)
+function handleClickOutside(e: MouseEvent) {
+  if (showStaticContextSelector.value &&
+      staticContextDisplayRef.value &&
+      !staticContextDisplayRef.value.contains(e.target as Node)) {
+    showStaticContextSelector.value = false
   }
+}
+
+// 静态上下文选择（支持多选）
+async function toggleStaticContext(contextId: string) {
+  if (!projectStore.currentProject) return
+
+  const currentIds = projectStore.currentProject.context?.staticContextIds || []
+  const newIds = currentIds.includes(contextId)
+    ? currentIds.filter(id => id !== contextId)
+    : [...currentIds, contextId]
+
+  // 确保 context 对象存在
+  if (!projectStore.currentProject.context) {
+    projectStore.currentProject.context = {}
+  }
+
+  // 直接修改数组以触发响应式更新
+  if (newIds.length > 0) {
+    if (!projectStore.currentProject.context.staticContextIds) {
+      projectStore.currentProject.context.staticContextIds = []
+    }
+    // 清空并重新赋值以触发响应式
+    projectStore.currentProject.context.staticContextIds.splice(0, projectStore.currentProject.context.staticContextIds.length, ...newIds)
+  } else {
+    projectStore.currentProject.context.staticContextIds = undefined
+  }
+
+  await projectStore.saveProject(projectStore.currentProject)
 }
 
 // 动态上下文操作
@@ -765,13 +1090,23 @@ async function handleDynamicContextDrop(e: DragEvent) {
 }
 
 // 上下文选择操作
-function handleSelectAllContext() {
+function handleToggleAllContext() {
   const nodes = projectStore.currentCanvas?.nodes || []
-  nodes.forEach(node => {
-    if (node.transcriptStatus === 'done') {
-      projectStore.updateNode(node.id, { selectedAsContext: true })
-    }
-  })
+  if (isAllContextSelected.value) {
+    // 清空选择
+    nodes.forEach(node => {
+      if (node.selectedAsContext) {
+        projectStore.updateNode(node.id, { selectedAsContext: false })
+      }
+    })
+  } else {
+    // 全选
+    nodes.forEach(node => {
+      if (node.transcriptStatus === 'done') {
+        projectStore.updateNode(node.id, { selectedAsContext: true })
+      }
+    })
+  }
 }
 
 function handleInvertSelection() {
@@ -783,7 +1118,7 @@ function handleInvertSelection() {
   })
 }
 
-function handleClearContextSelection() {
+function clearContextSelection() {
   const nodes = projectStore.currentCanvas?.nodes || []
   nodes.forEach(node => {
     if (node.selectedAsContext) {
@@ -860,13 +1195,15 @@ async function sendChat() {
       model: settings.llm.model
     }, (chunk) => {
       accumulatedContent += chunk
+      // 流式更新时跳过保存，避免频繁IO导致卡顿
       projectStore.updateNode(newNodeId, {
         agentResult: accumulatedContent,
         agentStatus: 'processing'
-      })
+      }, true)
       selectedNode.value = projectStore.currentCanvas?.nodes.find(n => n.id === newNodeId) || null
     })
 
+    // 最终完成时保存
     projectStore.updateNode(newNodeId, {
       agentResult: result,
       agentStatus: 'done'
@@ -892,7 +1229,23 @@ async function sendAgentRequest(nodeId: string, transcript: string) {
     projectStore.updateNode(nodeId, { agentStatus: 'processing' })
 
     const settings = settingsStore.settings
-    const messages = buildFullContextMessages([], transcript, undefined, undefined)
+
+    // 获取已选择的上下文节点（排除当前节点）
+    const selectedNodes = projectStore.currentCanvas?.nodes.filter(n => n.selectedAsContext && n.id !== nodeId) || []
+
+    // 合并静态上下文内容
+    const staticContextContent = staticContextFiles.value
+      .map(f => f.content)
+      .filter(c => c && c.trim())
+      .join('\n\n')
+
+    // 构建消息
+    const messages = buildFullContextMessages(
+      selectedNodes.map(n => ({ transcript: n.transcript || '', agentResult: n.agentResult || '' })),
+      transcript,
+      staticContextContent,
+      dynamicContextFile.value?.content
+    )
 
     let accumulatedContent = ''
 
@@ -902,12 +1255,14 @@ async function sendAgentRequest(nodeId: string, transcript: string) {
       model: settings.llm.model
     }, (chunk) => {
       accumulatedContent += chunk
+      // 流式更新时跳过保存，避免频繁IO导致卡顿
       projectStore.updateNode(nodeId, {
         agentResult: accumulatedContent,
         agentStatus: 'processing'
-      })
+      }, true)
     })
 
+    // 最终完成时保存
     projectStore.updateNode(nodeId, {
       agentResult: result,
       agentStatus: 'done'
@@ -1093,7 +1448,7 @@ async function sendAgentRequest(nodeId: string, transcript: string) {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  z-index: 100;
+  z-index: 2000;
   min-width: 150px;
 }
 
@@ -1153,6 +1508,7 @@ async function sendAgentRequest(nodeId: string, transcript: string) {
 /* 上下文工具栏 */
 .context-toolbar-group {
   display: flex;
+  align-items: center;
   gap: 4px;
 }
 
