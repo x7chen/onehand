@@ -48,6 +48,7 @@
 
     <!-- 回到原点按钮 -->
     <button
+      v-if="showViewportControls"
       @click="$emit('reset-viewport')"
       class="reset-viewport-btn"
       title="回到原点"
@@ -59,6 +60,7 @@
 
     <!-- 自动排版按钮 -->
     <button
+      v-if="showViewportControls"
       @click="$emit('auto-layout')"
       class="auto-layout-btn"
       title="自动排版"
@@ -135,7 +137,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import type { ContextFile } from '@/types/context'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   projectName: string
   staticContextFiles: ContextFile[]
   allStaticContextFiles: ContextFile[]
@@ -143,7 +145,10 @@ const props = defineProps<{
   globalHideAiResult: boolean
   aiAnswerEnabled: boolean
   isAllContextSelected: boolean
-}>()
+  showViewportControls?: boolean
+}>(), {
+  showViewportControls: true
+})
 
 const emit = defineEmits<{
   'back': []

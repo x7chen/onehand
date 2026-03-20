@@ -1,6 +1,7 @@
 <template>
   <div class="canvas-area">
     <InfiniteCanvas
+      ref="infiniteCanvasRef"
       :viewport="viewport"
       :is-recording="isRecording"
       :recording-position="recordingPosition"
@@ -58,7 +59,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useProjectStore } from '@/stores/projectStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import InfiniteCanvas from '@/components/InfiniteCanvas.vue'
@@ -105,8 +106,84 @@ const dragOffset = ref({ offsetX: 0, offsetY: 0 })
 // VoiceNote组件引用
 const voiceNoteRefs = ref<Record<string, any>>({})
 
+// InfiniteCanvas组件引用
+const infiniteCanvasRef = ref<InstanceType<typeof InfiniteCanvas> | null>(null)
+
 // 当前激活的节点ID
 const activeNodeId = ref<string | null>(null)
+
+// 监听激活节点变化，移动画布视口到节点位置
+watch(activeNodeId, (newNodeId) => {
+  if (!newNodeId) return
+
+  const node = projectStore.currentCanvas?.nodes.find(n => n.id === newNodeId)
+  if (!node) return
+
+  nextTick(() => {
+    if (!infiniteCanvasRef.value) return
+
+    const canvasEl = infiniteCanvasRef.value.canvasRef
+    if (!canvasEl) return
+
+    const rect = canvasEl.getBoundingClientRect()
+    const zoom = viewport.value.zoom
+
+    // 节点尺寸
+    const nodeWidth = 450 // --node-width
+
+    // 节点在屏幕上的位置
+    const nodeScreenLeft = node.position.x * zoom + viewport.value.x
+    const nodeScreenRight = nodeScreenLeft + nodeWidth * zoom
+
+    // 计算目标X：只调整到让节点完全可见，不居中
+    let targetX = viewport.value.x
+    const padding = 20 // 边距
+
+    if (nodeScreenLeft < padding) {
+      // 节点左边超出，向右移动
+      targetX = padding - node.position.x * zoom
+    } else if (nodeScreenRight > rect.width - padding) {
+      // 节点右边超出，向左移动
+      targetX = rect.width - padding - (node.position.x + nodeWidth) * zoom
+    }
+
+    // 计算目标Y：节点顶部居中
+    const centerY = rect.height / 2
+    const targetY = centerY - node.position.y * zoom
+
+    // 平滑动画移动视口
+    animateViewportTo(targetX, targetY, zoom)
+  })
+})
+
+// 平滑动画移动视口
+function animateViewportTo(targetX: number, targetY: number, zoom: number) {
+  const startX = viewport.value.x
+  const startY = viewport.value.y
+  const duration = 300 // 动画持续时间（毫秒）
+  const startTime = performance.now()
+
+  function animate(currentTime: number) {
+    const elapsed = currentTime - startTime
+    const progress = Math.min(elapsed / duration, 1)
+
+    // 使用 easeOutCubic 缓动函数
+    const easeProgress = 1 - Math.pow(1 - progress, 3)
+
+    const newX = startX + (targetX - startX) * easeProgress
+    const newY = startY + (targetY - startY) * easeProgress
+
+    const newViewport = { x: newX, y: newY, zoom }
+    viewport.value = newViewport
+    projectStore.updateCurrentViewport(newViewport)
+
+    if (progress < 1) {
+      requestAnimationFrame(animate)
+    }
+  }
+
+  requestAnimationFrame(animate)
+}
 
 // 音频播放相关
 const currentAudio = ref<HTMLAudioElement | null>(null)
@@ -713,12 +790,19 @@ async function handleAskWithNewRecording() {
   }
 }
 
+// 设置激活节点
+function setActiveNodeId(nodeId: string | null) {
+  activeNodeId.value = nodeId
+}
+
 // 暴露方法给父组件
 defineExpose({
   handleResetViewport,
   handleAutoLayout,
   initViewport,
-  cancelTextEdit
+  cancelTextEdit,
+  activeNodeId,
+  setActiveNodeId
 })
 </script>
 

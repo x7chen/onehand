@@ -56,7 +56,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useProjectStore } from '@/stores/projectStore'
 import { useContextStore } from '@/stores/contextStore'
@@ -120,7 +120,50 @@ onMounted(async () => {
   if (project) {
     projectStore.setCurrentProject(project)
   }
+
+  // 添加键盘事件监听
+  window.addEventListener('keydown', handleKeyDown)
 })
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeyDown)
+})
+
+// 键盘事件处理 - 方向键选择节点
+function handleKeyDown(event: KeyboardEvent) {
+  // 如果正在输入框中输入，不处理
+  const target = event.target as HTMLElement
+  if (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT') {
+    return
+  }
+
+  const nodes = projectStore.currentCanvas?.nodes || []
+  if (!nodes || nodes.length === 0) return
+
+  // 上/左：上一个节点，下/右：下一个节点
+  if (event.key === 'ArrowLeft' || event.key === 'ArrowRight' ||
+      event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+    event.preventDefault()
+
+    // 按创建时间排序
+    const sortedNodes = [...nodes].sort((a, b) => a.createdAt - b.createdAt)
+
+    const currentActiveId = canvasAreaRef.value?.activeNodeId
+    const currentIndex = currentActiveId
+      ? sortedNodes.findIndex(n => n.id === currentActiveId)
+      : -1
+
+    let newIndex: number
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+      newIndex = currentIndex <= 0 ? sortedNodes.length - 1 : currentIndex - 1
+    } else {
+      newIndex = currentIndex >= sortedNodes.length - 1 ? 0 : currentIndex + 1
+    }
+
+    const newActiveNode = sortedNodes[newIndex]
+    canvasAreaRef.value?.setActiveNodeId(newActiveNode.id)
+  }
+}
 
 function goBack() {
   projectStore.cleanupEmptyPages()
