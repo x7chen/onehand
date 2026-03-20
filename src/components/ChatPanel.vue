@@ -17,7 +17,7 @@
           @toggle-context="$emit('toggle-context', $event)"
           @retry-transcription="$emit('retry-transcription', $event)"
           @retry-agent="$emit('retry-agent', $event)"
-          @regenerate-agent="$emit('regenerate-agent', $event)"
+          @regenerate-agent="handleRegenerateAgent"
           @toggle-favorite="$emit('toggle-favorite', $event)"
           @update-node="(nodeId, updates) => $emit('update-node', nodeId, updates)"
           @save-edit="handleSaveEdit"
@@ -449,6 +449,14 @@ async function handleTranscription(node: CanvasNode) {
       transcript: String(error),
       transcriptStatus: 'error'
     })
+  }
+}
+
+// 重新生成 AI 回答
+function handleRegenerateAgent(nodeId: string) {
+  const node = projectStore.currentCanvas?.nodes.find(n => n.id === nodeId)
+  if (node && node.transcript) {
+    handleAgentResponseForVoice(nodeId, node.transcript)
   }
 }
 

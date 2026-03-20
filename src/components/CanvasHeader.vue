@@ -335,8 +335,12 @@ onUnmounted(() => {
   background: var(--border-color);
 }
 
+.ai-answer-toggle-btn.active {
+  background: #4299e1;
+}
+
 .ai-answer-toggle-btn.active .ai-icon-text {
-  color: #4299e1 !important;
+  color: white !important;
 }
 
 .context-toolbar-group {

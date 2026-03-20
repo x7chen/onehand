@@ -58,7 +58,6 @@
         @toggle-context="handleToggleContext"
         @retry-transcription="handleRetryTranscription"
         @retry-agent="handleRetryAgent"
-        @regenerate-agent="handleRegenerateAgent"
         @toggle-favorite="handleToggleFavorite"
         @update-node="handleUpdateNode"
         @node-created="handleNodeCreated"
@@ -109,6 +108,7 @@ import CanvasHeader from '@/components/CanvasHeader.vue'
 import NodeMasonryPanel from '@/components/NodeMasonryPanel.vue'
 import ChatPanel from '@/components/ChatPanel.vue'
 import ContextToolbar from '@/components/ContextToolbar.vue'
+import { chatWithLLM, buildFullContextMessages } from '@/composables/useQwenAgent'
 import type { CanvasNode } from '@/types/project'
 
 const route = useRoute()
@@ -375,7 +375,71 @@ function handleRetryAgent(nodeId: string) {
 }
 
 function handleRegenerateAgent(nodeId: string) {
-  console.log('Regenerate agent:', nodeId)
+  const node = projectStore.currentCanvas?.nodes.find(n => n.id === nodeId)
+  if (node && node.transcript) {
+    handleAgentResponse(nodeId, node.transcript)
+  }
+}
+
+async function handleAgentResponse(nodeId: string, transcript: string) {
+  const settings = settingsStore.settings
+
+  try {
+    projectStore.updateNode(nodeId, { agentStatus: 'processing' })
+
+    const node = projectStore.currentCanvas?.nodes.find(n => n.id === nodeId)
+    if (!node) return
+
+    const selectedNodes = projectStore.currentCanvas?.nodes.filter(n => n.selectedAsContext && n.id !== nodeId) || []
+
+    const staticContextContent = staticContextFiles.value
+      .map(f => f.content)
+      .filter(c => c && c.trim())
+      .join('\n\n')
+
+    const messages = buildFullContextMessages(
+      selectedNodes.map(n => ({ transcript: n.transcript || '', agentResult: n.agentResult || '' })),
+      transcript,
+      staticContextContent,
+      dynamicContextFile.value?.content
+    )
+
+    let accumulatedContent = ''
+
+    const result = await chatWithLLM(messages, {
+      baseUrl: settings.llm.baseUrl,
+      apiKey: settings.llm.apiKey,
+      model: settings.llm.model
+    }, (chunk) => {
+      accumulatedContent += chunk
+      projectStore.updateNode(nodeId, {
+        agentResult: accumulatedContent,
+        agentStatus: 'processing'
+      })
+
+      // 更新选中的节点引用
+      const updatedNode = projectStore.currentCanvas?.nodes.find(n => n.id === nodeId)
+      if (updatedNode && selectedNode.value?.id === nodeId) {
+        selectedNode.value = { ...updatedNode }
+      }
+    })
+
+    projectStore.updateNode(nodeId, {
+      agentResult: result,
+      agentStatus: 'done'
+    })
+
+    // 更新选中的节点引用
+    const updatedNode = projectStore.currentCanvas?.nodes.find(n => n.id === nodeId)
+    if (updatedNode && selectedNode.value?.id === nodeId) {
+      selectedNode.value = { ...updatedNode }
+    }
+  } catch (error) {
+    projectStore.updateNode(nodeId, {
+      agentResult: String(error),
+      agentStatus: 'error'
+    })
+  }
 }
 
 function handleToggleFavorite(nodeId: string) {
