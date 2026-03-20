@@ -195,16 +195,25 @@ export const useProjectStore = defineStore('project', () => {
     return rest
   }
 
+  // 判断节点是否为空白（转写文本和AI回答都为空）
+  function isNodeEmpty(node: CanvasNode): boolean {
+    const hasTranscript = node.transcript && node.transcript.trim() !== ''
+    const hasAgentResult = node.agentResult && node.agentResult.trim() !== ''
+    return !hasTranscript && !hasAgentResult
+  }
+
   // 保存单个项目到独立文件
   async function saveProjectFile(project: Project) {
     try {
       const filePath = await getProjectFilePath(project.id)
-      // 清理节点中的运行时状态字段
+      // 清理节点中的运行时状态字段，并过滤掉空白节点
       const projectToSave = {
         ...project,
         canvases: project.canvases?.map(canvas => ({
           ...canvas,
-          nodes: canvas.nodes.map(cleanNodeForSave)
+          nodes: canvas.nodes
+            .filter(node => !isNodeEmpty(node))
+            .map(cleanNodeForSave)
         }))
       }
       await window.electronAPI.saveFile(filePath, JSON.stringify(projectToSave, null, 2))

@@ -180,7 +180,7 @@
         </div>
 
         <!-- 节点详情区域 -->
-        <div class="node-detail-container">
+        <div ref="nodeDetailContainerRef" class="node-detail-container" @scroll="handleNodeDetailScroll">
           <div v-if="selectedNode" class="node-detail">
             <VoiceNote
               :node="selectedNode"
@@ -495,6 +495,10 @@ const aiAnswerEnabled = ref(true)
 // 对话相关
 const chatInput = ref('')
 const isChatting = ref(false)
+
+// 节点详情区域滚动相关
+const nodeDetailContainerRef = ref<HTMLElement | null>(null)
+const shouldAutoScroll = ref(true) // 是否自动滚动到底部
 
 // 录音相关
 const simpleRecorder = createAudioWorkletRecorder()
@@ -891,6 +895,35 @@ function toggleAiAnswer() {
   aiAnswerEnabled.value = !aiAnswerEnabled.value
 }
 
+// 节点详情区域滚动处理
+function handleNodeDetailScroll() {
+  if (!nodeDetailContainerRef.value) return
+
+  const container = nodeDetailContainerRef.value
+  const { scrollTop, scrollHeight, clientHeight } = container
+  // 距离底部小于 50px 时认为是在底部，允许自动滚动
+  const isNearBottom = scrollHeight - scrollTop - clientHeight < 50
+
+  // 如果用户滚动到非底部，停止自动滚动
+  shouldAutoScroll.value = isNearBottom
+}
+
+// 滚动到底部
+function scrollToBottom() {
+  if (!nodeDetailContainerRef.value) return
+
+  nodeDetailContainerRef.value.scrollTop = nodeDetailContainerRef.value.scrollHeight
+}
+
+// 当选中节点变化时，重置自动滚动状态
+watch(selectedNode, () => {
+  shouldAutoScroll.value = true
+  // 等待 DOM 更新后滚动到底部
+  nextTick(() => {
+    scrollToBottom()
+  })
+})
+
 // 发送对话
 async function sendChat() {
   if (!chatInput.value.trim() || isChatting.value) return
@@ -951,6 +984,11 @@ async function sendChat() {
           agentStatus: 'processing'
         })
         selectedNode.value = projectStore.currentCanvas?.nodes.find(n => n.id === newNodeId) || null
+
+        // 如果自动滚动启用，滚动到底部
+        if (shouldAutoScroll.value) {
+          nextTick(() => scrollToBottom())
+        }
       })
 
       projectStore.updateNode(newNodeId, {
@@ -1013,6 +1051,11 @@ async function sendChat() {
           agentStatus: 'processing'
         })
         selectedNode.value = projectStore.currentCanvas?.nodes.find(n => n.id === newNodeId) || null
+
+        // 如果自动滚动启用，滚动到底部
+        if (shouldAutoScroll.value) {
+          nextTick(() => scrollToBottom())
+        }
       })
 
       projectStore.updateNode(newNodeId, {
@@ -1241,6 +1284,11 @@ async function handleAgentResponseForVoice(nodeId: string, transcript: string) {
         agentResult: accumulatedContent,
         agentStatus: 'processing'
       })
+
+      // 如果当前选中的节点是这个节点，且自动滚动启用，滚动到底部
+      if (selectedNode.value?.id === nodeId && shouldAutoScroll.value) {
+        nextTick(() => scrollToBottom())
+      }
     })
 
     projectStore.updateNode(nodeId, {
@@ -1291,6 +1339,11 @@ async function sendAgentRequest(nodeId: string, transcript: string) {
         agentResult: accumulatedContent,
         agentStatus: 'processing'
       })
+
+      // 如果当前选中的节点是这个节点，且自动滚动启用，滚动到底部
+      if (selectedNode.value?.id === nodeId && shouldAutoScroll.value) {
+        nextTick(() => scrollToBottom())
+      }
     })
 
     projectStore.updateNode(nodeId, {
