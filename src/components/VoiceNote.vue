@@ -734,8 +734,12 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
   font-size: 12px;
   color: var(--text-secondary);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   margin-left: auto;
   margin-right: 8px;
+  min-width: 0;
+  flex-shrink: 1;
 }
 
 .delete-btn {
@@ -746,6 +750,7 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
   border-radius: 4px;
   color: var(--text-secondary);
   transition: all 0.2s;
+  flex-shrink: 0;
 }
 
 .delete-btn:hover {
@@ -759,6 +764,7 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
   align-items: center;
   gap: 4px;
   margin-left: 8px;
+  flex-shrink: 0;
 }
 
 .action-btn {
