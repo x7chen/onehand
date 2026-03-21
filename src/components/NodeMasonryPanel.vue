@@ -252,10 +252,18 @@ function handleCancelEdit(nodeId: string) {
   editingText.value = ''
 }
 
+let scrollAnimationFrameId: number | null = null
+
 watch(() => props.selectedNodeId, (newNodeId) => {
   if (!newNodeId || !panelRef.value) return
 
-  nextTick(() => {
+  if (scrollAnimationFrameId !== null) {
+    cancelAnimationFrame(scrollAnimationFrameId)
+    scrollAnimationFrameId = null
+  }
+
+  scrollAnimationFrameId = requestAnimationFrame(() => {
+    scrollAnimationFrameId = null
     const nodeEl = document.querySelector(`[data-node-id="${newNodeId}"]`) as HTMLElement
     if (!nodeEl) return
 
@@ -272,7 +280,7 @@ watch(() => props.selectedNodeId, (newNodeId) => {
     const scrollTo = nodeTop - (containerHeight / 2) + (nodeHeight / 2)
     container.scrollTo({
       top: scrollTo,
-      behavior: 'smooth'
+      behavior: 'instant'
     })
   })
 })
