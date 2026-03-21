@@ -27,6 +27,7 @@
           :selected-node-id="selectedNode?.id"
           @page-change="handlePageChange"
           @create-node="handleCreateNode"
+          @recording-complete="handleRecordingComplete"
           @node-click="handleNodeClick"
           @node-position-change="handleNodePositionChange"
         />
@@ -46,6 +47,7 @@
         :ai-answer-enabled="aiAnswerEnabled"
         :editing-node-id="editingNodeId"
         :editing-text="editingText"
+        :current-page="currentPageNumber"
         @delete="handleDeleteNode"
         @play="handlePlayNode"
         @toggle-context="handleToggleContext"
@@ -102,7 +104,6 @@ import CanvasHeader from '@/components/CanvasHeader.vue'
 import PdfViewer from '@/components/PdfViewer.vue'
 import ChatPanel from '@/components/ChatPanel.vue'
 import ContextToolbar from '@/components/ContextToolbar.vue'
-import { createAudioWorkletRecorder } from '@/utils/audioWorkletRecorder'
 import { transcribeWithSherpaOnnx } from '@/composables/useSherpaOnnx'
 import { chatWithLLM, buildFullContextMessages } from '@/composables/useQwenAgent'
 import type { CanvasNode } from '@/types/project'
@@ -307,6 +308,8 @@ function handleNodePositionChange(data: { nodeId: string; position: { x: number;
 }
 
 function handleCreateNode(data: { type: 'text-note' | 'voice-note'; page: number; x: number; y: number }) {
+  if (data.type === 'voice-note') return
+  
   const nodeId = `node-${Date.now()}`
   const title = `第 ${data.page} 页节点`
   
@@ -324,18 +327,15 @@ function handleCreateNode(data: { type: 'text-note' | 'voice-note'; page: number
     pdfPosition: { x: data.x, y: data.y }
   }
   
-  if (data.type === 'voice-note') {
-    startRecordingForNode(nodeId, data.x, data.y, data.page)
-  } else {
-    editingNodeId.value = nodeId
-    editingText.value = ''
-    projectStore.addNode(node)
-    selectedNode.value = node
-  }
+  editingNodeId.value = nodeId
+  editingText.value = ''
+  projectStore.addNode(node)
+  selectedNode.value = node
 }
 
-async function startRecordingForNode(nodeId: string, x: number, y: number, page: number) {
-  const title = `第 ${page} 页录音`
+async function handleRecordingComplete(data: { audioBlob: Blob; duration: number; page: number; x: number; y: number }) {
+  const nodeId = `node-${Date.now()}`
+  const title = `第 ${data.page} 页录音`
   
   const node: CanvasNode = {
     id: nodeId,
@@ -347,56 +347,51 @@ async function startRecordingForNode(nodeId: string, x: number, y: number, page:
     agentResult: null,
     agentStatus: 'pending',
     createdAt: Date.now(),
-    pdfPage: page,
-    pdfPosition: { x, y }
+    pdfPage: data.page,
+    pdfPosition: { x: data.x, y: data.y },
+    duration: data.duration
   }
   
   projectStore.addNode(node)
   selectedNode.value = node
   
-  const pdfRecorder = createAudioWorkletRecorder()
-  
   try {
-    await pdfRecorder.start()
+    const extension = data.audioBlob.type === 'audio/wav' ? 'wav' : 'webm'
+    const audioPath = `audio/${nodeId}.${extension}`
     
-    setTimeout(async () => {
-      try {
-        const audioBlob = await pdfRecorder.stop()
-        const extension = audioBlob.type === 'audio/wav' ? 'wav' : 'webm'
-        const audioPath = `audio/${nodeId}.${extension}`
-        
-        const appDataPath = await window.electronAPI.getAppPath('userData')
-        const project = projectStore.currentProject
-        if (!project) return
-        
-        const projectDir = `${appDataPath}/projects/${project.id}`
-        await window.electronAPI.mkdir(`${projectDir}/audio`)
-        
-        const arrayBuffer = await audioBlob.arrayBuffer()
-        await window.electronAPI.saveFileBuffer(`${projectDir}/${audioPath}`, arrayBuffer)
-        
-        projectStore.updateNode(nodeId, { audioPath })
-        
-        try {
-          projectStore.updateNode(nodeId, { transcriptStatus: 'processing' })
-          const transcriptResult = await transcribeWithSherpaOnnx(audioBlob, settingsStore.settings.stt.sherpaOnnx)
-          projectStore.updateNode(nodeId, {
-            transcript: transcriptResult.success ? transcriptResult.text || '' : '',
-            transcriptStatus: transcriptResult.success ? 'done' : 'error'
-          })
-        } catch (error) {
-          console.error('Transcription failed:', error)
-          projectStore.updateNode(nodeId, { transcriptStatus: 'error' })
-        }
-      } catch (error) {
-        console.error('Failed to save audio:', error)
-        projectStore.removeNode(nodeId)
+    const appDataPath = await window.electronAPI.getAppPath('userData')
+    const project = projectStore.currentProject
+    if (!project) return
+    
+    const projectDir = `${appDataPath}/projects/${project.id}`
+    await window.electronAPI.mkdir(`${projectDir}/audio`)
+    
+    const arrayBuffer = await data.audioBlob.arrayBuffer()
+    await window.electronAPI.saveFileBuffer(`${projectDir}/${audioPath}`, arrayBuffer)
+    
+    projectStore.updateNode(nodeId, { audioPath })
+    
+    projectStore.updateNode(nodeId, { transcriptStatus: 'processing' })
+    const transcriptResult = await transcribeWithSherpaOnnx(data.audioBlob, settingsStore.settings.stt.sherpaOnnx)
+    
+    if (transcriptResult.success && transcriptResult.text) {
+      projectStore.updateNode(nodeId, {
+        transcript: transcriptResult.text,
+        transcriptStatus: 'done'
+      })
+      
+      if (aiAnswerEnabled.value) {
+        handleAgentResponse(nodeId, transcriptResult.text)
       }
-    }, 1000)
-    
+    } else {
+      projectStore.updateNode(nodeId, {
+        transcript: '',
+        transcriptStatus: 'error'
+      })
+    }
   } catch (error) {
-    console.error('Failed to start recording:', error)
-    projectStore.removeNode(nodeId)
+    console.error('Failed to process recording:', error)
+    projectStore.updateNode(nodeId, { transcriptStatus: 'error' })
   }
 }
 

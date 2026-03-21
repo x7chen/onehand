@@ -121,7 +121,7 @@ body {
 }
 
 /* 排除代码块内的元素，让 highlight.js 主题控制代码颜色 */
-:root.dark span:not(.hljs *):not(.katex *):not(.mermaid *) {
+:root.dark span:not(.hljs *):not(.katex *):not(.mermaid *):not(.textLayer *) {
   color: var(--text-primary) !important;
 }
 

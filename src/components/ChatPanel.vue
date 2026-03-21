@@ -123,6 +123,7 @@ const props = defineProps<{
   aiAnswerEnabled: boolean
   editingNodeId?: string | null
   editingText?: string
+  currentPage?: number
 }>()
 
 const emit = defineEmits<{
@@ -239,7 +240,6 @@ async function sendChat() {
   try {
     const settings = settingsStore.settings
 
-    // 如果没有选中节点，创建新节点
     if (!props.selectedNode) {
       const newNodeId = `node-${Date.now()}`
       const newNode: CanvasNode = {
@@ -252,7 +252,9 @@ async function sendChat() {
         agentResult: '',
         agentStatus: 'processing',
         selectedAsContext: false,
-        createdAt: Date.now()
+        createdAt: Date.now(),
+        pdfPage: props.currentPage,
+        pdfPosition: { x: 100, y: 100 }
       }
 
       projectStore.addNode(newNode)
@@ -261,7 +263,6 @@ async function sendChat() {
       await processChatRequest(newNodeId, prompt)
 
     } else {
-      // 有选中节点，创建新节点显示回答
       const node = props.selectedNode
       const newNodeId = `node-${Date.now()}`
       const newNode: CanvasNode = {
@@ -277,7 +278,9 @@ async function sendChat() {
         agentResult: '',
         agentStatus: 'processing',
         selectedAsContext: false,
-        createdAt: Date.now()
+        createdAt: Date.now(),
+        pdfPage: props.currentPage,
+        pdfPosition: { x: 100, y: 100 }
       }
 
       projectStore.addNode(newNode)
@@ -444,7 +447,9 @@ async function createVoiceNode(audioBlob: Blob, duration: number) {
     agentStatus: 'pending',
     selectedAsContext: false,
     createdAt: Date.now(),
-    duration
+    duration,
+    pdfPage: props.currentPage,
+    pdfPosition: { x: 100, y: 100 }
   }
 
   projectStore.addNode(node)

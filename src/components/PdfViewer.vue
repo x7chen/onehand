@@ -31,6 +31,7 @@
       ref="contentRef"
       @dblclick="handleDoubleClick"
       @mousedown="handleMouseDown"
+      @mousemove="handleMouseMove"
       @mouseup="handleMouseUp"
       @mouseleave="handleMouseLeave"
     >
@@ -43,6 +44,7 @@
       <div v-else-if="isDocReady" class="pdf-page-outer">
         <div class="pdf-page-container" ref="pageContainerRef" :style="pageContainerStyle">
           <canvas ref="canvasRef" class="pdf-canvas" :style="canvasStyle"></canvas>
+          <div ref="textLayerRef" class="textLayer-container"></div>
           <div class="node-markers" :style="nodeMarkersStyle">
             <div
               v-for="node in pageNodes"
@@ -61,18 +63,24 @@
       </div>
     </div>
 
-    <!-- 长按提示 -->
-    <div v-if="showLongPressHint" class="long-press-hint" :style="longPressHintStyle">
-      按住创建录音节点...
-    </div>
+    <RecordingIndicator
+      v-if="isRecording"
+      :x="recordingPosition.x"
+      :y="recordingPosition.y"
+      :duration="recordingDuration"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import * as pdfjsLib from 'pdfjs-dist'
+import { TextLayerBuilder } from 'pdfjs-dist/web/pdf_viewer.mjs'
+import 'pdfjs-dist/web/pdf_viewer.css'
 import type { CanvasNode } from '@/types/project'
 import type { PDFDocumentProxy } from 'pdfjs-dist'
+import RecordingIndicator from '@/components/RecordingIndicator.vue'
+import { createAudioWorkletRecorder } from '@/utils/audioWorkletRecorder'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.7.76/pdf.worker.min.mjs`
 
@@ -89,6 +97,7 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   'page-change': [page: number]
   'create-node': [data: { type: 'text-note' | 'voice-note'; page: number; x: number; y: number }]
+  'recording-complete': [data: { audioBlob: Blob; duration: number; page: number; x: number; y: number }]
   'node-click': [node: CanvasNode]
   'node-position-change': [data: { nodeId: string; position: { x: number; y: number } }]
 }>()
@@ -97,6 +106,7 @@ const containerRef = ref<HTMLElement | null>(null)
 const contentRef = ref<HTMLElement | null>(null)
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const pageContainerRef = ref<HTMLElement | null>(null)
+const textLayerRef = ref<HTMLElement | null>(null)
 
 let pdfDocInstance: PDFDocumentProxy | null = null
 const currentPage = ref(1)
@@ -104,16 +114,24 @@ const totalPages = ref(0)
 const scale = ref(1.2)
 const canvasWidth = ref(0)
 const canvasHeight = ref(0)
+const devicePixelRatio = ref(window.devicePixelRatio || 1)
 const isRendering = ref(false)
 const loadError = ref<string | null>(null)
 const isLoading = ref(false)
 const isDocReady = ref(false)
 
-const LONG_PRESS_DURATION = 500
+const LONG_PRESS_DURATION = 300
+const MOVE_THRESHOLD = 5
 let longPressTimer: number | null = null
-const showLongPressHint = ref(false)
-const longPressHintStyle = ref({ left: '0px', top: '0px' })
 let mouseDownPos = { x: 0, y: 0 }
+let mouseDownOnTextLayer = false
+
+const isRecording = ref(false)
+const recordingDuration = ref(0)
+const recordingPosition = ref({ x: 0, y: 0 })
+const recordingPagePos = ref({ x: 0, y: 0 })
+let recordingTimer: number | null = null
+let currentRecorder: ReturnType<typeof createAudioWorkletRecorder> | null = null
 
 const draggingNodeId = ref<string | null>(null)
 const draggingNodeStartPos = ref({ x: 0, y: 0 })
@@ -122,8 +140,8 @@ const pageNodes = computed(() => {
   return props.nodes.filter(node => node.pdfPage === currentPage.value)
 })
 
-const scaledWidth = computed(() => canvasWidth.value * scale.value)
-const scaledHeight = computed(() => canvasHeight.value * scale.value)
+const scaledWidth = computed(() => canvasWidth.value)
+const scaledHeight = computed(() => canvasHeight.value)
 
 const pageContainerStyle = computed(() => ({
   width: `${scaledWidth.value}px`,
@@ -243,7 +261,6 @@ async function renderPage() {
     await nextTick()
     
     const page = await pdfDocInstance.getPage(currentPage.value)
-    const viewport = page.getViewport({ scale: 1 })
     
     const canvas = canvasRef.value
     if (!canvas) return
@@ -251,22 +268,41 @@ async function renderPage() {
     const context = canvas.getContext('2d')
     if (!context) return
     
-    canvasWidth.value = viewport.width
-    canvasHeight.value = viewport.height
-    canvas.width = viewport.width * scale.value
-    canvas.height = viewport.height * scale.value
+    const dpr = devicePixelRatio.value
+    const outputScale = scale.value
+    const renderScale = outputScale * dpr
     
-    const scaledViewport = page.getViewport({ scale: scale.value })
+    const renderViewport = page.getViewport({ scale: renderScale })
+    const cssViewport = page.getViewport({ scale: outputScale })
     
-    context.setTransform(1, 0, 0, 1, 0, 0)
+    canvas.width = renderViewport.width
+    canvas.height = renderViewport.height
+    canvasWidth.value = cssViewport.width
+    canvasHeight.value = cssViewport.height
+    
+    await nextTick()
     
     const renderContext = {
       canvasContext: context,
-      viewport: scaledViewport
+      viewport: renderViewport
     }
     
     await page.render(renderContext).promise
     console.log('Page rendered successfully')
+    
+    const textLayerDiv = textLayerRef.value
+    if (textLayerDiv) {
+      textLayerDiv.innerHTML = ''
+      
+      const textLayerBuilder = new TextLayerBuilder({
+        pdfPage: page
+      })
+      
+      textLayerDiv.appendChild(textLayerBuilder.div)
+      
+      await textLayerBuilder.render(cssViewport)
+      console.log('TextLayer rendered successfully')
+    }
   } catch (error) {
     console.error('Failed to render page:', error)
   } finally {
@@ -324,47 +360,114 @@ function handleDoubleClick(e: MouseEvent) {
   })
 }
 
-function handleMouseDown(e: MouseEvent) {
-  if (e.button !== 0) return
-  
+async function startRecording(e: MouseEvent) {
   const container = pageContainerRef.value
-  if (container) {
-    const rect = container.getBoundingClientRect()
-    mouseDownPos = { x: e.clientX, y: e.clientY }
+  if (!container) return
+  
+  const rect = container.getBoundingClientRect()
+  const x = (e.clientX - rect.left) / scale.value
+  const y = (e.clientY - rect.top) / scale.value
+  
+  recordingPosition.value = { x: e.clientX, y: e.clientY }
+  recordingPagePos.value = { x, y }
+  recordingDuration.value = 0
+  
+  try {
+    currentRecorder = createAudioWorkletRecorder()
+    await currentRecorder.start()
+    isRecording.value = true
     
-    longPressTimer = window.setTimeout(() => {
-      showLongPressHint.value = true
-      longPressHintStyle.value = {
-        left: `${(e.clientX - rect.left)}px`,
-        top: `${(e.clientY - rect.top)}px`
-      }
-    }, LONG_PRESS_DURATION)
+    recordingTimer = window.setInterval(() => {
+      recordingDuration.value += 100
+    }, 100)
+  } catch (error) {
+    console.error('Failed to start recording:', error)
+    currentRecorder = null
   }
 }
 
-function handleMouseUp(e: MouseEvent) {
+async function stopRecording() {
+  if (!currentRecorder) return
+  
+  if (recordingTimer) {
+    clearInterval(recordingTimer)
+    recordingTimer = null
+  }
+  
+  try {
+    const audioBlob = await currentRecorder.stop()
+    isRecording.value = false
+    currentRecorder = null
+    
+    emit('recording-complete', {
+      audioBlob,
+      duration: recordingDuration.value,
+      page: currentPage.value,
+      x: recordingPagePos.value.x,
+      y: recordingPagePos.value.y
+    })
+  } catch (error) {
+    console.error('Failed to stop recording:', error)
+    isRecording.value = false
+    currentRecorder = null
+  }
+}
+
+function cancelRecording() {
+  if (!currentRecorder) return
+  
+  if (recordingTimer) {
+    clearInterval(recordingTimer)
+    recordingTimer = null
+  }
+  
+  currentRecorder.stop().catch(() => {})
+  isRecording.value = false
+  currentRecorder = null
+}
+
+function handleMouseDown(e: MouseEvent) {
+  if (e.button !== 0) return
+  if (isRecording.value) return
+  
+  const target = e.target as HTMLElement
+  mouseDownOnTextLayer = !!target.closest('.textLayer')
+  mouseDownPos = { x: e.clientX, y: e.clientY }
+  
+  longPressTimer = window.setTimeout(() => {
+    longPressTimer = null
+    startRecording(e)
+  }, LONG_PRESS_DURATION)
+}
+
+function handleMouseMove(e: MouseEvent) {
+  if (!longPressTimer && !isRecording.value) return
+  
+  const dx = e.clientX - mouseDownPos.x
+  const dy = e.clientY - mouseDownPos.y
+  const distance = Math.sqrt(dx * dx + dy * dy)
+  
+  if (isRecording.value) {
+    recordingPosition.value = { x: e.clientX, y: e.clientY }
+  }
+  
+  if (longPressTimer && mouseDownOnTextLayer && distance > MOVE_THRESHOLD) {
+    clearTimeout(longPressTimer)
+    longPressTimer = null
+  }
+}
+
+function handleMouseUp() {
   if (longPressTimer) {
     clearTimeout(longPressTimer)
     longPressTimer = null
   }
   
-  if (showLongPressHint.value) {
-    showLongPressHint.value = false
-    
-    const container = pageContainerRef.value
-    if (!container) return
-    
-    const rect = container.getBoundingClientRect()
-    const x = (e.clientX - rect.left) / scale.value
-    const y = (e.clientY - rect.top) / scale.value
-    
-    emit('create-node', {
-      type: 'voice-note',
-      page: currentPage.value,
-      x,
-      y
-    })
+  if (isRecording.value) {
+    stopRecording()
   }
+  
+  mouseDownOnTextLayer = false
 }
 
 function handleMouseLeave() {
@@ -372,7 +475,12 @@ function handleMouseLeave() {
     clearTimeout(longPressTimer)
     longPressTimer = null
   }
-  showLongPressHint.value = false
+  
+  if (isRecording.value) {
+    cancelRecording()
+  }
+  
+  mouseDownOnTextLayer = false
 }
 
 watch(() => props.pdfPath, () => {
@@ -394,11 +502,25 @@ onMounted(() => {
   if (contentRef.value) {
     contentRef.value.addEventListener('wheel', handleWheel, { passive: false })
   }
+  window.addEventListener('resize', handleResize)
 })
+
+function handleResize() {
+  const newDpr = window.devicePixelRatio || 1
+  if (newDpr !== devicePixelRatio.value) {
+    devicePixelRatio.value = newDpr
+  }
+}
 
 onUnmounted(() => {
   if (longPressTimer) {
     clearTimeout(longPressTimer)
+  }
+  if (recordingTimer) {
+    clearInterval(recordingTimer)
+  }
+  if (currentRecorder) {
+    currentRecorder.stop().catch(() => {})
   }
   if (pdfDocInstance) {
     pdfDocInstance.destroy()
@@ -409,6 +531,7 @@ onUnmounted(() => {
   if (contentRef.value) {
     contentRef.value.removeEventListener('wheel', handleWheel)
   }
+  window.removeEventListener('resize', handleResize)
 })
 
 defineExpose({
@@ -521,6 +644,19 @@ defineExpose({
   display: block;
 }
 
+.textLayer-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+.textLayer ::selection {
+  background: rgba(0, 0, 255, 0.3);
+}
+
 .node-markers {
   position: absolute;
   top: 0;
@@ -528,6 +664,7 @@ defineExpose({
   width: 100%;
   height: 100%;
   pointer-events: none;
+  z-index: 2;
 }
 
 .node-marker {
@@ -575,19 +712,5 @@ defineExpose({
 
 .node-marker.voice-note.selected {
   background: #c53030;
-}
-
-.long-press-hint {
-  position: absolute;
-  padding: 8px 16px;
-  background: rgba(0, 0, 0, 0.8);
-  color: white;
-  border-radius: 6px;
-  font-size: 13px;
-  pointer-events: none;
-  transform: translate(-50%, -100%);
-  margin-top: -10px;
-  white-space: nowrap;
-  z-index: 100;
 }
 </style>
