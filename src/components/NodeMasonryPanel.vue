@@ -4,52 +4,65 @@
     class="node-masonry-panel"
     :style="{ width: panelWidth + 'px' }"
   >
-    <div ref="nodeContainerRef" class="node-container">
+    <div ref="nodeContainerRef" class="node-container" @scroll="handleScroll">
       <div
-        v-for="col in masonryColumns"
-        :key="col.index"
-        class="masonry-column"
+        class="masonry-viewport"
+        :style="{ height: totalHeight + 'px' }"
       >
-        <div
-          v-for="node in col.nodes"
-          :key="node.id"
-          class="masonry-item"
-          :data-node-id="node.id"
-        >
-          <VoiceNote
-            :ref="(el) => { if (el) voiceNoteRefs[node.id] = el }"
-            :node="node"
-            :is-playing="playingNodeId === node.id"
-            :is-editing="editingNodeId === node.id"
-            :editing-text="editingText"
-            :global-hide-ai-result="true"
-            :is-active="selectedNodeId === node.id"
-            :activate-on-hover="false"
-            :show-header="false"
-            @delete="$emit('delete', $event)"
-            @play="$emit('play', $event)"
-            @toggle-context="$emit('toggle-context', $event)"
-            @retry-transcription="$emit('retry-transcription', $event)"
-            @retry-agent="$emit('retry-agent', $event)"
-            @regenerate-agent="$emit('regenerate-agent', $event)"
-            @toggle-favorite="$emit('toggle-favorite', $event)"
-            @drag-start="(nodeId, offsetX, offsetY) => $emit('drag-start', nodeId, offsetX, offsetY)"
-            @update-node="(nodeId, updates) => $emit('update-node', nodeId, updates)"
-            @save-edit="handleSaveEdit"
-            @cancel-edit="handleCancelEdit"
-            @update:editing-text="editingText = $event"
-            @activate="handleNodeActivate"
-          />
-        </div>
+        <template v-for="item in visibleNodes" :key="item.node.id">
+          <div
+            class="masonry-item"
+            :style="{
+              position: 'absolute',
+              top: item.top + 'px',
+              left: item.left + 'px',
+              width: item.width + 'px'
+            }"
+            :data-node-id="item.node.id"
+          >
+            <VoiceNote
+              :ref="(el) => { if (el) voiceNoteRefs[item.node.id] = el }"
+              :node="item.node"
+              :is-playing="playingNodeId === item.node.id"
+              :is-editing="editingNodeId === item.node.id"
+              :editing-text="editingText"
+              :global-hide-ai-result="true"
+              :is-active="selectedNodeId === item.node.id"
+              :activate-on-hover="false"
+              :show-header="false"
+              @delete="$emit('delete', $event)"
+              @play="$emit('play', $event)"
+              @toggle-context="$emit('toggle-context', $event)"
+              @retry-transcription="$emit('retry-transcription', $event)"
+              @retry-agent="$emit('retry-agent', $event)"
+              @regenerate-agent="$emit('regenerate-agent', $event)"
+              @toggle-favorite="$emit('toggle-favorite', $event)"
+              @drag-start="(nodeId, offsetX, offsetY) => $emit('drag-start', nodeId, offsetX, offsetY)"
+              @update-node="(nodeId, updates) => $emit('update-node', nodeId, updates)"
+              @save-edit="handleSaveEdit"
+              @cancel-edit="handleCancelEdit"
+              @update:editing-text="editingText = $event"
+              @activate="handleNodeActivate"
+            />
+          </div>
+        </template>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onMounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import VoiceNote from '@/components/VoiceNote.vue'
 import type { CanvasNode } from '@/types/project'
+
+interface VirtualNodeItem {
+  node: CanvasNode
+  top: number
+  left: number
+  width: number
+  height: number
+}
 
 const props = withDefaults(defineProps<{
   nodes: CanvasNode[]
@@ -75,23 +88,29 @@ const emit = defineEmits<{
   'activate': [nodeId: string]
 }>()
 
-// 面板引用
 const panelRef = ref<HTMLElement | null>(null)
 const nodeContainerRef = ref<HTMLElement | null>(null)
-
-// 节点引用
 const voiceNoteRefs = ref<Record<string, any>>({})
 
-// 编辑相关
 const editingNodeId = ref<string | null>(null)
 const editingText = ref('')
 
-// 瀑布流布局参数
 const NODE_MIN_WIDTH = 250
 const COLUMN_GAP = 6
 const CONTAINER_PADDING = 24
+const BUFFER_SIZE = 5
+const SCROLL_THRESHOLD = 100
 
-// 响应式列数计算
+const nodeHeights = ref<Record<string, number>>({})
+const measuredNodes = ref<Set<string>>(new Set())
+const virtualItems = ref<Map<string, VirtualNodeItem>>(new Map())
+const scrollTop = ref(0)
+const containerHeight = ref(600)
+
+const sortedNodes = computed(() => {
+  return [...props.nodes].sort((a, b) => a.createdAt - b.createdAt)
+})
+
 const columnCount = computed(() => {
   const panelWidth = props.panelWidth - CONTAINER_PADDING * 2
   for (let cols = 3; cols >= 1; cols--) {
@@ -104,69 +123,120 @@ const columnCount = computed(() => {
   return 1
 })
 
-// 瀑布流列数据
-interface MasonryColumn {
-  index: number
-  nodes: CanvasNode[]
-  height: number
-}
-
-// 节点高度缓存
-const nodeHeights = ref<Record<string, number>>({})
-
-// 按创建时间排序的节点列表
-const sortedNodes = computed(() => {
-  return [...props.nodes].sort((a, b) => a.createdAt - b.createdAt)
+const columnWidth = computed(() => {
+  const availableWidth = props.panelWidth - CONTAINER_PADDING * 2 - (columnCount.value - 1) * COLUMN_GAP
+  return availableWidth / columnCount.value
 })
 
-// 瀑布流列计算
-const masonryColumns = computed(() => {
+const totalHeight = computed(() => {
+  let maxHeight = 0
+  virtualItems.value.forEach(item => {
+    const bottom = item.top + item.height
+    if (bottom > maxHeight) {
+      maxHeight = bottom
+    }
+  })
+  return maxHeight + CONTAINER_PADDING
+})
+
+const visibleNodes = computed(() => {
+  const viewTop = scrollTop.value - SCROLL_THRESHOLD
+  const viewBottom = scrollTop.value + containerHeight.value + SCROLL_THRESHOLD
+  const result: VirtualNodeItem[] = []
+
+  virtualItems.value.forEach(item => {
+    const itemBottom = item.top + item.height
+    if (itemBottom >= viewTop && item.top <= viewBottom) {
+      result.push(item)
+    }
+  })
+
+  return result.sort((a, b) => a.top - b.top)
+})
+
+function calculateLayout() {
   const nodes = sortedNodes.value
   const cols = columnCount.value
+  const colWidth = columnWidth.value
+  const items = new Map<string, VirtualNodeItem>()
 
   if (!nodes.length) {
-    return Array.from({ length: cols }, (_, i) => ({ index: i, nodes: [], height: 0 }))
+    virtualItems.value = items
+    return
   }
 
-  const columns: MasonryColumn[] = Array.from({ length: cols }, (_, i) => ({
-    index: i,
-    nodes: [] as CanvasNode[],
-    height: 0
-  }))
+  const colHeights = new Array(cols).fill(CONTAINER_PADDING)
+  const colTops = new Array(cols).fill(CONTAINER_PADDING)
 
   for (const node of nodes) {
-    let minHeight = columns[0].height
     let minCol = 0
+    let minHeight = colHeights[0]
+
     for (let i = 1; i < cols; i++) {
-      if (columns[i].height < minHeight) {
-        minHeight = columns[i].height
+      if (colHeights[i] < minHeight) {
+        minHeight = colHeights[i]
         minCol = i
       }
     }
 
-    columns[minCol].nodes.push(node)
-    const height = nodeHeights.value[node.id] || 200
-    columns[minCol].height += height
+    const estimatedHeight = nodeHeights.value[node.id] || 200
+    const left = CONTAINER_PADDING + minCol * (colWidth + COLUMN_GAP)
+
+    items.set(node.id, {
+      node,
+      top: colTops[minCol],
+      left,
+      width: colWidth,
+      height: estimatedHeight
+    })
+
+    colHeights[minCol] += estimatedHeight + COLUMN_GAP
+    colTops[minCol] = colHeights[minCol]
   }
 
-  return columns
-})
+  virtualItems.value = items
+}
 
-// 更新节点高度缓存
-function updateNodeHeights() {
+function updateMeasuredHeights() {
   if (!nodeContainerRef.value) return
 
-  const items = nodeContainerRef.value.querySelectorAll('.masonry-item')
+  const container = nodeContainerRef.value.querySelector('.masonry-viewport')
+  if (!container) return
+
+  let hasChanges = false
+  const items = container.querySelectorAll('.masonry-item')
+
   items.forEach(item => {
     const nodeId = item.getAttribute('data-node-id')
     if (nodeId) {
       const height = (item as HTMLElement).offsetHeight
-      nodeHeights.value[nodeId] = height
+      if (nodeHeights.value[nodeId] !== height) {
+        nodeHeights.value[nodeId] = height
+        measuredNodes.value.add(nodeId)
+        hasChanges = true
+      }
     }
   })
+
+  if (hasChanges) {
+    calculateLayout()
+  }
 }
 
-// 节点激活
+watch(visibleNodes, () => {
+  nextTick(() => {
+    updateMeasuredHeights()
+  })
+}, { deep: true })
+
+function handleScroll() {
+  if (!nodeContainerRef.value) return
+  const newScrollTop = nodeContainerRef.value.scrollTop
+  if (Math.abs(newScrollTop - scrollTop.value) > 5) {
+    scrollTop.value = newScrollTop
+  }
+}
+
 function handleNodeActivate(nodeId: string) {
   emit('activate', nodeId)
 }
@@ -182,7 +252,6 @@ function handleCancelEdit(nodeId: string) {
   editingText.value = ''
 }
 
-// 监听选中节点变化，自动滚动到中央
 watch(() => props.selectedNodeId, (newNodeId) => {
   if (!newNodeId || !panelRef.value) return
 
@@ -208,29 +277,53 @@ watch(() => props.selectedNodeId, (newNodeId) => {
   })
 })
 
-// 监听节点数量变化
 watch(() => props.nodes.length, () => {
+  measuredNodes.value.clear()
   nextTick(() => {
-    updateNodeHeights()
+    calculateLayout()
+    nextTick(() => {
+      updateMeasuredHeights()
+    })
   })
 })
 
-// 监听面板宽度变化
 watch(() => props.panelWidth, () => {
+  measuredNodes.value.clear()
   nextTick(() => {
-    updateNodeHeights()
+    calculateLayout()
   })
 })
+
+let resizeObserver: ResizeObserver | null = null
 
 onMounted(() => {
   nextTick(() => {
-    updateNodeHeights()
+    calculateLayout()
+    if (nodeContainerRef.value) {
+      containerHeight.value = nodeContainerRef.value.clientHeight
+      resizeObserver = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          if (entry.target === nodeContainerRef.value) {
+            containerHeight.value = entry.contentRect.height
+          }
+        }
+      })
+      if (nodeContainerRef.value) {
+        resizeObserver.observe(nodeContainerRef.value)
+      }
+    }
   })
 })
 
-// 暴露方法
+onUnmounted(() => {
+  if (resizeObserver) {
+    resizeObserver.disconnect()
+    resizeObserver = null
+  }
+})
+
 defineExpose({
-  updateNodeHeights
+  updateNodeHeights: updateMeasuredHeights
 })
 </script>
 
@@ -247,21 +340,16 @@ defineExpose({
 .node-container {
   flex: 1;
   overflow-y: auto;
-  padding: 24px;
-  display: flex;
-  gap: 6px;
+  position: relative;
 }
 
-.masonry-column {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 0;
+.masonry-viewport {
+  position: relative;
+  width: 100%;
 }
 
 .masonry-item {
-  width: 100%;
+  box-sizing: border-box;
 }
 
 .masonry-item :deep(.voice-note) {
