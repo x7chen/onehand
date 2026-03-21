@@ -31,9 +31,9 @@ export interface GeneralSettings {
 }
 
 export interface ViewSettings {
-  // 面板宽度比例（左侧面板占比，0-1）
   chatViewLeftPanelRatio: number
   nodeListViewLeftPanelRatio: number
+  pdfReaderViewLeftPanelRatio: number
 }
 
 export const defaultSettings: Settings = {
@@ -60,8 +60,8 @@ export const defaultSettings: Settings = {
     theme: 'system'
   },
   view: {
-    // 默认 3:2 比例，左侧占 60%
     chatViewLeftPanelRatio: 0.6,
-    nodeListViewLeftPanelRatio: 0.6
+    nodeListViewLeftPanelRatio: 0.6,
+    pdfReaderViewLeftPanelRatio: 0.6
   }
 }

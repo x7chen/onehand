@@ -42,6 +42,7 @@
     "katex": "^0.16.25",
     "marked": "^17.0.4",
     "mermaid": "^11.6.0",
+    "pdfjs-dist": "^4.7.76",
     "sherpa-onnx": "^1.12.29",
     "vue-tsc": "^3.2.5"
   }

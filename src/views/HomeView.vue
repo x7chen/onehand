@@ -86,6 +86,7 @@
             <div class="project-card-content" @click="openProject(project.id)">
               <h3>{{ project.name }}</h3>
               <p class="project-info">
+                <span v-if="project.pdfPath" class="pdf-badge">PDF</span>
                 {{ (project.canvases?.[0]?.nodes?.length || project.canvas?.nodes?.length || 0) }} 个笔记 · {{ formatDate(project.updatedAt) }}
                 <span v-if="project.context?.staticContextIds?.length || project.context?.dynamicContextId" class="context-indicator">
                   ·
@@ -97,7 +98,12 @@
               </p>
             </div>
             <div class="project-card-actions">
-              <button class="action-btn node-list-btn" @click.stop="openNodeList(project.id)" title="列表视图">
+              <button v-if="project.pdfPath" class="action-btn pdf-btn" @click.stop="openPdf(project.id)" title="PDF阅读模式">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                  <path d="M20 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8.5 7.5c0 .83-.67 1.5-1.5 1.5H9v2H7.5V7H10c.83 0 1.5.67 1.5 1.5v1zm5 2c0 .83-.67 1.5-1.5 1.5h-2.5V7H15c.83 0 1.5.67 1.5 1.5v3zm4-3H19v1h1.5V11H19v2h-1.5V7h3v1.5zM9 9.5h1v-1H9v1zM4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm10 5.5h1v-3h-1v3z"/>
+                </svg>
+              </button>
+              <button v-else class="action-btn node-list-btn" @click.stop="openNodeList(project.id)" title="列表视图">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
                   <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
                 </svg>
@@ -207,6 +213,49 @@
           ref="projectNameInput"
         />
         
+        <!-- 项目类型选择 -->
+        <div class="form-group">
+          <label>项目类型：</label>
+          <div class="project-type-selector">
+            <button 
+              class="type-btn" 
+              :class="{ active: newProjectType === 'normal' }"
+              @click="newProjectType = 'normal'"
+            >
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
+              </svg>
+              常规项目
+            </button>
+            <button 
+              class="type-btn" 
+              :class="{ active: newProjectType === 'pdf' }"
+              @click="newProjectType = 'pdf'"
+            >
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                <path d="M20 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8.5 7.5c0 .83-.67 1.5-1.5 1.5H9v2H7.5V7H10c.83 0 1.5.67 1.5 1.5v1zm5 2c0 .83-.67 1.5-1.5 1.5h-2.5V7H15c.83 0 1.5.67 1.5 1.5v3zm4-3H19v1h1.5V11H19v2h-1.5V7h3v1.5zM9 9.5h1v-1H9v1zM4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm10 5.5h1v-3h-1v3z"/>
+              </svg>
+              PDF阅读项目
+            </button>
+          </div>
+        </div>
+
+        <!-- PDF 文件选择（仅 PDF 类型显示） -->
+        <div v-if="newProjectType === 'pdf'" class="form-group">
+          <label>选择 PDF 文件：</label>
+          <div class="pdf-file-selector">
+            <input
+              v-model="newProjectPdfName"
+              type="text"
+              placeholder="点击选择 PDF 文件"
+              readonly
+              @click="selectPdfFile"
+              class="pdf-input"
+            />
+            <button @click="selectPdfFile" class="browse-btn">浏览</button>
+          </div>
+        </div>
+        
         <!-- 选择静态上下文（多选） -->
         <div class="form-group">
           <label>静态上下文（可选，可多选）：</label>
@@ -235,7 +284,7 @@
 
         <div class="dialog-actions">
           <button @click="showNewProjectDialog = false" class="cancel-btn">取消</button>
-          <button @click="createProject" class="confirm-btn">创建</button>
+          <button @click="createProject" class="confirm-btn" :disabled="newProjectType === 'pdf' && !newProjectPdfPath">创建</button>
         </div>
       </div>
     </div>
@@ -304,6 +353,9 @@ const editingContext = ref<ContextFile | undefined>(undefined)
 
 const showNewProjectDialog = ref(false)
 const newProjectName = ref('')
+const newProjectType = ref<'normal' | 'pdf'>('normal')
+const newProjectPdfPath = ref('')
+const newProjectPdfName = ref('')
 const newProjectStaticContexts = ref<string[]>([])
 const newProjectDynamicContext = ref('')
 const projectNameInput = ref<HTMLInputElement | null>(null)
@@ -399,22 +451,51 @@ async function deleteContextFile() {
 // Project management
 async function createProject() {
   if (!newProjectName.value.trim()) return
+  if (newProjectType.value === 'pdf' && !newProjectPdfPath.value) return
 
   const context = {
     staticContextIds: newProjectStaticContexts.value.length > 0 ? newProjectStaticContexts.value : undefined,
     dynamicContextId: newProjectDynamicContext.value || undefined
   }
 
+  const projectType = newProjectType.value
+  const pdfPath = newProjectPdfPath.value
+
   const project = await projectStore.createProject(
     newProjectName.value,
-    (context.staticContextIds || context.dynamicContextId) ? context : undefined
+    (context.staticContextIds || context.dynamicContextId) ? context : undefined,
+    projectType === 'pdf' ? pdfPath : undefined
   )
 
   showNewProjectDialog.value = false
   newProjectName.value = ''
+  newProjectType.value = 'normal'
+  newProjectPdfPath.value = ''
+  newProjectPdfName.value = ''
   newProjectStaticContexts.value = []
   newProjectDynamicContext.value = ''
-  openProject(project.id)
+  
+  if (projectType === 'pdf') {
+    openPdf(project.id)
+  } else {
+    openProject(project.id)
+  }
+}
+
+async function selectPdfFile() {
+  try {
+    const result = await window.electronAPI.showOpenDialog({
+      title: '选择 PDF 文件',
+      filters: [{ name: 'PDF 文件', extensions: ['pdf'] }],
+      properties: ['openFile']
+    })
+    if (result.canceled || !result.filePaths || result.filePaths.length === 0) return
+    newProjectPdfPath.value = result.filePaths[0]
+    const fileName = result.filePaths[0].split(/[/\\]/).pop()
+    newProjectPdfName.value = fileName || result.filePaths[0]
+  } catch (error) {
+    console.error('Failed to select PDF file:', error)
+  }
 }
 
 function openProject(projectId: string) {
@@ -438,6 +519,14 @@ function openNodeList(projectId: string) {
   if (project) {
     projectStore.setCurrentProject(project)
     router.push(`/node-list/${projectId}`)
+  }
+}
+
+function openPdf(projectId: string) {
+  const project = projectStore.projects.find(p => p.id === projectId)
+  if (project) {
+    projectStore.setCurrentProject(project)
+    router.push(`/pdf/${projectId}`)
   }
 }
 
@@ -703,6 +792,26 @@ async function confirmDeleteProject() {
   background: #4299e1;
 }
 
+.pdf-btn {
+  color: #e53e3e;
+}
+
+.pdf-btn:hover {
+  background: #e53e3e;
+  color: white;
+}
+
+.pdf-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  background: #e53e3e;
+  color: white;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-right: 6px;
+}
+
 .project-card h3 {
   font-size: 18px;
   color: var(--text-primary);
@@ -884,6 +993,74 @@ async function confirmDeleteProject() {
   color: var(--text-primary);
   cursor: pointer;
   flex: 1;
+}
+
+.project-type-selector {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.type-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 14px;
+}
+
+.type-btn:hover {
+  border-color: #4299e1;
+  color: #4299e1;
+}
+
+.type-btn.active {
+  border-color: #4299e1;
+  background: rgba(66, 153, 225, 0.1);
+  color: #4299e1;
+}
+
+.pdf-file-selector {
+  display: flex;
+  gap: 8px;
+}
+
+.pdf-input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 14px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.pdf-input:focus {
+  outline: none;
+  border-color: #4299e1;
+}
+
+.browse-btn {
+  padding: 10px 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.browse-btn:hover {
+  background: var(--border-color);
 }
 
 .content-input {

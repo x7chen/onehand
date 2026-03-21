@@ -287,6 +287,15 @@ ipcMain.handle('select-directory', async () => {
   return result
 })
 
+ipcMain.handle('show-open-dialog', async (event, options) => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: options.title || '选择文件',
+    filters: options.filters || [],
+    properties: options.properties || ['openFile']
+  })
+  return result
+})
+
 ipcMain.handle('get-app-path', (event, name) => {
   return app.getPath(name)
 })

@@ -10,6 +10,7 @@ export interface Project {
   canvases?: CanvasPage[]
   currentCanvasIndex?: number
   context?: ProjectContext
+  pdfPath?: string
 }
 
 export interface CanvasPage {
@@ -18,6 +19,7 @@ export interface CanvasPage {
   viewport: Viewport
   nodes: CanvasNode[]
   createdAt: number
+  pdfPage?: number
 }
 
 /** @deprecated 使用 CanvasPage 替代 */
@@ -31,16 +33,19 @@ export interface Viewport {
 
 export interface CanvasNode {
   id: string
-  type: 'voice-note' | 'text-note' // Added text-note type
-  title?: string // 节点标题
+  type: 'voice-note' | 'text-note'
+  title?: string
   position: { x: number; y: number }
-  audioPath?: string // Optional for text-note
+  audioPath?: string
   transcript: string | null
   transcriptStatus: 'pending' | 'processing' | 'done' | 'error'
   agentResult: string | null
   agentStatus: 'pending' | 'processing' | 'done' | 'error'
   selectedAsContext?: boolean
-  isFavorite?: boolean // 收藏状态
+  isFavorite?: boolean
   createdAt: number
-  duration?: number // Recording duration in milliseconds
+  duration?: number
+  pdfPage?: number
+  pdfPosition?: { x: number; y: number }
+  highlightRect?: { x: number; y: number; width: number; height: number }
 }

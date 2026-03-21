@@ -1,7 +1,22 @@
 <template>
   <div class="chat-panel">
     <div class="chat-header">
-      <span v-if="selectedNode" class="selected-node-title">{{ selectedNode.title || '无标题' }}</span>
+      <div v-if="selectedNode" class="node-title-wrapper">
+        <input
+          v-if="isEditingTitle"
+          v-model="editingTitle"
+          ref="titleInputRef"
+          class="title-edit-input"
+          @keydown.enter.prevent="saveTitleEdit"
+          @keydown.escape="cancelTitleEdit"
+          @blur="saveTitleEdit"
+        />
+        <span
+          v-else
+          class="selected-node-title"
+          @dblclick.stop="startTitleEdit"
+        >{{ selectedNode.title || '无标题' }}</span>
+      </div>
     </div>
 
     <!-- 节点详情区域 -->
@@ -10,6 +25,8 @@
         <VoiceNote
           :node="selectedNode"
           :is-active="true"
+          :is-editing="isCurrentNodeEditing"
+          :editing-text="currentEditingText"
           :global-hide-ai-result="false"
           :show-header="true"
           @delete="$emit('delete', $event)"
@@ -22,6 +39,7 @@
           @update-node="(nodeId, updates) => $emit('update-node', nodeId, updates)"
           @save-edit="handleSaveEdit"
           @cancel-edit="handleCancelEdit"
+          @update:editing-text="(text) => $emit('update-editing-text', text)"
           @activate="() => {}"
         />
       </div>
@@ -103,6 +121,8 @@ const props = defineProps<{
   staticContextFiles: ContextFile[]
   dynamicContextFile?: ContextFile | null
   aiAnswerEnabled: boolean
+  editingNodeId?: string | null
+  editingText?: string
 }>()
 
 const emit = defineEmits<{
@@ -116,6 +136,9 @@ const emit = defineEmits<{
   'update-node': [nodeId: string, updates: Partial<CanvasNode>]
   'node-created': [node: CanvasNode]
   'node-updated': [node: CanvasNode]
+  'update-editing-text': [text: string]
+  'save-edit': [nodeId: string, text: string]
+  'cancel-edit': [nodeId: string]
 }>()
 
 const projectStore = useProjectStore()
@@ -128,6 +151,43 @@ const isChatting = ref(false)
 // 节点详情区域滚动相关
 const nodeDetailContainerRef = ref<HTMLElement | null>(null)
 const shouldAutoScroll = ref(true)
+
+// 编辑状态计算属性
+const isCurrentNodeEditing = computed((): boolean => {
+  return !!(props.editingNodeId && props.selectedNode && props.editingNodeId === props.selectedNode.id)
+})
+
+const currentEditingText = computed((): string => {
+  return isCurrentNodeEditing.value ? (props.editingText || '') : ''
+})
+
+// 标题编辑相关
+const isEditingTitle = ref(false)
+const editingTitle = ref('')
+const titleInputRef = ref<HTMLInputElement | null>(null)
+
+function startTitleEdit() {
+  if (!props.selectedNode) return
+  isEditingTitle.value = true
+  editingTitle.value = props.selectedNode.title || ''
+  nextTick(() => {
+    if (titleInputRef.value) {
+      titleInputRef.value.focus()
+      titleInputRef.value.select()
+    }
+  })
+}
+
+function saveTitleEdit() {
+  if (!props.selectedNode) return
+  const newTitle = editingTitle.value.trim()
+  emit('update-node', props.selectedNode.id, { title: newTitle || undefined })
+  isEditingTitle.value = false
+}
+
+function cancelTitleEdit() {
+  isEditingTitle.value = false
+}
 
 // 录音相关
 const simpleRecorder = createAudioWorkletRecorder()
@@ -161,7 +221,7 @@ watch(() => props.selectedNode, () => {
 })
 
 function handleSaveEdit(nodeId: string, text: string) {
-  emit('update-node', nodeId, { transcript: text })
+  emit('save-edit', nodeId, text)
 }
 
 function handleCancelEdit(nodeId: string) {
@@ -531,12 +591,33 @@ async function handleAgentResponseForVoice(nodeId: string, transcript: string) {
   background: var(--bg-primary);
 }
 
+.node-title-wrapper {
+  display: flex;
+  align-items: center;
+}
+
 .selected-node-title {
   font-size: 13px;
   color: var(--text-secondary);
   background: var(--bg-secondary);
   padding: 4px 8px;
   border-radius: 4px;
+  cursor: text;
+}
+
+.selected-node-title:hover {
+  background: var(--border-color);
+}
+
+.title-edit-input {
+  font-size: 13px;
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+  padding: 4px 8px;
+  border: 1px solid #4299e1;
+  border-radius: 4px;
+  outline: none;
+  min-width: 150px;
 }
 
 /* 节点详情区域 */

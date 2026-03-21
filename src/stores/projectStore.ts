@@ -4,10 +4,10 @@ import type { Project, CanvasNode, CanvasPage } from '@/types/project'
 import type { ProjectContext } from '@/types/context'
 
 // 创建新画布页的工厂函数
-function createCanvasPage(id?: string): CanvasPage {
+function createCanvasPage(id?: string, type: 'infinite' | 'pdf' = 'infinite'): CanvasPage {
   return {
     id: id || `canvas-${Date.now()}`,
-    type: 'infinite',
+    type,
     viewport: { x: 0, y: 0, zoom: 1 },
     nodes: [],
     createdAt: Date.now()
@@ -168,18 +168,22 @@ export const useProjectStore = defineStore('project', () => {
   }
 
   // 创建新项目
-  async function createProject(name: string, context?: ProjectContext) {
+  async function createProject(name: string, context?: ProjectContext, pdfPath?: string) {
     const project: Project = {
       id: Date.now().toString(),
       name,
       createdAt: Date.now(),
       updatedAt: Date.now(),
-      canvases: [createCanvasPage('canvas-1')],
+      canvases: [createCanvasPage('canvas-1', pdfPath ? 'pdf' : 'infinite')],
       currentCanvasIndex: 0
     }
 
     if (context && (context.staticContextIds?.length || context.dynamicContextId)) {
       project.context = context
+    }
+
+    if (pdfPath) {
+      project.pdfPath = pdfPath
     }
 
     // 保存到独立文件
