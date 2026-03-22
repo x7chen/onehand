@@ -1,7 +1,23 @@
 <template>
   <div class="pdf-viewer" ref="containerRef" @mousemove="handleContainerMouseMove" @mouseleave="hideEdgeButtons">
     <div class="pdf-toolbar">
+      <button @click="toggleSidebar" class="tool-btn" title="侧边栏">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+          <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
+        </svg>
+      </button>
+      <div class="toolbar-divider"></div>
+      <button @click="prevPage" class="tool-btn" :disabled="currentPage <= 1" title="上一页">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+          <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
+        </svg>
+      </button>
       <span class="page-info">{{ currentPage }} / {{ totalPages }}</span>
+      <button @click="nextPage" class="tool-btn" :disabled="currentPage >= totalPages" title="下一页">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+          <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
+        </svg>
+      </button>
       <div class="toolbar-divider"></div>
       <button @click="zoomOut" class="tool-btn" title="缩小">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
@@ -14,68 +30,237 @@
           <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
         </svg>
       </button>
+      <div class="toolbar-divider"></div>
+      <button @click="rotateCounterClockwise" class="tool-btn" title="逆时针旋转90°">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+          <path d="M7.11 8.53L5.7 7.11C4.8 8.27 4.24 9.61 4.07 11h2.02c.14-.87.49-1.72 1.02-2.47zM6.09 13H4.07c.17 1.39.72 2.73 1.62 3.89l1.41-1.42c-.52-.75-.87-1.59-1.01-2.47zm1.01 5.32c1.16.9 2.51 1.44 3.9 1.61V17.9c-.87-.15-1.71-.49-2.46-1.03L7.1 18.32zM13 4.07V1L8.45 5.55 13 10V6.09c2.84.48 5 2.94 5 5.91s-2.16 5.43-5 5.91v2.02c3.95-.49 7-3.85 7-7.93s-3.05-7.44-7-7.93z"/>
+        </svg>
+      </button>
+      <button @click="rotateClockwise" class="tool-btn" title="顺时针旋转90°">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+          <path d="M15.55 5.55L11 1v3.07C7.06 4.56 4 7.92 4 12s3.05 7.44 7 7.93v-2.02c-2.84-.48-5-2.94-5-5.91s2.16-5.43 5-5.91V10l4.55-4.45zM19.93 11c-.17-1.39-.72-2.73-1.62-3.89l-1.42 1.42c.54.75.88 1.6 1.02 2.47h2.02zM13 17.9v2.02c1.39-.17 2.74-.71 3.9-1.61l-1.44-1.44c-.75.54-1.59.89-2.46 1.03zm3.89-2.42l1.42 1.41c.9-1.16 1.45-2.5 1.62-3.89h-2.02c-.14.87-.48 1.72-1.02 2.48z"/>
+        </svg>
+      </button>
+      <div class="toolbar-divider"></div>
+      <button @click="setDrawMode('highlight')" class="tool-btn" :class="{ active: drawMode === 'highlight' }" title="高亮">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+          <path d="M6 14l3 3v5h6v-5l3-3V9H6v5zm2-3h8v2.17l-3 3V19h-2v-2.83l-3-3V11z"/>
+        </svg>
+      </button>
+      <button @click="setDrawMode('ink')" class="tool-btn" :class="{ active: drawMode === 'ink' }" title="绘图">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+          <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+        </svg>
+      </button>
+      <button @click="triggerImageUpload" class="tool-btn" title="添加图像">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+          <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+        </svg>
+      </button>
+      <input 
+        type="file" 
+        ref="imageInputRef" 
+        accept="image/*" 
+        style="display: none" 
+        @change="handleImageUpload"
+      />
+      <button @click="setDrawMode(null)" class="tool-btn" v-if="drawMode" title="取消选择">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+          <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+        </svg>
+      </button>
+      <div class="toolbar-divider"></div>
+      <button @click="savePdf" class="tool-btn" title="保存">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+          <path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/>
+        </svg>
+      </button>
     </div>
-    
-    <div 
-      class="pdf-content" 
-      ref="contentRef"
-      @dblclick="handleDoubleClick"
-      @mousedown="handleMouseDown"
-    >
-      <div v-if="isLoading" class="pdf-loading">
-        <span>加载中...</span>
-      </div>
-      <div v-else-if="loadError" class="pdf-error">
-        <span>{{ loadError }}</span>
-      </div>
-      <div v-else-if="isDocReady" class="pdf-page-outer">
-        <div class="pdf-page-container" ref="pageContainerRef" :style="pageContainerStyle">
-          <canvas ref="canvasRef" class="pdf-canvas" :style="canvasStyle"></canvas>
-          <div ref="textLayerRef" class="textLayer-container"></div>
-          <div class="node-markers" :style="nodeMarkersStyle">
-            <div
-              v-for="node in pageNodes"
-              :key="node.id"
-              class="node-marker"
-              :class="{ selected: selectedNodeId === node.id, dragging: draggingNodeId === node.id }"
-              :style="getNodeMarkerStyle(node)"
-              @click.stop="$emit('node-click', node)"
-              @mousedown.stop="startDragNode($event, node)"
-              :title="node.title || '节点'"
-            >
-              {{ getNodeMarkerText(node) }}
+
+    <div class="pdf-main">
+      <div class="pdf-sidebar" :class="{ collapsed: !sidebarVisible }">
+        <div class="sidebar-tabs">
+          <button 
+            class="sidebar-tab" 
+            :class="{ active: sidebarTab === 'outline' }" 
+            @click="sidebarTab = 'outline'; sidebarVisible = true"
+            title="目录"
+          >
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+              <path d="M3 18h6v-2H3v2zM3 6v2h18V6H3zm0 7h12v-2H3v2z"/>
+            </svg>
+          </button>
+          <button 
+            class="sidebar-tab" 
+            :class="{ active: sidebarTab === 'thumbnails' }" 
+            @click="sidebarTab = 'thumbnails'; sidebarVisible = true"
+            title="缩略图"
+          >
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+              <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+            </svg>
+          </button>
+        </div>
+        
+        <div class="sidebar-content" v-show="sidebarVisible">
+          <div v-if="sidebarTab === 'outline'" class="outline-container">
+            <div v-if="outlineLoading" class="sidebar-loading">加载目录...</div>
+            <div v-else-if="outline.length === 0" class="sidebar-empty">无目录</div>
+            <OutlineTree 
+              v-else 
+              :items="outline" 
+              @navigate="handleOutlineNavigate"
+            />
+          </div>
+          
+          <div v-else-if="sidebarTab === 'thumbnails'" class="thumbnails-container">
+            <div class="thumbnails-grid">
+              <div
+                v-for="thumb in thumbnails"
+                :key="thumb.pageNumber"
+                class="thumbnail-item"
+                :class="{ current: thumb.pageNumber === currentPage }"
+                @click="goToPage(thumb.pageNumber)"
+              >
+                <canvas
+                  ref="thumbnailCanvasesRef"
+                  :data-page-number="thumb.pageNumber"
+                  class="thumbnail-canvas"
+                ></canvas>
+                <span class="thumbnail-label">{{ thumb.pageNumber }}</span>
+              </div>
             </div>
+            <div v-if="thumbnailsLoading" class="sidebar-loading-overlay">加载缩略图...</div>
           </div>
         </div>
       </div>
-      
-      <button 
-        v-show="showLeftNav && currentPage > 1"
-        class="edge-nav-btn left"
-        @click.stop="handleEdgeNavClick(prevPage)"
-        @mousedown.stop="handleEdgeNavMouseDown"
-        @mouseup.stop="handleEdgeNavMouseUp"
-        @mouseleave="handleEdgeNavMouseLeave"
-        @dblclick.stop
+
+      <div 
+        class="pdf-content" 
+        ref="contentRef"
+        @dblclick="handleDoubleClick"
+        @mousedown="handleMouseDown"
+        @mousemove="handleDrawingMouseMove"
+        @mouseup="handleDrawingMouseUp"
+        :class="{ 'drawing-mode': !!drawMode }"
       >
-        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-          <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
-        </svg>
-      </button>
-      
-      <button 
-        v-show="showRightNav && currentPage < totalPages"
-        class="edge-nav-btn right"
-        @click.stop="handleEdgeNavClick(nextPage)"
-        @mousedown.stop="handleEdgeNavMouseDown"
-        @mouseup.stop="handleEdgeNavMouseUp"
-        @mouseleave="handleEdgeNavMouseLeave"
-        @dblclick.stop
-      >
-        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-          <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
-        </svg>
-      </button>
+        <div v-if="isLoading" class="pdf-loading">
+          <span>加载中...</span>
+        </div>
+        <div v-else-if="loadError" class="pdf-error">
+          <span>{{ loadError }}</span>
+        </div>
+        <div v-else-if="isDocReady" class="pdf-page-outer" :style="pageOuterStyle">
+          <div class="pdf-page-container" ref="pageContainerRef" :style="pageContainerStyle">
+            <canvas ref="canvasRef" class="pdf-canvas" :style="canvasStyle"></canvas>
+            <div ref="textLayerRef" class="textLayer-container"></div>
+            <svg 
+              ref="drawLayerRef" 
+              class="drawLayer-container" 
+              :style="drawLayerStyle"
+              @mousedown="startDrawing"
+            >
+              <defs>
+                <pattern id="highlightPattern" patternUnits="userSpaceOnUse" width="4" height="4">
+                  <rect width="4" height="4" fill="rgba(255, 255, 0, 0.3)"/>
+                  <path d="M0 0L4 4M4 0L0 4" stroke="rgba(200, 180, 0, 0.5)" stroke-width="1"/>
+                </pattern>
+              </defs>
+              <g v-for="(item, index) in drawingItems" :key="index">
+                <path 
+                  v-if="item.type === 'ink'" 
+                  :d="item.path" 
+                  fill="none" 
+                  :stroke="item.color || '#ff0000'" 
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <rect 
+                  v-else-if="item.type === 'highlight'" 
+                  :x="item.x" 
+                  :y="item.y" 
+                  :width="item.width" 
+                  :height="item.height"
+                  fill="url(#highlightPattern)"
+                  stroke="rgba(200, 180, 0, 0.5)"
+                  stroke-width="1"
+                />
+                <image 
+                  v-else-if="item.type === 'image' && item.dataUrl"
+                  :x="item.x" 
+                  :y="item.y" 
+                  :width="item.width"
+                  :height="item.height"
+                  :href="item.dataUrl"
+                  preserveAspectRatio="none"
+                />
+              </g>
+              <path 
+                v-if="isDrawing && currentPath"
+                :d="currentPath" 
+                fill="none" 
+                :stroke="drawingColor" 
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <rect 
+                v-if="isDrawing && drawMode === 'highlight' && highlightStart"
+                :x="Math.min(highlightStart.x, currentDrawPos.x)"
+                :y="Math.min(highlightStart.y, currentDrawPos.y)"
+                :width="Math.abs(currentDrawPos.x - highlightStart.x)"
+                :height="Math.abs(currentDrawPos.y - highlightStart.y)"
+                fill="url(#highlightPattern)"
+                stroke="rgba(200, 180, 0, 0.5)"
+                stroke-width="1"
+              />
+            </svg>
+            <div class="node-markers" :style="nodeMarkersStyle">
+              <div
+                v-for="node in pageNodes"
+                :key="node.id"
+                class="node-marker"
+                :class="{ selected: selectedNodeId === node.id, dragging: draggingNodeId === node.id }"
+                :style="getNodeMarkerStyle(node)"
+                @click.stop="$emit('node-click', node)"
+                @mousedown.stop="startDragNode($event, node)"
+                :title="node.title || '节点'"
+              >
+                {{ getNodeMarkerText(node) }}
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <button 
+          v-show="showLeftNav && currentPage > 1"
+          class="edge-nav-btn left"
+          @click.stop="handleEdgeNavClick(prevPage)"
+          @mousedown.stop="handleEdgeNavMouseDown"
+          @mouseup.stop="handleEdgeNavMouseUp"
+          @mouseleave="handleEdgeNavMouseLeave"
+          @dblclick.stop
+        >
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+            <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
+          </svg>
+        </button>
+        
+        <button 
+          v-show="showRightNav && currentPage < totalPages"
+          class="edge-nav-btn right"
+          @click.stop="handleEdgeNavClick(nextPage)"
+          @mousedown.stop="handleEdgeNavMouseDown"
+          @mouseup.stop="handleEdgeNavMouseUp"
+          @mouseleave="handleEdgeNavMouseLeave"
+          @dblclick.stop
+        >
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+            <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
+          </svg>
+        </button>
+      </div>
     </div>
 
     <RecordingIndicator
@@ -90,14 +275,42 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import * as pdfjsLib from 'pdfjs-dist'
-import { TextLayerBuilder } from 'pdfjs-dist/web/pdf_viewer.mjs'
+import { 
+  TextLayerBuilder, 
+  PDFLinkService,
+  EventBus
+} from 'pdfjs-dist/web/pdf_viewer.mjs'
 import 'pdfjs-dist/web/pdf_viewer.css'
 import type { CanvasNode } from '@/types/project'
-import type { PDFDocumentProxy } from 'pdfjs-dist'
+import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist'
 import RecordingIndicator from '@/components/RecordingIndicator.vue'
 import { createAudioWorkletRecorder } from '@/utils/audioWorkletRecorder'
+import OutlineTree from './OutlineTree.vue'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.7.76/pdf.worker.min.mjs`
+
+interface OutlineItem {
+  title: string
+  dest: string | null
+  items: OutlineItem[]
+  url?: string
+}
+
+interface ThumbnailItem {
+  pageNumber: number
+}
+
+interface DrawingItem {
+  type: 'ink' | 'highlight' | 'image'
+  path?: string
+  x?: number
+  y?: number
+  width?: number
+  height?: number
+  color?: string
+  dataUrl?: string
+  pageNumber: number
+}
 
 interface Props {
   pdfPath: string
@@ -115,6 +328,7 @@ const emit = defineEmits<{
   'recording-complete': [data: { audioBlob: Blob; duration: number; page: number; x: number; y: number }]
   'node-click': [node: CanvasNode]
   'node-position-change': [data: { nodeId: string; position: { x: number; y: number } }]
+  'save': [data: Uint8Array]
 }>()
 
 const containerRef = ref<HTMLElement | null>(null)
@@ -122,8 +336,13 @@ const contentRef = ref<HTMLElement | null>(null)
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const pageContainerRef = ref<HTMLElement | null>(null)
 const textLayerRef = ref<HTMLElement | null>(null)
+const drawLayerRef = ref<SVGSVGElement | null>(null)
+const imageInputRef = ref<HTMLInputElement | null>(null)
 
 let pdfDocInstance: PDFDocumentProxy | null = null
+let eventBus: EventBus | null = null
+let linkService: PDFLinkService | null = null
+
 const currentPage = ref(1)
 const totalPages = ref(0)
 const scale = ref(1.2)
@@ -134,6 +353,23 @@ const isRendering = ref(false)
 const loadError = ref<string | null>(null)
 const isLoading = ref(false)
 const isDocReady = ref(false)
+
+const sidebarVisible = ref(false)
+const sidebarTab = ref<'outline' | 'thumbnails'>('outline')
+const outline = ref<OutlineItem[]>([])
+const outlineLoading = ref(false)
+const thumbnails = ref<ThumbnailItem[]>([])
+const thumbnailsLoading = ref(false)
+
+const drawMode = ref<'highlight' | 'ink' | null>(null)
+const drawingColor = ref('#ff0000')
+const mainRotation = ref(0)
+
+const isDrawing = ref(false)
+const currentPath = ref<string | null>(null)
+const highlightStart = ref<{ x: number; y: number } | null>(null)
+const currentDrawPos = ref({ x: 0, y: 0 })
+const drawingItems = ref<DrawingItem[]>([])
 
 const LONG_PRESS_DURATION = 300
 const MOVE_THRESHOLD = 5
@@ -159,6 +395,8 @@ const showLeftNav = ref(false)
 const showRightNav = ref(false)
 let edgeNavTimeout: number | null = null
 
+const thumbnailCanvasesRef = ref<HTMLCanvasElement[]>([])
+
 const pageNodes = computed(() => {
   return props.nodes.filter(node => node.pdfPage === currentPage.value)
 })
@@ -171,12 +409,19 @@ const pageContainerStyle = computed(() => ({
   height: `${scaledHeight.value}px`
 }))
 
+const pageOuterStyle = computed(() => ({}))
+
 const nodeMarkersStyle = computed(() => ({
   width: `${scaledWidth.value}px`,
   height: `${scaledHeight.value}px`
 }))
 
 const canvasStyle = computed(() => ({
+  width: `${scaledWidth.value}px`,
+  height: `${scaledHeight.value}px`
+}))
+
+const drawLayerStyle = computed(() => ({
   width: `${scaledWidth.value}px`,
   height: `${scaledHeight.value}px`
 }))
@@ -225,7 +470,7 @@ function handleDragMove(e: MouseEvent) {
   draggingNodeStartPos.value = { x: e.clientX, y: e.clientY }
 }
 
-function handleDragEnd(e: MouseEvent) {
+function handleDragEnd() {
   if (draggingNodeId.value) {
     const node = props.nodes.find(n => n.id === draggingNodeId.value)
     if (node) {
@@ -239,6 +484,132 @@ function handleDragEnd(e: MouseEvent) {
   draggingNodeId.value = null
   document.removeEventListener('mousemove', handleDragMove)
   document.removeEventListener('mouseup', handleDragEnd)
+}
+
+async function loadOutline() {
+  if (!pdfDocInstance) return
+  
+  outlineLoading.value = true
+  try {
+    const outlineItems = await pdfDocInstance.getOutline()
+    outline.value = transformOutline(outlineItems || [])
+  } catch (error) {
+    console.error('Failed to load outline:', error)
+    outline.value = []
+  } finally {
+    outlineLoading.value = false
+  }
+}
+
+function transformOutline(items: any[]): OutlineItem[] {
+  return items.map(item => ({
+    title: item.title,
+    dest: item.dest,
+    items: item.items ? transformOutline(item.items) : [],
+    url: item.url
+  }))
+}
+
+async function handleOutlineNavigate(dest: string | null, url?: string) {
+  if (url) {
+    window.open(url, '_blank')
+    return
+  }
+  
+  if (!pdfDocInstance || !dest) return
+  
+  try {
+    const destObj = await pdfDocInstance.getDestination(dest)
+    if (destObj) {
+      const [pageIndex] = destObj
+      const pageNumber = typeof pageIndex === 'number' ? pageIndex + 1 : await pdfDocInstance.getPageIndex(pageIndex) + 1
+      goToPage(pageNumber)
+    }
+  } catch (error) {
+    console.error('Failed to navigate to destination:', error)
+  }
+}
+
+async function loadThumbnails() {
+  if (!pdfDocInstance) return
+
+  // 如果已经有缩略图数据，只需要重新渲染
+  const needsInit = thumbnails.value.length === 0
+
+  if (needsInit) {
+    thumbnailsLoading.value = true
+    thumbnails.value = []
+    for (let i = 1; i <= pdfDocInstance.numPages; i++) {
+      thumbnails.value.push({ pageNumber: i })
+    }
+  }
+
+  try {
+    // 等待 DOM 更新
+    await nextTick()
+    await new Promise(resolve => setTimeout(resolve, 50))
+
+    const canvasElements = thumbnailCanvasesRef.value
+    console.log('Found thumbnail canvas refs:', canvasElements?.length || 0)
+
+    if (!canvasElements || canvasElements.length === 0) {
+      console.warn('No thumbnail canvas elements found, sidebar may be hidden')
+      return
+    }
+
+    // 渲染所有缩略图
+    for (const canvas of canvasElements) {
+      if (!canvas) continue
+      const pageNumber = parseInt(canvas.dataset.pageNumber || '0')
+      if (pageNumber > 0 && pageNumber <= pdfDocInstance.numPages) {
+        console.log('Rendering thumbnail for page:', pageNumber)
+        await renderThumbnail(pageNumber, canvas)
+      }
+    }
+  } catch (error) {
+    console.error('Failed to load thumbnails:', error)
+  } finally {
+    thumbnailsLoading.value = false
+  }
+}
+
+async function renderThumbnail(pageNumber: number, canvas: HTMLCanvasElement) {
+  if (!pdfDocInstance) return
+
+  try {
+    const page = await pdfDocInstance.getPage(pageNumber)
+
+    const maxWidth = 120
+    const viewport = page.getViewport({ scale: 1 })
+    const scale = maxWidth / viewport.width
+    const scaledViewport = page.getViewport({ scale })
+
+    const context = canvas.getContext('2d')
+    if (!context) {
+      console.error('Failed to get 2d context for thumbnail', pageNumber)
+      return
+    }
+
+    canvas.width = scaledViewport.width
+    canvas.height = scaledViewport.height
+
+    console.log('Rendering thumbnail', pageNumber, 'with size:', canvas.width, 'x', canvas.height)
+
+    await page.render({
+      canvasContext: context,
+      viewport: scaledViewport
+    }).promise
+
+    console.log('Thumbnail', pageNumber, 'rendered successfully')
+  } catch (error) {
+    console.error(`Failed to render thumbnail ${pageNumber}:`, error)
+  }
+}
+
+function goToPage(page: number) {
+  if (page >= 1 && page <= totalPages.value) {
+    currentPage.value = page
+  }
 }
 
 async function loadPdf() {
@@ -256,14 +627,27 @@ async function loadPdf() {
     
     console.log('Loading PDF from:', pdfUrl)
     
+    eventBus = new EventBus()
+    linkService = new PDFLinkService({
+      eventBus,
+      externalLinkTarget: 2
+    })
+    
     const loadingTask = pdfjsLib.getDocument({
       url: pdfUrl,
     })
     
     pdfDocInstance = await loadingTask.promise
     totalPages.value = pdfDocInstance.numPages
+    linkService.setDocument(pdfDocInstance, null)
+    
     isDocReady.value = true
     await renderPage()
+    
+    await Promise.all([
+      loadOutline(),
+      loadThumbnails()
+    ])
   } catch (error) {
     console.error('Failed to load PDF:', error)
     loadError.value = error instanceof Error ? error.message : '加载 PDF 失败'
@@ -295,8 +679,10 @@ async function renderPage() {
     const outputScale = scale.value
     const renderScale = outputScale * dpr
     
-    const renderViewport = page.getViewport({ scale: renderScale })
-    const cssViewport = page.getViewport({ scale: outputScale })
+    const baseViewport = page.getViewport({ scale: 1 })
+    const rotation = (baseViewport.rotation + mainRotation.value) % 360
+    const renderViewport = page.getViewport({ scale: renderScale, rotation })
+    const cssViewport = page.getViewport({ scale: outputScale, rotation })
     
     canvas.width = renderViewport.width
     canvas.height = renderViewport.height
@@ -313,24 +699,66 @@ async function renderPage() {
     await page.render(renderContext).promise
     console.log('Page rendered successfully')
     
-    const textLayerDiv = textLayerRef.value
-    if (textLayerDiv) {
-      textLayerDiv.innerHTML = ''
-      
-      const textLayerBuilder = new TextLayerBuilder({
-        pdfPage: page
-      })
-      
-      textLayerDiv.appendChild(textLayerBuilder.div)
-      
-      await textLayerBuilder.render(cssViewport)
-      console.log('TextLayer rendered successfully')
-    }
+    await renderTextLayer(page, cssViewport)
+    
+    filterDrawingsForPage()
   } catch (error) {
     console.error('Failed to render page:', error)
   } finally {
     isRendering.value = false
   }
+}
+
+async function renderTextLayer(page: PDFPageProxy, viewport: any) {
+  const textLayerDiv = textLayerRef.value
+  if (!textLayerDiv) return
+  
+  textLayerDiv.innerHTML = ''
+  
+  try {
+    const textLayerBuilder = new TextLayerBuilder({
+      pdfPage: page
+    })
+    
+    textLayerDiv.appendChild(textLayerBuilder.div)
+    
+    await textLayerBuilder.render(viewport)
+    console.log('TextLayer rendered successfully')
+  } catch (error) {
+    console.error('Failed to render text layer:', error)
+  }
+}
+
+function filterDrawingsForPage() {
+  const currentDrawings = drawingItems.value.filter(d => d.pageNumber === currentPage.value)
+}
+
+function setDrawMode(mode: 'highlight' | 'ink' | null) {
+  drawMode.value = mode
+}
+
+function rotateClockwise() {
+  mainRotation.value = (mainRotation.value + 90) % 360
+}
+
+function rotateCounterClockwise() {
+  mainRotation.value = (mainRotation.value - 90 + 360) % 360
+}
+
+async function savePdf() {
+  if (!pdfDocInstance) return
+  
+  try {
+    const data = await pdfDocInstance.saveDocument()
+    emit('save', data)
+    console.log('PDF saved successfully')
+  } catch (error) {
+    console.error('Failed to save PDF:', error)
+  }
+}
+
+function toggleSidebar() {
+  sidebarVisible.value = !sidebarVisible.value
 }
 
 function prevPage() {
@@ -413,6 +841,7 @@ function hideEdgeButtons() {
 
 function handleDoubleClick(e: MouseEvent) {
   if (e.button !== 0) return
+  if (drawMode.value) return
   
   const target = e.target as HTMLElement
   if (target.closest('.edge-nav-btn')) return
@@ -437,9 +866,130 @@ function handleDoubleClick(e: MouseEvent) {
   })
 }
 
+function getDrawPosition(e: MouseEvent): { x: number; y: number } {
+  const container = pageContainerRef.value
+  if (!container) return { x: 0, y: 0 }
+  
+  const rect = container.getBoundingClientRect()
+  return {
+    x: (e.clientX - rect.left),
+    y: (e.clientY - rect.top)
+  }
+}
+
+function startDrawing(e: MouseEvent) {
+  if (!drawMode.value) return
+  if (e.button !== 0) return
+  
+  isDrawing.value = true
+  const pos = getDrawPosition(e)
+  
+  if (drawMode.value === 'ink') {
+    currentPath.value = `M ${pos.x} ${pos.y}`
+  } else if (drawMode.value === 'highlight') {
+    highlightStart.value = pos
+  }
+  
+  currentDrawPos.value = pos
+}
+
+function handleDrawingMouseMove(e: MouseEvent) {
+  if (!isDrawing.value) return
+  
+  const pos = getDrawPosition(e)
+  currentDrawPos.value = pos
+  
+  if (drawMode.value === 'ink' && currentPath.value) {
+    currentPath.value += ` L ${pos.x} ${pos.y}`
+  }
+}
+
+function handleDrawingMouseUp(e: MouseEvent) {
+  if (!isDrawing.value) return
+  
+  const pos = getDrawPosition(e)
+  
+  if (drawMode.value === 'ink' && currentPath.value) {
+    drawingItems.value.push({
+      type: 'ink',
+      path: currentPath.value,
+      color: drawingColor.value,
+      pageNumber: currentPage.value
+    })
+    currentPath.value = null
+  } else if (drawMode.value === 'highlight' && highlightStart.value) {
+    const x = Math.min(highlightStart.value.x, pos.x)
+    const y = Math.min(highlightStart.value.y, pos.y)
+    const width = Math.abs(pos.x - highlightStart.value.x)
+    const height = Math.abs(pos.y - highlightStart.value.y)
+    
+    if (width > 5 && height > 5) {
+      drawingItems.value.push({
+        type: 'highlight',
+        x,
+        y,
+        width,
+        height,
+        pageNumber: currentPage.value
+      })
+    }
+    highlightStart.value = null
+  }
+  
+  isDrawing.value = false
+}
+
+function triggerImageUpload() {
+  imageInputRef.value?.click()
+}
+
+function handleImageUpload(e: Event) {
+  const target = e.target as HTMLInputElement
+  const file = target.files?.[0]
+  if (!file) return
+  
+  const reader = new FileReader()
+  reader.onload = (event) => {
+    const dataUrl = event.target?.result as string
+    if (dataUrl) {
+      const img = new Image()
+      img.onload = () => {
+        const maxWidth = 200
+        const maxHeight = 200
+        let width = img.width
+        let height = img.height
+        
+        if (width > maxWidth) {
+          height = (maxWidth / width) * height
+          width = maxWidth
+        }
+        if (height > maxHeight) {
+          width = (maxHeight / height) * width
+          height = maxHeight
+        }
+        
+        drawingItems.value.push({
+          type: 'image',
+          x: 50,
+          y: 50,
+          width,
+          height,
+          dataUrl,
+          pageNumber: currentPage.value
+        })
+      }
+      img.src = dataUrl
+    }
+  }
+  reader.readAsDataURL(file)
+  
+  target.value = ''
+}
+
 async function startRecording(e: MouseEvent) {
   if (isClickingEdgeButton) return
   if (showLeftNav.value || showRightNav.value) return
+  if (drawMode.value) return
   
   const dx = currentMousePos.x - mouseDownPos.x
   const dy = currentMousePos.y - mouseDownPos.y
@@ -536,6 +1086,7 @@ function cancelRecording() {
 function handleMouseDown(e: MouseEvent) {
   if (e.button !== 0) return
   if (isRecording.value) return
+  if (drawMode.value) return
   
   const target = e.target as HTMLElement
   if (target.closest('.edge-nav-btn')) return
@@ -628,6 +1179,25 @@ watch(scale, async () => {
   renderPage()
 })
 
+watch(mainRotation, async () => {
+  await nextTick()
+  renderPage()
+})
+
+watch(sidebarVisible, async (visible) => {
+  if (visible && pdfDocInstance && sidebarTab.value === 'thumbnails') {
+    await nextTick()
+    await loadThumbnails()
+  }
+})
+
+watch(sidebarTab, async (tab) => {
+  if (tab === 'thumbnails' && sidebarVisible.value && pdfDocInstance) {
+    await nextTick()
+    await loadThumbnails()
+  }
+})
+
 onMounted(() => {
   loadPdf()
   if (contentRef.value) {
@@ -671,7 +1241,10 @@ defineExpose({
     if (page >= 1 && page <= totalPages.value) {
       currentPage.value = page
     }
-  }
+  },
+  rotateClockwise,
+  rotateCounterClockwise,
+  savePdf
 })
 </script>
 
@@ -694,6 +1267,138 @@ defineExpose({
   flex-shrink: 0;
 }
 
+.pdf-main {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.pdf-sidebar {
+  display: flex;
+  width: 280px;
+  background: var(--bg-primary);
+  border-right: 1px solid var(--border-color);
+  transition: width 0.2s;
+}
+
+.pdf-sidebar.collapsed {
+  width: 40px;
+}
+
+.sidebar-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 4px;
+  background: var(--bg-secondary);
+}
+
+.sidebar-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.sidebar-tab:hover {
+  background: var(--border-color);
+  color: var(--text-primary);
+}
+
+.sidebar-tab.active {
+  background: var(--primary-color);
+  color: white;
+}
+
+.sidebar-content {
+  flex: 1;
+  overflow: auto;
+  padding: 8px;
+}
+
+.sidebar-loading,
+.sidebar-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100px;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.sidebar-loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: 14px;
+  z-index: 10;
+}
+
+.outline-container {
+  font-size: 13px;
+}
+
+.thumbnails-container {
+  position: relative;
+  min-height: 100px;
+}
+
+.thumbnails-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.thumbnail-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.thumbnail-item:hover {
+  background: var(--bg-secondary);
+}
+
+.thumbnail-item.current {
+  background: var(--primary-color);
+}
+
+.thumbnail-item.current .thumbnail-label {
+  color: white;
+}
+
+.thumbnail-canvas {
+  max-width: 100%;
+  max-height: 160px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  display: block;
+  background: white;
+}
+
+.thumbnail-label {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
 .nav-btn,
 .tool-btn {
   display: flex;
@@ -712,6 +1417,11 @@ defineExpose({
 .nav-btn:hover:not(:disabled),
 .tool-btn:hover {
   background: var(--border-color);
+}
+
+.tool-btn.active {
+  background: var(--primary-color);
+  color: white;
 }
 
 .nav-btn:disabled {
@@ -746,6 +1456,10 @@ defineExpose({
   display: flex;
   justify-content: center;
   padding: 20px;
+}
+
+.pdf-content.drawing-mode {
+  cursor: crosshair;
 }
 
 .pdf-loading,
@@ -785,6 +1499,20 @@ defineExpose({
   z-index: 1;
 }
 
+.drawLayer-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.drawLayer-container .drawing-mode {
+  pointer-events: auto;
+}
+
 .textLayer ::selection {
   background: rgba(0, 0, 255, 0.3);
 }
@@ -796,7 +1524,7 @@ defineExpose({
   width: 100%;
   height: 100%;
   pointer-events: none;
-  z-index: 2;
+  z-index: 3;
 }
 
 .node-marker {
