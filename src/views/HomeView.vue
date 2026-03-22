@@ -87,7 +87,7 @@
               <h3>{{ project.name }}</h3>
               <p class="project-info">
                 <span v-if="project.pdfPath" class="pdf-badge">PDF</span>
-                {{ (project.canvases?.[0]?.nodes?.length || project.canvas?.nodes?.length || 0) }} 个笔记 · {{ formatDate(project.updatedAt) }}
+                {{ getCanvasesCount(project) }} 页 · {{ getTotalNodesCount(project) }} 个笔记 · {{ formatDate(project.updatedAt) }}
                 <span v-if="project.context?.staticContextIds?.length || project.context?.dynamicContextId" class="context-indicator">
                   ·
                   <span v-if="project.context.staticContextIds?.length" :title="`静态上下文 (${project.context.staticContextIds.length}个)`">
@@ -374,6 +374,24 @@ onMounted(() => {
   projectStore.loadProjects()
   contextStore.loadContextFiles()
 })
+
+// 计算项目所有画布的节点总数
+function getTotalNodesCount(project: Project): number {
+  if (project.canvases && project.canvases.length > 0) {
+    return project.canvases.reduce((total, canvas) => total + (canvas.nodes?.length || 0), 0)
+  }
+  // 兼容旧数据格式
+  return project.canvas?.nodes?.length || 0
+}
+
+// 计算项目画布页数
+function getCanvasesCount(project: Project): number {
+  if (project.canvases && project.canvases.length > 0) {
+    return project.canvases.length
+  }
+  // 兼容旧数据格式
+  return project.canvas ? 1 : 0
+}
 
 function formatDate(timestamp: number): string {
   const date = new Date(timestamp)

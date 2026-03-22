@@ -4,14 +4,18 @@ import type { Project, CanvasNode, CanvasPage } from '@/types/project'
 import type { ProjectContext } from '@/types/context'
 
 // 创建新画布页的工厂函数
-function createCanvasPage(id?: string, type: 'infinite' | 'pdf' = 'infinite'): CanvasPage {
-  return {
+function createCanvasPage(id?: string, type: 'infinite' | 'pdf' = 'infinite', pdfPage?: number): CanvasPage {
+  const page: CanvasPage = {
     id: id || `canvas-${Date.now()}`,
     type,
     viewport: { x: 0, y: 0, zoom: 1 },
     nodes: [],
     createdAt: Date.now()
   }
+  if (pdfPage !== undefined) {
+    page.pdfPage = pdfPage
+  }
+  return page
 }
 
 // 为节点设置默认的运行时状态
@@ -453,6 +457,163 @@ export const useProjectStore = defineStore('project', () => {
     }
   }
 
+  // ========== PDF 页面画布管理方法 ==========
+
+  // 获取或创建指定 PDF 页码的画布，并切换到该画布
+  function getOrCreateCanvasForPdfPage(pdfPageNumber: number): CanvasPage | null {
+    if (!currentProject.value) return null
+
+    // 确保 canvases 数组存在
+    if (!currentProject.value.canvases) {
+      currentProject.value.canvases = []
+    }
+
+    // 查找是否已存在该 PDF 页码的画布
+    let targetCanvas = currentProject.value.canvases.find(
+      canvas => canvas.pdfPage === pdfPageNumber
+    )
+
+    if (targetCanvas) {
+      // 找到了，切换到该画布
+      const index = currentProject.value.canvases.indexOf(targetCanvas)
+      currentProject.value.currentCanvasIndex = index
+      return targetCanvas
+    }
+
+    // 没找到，需要创建新画布并插入到正确位置
+    const newCanvas = createCanvasPage(undefined, 'pdf', pdfPageNumber)
+
+    // 找到插入位置：按 pdfPage 升序排列
+    let insertIndex = 0
+    for (let i = 0; i < currentProject.value.canvases.length; i++) {
+      const canvas = currentProject.value.canvases[i]
+      // 如果画布没有 pdfPage 或 pdfPage 小于目标页码，继续往后找
+      if (canvas.pdfPage === undefined || canvas.pdfPage < pdfPageNumber) {
+        insertIndex = i + 1
+      } else {
+        break
+      }
+    }
+
+    // 插入新画布
+    currentProject.value.canvases.splice(insertIndex, 0, newCanvas)
+    currentProject.value.currentCanvasIndex = insertIndex
+    saveProject(currentProject.value)
+
+    return newCanvas
+  }
+
+  // 获取指定 PDF 页码的画布（不创建）
+  function getCanvasByPdfPage(pdfPageNumber: number): CanvasPage | null {
+    if (!currentProject.value?.canvases) return null
+    return currentProject.value.canvases.find(
+      canvas => canvas.pdfPage === pdfPageNumber
+    ) || null
+  }
+
+  // 切换到指定 PDF 页码的画布
+  function switchToPdfPage(pdfPageNumber: number): boolean {
+    if (!currentProject.value?.canvases) return false
+
+    const index = currentProject.value.canvases.findIndex(
+      canvas => canvas.pdfPage === pdfPageNumber
+    )
+
+    if (index !== -1) {
+      currentProject.value.currentCanvasIndex = index
+      return true
+    }
+    return false
+  }
+
+  // 在指定 PDF 页码的画布中添加节点（自动创建画布如果不存在）
+  function addNodeToPdfPage(node: CanvasNode, pdfPageNumber: number) {
+    const canvas = getOrCreateCanvasForPdfPage(pdfPageNumber)
+    if (canvas) {
+      canvas.nodes.push(node)
+      saveProject(currentProject.value!)
+    }
+  }
+
+  // 在指定 PDF 页码的画布中更新节点
+  function updateNodeInPdfPage(nodeId: string, pdfPageNumber: number, updates: Partial<CanvasNode>, skipSave = false) {
+    const canvas = getCanvasByPdfPage(pdfPageNumber)
+    if (canvas) {
+      const node = canvas.nodes.find(n => n.id === nodeId)
+      if (node) {
+        Object.assign(node, updates)
+        if (!skipSave) {
+          saveProject(currentProject.value!)
+        }
+      }
+    }
+  }
+
+  // 从指定 PDF 页码的画布中删除节点
+  function removeNodeFromPdfPage(nodeId: string, pdfPageNumber: number) {
+    const canvas = getCanvasByPdfPage(pdfPageNumber)
+    if (canvas) {
+      canvas.nodes = canvas.nodes.filter(n => n.id !== nodeId)
+      saveProject(currentProject.value!)
+
+      // 如果该画布为空且不是唯一画布，删除该画布
+      if (canvas.nodes.length === 0 && currentProject.value?.canvases && currentProject.value.canvases.length > 1) {
+        const canvasIndex = currentProject.value.canvases.indexOf(canvas)
+        if (canvasIndex !== -1) {
+          currentProject.value.canvases.splice(canvasIndex, 1)
+          // 调整当前画布索引
+          if (currentProject.value.currentCanvasIndex !== undefined) {
+            if (currentProject.value.currentCanvasIndex >= canvasIndex && currentProject.value.currentCanvasIndex > 0) {
+              currentProject.value.currentCanvasIndex--
+            }
+          }
+          saveProject(currentProject.value)
+        }
+      }
+    }
+  }
+
+  // 获取指定 PDF 页码画布中的所有节点
+  function getNodesByPdfPage(pdfPageNumber: number): CanvasNode[] {
+    const canvas = getCanvasByPdfPage(pdfPageNumber)
+    return canvas?.nodes || []
+  }
+
+  // 获取所有 PDF 页码画布（按页码排序）
+  function getAllPdfPageCanvases(): CanvasPage[] {
+    if (!currentProject.value?.canvases) return []
+    return currentProject.value.canvases
+      .filter(canvas => canvas.pdfPage !== undefined)
+      .sort((a, b) => (a.pdfPage || 0) - (b.pdfPage || 0))
+  }
+
+  // 查找节点所在的 PDF 页码
+  function findNodePdfPage(nodeId: string): number | null {
+    if (!currentProject.value?.canvases) return null
+    for (const canvas of currentProject.value.canvases) {
+      if (canvas.nodes.some(n => n.id === nodeId)) {
+        return canvas.pdfPage || null
+      }
+    }
+    return null
+  }
+
+  // 更新节点（自动查找所在 PDF 页码）
+  function updateNodeAuto(nodeId: string, updates: Partial<CanvasNode>, skipSave = false) {
+    const pdfPage = findNodePdfPage(nodeId)
+    if (pdfPage !== null) {
+      updateNodeInPdfPage(nodeId, pdfPage, updates, skipSave)
+    }
+  }
+
+  // 删除节点（自动查找所在 PDF 页码）
+  function removeNodeAuto(nodeId: string) {
+    const pdfPage = findNodePdfPage(nodeId)
+    if (pdfPage !== null) {
+      removeNodeFromPdfPage(nodeId, pdfPage)
+    }
+  }
+
   return {
     projects,
     currentProject,
@@ -478,6 +639,18 @@ export const useProjectStore = defineStore('project', () => {
     updateCurrentViewport,
     addNode,
     updateNode,
-    removeNode
+    removeNode,
+    // PDF 页面画布管理
+    getOrCreateCanvasForPdfPage,
+    getCanvasByPdfPage,
+    switchToPdfPage,
+    addNodeToPdfPage,
+    updateNodeInPdfPage,
+    removeNodeFromPdfPage,
+    getNodesByPdfPage,
+    getAllPdfPageCanvases,
+    findNodePdfPage,
+    updateNodeAuto,
+    removeNodeAuto
   }
 })
