@@ -641,7 +641,10 @@ async function loadPdf() {
     totalPages.value = pdfDocInstance.numPages
     linkService.setDocument(pdfDocInstance, null)
     
+    // 先关闭加载状态，再设置文档就绪，确保 canvas 能正确渲染
+    isLoading.value = false
     isDocReady.value = true
+    await nextTick()  // 等待 canvas 元素渲染到 DOM
     await renderPage()
     
     await Promise.all([
@@ -651,11 +654,9 @@ async function loadPdf() {
   } catch (error) {
     console.error('Failed to load PDF:', error)
     loadError.value = error instanceof Error ? error.message : '加载 PDF 失败'
-  } finally {
     isLoading.value = false
   }
 }
-
 async function renderPage() {
   if (!pdfDocInstance || !canvasRef.value || isRendering.value || !isDocReady.value) return
   if (pdfDocInstance.numPages === 0 || currentPage.value < 1 || currentPage.value > pdfDocInstance.numPages) return
