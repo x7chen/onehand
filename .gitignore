@@ -12,7 +12,6 @@ node_modules
 dist
 dist-electron
 release
-build
 
 .DS_Store
 .env
