@@ -1,17 +1,7 @@
 <template>
-  <div class="pdf-viewer" ref="containerRef">
+  <div class="pdf-viewer" ref="containerRef" @mousemove="handleContainerMouseMove" @mouseleave="hideEdgeButtons">
     <div class="pdf-toolbar">
-      <button @click="prevPage" :disabled="currentPage <= 1" class="nav-btn">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-          <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
-        </svg>
-      </button>
       <span class="page-info">{{ currentPage }} / {{ totalPages }}</span>
-      <button @click="nextPage" :disabled="currentPage >= totalPages" class="nav-btn">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-          <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
-        </svg>
-      </button>
       <div class="toolbar-divider"></div>
       <button @click="zoomOut" class="tool-btn" title="缩小">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
@@ -31,9 +21,6 @@
       ref="contentRef"
       @dblclick="handleDoubleClick"
       @mousedown="handleMouseDown"
-      @mousemove="handleMouseMove"
-      @mouseup="handleMouseUp"
-      @mouseleave="handleMouseLeave"
     >
       <div v-if="isLoading" class="pdf-loading">
         <span>加载中...</span>
@@ -61,6 +48,34 @@
           </div>
         </div>
       </div>
+      
+      <button 
+        v-show="showLeftNav && currentPage > 1"
+        class="edge-nav-btn left"
+        @click.stop="handleEdgeNavClick(prevPage)"
+        @mousedown.stop="handleEdgeNavMouseDown"
+        @mouseup.stop="handleEdgeNavMouseUp"
+        @mouseleave="handleEdgeNavMouseLeave"
+        @dblclick.stop
+      >
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+          <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
+        </svg>
+      </button>
+      
+      <button 
+        v-show="showRightNav && currentPage < totalPages"
+        class="edge-nav-btn right"
+        @click.stop="handleEdgeNavClick(nextPage)"
+        @mousedown.stop="handleEdgeNavMouseDown"
+        @mouseup.stop="handleEdgeNavMouseUp"
+        @mouseleave="handleEdgeNavMouseLeave"
+        @dblclick.stop
+      >
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+          <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
+        </svg>
+      </button>
     </div>
 
     <RecordingIndicator
@@ -122,9 +137,13 @@ const isDocReady = ref(false)
 
 const LONG_PRESS_DURATION = 300
 const MOVE_THRESHOLD = 5
+const EDGE_ZONE_WIDTH = 60
 let longPressTimer: number | null = null
 let mouseDownPos = { x: 0, y: 0 }
+let currentMousePos = { x: 0, y: 0 }
 let mouseDownOnTextLayer = false
+let isClickingEdgeButton = false
+let isStartingRecording = false
 
 const isRecording = ref(false)
 const recordingDuration = ref(0)
@@ -135,6 +154,10 @@ let currentRecorder: ReturnType<typeof createAudioWorkletRecorder> | null = null
 
 const draggingNodeId = ref<string | null>(null)
 const draggingNodeStartPos = ref({ x: 0, y: 0 })
+
+const showLeftNav = ref(false)
+const showRightNav = ref(false)
+let edgeNavTimeout: number | null = null
 
 const pageNodes = computed(() => {
   return props.nodes.filter(node => node.pdfPage === currentPage.value)
@@ -332,6 +355,27 @@ function zoomOut() {
   scale.value = Math.max(scale.value - 0.2, 0.5)
 }
 
+function handleEdgeNavClick(action: () => void) {
+  if (longPressTimer) {
+    clearTimeout(longPressTimer)
+    longPressTimer = null
+  }
+  isClickingEdgeButton = false
+  action()
+}
+
+function handleEdgeNavMouseDown() {
+  isClickingEdgeButton = true
+}
+
+function handleEdgeNavMouseUp() {
+  isClickingEdgeButton = false
+}
+
+function handleEdgeNavMouseLeave() {
+  isClickingEdgeButton = false
+}
+
 function handleWheel(e: WheelEvent) {
   if (e.ctrlKey) {
     e.preventDefault()
@@ -343,8 +387,41 @@ function handleWheel(e: WheelEvent) {
   }
 }
 
+function handleContainerMouseMove(e: MouseEvent) {
+  if (!containerRef.value) return
+  
+  const rect = containerRef.value.getBoundingClientRect()
+  const edgeZone = 60
+  const x = e.clientX - rect.left
+  
+  if (x < edgeZone) {
+    showLeftNav.value = true
+    showRightNav.value = false
+  } else if (x > rect.width - edgeZone) {
+    showLeftNav.value = false
+    showRightNav.value = true
+  } else {
+    showLeftNav.value = false
+    showRightNav.value = false
+  }
+}
+
+function hideEdgeButtons() {
+  showLeftNav.value = false
+  showRightNav.value = false
+}
+
 function handleDoubleClick(e: MouseEvent) {
   if (e.button !== 0) return
+  
+  const target = e.target as HTMLElement
+  if (target.closest('.edge-nav-btn')) return
+  
+  if (!containerRef.value) return
+  const containerRect = containerRef.value.getBoundingClientRect()
+  const clientX = e.clientX - containerRect.left
+  if (clientX < EDGE_ZONE_WIDTH || clientX > containerRect.width - EDGE_ZONE_WIDTH) return
+  
   const container = pageContainerRef.value
   if (!container) return
   
@@ -361,21 +438,48 @@ function handleDoubleClick(e: MouseEvent) {
 }
 
 async function startRecording(e: MouseEvent) {
+  if (isClickingEdgeButton) return
+  if (showLeftNav.value || showRightNav.value) return
+  
+  const dx = currentMousePos.x - mouseDownPos.x
+  const dy = currentMousePos.y - mouseDownPos.y
+  const distance = Math.sqrt(dx * dx + dy * dy)
+  if (distance > MOVE_THRESHOLD) return
+  
   const container = pageContainerRef.value
   if (!container) return
   
   const rect = container.getBoundingClientRect()
-  const x = (e.clientX - rect.left) / scale.value
-  const y = (e.clientY - rect.top) / scale.value
+  const x = (currentMousePos.x - rect.left) / scale.value
+  const y = (currentMousePos.y - rect.top) / scale.value
   
-  recordingPosition.value = { x: e.clientX, y: e.clientY }
+  recordingPosition.value = { x: currentMousePos.x, y: currentMousePos.y }
   recordingPagePos.value = { x, y }
   recordingDuration.value = 0
+  
+  isStartingRecording = true
   
   try {
     currentRecorder = createAudioWorkletRecorder()
     await currentRecorder.start()
+    
+    if (!isStartingRecording) {
+      currentRecorder.stop().catch(() => {})
+      currentRecorder = null
+      return
+    }
+    
+    const dx2 = currentMousePos.x - mouseDownPos.x
+    const dy2 = currentMousePos.y - mouseDownPos.y
+    if (Math.sqrt(dx2 * dx2 + dy2 * dy2) > MOVE_THRESHOLD) {
+      currentRecorder.stop().catch(() => {})
+      currentRecorder = null
+      isStartingRecording = false
+      return
+    }
+    
     isRecording.value = true
+    isStartingRecording = false
     
     recordingTimer = window.setInterval(() => {
       recordingDuration.value += 100
@@ -383,6 +487,7 @@ async function startRecording(e: MouseEvent) {
   } catch (error) {
     console.error('Failed to start recording:', error)
     currentRecorder = null
+    isStartingRecording = false
   }
 }
 
@@ -414,16 +519,18 @@ async function stopRecording() {
 }
 
 function cancelRecording() {
-  if (!currentRecorder) return
-  
   if (recordingTimer) {
     clearInterval(recordingTimer)
     recordingTimer = null
   }
   
-  currentRecorder.stop().catch(() => {})
+  if (currentRecorder) {
+    currentRecorder.stop().catch(() => {})
+    currentRecorder = null
+  }
+  
   isRecording.value = false
-  currentRecorder = null
+  isStartingRecording = false
 }
 
 function handleMouseDown(e: MouseEvent) {
@@ -431,8 +538,19 @@ function handleMouseDown(e: MouseEvent) {
   if (isRecording.value) return
   
   const target = e.target as HTMLElement
+  if (target.closest('.edge-nav-btn')) return
+  
+  if (!containerRef.value) return
+  const containerRect = containerRef.value.getBoundingClientRect()
+  const x = e.clientX - containerRect.left
+  if (x < EDGE_ZONE_WIDTH || x > containerRect.width - EDGE_ZONE_WIDTH) return
+  
   mouseDownOnTextLayer = !!target.closest('.textLayer')
   mouseDownPos = { x: e.clientX, y: e.clientY }
+  currentMousePos = { x: e.clientX, y: e.clientY }
+  
+  document.addEventListener('mousemove', handleDocumentMouseMove)
+  document.addEventListener('mouseup', handleDocumentMouseUp)
   
   longPressTimer = window.setTimeout(() => {
     longPressTimer = null
@@ -440,27 +558,47 @@ function handleMouseDown(e: MouseEvent) {
   }, LONG_PRESS_DURATION)
 }
 
-function handleMouseMove(e: MouseEvent) {
-  if (!longPressTimer && !isRecording.value) return
+function handleDocumentMouseMove(e: MouseEvent) {
+  currentMousePos = { x: e.clientX, y: e.clientY }
+  
+  if (!longPressTimer && !isRecording.value && !isStartingRecording) return
   
   const dx = e.clientX - mouseDownPos.x
   const dy = e.clientY - mouseDownPos.y
   const distance = Math.sqrt(dx * dx + dy * dy)
   
+  if (distance > MOVE_THRESHOLD) {
+    if (isRecording.value) {
+      cancelRecording()
+      cleanupDocumentListeners()
+      return
+    }
+    if (isStartingRecording) {
+      isStartingRecording = false
+      cleanupDocumentListeners()
+      return
+    }
+    if (longPressTimer) {
+      clearTimeout(longPressTimer)
+      longPressTimer = null
+      cleanupDocumentListeners()
+    }
+    return
+  }
+  
   if (isRecording.value) {
     recordingPosition.value = { x: e.clientX, y: e.clientY }
   }
-  
-  if (longPressTimer && mouseDownOnTextLayer && distance > MOVE_THRESHOLD) {
-    clearTimeout(longPressTimer)
-    longPressTimer = null
-  }
 }
 
-function handleMouseUp() {
+function handleDocumentMouseUp() {
   if (longPressTimer) {
     clearTimeout(longPressTimer)
     longPressTimer = null
+  }
+  
+  if (isStartingRecording) {
+    isStartingRecording = false
   }
   
   if (isRecording.value) {
@@ -468,19 +606,12 @@ function handleMouseUp() {
   }
   
   mouseDownOnTextLayer = false
+  cleanupDocumentListeners()
 }
 
-function handleMouseLeave() {
-  if (longPressTimer) {
-    clearTimeout(longPressTimer)
-    longPressTimer = null
-  }
-  
-  if (isRecording.value) {
-    cancelRecording()
-  }
-  
-  mouseDownOnTextLayer = false
+function cleanupDocumentListeners() {
+  document.removeEventListener('mousemove', handleDocumentMouseMove)
+  document.removeEventListener('mouseup', handleDocumentMouseUp)
 }
 
 watch(() => props.pdfPath, () => {
@@ -528,6 +659,7 @@ onUnmounted(() => {
   }
   document.removeEventListener('mousemove', handleDragMove)
   document.removeEventListener('mouseup', handleDragEnd)
+  cleanupDocumentListeners()
   if (contentRef.value) {
     contentRef.value.removeEventListener('wheel', handleWheel)
   }
@@ -712,5 +844,36 @@ defineExpose({
 
 .node-marker.voice-note.selected {
   background: #c53030;
+}
+
+.edge-nav-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 48px;
+  height: 48px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  z-index: 100;
+}
+
+.edge-nav-btn:hover {
+  background: rgba(0, 0, 0, 0.8);
+  transform: translateY(-50%) scale(1.1);
+}
+
+.edge-nav-btn.left {
+  left: 20px;
+}
+
+.edge-nav-btn.right {
+  right: 20px;
 }
 </style>

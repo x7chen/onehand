@@ -238,8 +238,6 @@ async function sendChat() {
   isChatting.value = true
 
   try {
-    const settings = settingsStore.settings
-
     if (!props.selectedNode) {
       const newNodeId = `node-${Date.now()}`
       const newNode: CanvasNode = {
@@ -250,7 +248,7 @@ async function sendChat() {
         transcript: prompt,
         transcriptStatus: 'done',
         agentResult: '',
-        agentStatus: 'processing',
+        agentStatus: props.aiAnswerEnabled ? 'processing' : 'pending',
         selectedAsContext: false,
         createdAt: Date.now(),
         pdfPage: props.currentPage,
@@ -260,7 +258,9 @@ async function sendChat() {
       projectStore.addNode(newNode)
       emit('node-created', newNode)
 
-      await processChatRequest(newNodeId, prompt)
+      if (props.aiAnswerEnabled) {
+        await processChatRequest(newNodeId, prompt)
+      }
 
     } else {
       const node = props.selectedNode
@@ -276,7 +276,7 @@ async function sendChat() {
         transcript: prompt,
         transcriptStatus: 'done',
         agentResult: '',
-        agentStatus: 'processing',
+        agentStatus: props.aiAnswerEnabled ? 'processing' : 'pending',
         selectedAsContext: false,
         createdAt: Date.now(),
         pdfPage: props.currentPage,
@@ -286,7 +286,9 @@ async function sendChat() {
       projectStore.addNode(newNode)
       emit('node-created', newNode)
 
-      await processChatRequest(newNodeId, prompt)
+      if (props.aiAnswerEnabled) {
+        await processChatRequest(newNodeId, prompt)
+      }
     }
 
   } catch (error) {
