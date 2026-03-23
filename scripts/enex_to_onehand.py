@@ -5,15 +5,19 @@
 将 Evernote 导出的 .enex 文件转换为 OneHand 用户数据格式
 
 使用方法:
-    python enex_to_onehand.py <input.enex> [output_dir]
+    python enex_to_onehand.py <input.enex> [output_dir] [options]
 
 参数:
     input.enex    - 印象笔记导出的 enex 文件路径
     output_dir    - 输出目录，默认为当前目录下的 onehand_projects
 
+选项:
+    -m, --by-month  按创建时间的月份分到不同画布页
+
 示例:
     python enex_to_onehand.py my_notes.enex
     python enex_to_onehand.py my_notes.enex ./output
+    python enex_to_onehand.py my_notes.enex ./output -m
 """
 
 import xml.etree.ElementTree as ET
@@ -23,29 +27,47 @@ import sys
 import re
 import base64
 import hashlib
+import argparse
 from datetime import datetime
 from html.parser import HTMLParser
 from typing import List, Dict, Optional, Tuple
 from pathlib import Path
+from collections import defaultdict
 
 
 class HTMLToMarkdown(HTMLParser):
     """将 HTML 转换为 Markdown 格式"""
-    
+
     def __init__(self):
         super().__init__()
         self.result = []
         self.list_stack = []  # 跟踪列表类型和层级
         self.ignore_tags = {'style', 'script', 'head'}
         self.current_ignore = False
-        
+        self.in_codeblock = False  # 跟踪代码块状态
+        self.codeblock_lines = []  # 代码块内容收集
+        self.in_list_item = False  # 跟踪是否在列表项内
+        self.list_item_content = []  # 收集列表项内容
+
     def handle_starttag(self, tag: str, attrs: List[Tuple[str, str]]):
         if tag in self.ignore_tags:
             self.current_ignore = True
             return
-            
+
         attrs_dict = dict(attrs)
-        
+
+        # 检查是否是代码块 (印象笔记用 style="-en-codeblock: true" 标记)
+        if tag == 'div':
+            style = attrs_dict.get('style', '')
+            if '-en-codeblock' in style and 'true' in style:
+                self.in_codeblock = True
+                self.codeblock_lines = []
+                return
+            # div 开始时不添加换行，在结束时处理
+
+        if self.in_codeblock:
+            return  # 代码块内不处理其他标签
+
         if tag == 'h1':
             self.result.append('\n# ')
         elif tag == 'h2':
@@ -61,23 +83,39 @@ class HTMLToMarkdown(HTMLParser):
         elif tag == 'p':
             self.result.append('\n\n')
         elif tag == 'br':
-            self.result.append('\n')
+            if self.in_list_item:
+                self.list_item_content.append('\n')
+            else:
+                self.result.append('\n')
         elif tag == 'hr':
             self.result.append('\n---\n')
         elif tag == 'strong' or tag == 'b':
-            self.result.append('**')
+            if self.in_list_item:
+                self.list_item_content.append('**')
+            else:
+                self.result.append('**')
         elif tag == 'em' or tag == 'i':
-            self.result.append('*')
+            if self.in_list_item:
+                self.list_item_content.append('*')
+            else:
+                self.result.append('*')
         elif tag == 'code':
-            self.result.append('`')
+            if self.in_list_item:
+                self.list_item_content.append('`')
+            else:
+                self.result.append('`')
         elif tag == 'pre':
             self.result.append('\n```\n')
         elif tag == 'blockquote':
             self.result.append('\n> ')
         elif tag == 'a':
             href = attrs_dict.get('href', '')
-            self.result.append(f'[')
-            self.link_href = href
+            if self.in_list_item:
+                self.list_item_content.append('[')
+                self.list_item_href = href
+            else:
+                self.result.append('[')
+                self.link_href = href
         elif tag == 'img':
             src = attrs_dict.get('src', '')
             alt = attrs_dict.get('alt', '')
@@ -89,47 +127,98 @@ class HTMLToMarkdown(HTMLParser):
             self.list_stack.append(('ol', 1))
             self.result.append('\n')
         elif tag == 'li':
+            self.in_list_item = True
+            self.list_item_content = []
             indent = '  ' * (len(self.list_stack) - 1)
             if self.list_stack:
                 last = self.list_stack[-1]
                 if last == 'ul':
-                    self.result.append(f'{indent}- ')
+                    self.list_item_content.append(f'{indent}- ')
                 elif isinstance(last, tuple) and last[0] == 'ol':
                     num = last[1]
-                    self.result.append(f'{indent}{num}. ')
+                    self.list_item_content.append(f'{indent}{num}. ')
                     self.list_stack[-1] = ('ol', num + 1)
-        elif tag == 'div':
-            self.result.append('\n')
-            
+        elif tag == 'span':
+            pass  # span 只是一个容器，不处理
+
     def handle_endtag(self, tag: str):
         if tag in self.ignore_tags:
             self.current_ignore = False
             return
-            
+
+        # 结束代码块
+        if tag == 'div' and self.in_codeblock:
+            self.in_codeblock = False
+            # 输出代码块
+            self.result.append('\n```\n')
+            for line in self.codeblock_lines:
+                self.result.append(line)
+            self.result.append('\n```\n')
+            self.codeblock_lines = []
+            return
+
+        # div 结束时添加硬换行（用于 checkbox 等）
+        if tag == 'div' and not self.in_list_item:
+            self.result.append('  \n')
+
+        if self.in_codeblock:
+            return  # 代码块内不处理结束标签
+
         if tag in ('h1', 'h2', 'h3', 'h4', 'h5', 'h6'):
             self.result.append('\n')
         elif tag == 'p':
             pass  # 已经在 starttag 处理
         elif tag == 'strong' or tag == 'b':
-            self.result.append('**')
+            if self.in_list_item:
+                self.list_item_content.append('**')
+            else:
+                self.result.append('**')
         elif tag == 'em' or tag == 'i':
-            self.result.append('*')
+            if self.in_list_item:
+                self.list_item_content.append('*')
+            else:
+                self.result.append('*')
         elif tag == 'code':
-            self.result.append('`')
+            if self.in_list_item:
+                self.list_item_content.append('`')
+            else:
+                self.result.append('`')
         elif tag == 'pre':
             self.result.append('\n```\n')
         elif tag == 'a':
-            href = getattr(self, 'link_href', '')
-            self.result.append(f']({href})')
-            self.link_href = ''
+            if self.in_list_item:
+                href = getattr(self, 'list_item_href', '')
+                self.list_item_content.append(f']({href})')
+                self.list_item_href = ''
+            else:
+                href = getattr(self, 'link_href', '')
+                self.result.append(f']({href})')
+                self.link_href = ''
         elif tag in ('ul', 'ol'):
             if self.list_stack:
                 self.list_stack.pop()
-                
+            self.result.append('\n')
+        elif tag == 'li':
+            # 结束列表项，输出收集的内容
+            self.in_list_item = False
+            content = ''.join(self.list_item_content).strip()
+            self.result.append(content)
+            self.result.append('  \n')  # Markdown 硬换行：两个空格 + 换行
+            self.list_item_content = []
+
     def handle_data(self, data: str):
-        if not self.current_ignore:
+        if self.current_ignore:
+            return
+
+        if self.in_codeblock:
+            self.codeblock_lines.append(data)
+            return
+
+        if self.in_list_item:
+            self.list_item_content.append(data)
+        else:
             self.result.append(data)
-            
+
     def get_markdown(self) -> str:
         result = ''.join(self.result)
         # 清理多余空行
@@ -200,15 +289,19 @@ def extract_text_content(content: str) -> str:
     """
     # 移除 CDATA 标记
     content = re.sub(r'<!\[CDATA\[|\]\]>', '', content)
-    
+
     # 移除印象笔记特定的 XML 标记
     content = re.sub(r'<en-note[^>]*>|</en-note>', '', content)
-    content = re.sub(r'<en-todo[^/]*/>', '[ ] ', content)
-    content = re.sub(r'<en-todo checked="true"[^/]*/>', '[x] ', content)
-    
+
+    # 处理 en-todo 标签 (checkbox) - 转换为 GitHub 风格任务列表
+    # 注意：先处理 checked="true"，再处理其他的，避免顺序问题
+    content = re.sub(r'<en-todo\s+checked="true"\s*/>', '- [x] ', content)
+    content = re.sub(r'<en-todo\s+checked="false"\s*/>', '- [ ] ', content)
+    content = re.sub(r'<en-todo\s*/>', '- [ ] ', content)
+
     # 转换 HTML 为 Markdown
     markdown = html_to_markdown(content)
-    
+
     return markdown
 
 
@@ -280,20 +373,28 @@ def parse_enex(enex_path: str) -> List[Dict]:
     return notes
 
 
-def create_onehand_project(notes: List[Dict], project_name: str) -> Dict:
+def create_onehand_project(notes: List[Dict], project_name: str, by_month: bool = False) -> Dict:
     """
     创建 OneHand 项目格式
+
+    Args:
+        notes: 笔记列表
+        project_name: 项目名称
+        by_month: 是否按月份分到不同画布
     """
     now = int(datetime.now().timestamp() * 1000)
     project_id = str(now)
-    
+
+    if by_month:
+        return create_onehand_project_by_month(notes, project_name, now)
+
     # 创建节点
     nodes = []
     for i, note in enumerate(notes):
         # 使用笔记创建时间作为节点ID，确保唯一性
         node_id = str(note['created']) + str(i)
         position = calculate_node_position(i, len(notes))
-        
+
         node = {
             'id': node_id,
             'type': 'text-note',
@@ -304,14 +405,14 @@ def create_onehand_project(notes: List[Dict], project_name: str) -> Dict:
             'isFavorite': False,
             'createdAt': note['created']
         }
-        
+
         # 添加标签作为内容的一部分
         if note['tags']:
             tags_text = '\n\n---\n**标签:** ' + ', '.join(note['tags'])
             node['transcript'] += tags_text
-            
+
         nodes.append(node)
-    
+
     # 创建画布页
     canvas_page = {
         'id': f'canvas-{now}',
@@ -320,7 +421,7 @@ def create_onehand_project(notes: List[Dict], project_name: str) -> Dict:
         'nodes': nodes,
         'createdAt': now
     }
-    
+
     # 创建项目
     project = {
         'id': project_id,
@@ -330,11 +431,80 @@ def create_onehand_project(notes: List[Dict], project_name: str) -> Dict:
         'canvases': [canvas_page],
         'currentCanvasIndex': 0
     }
-    
+
     return project
 
 
-def convert_enex_to_onehand(enex_path: str, output_dir: str) -> str:
+def create_onehand_project_by_month(notes: List[Dict], project_name: str, now: int) -> Dict:
+    """
+    按创建时间的月份创建 OneHand 项目，每个月份一个画布页
+    """
+    project_id = str(now)
+
+    # 按月份分组笔记
+    notes_by_month = defaultdict(list)
+    for note in notes:
+        # 从时间戳获取年月
+        dt = datetime.fromtimestamp(note['created'] / 1000)
+        month_key = dt.strftime('%Y-%m')
+        notes_by_month[month_key].append(note)
+
+    # 按月份排序（从早到晚）
+    sorted_months = sorted(notes_by_month.keys())
+
+    # 为每个月份创建画布
+    canvases = []
+    for month_idx, month_key in enumerate(sorted_months):
+        month_notes = notes_by_month[month_key]
+
+        # 创建该月份的节点
+        nodes = []
+        for i, note in enumerate(month_notes):
+            node_id = str(note['created']) + str(i)
+            position = calculate_node_position(i, len(month_notes))
+
+            node = {
+                'id': node_id,
+                'type': 'text-note',
+                'title': note['title'][:100] if len(note['title']) > 100 else note['title'],
+                'position': position,
+                'transcript': note['content'],
+                'selectedAsContext': False,
+                'isFavorite': False,
+                'createdAt': note['created']
+            }
+
+            if note['tags']:
+                tags_text = '\n\n---\n**标签:** ' + ', '.join(note['tags'])
+                node['transcript'] += tags_text
+
+            nodes.append(node)
+
+        # 创建画布页，名称为月份
+        canvas = {
+            'id': f'canvas-{now}-{month_idx}',
+            'type': 'infinite',
+            'name': month_key,
+            'viewport': {'x': 0, 'y': 0, 'zoom': 1},
+            'nodes': nodes,
+            'createdAt': now
+        }
+        canvases.append(canvas)
+
+    # 创建项目
+    project = {
+        'id': project_id,
+        'name': project_name,
+        'createdAt': now,
+        'updatedAt': now,
+        'canvases': canvases,
+        'currentCanvasIndex': 0
+    }
+
+    return project
+
+
+def convert_enex_to_onehand(enex_path: str, output_dir: str, by_month: bool = False) -> str:
     """
     将 ENEX 文件转换为 OneHand 格式
     返回输出的项目文件路径
@@ -343,55 +513,61 @@ def convert_enex_to_onehand(enex_path: str, output_dir: str) -> str:
     print(f"正在解析: {enex_path}")
     notes = parse_enex(enex_path)
     print(f"找到 {len(notes)} 条笔记")
-    
+
     if not notes:
         print("没有找到任何笔记")
         return None
-    
+
     # 生成项目名称
     enex_name = Path(enex_path).stem
     project_name = f"印象笔记_{enex_name}"
-    
+
     # 创建 OneHand 项目
-    project = create_onehand_project(notes, project_name)
-    
+    project = create_onehand_project(notes, project_name, by_month=by_month)
+
     # 确保输出目录存在
     os.makedirs(output_dir, exist_ok=True)
-    
+
     # 写入项目文件
     output_path = os.path.join(output_dir, f"{project['id']}.json")
     with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(project, f, ensure_ascii=False, indent=2)
-    
+
     print(f"已创建项目: {output_path}")
     print(f"项目名称: {project_name}")
     print(f"包含 {len(notes)} 条笔记")
-    
+    if by_month:
+        print(f"按月份分为 {len(project['canvases'])} 个画布页")
+
     return output_path
 
 
 def main():
-    if len(sys.argv) < 2:
-        print(__doc__)
-        print("错误: 请指定 ENEX 文件路径")
+    parser = argparse.ArgumentParser(
+        description='印象笔记 ENEX 格式转换工具',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+示例:
+    python enex_to_onehand.py my_notes.enex
+    python enex_to_onehand.py my_notes.enex ./output
+    python enex_to_onehand.py my_notes.enex ./output -m
+        """
+    )
+    parser.add_argument('input', help='印象笔记导出的 enex 文件路径')
+    parser.add_argument('output', nargs='?', default='./onehand_projects',
+                        help='输出目录，默认为 ./onehand_projects')
+    parser.add_argument('-m', '--by-month', action='store_true',
+                        help='按创建时间的月份分到不同画布页')
+
+    args = parser.parse_args()
+
+    if not os.path.exists(args.input):
+        print(f"错误: 文件不存在: {args.input}")
         sys.exit(1)
-    
-    enex_path = sys.argv[1]
-    
-    if not os.path.exists(enex_path):
-        print(f"错误: 文件不存在: {enex_path}")
-        sys.exit(1)
-    
-    # 输出目录
-    if len(sys.argv) >= 3:
-        output_dir = sys.argv[2]
-    else:
-        # 默认输出到当前目录
-        output_dir = './onehand_projects'
-    
+
     # 执行转换
     try:
-        output_path = convert_enex_to_onehand(enex_path, output_dir)
+        output_path = convert_enex_to_onehand(args.input, args.output, by_month=args.by_month)
         if output_path:
             print(f"\n转换完成!")
             print(f"请将生成的项目文件复制到 OneHand 用户数据目录:")
