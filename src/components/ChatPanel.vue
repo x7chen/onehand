@@ -203,8 +203,6 @@ function handleCancelEdit(nodeId: string) {
 
 // MagicPad - 双击创建文本节点
 function handleMagicPadDblClick(e: MouseEvent) {
-  if (!props.currentPage) return
-  
   const newNodeId = `node-${Date.now()}`
   const newNode: CanvasNode = {
     id: newNodeId,
@@ -220,7 +218,11 @@ function handleMagicPadDblClick(e: MouseEvent) {
     pdfPosition: { x: 100, y: 100 }
   }
 
-  projectStore.addNodeToPdfPage(newNode, props.currentPage)
+  if (props.currentPage) {
+    projectStore.addNodeToPdfPage(newNode, props.currentPage)
+  } else {
+    projectStore.addNode(newNode)
+  }
   emit('node-created', newNode)
   emit('update-editing-text', '')
   emit('start-editing', newNodeId)
@@ -297,7 +299,7 @@ function handleMagicPadMouseLeave() {
 // MagicPad - 拖拽文本创建节点
 async function handleMagicPadDrop(e: DragEvent) {
   const text = e.dataTransfer?.getData('text/plain')
-  if (!text || !props.currentPage) return
+  if (!text) return
 
   const rect = (e.target as HTMLElement).getBoundingClientRect()
   const x = e.clientX - rect.left
@@ -318,7 +320,11 @@ async function handleMagicPadDrop(e: DragEvent) {
     pdfPosition: { x, y }
   }
 
-  projectStore.addNodeToPdfPage(newNode, props.currentPage)
+  if (props.currentPage) {
+    projectStore.addNodeToPdfPage(newNode, props.currentPage)
+  } else {
+    projectStore.addNode(newNode)
+  }
   emit('node-created', newNode)
 
   if (props.aiAnswerEnabled) {
@@ -327,15 +333,17 @@ async function handleMagicPadDrop(e: DragEvent) {
 }
 
 async function handleAgentResponseForText(nodeId: string, transcript: string) {
-  if (!props.currentPage) return
-  
   const settings = settingsStore.settings
   const pdfPage = props.currentPage
 
   try {
-    projectStore.updateNodeInPdfPage(nodeId, pdfPage, { agentStatus: 'processing' })
+    if (pdfPage) {
+      projectStore.updateNodeInPdfPage(nodeId, pdfPage, { agentStatus: 'processing' })
+    } else {
+      projectStore.updateNode(nodeId, { agentStatus: 'processing' })
+    }
 
-    const canvas = projectStore.getCanvasByPdfPage(pdfPage)
+    const canvas = pdfPage ? projectStore.getCanvasByPdfPage(pdfPage) : projectStore.currentCanvas
     const selectedNodes = canvas?.nodes.filter(n => n.selectedAsContext && n.id !== nodeId) || []
 
     const staticContextContent = props.staticContextFiles
@@ -358,21 +366,42 @@ async function handleAgentResponseForText(nodeId: string, transcript: string) {
       model: settings.llm.model
     }, (chunk) => {
       accumulatedContent += chunk
-      projectStore.updateNodeInPdfPage(nodeId, pdfPage, {
-        agentResult: accumulatedContent,
-        agentStatus: 'processing'
-      })
+      if (pdfPage) {
+        projectStore.updateNodeInPdfPage(nodeId, pdfPage, {
+          agentResult: accumulatedContent,
+          agentStatus: 'processing'
+        })
+      } else {
+        projectStore.updateNode(nodeId, {
+          agentResult: accumulatedContent,
+          agentStatus: 'processing'
+        })
+      }
     })
 
-    projectStore.updateNodeInPdfPage(nodeId, pdfPage, {
-      agentResult: result,
-      agentStatus: 'done'
-    })
+    if (pdfPage) {
+      projectStore.updateNodeInPdfPage(nodeId, pdfPage, {
+        agentResult: result,
+        agentStatus: 'done'
+      })
+    } else {
+      projectStore.updateNode(nodeId, {
+        agentResult: result,
+        agentStatus: 'done'
+      })
+    }
   } catch (error) {
-    projectStore.updateNodeInPdfPage(nodeId, pdfPage, {
-      agentResult: String(error),
-      agentStatus: 'error'
-    })
+    if (pdfPage) {
+      projectStore.updateNodeInPdfPage(nodeId, pdfPage, {
+        agentResult: String(error),
+        agentStatus: 'error'
+      })
+    } else {
+      projectStore.updateNode(nodeId, {
+        agentResult: String(error),
+        agentStatus: 'error'
+      })
+    }
   }
 }
 
@@ -491,7 +520,7 @@ async function handleTranscription(node: CanvasNode) {
           title
         })
 
-        if (props.aiAnswerEnabled && node.pdfPage !== undefined) {
+        if (props.aiAnswerEnabled) {
           await handleAgentResponseForVoice(node.id, transcriptResult.text, node.pdfPage)
         }
       } else {
@@ -527,19 +556,25 @@ function findNodeById(nodeId: string): CanvasNode | undefined {
 // 重新生成 AI 回答
 function handleRegenerateAgent(nodeId: string) {
   const node = findNodeById(nodeId)
-  if (node && node.transcript && node.pdfPage !== undefined && node.pdfPage !== null) {
+  if (node && node.transcript) {
     handleAgentResponseForVoice(nodeId, node.transcript, node.pdfPage)
   }
 }
 
 // 语音节点的 AI 回答
-async function handleAgentResponseForVoice(nodeId: string, transcript: string, pdfPage: number) {
+async function handleAgentResponseForVoice(nodeId: string, transcript: string, pdfPage?: number) {
   const settings = settingsStore.settings
 
   try {
-    projectStore.updateNodeInPdfPage(nodeId, pdfPage, { agentStatus: 'processing' })
+    if (pdfPage !== undefined && pdfPage !== null) {
+      projectStore.updateNodeInPdfPage(nodeId, pdfPage, { agentStatus: 'processing' })
+    } else {
+      projectStore.updateNode(nodeId, { agentStatus: 'processing' })
+    }
 
-    const canvas = projectStore.getCanvasByPdfPage(pdfPage)
+    const canvas = pdfPage !== undefined && pdfPage !== null
+      ? projectStore.getCanvasByPdfPage(pdfPage)
+      : projectStore.currentCanvas
     const selectedNodes = canvas?.nodes.filter(n => n.selectedAsContext && n.id !== nodeId) || []
 
     const staticContextContent = props.staticContextFiles
@@ -562,25 +597,46 @@ async function handleAgentResponseForVoice(nodeId: string, transcript: string, p
       model: settings.llm.model
     }, (chunk) => {
       accumulatedContent += chunk
-      projectStore.updateNodeInPdfPage(nodeId, pdfPage, {
-        agentResult: accumulatedContent,
-        agentStatus: 'processing'
-      })
+      if (pdfPage !== undefined && pdfPage !== null) {
+        projectStore.updateNodeInPdfPage(nodeId, pdfPage, {
+          agentResult: accumulatedContent,
+          agentStatus: 'processing'
+        })
+      } else {
+        projectStore.updateNode(nodeId, {
+          agentResult: accumulatedContent,
+          agentStatus: 'processing'
+        })
+      }
 
       if (shouldAutoScroll.value) {
         nextTick(() => scrollToBottom())
       }
     })
 
-    projectStore.updateNodeInPdfPage(nodeId, pdfPage, {
-      agentResult: result,
-      agentStatus: 'done'
-    })
+    if (pdfPage !== undefined && pdfPage !== null) {
+      projectStore.updateNodeInPdfPage(nodeId, pdfPage, {
+        agentResult: result,
+        agentStatus: 'done'
+      })
+    } else {
+      projectStore.updateNode(nodeId, {
+        agentResult: result,
+        agentStatus: 'done'
+      })
+    }
   } catch (error) {
-    projectStore.updateNodeInPdfPage(nodeId, pdfPage, {
-      agentResult: String(error),
-      agentStatus: 'error'
-    })
+    if (pdfPage !== undefined && pdfPage !== null) {
+      projectStore.updateNodeInPdfPage(nodeId, pdfPage, {
+        agentResult: String(error),
+        agentStatus: 'error'
+      })
+    } else {
+      projectStore.updateNode(nodeId, {
+        agentResult: String(error),
+        agentStatus: 'error'
+      })
+    }
   }
 }
 </script>

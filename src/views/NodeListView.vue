@@ -53,6 +53,8 @@
         :static-context-files="staticContextFiles"
         :dynamic-context-file="dynamicContextFile"
         :ai-answer-enabled="aiAnswerEnabled"
+        :editing-node-id="editingNodeId"
+        :editing-text="editingText"
         @delete="handleDeleteNode"
         @play="handlePlayNode"
         @toggle-context="handleToggleContext"
@@ -62,6 +64,10 @@
         @update-node="handleUpdateNode"
         @node-created="handleNodeCreated"
         @node-updated="handleNodeUpdated"
+        @update-editing-text="editingText = $event"
+        @save-edit="handleSaveEdit"
+        @cancel-edit="handleCancelEdit"
+        @start-editing="handleStartEditing"
       />
     </div>
 
@@ -194,6 +200,10 @@ const selectedNode = ref<CanvasNode | null>(null)
 const currentAudio = ref<HTMLAudioElement | null>(null)
 const playingNodeId = ref<string | null>(null)
 
+// 文本编辑
+const editingNodeId = ref<string | null>(null)
+const editingText = ref('')
+
 // 全局隐藏 AI 回答
 const globalHideAiResult = ref(false)
 
@@ -262,6 +272,7 @@ onMounted(async () => {
   await contextStore.loadContextFiles()
 
   window.addEventListener('keydown', handleKeyDown)
+  document.addEventListener('click', handleClickOutsideEditing)
 
   initPanelWidth()
 
@@ -275,6 +286,7 @@ onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyDown)
   document.removeEventListener('mousemove', handleResize)
   document.removeEventListener('mouseup', stopResize)
+  document.removeEventListener('click', handleClickOutsideEditing)
 
   if (currentAudio.value) {
     currentAudio.value.pause()
@@ -340,6 +352,78 @@ function handleNodeUpdated(node: CanvasNode) {
   if (selectedNode.value?.id === node.id) {
     selectedNode.value = node
   }
+}
+
+// 编辑相关处理
+function handleStartEditing(nodeId: string) {
+  editingNodeId.value = nodeId
+  editingText.value = ''
+}
+
+function handleSaveEdit(nodeId: string, text: string) {
+  if (text.trim()) {
+    projectStore.updateNode(nodeId, { transcript: text.trim() })
+    if (selectedNode.value?.id === nodeId) {
+      const updatedNode = projectStore.currentCanvas?.nodes.find(n => n.id === nodeId)
+      if (updatedNode) {
+        selectedNode.value = { ...updatedNode }
+      }
+    }
+    if (aiAnswerEnabled.value) {
+      handleAgentResponse(nodeId, text.trim())
+    }
+  } else {
+    // 删除空节点后选中第一个节点
+    projectStore.removeNode(nodeId)
+    selectFirstNode()
+  }
+  editingNodeId.value = null
+  editingText.value = ''
+}
+
+function handleCancelEdit(nodeId: string) {
+  const node = projectStore.currentCanvas?.nodes.find(n => n.id === nodeId)
+  if (node && !node.transcript) {
+    // 删除空节点后选中第一个节点
+    projectStore.removeNode(nodeId)
+    selectFirstNode()
+  }
+  editingNodeId.value = null
+  editingText.value = ''
+}
+
+// 点击外部结束编辑
+function handleClickOutsideEditing(e: MouseEvent) {
+  if (!editingNodeId.value) return
+
+  const target = e.target as HTMLElement
+
+  // 点击编辑框或节点本身不结束编辑
+  if (target.closest('.content-edit') || target.closest('.voice-note')) {
+    return
+  }
+
+  const node = projectStore.currentCanvas?.nodes.find(n => n.id === editingNodeId.value)
+  if (node) {
+    if (editingText.value.trim()) {
+      projectStore.updateNode(editingNodeId.value, { transcript: editingText.value.trim() })
+      if (selectedNode.value?.id === editingNodeId.value) {
+        const updatedNode = projectStore.currentCanvas?.nodes.find(n => n.id === editingNodeId.value)
+        if (updatedNode) {
+          selectedNode.value = { ...updatedNode }
+        }
+      }
+      if (aiAnswerEnabled.value) {
+        handleAgentResponse(editingNodeId.value, editingText.value.trim())
+      }
+    } else {
+      // 删除空节点后选中第一个节点
+      projectStore.removeNode(editingNodeId.value)
+      selectFirstNode()
+    }
+  }
+  editingNodeId.value = null
+  editingText.value = ''
 }
 
 // 节点操作

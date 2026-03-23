@@ -471,7 +471,9 @@ function handleSaveEdit(nodeId: string, text: string) {
       handleAgentResponse(nodeId, text.trim(), pdfPage)
     }
   } else {
+    // 删除空节点后选中第一个节点
     projectStore.removeNodeAuto(nodeId)
+    selectFirstNode()
   }
   editingNodeId.value = null
   editingText.value = ''
@@ -482,16 +484,12 @@ function handleCancelEdit(nodeId: string) {
   const canvas = pdfPage !== null ? projectStore.getCanvasByPdfPage(pdfPage) : null
   const node = canvas?.nodes.find(n => n.id === nodeId)
   if (node && !node.transcript) {
+    // 删除空节点后选中第一个节点
     projectStore.removeNodeAuto(nodeId)
+    selectFirstNode()
   }
   editingNodeId.value = null
   editingText.value = ''
-  if (selectedNode.value?.id === nodeId) {
-    const updatedNode = canvas?.nodes.find(n => n.id === nodeId)
-    if (updatedNode) {
-      selectedNode.value = updatedNode
-    }
-  }
 }
 
 function handleClickOutsideEditing(e: MouseEvent) {
@@ -499,7 +497,8 @@ function handleClickOutsideEditing(e: MouseEvent) {
 
   const target = e.target as HTMLElement
 
-  if (target.closest('.content-edit') || target.closest('.voice-note') || target.closest('.chat-panel')) {
+  // 点击编辑框或节点本身不结束编辑
+  if (target.closest('.content-edit') || target.closest('.voice-note')) {
     return
   }
 
@@ -516,7 +515,9 @@ function handleClickOutsideEditing(e: MouseEvent) {
         handleAgentResponse(editingNodeId.value, editingText.value.trim(), pdfPage)
       }
     } else {
+      // 删除空节点后选中第一个节点
       projectStore.removeNodeAuto(editingNodeId.value)
+      selectFirstNode()
     }
   }
   editingNodeId.value = null
