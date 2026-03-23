@@ -52,6 +52,8 @@ const getModelPath = () => {
 
 // 创建语音识别器
 let recognizer = null
+let recognizerInitializing = false
+let recognizerReady = false
 function createRecognizer() {
   if (!sherpaOnnx) {
     console.error('Sherpa-ONNX not available - module failed to load')
@@ -99,11 +101,14 @@ function createRecognizer() {
 
     console.log('Creating recognizer with config:', JSON.stringify(config, null, 2))
     recognizer = sherpaOnnx.createOfflineRecognizer(config)
+    recognizerReady = true
+    recognizerInitializing = false
     console.log('Sherpa-ONNX recognizer created successfully')
     return recognizer
   } catch (error) {
     console.error('Failed to create recognizer:', error)
     console.error('Error stack:', error.stack)
+    recognizerInitializing = false
     return null
   }
 }
@@ -198,8 +203,11 @@ function createWindow() {
 app.whenReady().then(() => {
   createWindow()
 
-  // 初始化语音识别器
-  createRecognizer()
+  // 异步初始化语音识别器
+  recognizerInitializing = true
+  setTimeout(() => {
+    createRecognizer()
+  }, 100)
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -368,11 +376,27 @@ ipcMain.handle('transcribe-audio', async (event, audioData, mimeType, config) =>
       return { success: false, error: 'Sherpa-ONNX not available' }
     }
 
-    if (!recognizer) {
-      recognizer = createRecognizer()
-      if (!recognizer) {
-        return { success: false, error: 'Failed to create recognizer' }
+    // 等待识别器初始化完成
+    if (!recognizerReady) {
+      if (!recognizerInitializing) {
+        console.log('Recognizer not ready, creating...')
+        recognizerInitializing = true
+        recognizer = createRecognizer()
+      } else {
+        console.log('Recognizer is initializing, waiting...')
+        const maxWait = 10000
+        const startTime = Date.now()
+        while (!recognizerReady && (Date.now() - startTime) < maxWait) {
+          await new Promise(resolve => setTimeout(resolve, 100))
+        }
+        if (!recognizerReady) {
+          return { success: false, error: '识别器初始化超时，请稍后重试' }
+        }
       }
+    }
+
+    if (!recognizer) {
+      return { success: false, error: 'Failed to create recognizer' }
     }
 
     // 将数组转换为 Buffer

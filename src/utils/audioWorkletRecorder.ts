@@ -61,6 +61,14 @@ export function createAudioWorkletRecorder() {
       sampleRate
     })
 
+    // 确保 AudioContext 处于运行状态
+    if (audioContext.state === 'suspended') {
+      console.log('[AudioWorkletRecorder] Resuming AudioContext from suspended state')
+      await audioContext.resume()
+    }
+
+    console.log('[AudioWorkletRecorder] AudioContext state:', audioContext.state)
+
     // 创建 AudioWorklet
     const blob = new Blob([workletCode], { type: 'application/javascript' })
     blobUrl = URL.createObjectURL(blob)
