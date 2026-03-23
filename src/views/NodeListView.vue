@@ -99,7 +99,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useProjectStore } from '@/stores/projectStore'
 import { useSettingsStore } from '@/stores/settingsStore'
@@ -229,6 +229,26 @@ const isAllContextSelected = computed(() => {
   return completedNodesCount.value > 0 && selectedContextCount.value === completedNodesCount.value
 })
 
+// 监听画布切换，自动选中第一个节点
+watch(() => projectStore.currentCanvas?.id, (newCanvasId, oldCanvasId) => {
+  if (newCanvasId && newCanvasId !== oldCanvasId) {
+    nextTick(() => {
+      selectFirstNode()
+    })
+  }
+})
+
+// 选中当前画布的第一个节点
+function selectFirstNode() {
+  const nodes = projectStore.currentCanvas?.nodes || []
+  if (nodes.length > 0) {
+    const sortedNodes = [...nodes].sort((a, b) => a.createdAt - b.createdAt)
+    selectedNode.value = sortedNodes[0]
+  } else {
+    selectedNode.value = null
+  }
+}
+
 // 加载项目
 onMounted(async () => {
   const projectId = route.params.projectId as string
@@ -244,6 +264,11 @@ onMounted(async () => {
   window.addEventListener('keydown', handleKeyDown)
 
   initPanelWidth()
+
+  // 初始化时选中第一个节点
+  nextTick(() => {
+    selectFirstNode()
+  })
 })
 
 onUnmounted(() => {

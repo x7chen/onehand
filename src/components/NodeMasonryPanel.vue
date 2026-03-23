@@ -3,6 +3,8 @@
     ref="panelRef"
     class="node-masonry-panel"
     :style="{ width: panelWidth + 'px' }"
+    @mouseenter="isPanelHovered = true"
+    @mouseleave="isPanelHovered = false"
   >
     <div ref="nodeContainerRef" class="node-container" @scroll="handleScroll">
       <div
@@ -48,12 +50,60 @@
         </template>
       </div>
     </div>
+
+    <!-- 左边缘翻页按钮（上一页） -->
+    <div
+      class="page-nav-zone page-nav-left"
+      @mouseenter="isLeftZoneHovered = true"
+      @mouseleave="isLeftZoneHovered = false"
+    >
+      <Transition name="page-nav-fade">
+        <button
+          v-if="isLeftZoneHovered && hasPrevPage"
+          class="page-nav-btn"
+          @click="handlePrevPage"
+          title="上一页"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="15 18 9 12 15 6"></polyline>
+          </svg>
+        </button>
+      </Transition>
+    </div>
+
+    <!-- 右边缘翻页按钮（下一页） -->
+    <div
+      class="page-nav-zone page-nav-right"
+      @mouseenter="isRightZoneHovered = true"
+      @mouseleave="isRightZoneHovered = false"
+    >
+      <Transition name="page-nav-fade">
+        <button
+          v-if="isRightZoneHovered && hasNextPage"
+          class="page-nav-btn"
+          @click="handleNextPage"
+          title="下一页"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        </button>
+      </Transition>
+    </div>
+
+    <!-- 页码指示器 -->
+    <Transition name="page-indicator-fade">
+      <div v-if="showPageIndicator" class="page-indicator">
+        {{ currentPageNumber }} / {{ totalPages }}
+      </div>
+    </Transition>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import VoiceNote from '@/components/VoiceNote.vue'
+import { useProjectStore } from '@/stores/projectStore'
 import type { CanvasNode } from '@/types/project'
 
 interface VirtualNodeItem {
@@ -75,6 +125,8 @@ const props = withDefaults(defineProps<{
   panelWidth: 600
 })
 
+const projectStore = useProjectStore()
+
 const emit = defineEmits<{
   'delete': [nodeId: string]
   'play': [nodeId: string]
@@ -94,6 +146,40 @@ const voiceNoteRefs = ref<Record<string, any>>({})
 
 const editingNodeId = ref<string | null>(null)
 const editingText = ref('')
+
+// 翻页相关状态
+const isPanelHovered = ref(false)
+const isLeftZoneHovered = ref(false)
+const isRightZoneHovered = ref(false)
+const showPageIndicator = ref(false)
+let pageIndicatorTimer: ReturnType<typeof setTimeout> | null = null
+
+// 翻页相关计算属性
+const hasPrevPage = computed(() => projectStore.hasPrevPage)
+const hasNextPage = computed(() => projectStore.hasNextPage)
+const currentPageNumber = computed(() => projectStore.currentPageNumber)
+const totalPages = computed(() => projectStore.totalPages)
+
+// 翻页方法
+function handlePrevPage() {
+  projectStore.goToPrevPage()
+  showPageIndicatorTemporarily()
+}
+
+function handleNextPage() {
+  projectStore.goToNextPage()
+  showPageIndicatorTemporarily()
+}
+
+function showPageIndicatorTemporarily() {
+  showPageIndicator.value = true
+  if (pageIndicatorTimer) {
+    clearTimeout(pageIndicatorTimer)
+  }
+  pageIndicatorTimer = setTimeout(() => {
+    showPageIndicator.value = false
+  }, 1500)
+}
 
 const NODE_MIN_WIDTH = 250
 const COLUMN_GAP = 6
@@ -328,6 +414,10 @@ onUnmounted(() => {
     resizeObserver.disconnect()
     resizeObserver = null
   }
+  if (pageIndicatorTimer) {
+    clearTimeout(pageIndicatorTimer)
+    pageIndicatorTimer = null
+  }
 })
 
 defineExpose({
@@ -343,6 +433,7 @@ defineExpose({
   background: var(--bg-secondary);
   min-width: 298px;
   flex-shrink: 0;
+  position: relative;
 }
 
 .node-container {
@@ -366,5 +457,93 @@ defineExpose({
   top: 0 !important;
   margin: 0;
   width: 100% !important;
+}
+
+/* 翻页区域 */
+.page-nav-zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  pointer-events: auto;
+}
+
+.page-nav-left {
+  left: 0;
+}
+
+.page-nav-right {
+  right: 0;
+}
+
+/* 翻页按钮 */
+.page-nav-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s ease;
+}
+
+.page-nav-btn:hover {
+  background: var(--accent-color, #4a9eff);
+  color: white;
+  transform: scale(1.1);
+}
+
+.page-nav-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* 页码指示器 */
+.page-indicator {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  padding: 6px 16px;
+  border-radius: 16px;
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 10;
+  pointer-events: none;
+}
+
+/* 翻页按钮过渡动画 */
+.page-nav-fade-enter-active,
+.page-nav-fade-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.page-nav-fade-enter-from,
+.page-nav-fade-leave-to {
+  opacity: 0;
+  transform: scale(0.8);
+}
+
+/* 页码指示器过渡动画 */
+.page-indicator-fade-enter-active,
+.page-indicator-fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.page-indicator-fade-enter-from,
+.page-indicator-fade-leave-to {
+  opacity: 0;
 }
 </style>

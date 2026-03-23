@@ -233,6 +233,8 @@ function handlePrevPage() {
   cancelTextEdit()
   projectStore.goToPrevPage()
   viewport.value = projectStore.getCurrentViewport()
+  // 切换后选中第一个节点
+  selectFirstNode()
   emit('prev-page')
 }
 
@@ -247,7 +249,23 @@ function handleNextPage() {
       viewport.value = projectStore.getCurrentViewport()
     }
   }
+  // 切换后选中第一个节点
+  selectFirstNode()
   emit('next-page')
+}
+
+// 选中当前画布的第一个节点
+function selectFirstNode() {
+  nextTick(() => {
+    const nodes = projectStore.currentCanvas?.nodes || []
+    if (nodes.length > 0) {
+      // 按创建时间排序，选中最早的节点
+      const sortedNodes = [...nodes].sort((a, b) => a.createdAt - b.createdAt)
+      activeNodeId.value = sortedNodes[0].id
+    } else {
+      activeNodeId.value = null
+    }
+  })
 }
 
 async function handleLongPress(x: number, y: number) {

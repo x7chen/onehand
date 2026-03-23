@@ -96,7 +96,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useProjectStore } from '@/stores/projectStore'
 import { useSettingsStore } from '@/stores/settingsStore'
@@ -255,6 +255,11 @@ onMounted(async () => {
   initPanelWidth()
   document.addEventListener('click', handleClickOutsideEditing)
   window.addEventListener('keydown', handleKeyDown)
+
+  // 初始化时选中第一个节点
+  nextTick(() => {
+    selectFirstNode()
+  })
 })
 
 onUnmounted(() => {
@@ -282,6 +287,21 @@ function handlePageChange(page: number) {
   currentPageNumber.value = page
   // 切换到对应 PDF 页面的画布（如果存在）
   projectStore.switchToPdfPage(page)
+  // 切换页面后选中第一个节点
+  selectFirstNode()
+}
+
+// 选中当前 PDF 页面的第一个节点
+function selectFirstNode() {
+  nextTick(() => {
+    const nodes = projectStore.getNodesByPdfPage(currentPageNumber.value)
+    if (nodes.length > 0) {
+      const sortedNodes = [...nodes].sort((a, b) => a.createdAt - b.createdAt)
+      selectedNode.value = sortedNodes[0]
+    } else {
+      selectedNode.value = null
+    }
+  })
 }
 
 function handleKeyDown(e: KeyboardEvent) {
