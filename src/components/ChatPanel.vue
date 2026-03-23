@@ -739,8 +739,21 @@ async function handleAgentResponseForVoice(nodeId: string, transcript: string, p
 }
 
 .magic-pad-hint {
-  font-size: 12px;
+  width: 100%;
+  height: 80px;
+  border: 2px dashed var(--border-color);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: var(--text-secondary);
+  font-size: 12px;
   opacity: 0.6;
+  transition: all 0.2s;
+}
+
+.magic-pad:hover .magic-pad-hint {
+  border-color: var(--primary-color);
+  opacity: 0.7;
 }
 </style>

@@ -659,6 +659,10 @@ function handleEdgeNavMouseLeave() {
   isClickingEdgeButton = false
 }
 
+// 滚轮翻页相关状态
+const wheelPageTurnCooldown = ref(false)
+const WHEEL_PAGE_TURN_COOLDOWN_MS = 300
+
 function handleWheel(e: WheelEvent) {
   if (e.ctrlKey) {
     e.preventDefault()
@@ -667,6 +671,46 @@ function handleWheel(e: WheelEvent) {
     } else {
       zoomOut()
     }
+    return
+  }
+
+  // 滚轮翻页逻辑：当滚动到顶部或底部后继续滚动触发翻页
+  if (!contentRef.value || wheelPageTurnCooldown.value) return
+
+  const element = contentRef.value
+  const { scrollTop, scrollHeight, clientHeight } = element
+  const isAtTop = scrollTop <= 0
+  const isAtBottom = scrollTop + clientHeight >= scrollHeight - 1
+
+  // 向上滚动（deltaY < 0）且在顶部 -> 翻到上一页，滚动到底部
+  if (e.deltaY < 0 && isAtTop && currentPage.value > 1) {
+    e.preventDefault()
+    wheelPageTurnCooldown.value = true
+    prevPage()
+    // 翻页后滚动到底部
+    nextTick(() => {
+      if (contentRef.value) {
+        contentRef.value.scrollTop = contentRef.value.scrollHeight
+      }
+    })
+    setTimeout(() => {
+      wheelPageTurnCooldown.value = false
+    }, WHEEL_PAGE_TURN_COOLDOWN_MS)
+  }
+  // 向下滚动（deltaY > 0）且在底部 -> 翻到下一页，滚动到顶部
+  else if (e.deltaY > 0 && isAtBottom && currentPage.value < totalPages.value) {
+    e.preventDefault()
+    wheelPageTurnCooldown.value = true
+    nextPage()
+    // 翻页后滚动到顶部
+    nextTick(() => {
+      if (contentRef.value) {
+        contentRef.value.scrollTop = 0
+      }
+    })
+    setTimeout(() => {
+      wheelPageTurnCooldown.value = false
+    }, WHEEL_PAGE_TURN_COOLDOWN_MS)
   }
 }
 
