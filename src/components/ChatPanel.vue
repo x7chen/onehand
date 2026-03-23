@@ -706,6 +706,8 @@ async function handleAgentResponseForVoice(nodeId: string, transcript: string, p
   top: 0 !important;
   width: 100% !important;
   transform: none !important;
+  box-shadow: 0 2px 8px var(--shadow-color) !important;
+  border: none !important;
 }
 
 .empty-node {

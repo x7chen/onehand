@@ -49,73 +49,9 @@
         </div>
       </section>
 
-      <!-- STT Settings -->
-      <section class="settings-section">
-        <h3>语音转文本配置</h3>
-
-        <div class="form-group">
-          <label>STT 服务提供商</label>
-          <div class="info-box">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
-            </svg>
-            <span>使用 Sherpa-ONNX 本地语音识别引擎，无需联网</span>
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label>模型路径</label>
-          <input
-            :value="settingsStore.settings.stt.sherpaOnnx?.modelPath || ''"
-            type="text"
-            placeholder="模型文件路径"
-            readonly
-          />
-          <span class="field-hint">默认使用内置的 Paraformer 中文模型</span>
-        </div>
-
-        <div class="form-group">
-          <label>词表路径</label>
-          <input
-            :value="settingsStore.settings.stt.sherpaOnnx?.tokensPath || ''"
-            type="text"
-            placeholder="词表文件路径"
-            readonly
-          />
-        </div>
-
-        <div class="form-group">
-          <label>解码线程数</label>
-          <input
-            :value="settingsStore.settings.stt.sherpaOnnx?.numThreads || 4"
-            type="number"
-            min="1"
-            max="8"
-            readonly
-          />
-          <span class="field-hint">根据 CPU 核心数调整，建议 4 线程</span>
-        </div>
-
-        <div class="form-group">
-          <label>解码方法</label>
-          <select :value="settingsStore.settings.stt.sherpaOnnx?.decodingMethod || 'greedy_search'" disabled>
-            <option value="greedy_search">贪心搜索 (Greedy Search)</option>
-            <option value="modified_beam_search">束搜索 (Beam Search)</option>
-          </select>
-        </div>
-      </section>
-
       <!-- General Settings -->
       <section class="settings-section">
         <h3>其他设置</h3>
-
-        <div class="form-group">
-          <label>音频格式</label>
-          <select v-model="settingsStore.settings.general.audioFormat">
-            <option value="webm">WebM</option>
-            <option value="wav">WAV</option>
-          </select>
-        </div>
 
         <div class="form-group">
           <label>界面语言</label>
