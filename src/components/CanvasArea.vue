@@ -447,9 +447,11 @@ async function handleTranscription(node: CanvasNode) {
       const transcriptResult = await transcribeWithSherpaOnnx(blob, settings.stt.sherpaOnnx)
 
       if (transcriptResult.success && transcriptResult.text) {
+        const title = transcriptResult.text.slice(0, 10)
         projectStore.updateNode(node.id, {
           transcript: transcriptResult.text,
-          transcriptStatus: 'done'
+          transcriptStatus: 'done',
+          title
         })
 
         if (props.aiAnswerEnabled) {

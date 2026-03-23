@@ -15,11 +15,6 @@ const router = createRouter({
       component: () => import('../views/CanvasView.vue')
     },
     {
-      path: '/chat/:projectId',
-      name: 'chat',
-      component: () => import('../views/ChatView.vue')
-    },
-    {
       path: '/node-list/:projectId',
       name: 'node-list',
       component: () => import('../views/NodeListView.vue')

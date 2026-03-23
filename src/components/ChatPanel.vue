@@ -51,47 +51,17 @@
       </div>
     </div>
 
-    <!-- 对话输入区域 -->
-    <div class="chat-input-container">
-      <div class="chat-input-wrapper">
-        <textarea
-          v-model="chatInput"
-          :placeholder="selectedNode ? '输入问题，将当前节点作为上下文...' : '输入内容创建新节点...'"
-          @keydown.enter.exact.prevent="sendChat"
-          @keydown.shift.enter.exact="() => {}"
-          :disabled="isChatting || isRecording"
-        ></textarea>
-        <button
-          @mousedown="handleVoiceButtonDown"
-          @mouseup="handleVoiceButtonUp"
-          @mouseleave="handleVoiceButtonLeave"
-          class="voice-btn"
-          :class="{ recording: isRecording }"
-          :disabled="isChatting"
-          :title="isRecording ? '松开停止录音' : '长按语音输入'"
-        >
-          <svg v-if="!isRecording" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-            <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-          </svg>
-          <span v-else class="recording-indicator">
-            <span class="dot"></span>
-            <span class="dot"></span>
-            <span class="dot"></span>
-          </span>
-        </button>
-        <button
-          @click="sendChat"
-          class="send-btn"
-          :disabled="!chatInput.trim() || isChatting || isRecording"
-        >
-          <svg v-if="!isChatting" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-          </svg>
-          <span v-else class="loading-spinner"></span>
-        </button>
-      </div>
-      <p class="input-hint">按 Enter 发送，Shift+Enter 换行，长按麦克风语音输入</p>
+    <!-- MagicPad 区域 -->
+    <div
+      class="magic-pad"
+      @dblclick="handleMagicPadDblClick"
+      @mousedown="handleMagicPadMouseDown"
+      @mouseup="handleMagicPadMouseUp"
+      @mouseleave="handleMagicPadMouseLeave"
+      @dragover.prevent
+      @drop="handleMagicPadDrop"
+    >
+      <div class="magic-pad-hint"></div>
     </div>
 
     <!-- 录音指示器 -->
@@ -140,14 +110,16 @@ const emit = defineEmits<{
   'update-editing-text': [text: string]
   'save-edit': [nodeId: string, text: string]
   'cancel-edit': [nodeId: string]
+  'start-editing': [nodeId: string]
 }>()
 
 const projectStore = useProjectStore()
 const settingsStore = useSettingsStore()
 
-// 对话相关
-const chatInput = ref('')
-const isChatting = ref(false)
+// MagicPad 相关
+const magicPadRef = ref<HTMLElement | null>(null)
+let longPressTimer: number | null = null
+const LONG_PRESS_DURATION = 500
 
 // 节点详情区域滚动相关
 const nodeDetailContainerRef = ref<HTMLElement | null>(null)
@@ -190,11 +162,12 @@ function cancelTitleEdit() {
   isEditingTitle.value = false
 }
 
-// 录音相关
+// MagicPad 录音相关
 const simpleRecorder = createAudioWorkletRecorder()
 const isRecording = ref(false)
 const recordingDuration = ref(0)
 const recordingPosition = ref({ x: 0, y: 0 })
+const recordingStartPosition = ref<{ x: number; y: number } | null>(null)
 let recordingTimer: number | null = null
 
 // 节点详情区域滚动处理
@@ -226,176 +199,181 @@ function handleSaveEdit(nodeId: string, text: string) {
 }
 
 function handleCancelEdit(nodeId: string) {
-  // 取消编辑不需要特殊处理
 }
 
-// 发送对话
-async function sendChat() {
-  if (!chatInput.value.trim() || isChatting.value) return
-
-  const prompt = chatInput.value.trim()
-  chatInput.value = ''
-  isChatting.value = true
-
-  try {
-    if (!props.selectedNode) {
-      const newNodeId = `node-${Date.now()}`
-      const newNode: CanvasNode = {
-        id: newNodeId,
-        type: 'text-note',
-        title: prompt.slice(0, 50) + (prompt.length > 50 ? '...' : ''),
-        position: { x: 100, y: 100 },
-        transcript: prompt,
-        transcriptStatus: 'done',
-        agentResult: '',
-        agentStatus: props.aiAnswerEnabled ? 'processing' : 'pending',
-        selectedAsContext: false,
-        createdAt: Date.now(),
-        pdfPage: props.currentPage,
-        pdfPosition: { x: 100, y: 100 }
-      }
-
-      projectStore.addNode(newNode)
-      emit('node-created', newNode)
-
-      if (props.aiAnswerEnabled) {
-        await processChatRequest(newNodeId, prompt)
-      }
-
-    } else {
-      const node = props.selectedNode
-      const newNodeId = `node-${Date.now()}`
-      const newNode: CanvasNode = {
-        id: newNodeId,
-        type: 'text-note',
-        title: prompt.slice(0, 50) + (prompt.length > 50 ? '...' : ''),
-        position: {
-          x: node.position.x + 50,
-          y: node.position.y + 300
-        },
-        transcript: prompt,
-        transcriptStatus: 'done',
-        agentResult: '',
-        agentStatus: props.aiAnswerEnabled ? 'processing' : 'pending',
-        selectedAsContext: false,
-        createdAt: Date.now(),
-        pdfPage: props.currentPage,
-        pdfPosition: { x: 100, y: 100 }
-      }
-
-      projectStore.addNode(newNode)
-      emit('node-created', newNode)
-
-      if (props.aiAnswerEnabled) {
-        await processChatRequest(newNodeId, prompt)
-      }
-    }
-
-  } catch (error) {
-    console.error('Chat failed:', error)
-  } finally {
-    isChatting.value = false
+// MagicPad - 双击创建文本节点
+function handleMagicPadDblClick(e: MouseEvent) {
+  if (!props.currentPage) return
+  
+  const newNodeId = `node-${Date.now()}`
+  const newNode: CanvasNode = {
+    id: newNodeId,
+    type: 'text-note',
+    position: { x: 100, y: 100 },
+    transcript: '',
+    transcriptStatus: 'done',
+    agentResult: null,
+    agentStatus: props.aiAnswerEnabled ? 'pending' : 'pending',
+    selectedAsContext: false,
+    createdAt: Date.now(),
+    pdfPage: props.currentPage,
+    pdfPosition: { x: 100, y: 100 }
   }
+
+  projectStore.addNodeToPdfPage(newNode, props.currentPage)
+  emit('node-created', newNode)
+  emit('update-editing-text', '')
+  emit('start-editing', newNodeId)
 }
 
-async function processChatRequest(nodeId: string, prompt: string) {
-  const settings = settingsStore.settings
+// MagicPad - 长按开始录音
+function handleMagicPadMouseDown(e: MouseEvent) {
+  if (isRecording.value) return
 
-  const selectedNodes = projectStore.currentCanvas?.nodes.filter(n => n.selectedAsContext && n.id !== nodeId) || []
-
-  const staticContextContent = props.staticContextFiles
-    .map(f => f.content)
-    .filter(c => c && c.trim())
-    .join('\n\n')
-
-  const messages = buildFullContextMessages(
-    selectedNodes.map(n => ({ transcript: n.transcript || '', agentResult: n.agentResult || '' })),
-    prompt,
-    staticContextContent,
-    props.dynamicContextFile?.content
-  )
-
-  let accumulatedContent = ''
-
-  const result = await chatWithLLM(messages, {
-    baseUrl: settings.llm.baseUrl,
-    apiKey: settings.llm.apiKey,
-    model: settings.llm.model
-  }, (chunk) => {
-    accumulatedContent += chunk
-    projectStore.updateNode(nodeId, {
-      agentResult: accumulatedContent,
-      agentStatus: 'processing'
-    })
-
-    const updatedNode = projectStore.currentCanvas?.nodes.find(n => n.id === nodeId)
-    if (updatedNode) {
-      emit('node-updated', updatedNode)
-    }
-
-    if (shouldAutoScroll.value) {
-      nextTick(() => scrollToBottom())
-    }
-  })
-
-  projectStore.updateNode(nodeId, {
-    agentResult: result,
-    agentStatus: 'done'
-  })
-
-  const updatedNode = projectStore.currentCanvas?.nodes.find(n => n.id === nodeId)
-  if (updatedNode) {
-    emit('node-updated', updatedNode)
+  const target = e.target as HTMLElement
+  const rect = target.getBoundingClientRect()
+  recordingStartPosition.value = {
+    x: e.clientX,
+    y: e.clientY
   }
-}
-
-// 录音按钮按下
-async function handleVoiceButtonDown(e: MouseEvent) {
-  if (isChatting.value || isRecording.value) return
-
-  try {
-    await simpleRecorder.start()
-    isRecording.value = true
-    recordingDuration.value = 0
-
-    const target = e.target as HTMLElement
-    const rect = target.getBoundingClientRect()
-    recordingPosition.value = {
-      x: rect.left + rect.width / 2,
-      y: rect.top
-    }
-
-    recordingTimer = window.setInterval(() => {
-      recordingDuration.value += 100
-    }, 100)
-  } catch (error) {
-    console.error('Failed to start recording:', error)
-    isRecording.value = false
+  recordingPosition.value = {
+    x: e.clientX,
+    y: e.clientY
   }
+
+  longPressTimer = window.setTimeout(async () => {
+    if (isRecording.value) return
+    
+    try {
+      await simpleRecorder.start()
+      isRecording.value = true
+      recordingDuration.value = 0
+
+      recordingTimer = window.setInterval(() => {
+        recordingDuration.value += 100
+      }, 100)
+    } catch (error) {
+      console.error('Failed to start recording:', error)
+      isRecording.value = false
+      recordingPosition.value = { x: 0, y: 0 }
+    }
+  }, LONG_PRESS_DURATION)
 }
 
-// 录音按钮松开
-async function handleVoiceButtonUp() {
-  if (!isRecording.value) return
+// MagicPad - 松开鼠标
+async function handleMagicPadMouseUp(e: MouseEvent) {
+  if (longPressTimer) {
+    clearTimeout(longPressTimer)
+    longPressTimer = null
+  }
+
+  if (!isRecording.value) {
+    return
+  }
+
   await stopVoiceRecording()
 }
 
-// 录音按钮离开（取消录音）
-async function handleVoiceButtonLeave() {
-  if (!isRecording.value) return
+// MagicPad - 鼠标离开取消长按
+function handleMagicPadMouseLeave() {
+  if (longPressTimer) {
+    clearTimeout(longPressTimer)
+    longPressTimer = null
+  }
+
+  if (isRecording.value) {
+    simpleRecorder.stop().catch(console.error)
+    isRecording.value = false
+    recordingPosition.value = { x: 0, y: 0 }
+    recordingStartPosition.value = null
+    if (recordingTimer) {
+      clearInterval(recordingTimer)
+      recordingTimer = null
+    }
+    recordingDuration.value = 0
+  }
+}
+
+// MagicPad - 拖拽文本创建节点
+async function handleMagicPadDrop(e: DragEvent) {
+  const text = e.dataTransfer?.getData('text/plain')
+  if (!text || !props.currentPage) return
+
+  const rect = (e.target as HTMLElement).getBoundingClientRect()
+  const x = e.clientX - rect.left
+  const y = e.clientY - rect.top
+
+  const newNodeId = `node-${Date.now()}`
+  const newNode: CanvasNode = {
+    id: newNodeId,
+    type: 'text-note',
+    position: { x, y },
+    transcript: text,
+    transcriptStatus: 'done',
+    agentResult: null,
+    agentStatus: 'pending',
+    selectedAsContext: false,
+    createdAt: Date.now(),
+    pdfPage: props.currentPage,
+    pdfPosition: { x, y }
+  }
+
+  projectStore.addNodeToPdfPage(newNode, props.currentPage)
+  emit('node-created', newNode)
+
+  if (props.aiAnswerEnabled) {
+    await handleAgentResponseForText(newNodeId, text)
+  }
+}
+
+async function handleAgentResponseForText(nodeId: string, transcript: string) {
+  if (!props.currentPage) return
+  
+  const settings = settingsStore.settings
+  const pdfPage = props.currentPage
 
   try {
-    await simpleRecorder.stop()
-  } catch (error) {
-    console.error('Failed to cancel recording:', error)
-  }
+    projectStore.updateNodeInPdfPage(nodeId, pdfPage, { agentStatus: 'processing' })
 
-  isRecording.value = false
-  if (recordingTimer) {
-    clearInterval(recordingTimer)
-    recordingTimer = null
+    const canvas = projectStore.getCanvasByPdfPage(pdfPage)
+    const selectedNodes = canvas?.nodes.filter(n => n.selectedAsContext && n.id !== nodeId) || []
+
+    const staticContextContent = props.staticContextFiles
+      .map(f => f.content)
+      .filter(c => c && c.trim())
+      .join('\n\n')
+
+    const messages = buildFullContextMessages(
+      selectedNodes.map(n => ({ transcript: n.transcript || '', agentResult: n.agentResult || '' })),
+      transcript,
+      staticContextContent,
+      props.dynamicContextFile?.content
+    )
+
+    let accumulatedContent = ''
+
+    const result = await chatWithLLM(messages, {
+      baseUrl: settings.llm.baseUrl,
+      apiKey: settings.llm.apiKey,
+      model: settings.llm.model
+    }, (chunk) => {
+      accumulatedContent += chunk
+      projectStore.updateNodeInPdfPage(nodeId, pdfPage, {
+        agentResult: accumulatedContent,
+        agentStatus: 'processing'
+      })
+    })
+
+    projectStore.updateNodeInPdfPage(nodeId, pdfPage, {
+      agentResult: result,
+      agentStatus: 'done'
+    })
+  } catch (error) {
+    projectStore.updateNodeInPdfPage(nodeId, pdfPage, {
+      agentResult: String(error),
+      agentStatus: 'error'
+    })
   }
-  recordingDuration.value = 0
 }
 
 // 停止语音录音
@@ -420,6 +398,9 @@ async function stopVoiceRecording() {
       recordingTimer = null
     }
   }
+
+  recordingPosition.value = { x: 0, y: 0 }
+  recordingStartPosition.value = null
 }
 
 // 创建语音节点
@@ -438,6 +419,8 @@ async function createVoiceNode(audioBlob: Blob, duration: number) {
   const arrayBuffer = await audioBlob.arrayBuffer()
   await window.electronAPI.saveFileBuffer(`${projectDir}/${audioPath}`, arrayBuffer)
 
+  const pdfPage = props.currentPage
+
   const node: CanvasNode = {
     id: nodeId,
     type: 'voice-note',
@@ -450,14 +433,21 @@ async function createVoiceNode(audioBlob: Blob, duration: number) {
     selectedAsContext: false,
     createdAt: Date.now(),
     duration,
-    pdfPage: props.currentPage,
+    pdfPage,
     pdfPosition: { x: 100, y: 100 }
   }
 
-  projectStore.addNode(node)
+  if (pdfPage) {
+    projectStore.addNodeToPdfPage(node, pdfPage)
+  } else {
+    projectStore.addNode(node)
+  }
   emit('node-created', node)
 
-  await handleTranscription(node)
+  const updatedNode = findNodeById(nodeId)
+  if (updatedNode) {
+    await handleTranscription(updatedNode)
+  }
 }
 
 // 处理语音转写
@@ -469,7 +459,7 @@ async function handleTranscription(node: CanvasNode) {
   }
 
   if (!settings.stt.sherpaOnnx) {
-    projectStore.updateNode(node.id, {
+    updateNodeWithPage(node.id, {
       transcript: '语音识别配置错误，请检查设置',
       transcriptStatus: 'error'
     })
@@ -477,7 +467,7 @@ async function handleTranscription(node: CanvasNode) {
   }
 
   try {
-    projectStore.updateNode(node.id, { transcriptStatus: 'processing' })
+    updateNodeWithPage(node.id, { transcriptStatus: 'processing' })
 
     const appDataPath = await window.electronAPI.getAppPath('userData')
     const project = projectStore.currentProject
@@ -494,47 +484,63 @@ async function handleTranscription(node: CanvasNode) {
       const transcriptResult = await transcribeWithSherpaOnnx(blob, settings.stt.sherpaOnnx)
 
       if (transcriptResult.success && transcriptResult.text) {
-        projectStore.updateNode(node.id, {
+        const title = transcriptResult.text.slice(0, 10)
+        updateNodeWithPage(node.id, {
           transcript: transcriptResult.text,
-          transcriptStatus: 'done'
+          transcriptStatus: 'done',
+          title
         })
 
-        const updatedNode = projectStore.currentCanvas?.nodes.find(n => n.id === node.id)
-        if (updatedNode) {
-          emit('node-updated', updatedNode)
-        }
-
-        if (props.aiAnswerEnabled) {
-          await handleAgentResponseForVoice(node.id, transcriptResult.text)
+        if (props.aiAnswerEnabled && node.pdfPage !== undefined) {
+          await handleAgentResponseForVoice(node.id, transcriptResult.text, node.pdfPage)
         }
       } else {
         throw new Error(transcriptResult.error || '转写失败')
       }
     }
   } catch (error) {
-    projectStore.updateNode(node.id, {
+    updateNodeWithPage(node.id, {
       transcript: String(error),
       transcriptStatus: 'error'
     })
   }
 }
 
+function updateNodeWithPage(nodeId: string, updates: Partial<CanvasNode>) {
+  const node = findNodeById(nodeId)
+  if (node?.pdfPage !== undefined && node.pdfPage !== null) {
+    projectStore.updateNodeInPdfPage(nodeId, node.pdfPage, updates)
+  } else {
+    projectStore.updateNode(nodeId, updates)
+  }
+}
+
+function findNodeById(nodeId: string): CanvasNode | undefined {
+  if (!projectStore.currentProject?.canvases) return undefined
+  for (const canvas of projectStore.currentProject.canvases) {
+    const node = canvas.nodes.find(n => n.id === nodeId)
+    if (node) return node
+  }
+  return undefined
+}
+
 // 重新生成 AI 回答
 function handleRegenerateAgent(nodeId: string) {
-  const node = projectStore.currentCanvas?.nodes.find(n => n.id === nodeId)
-  if (node && node.transcript) {
-    handleAgentResponseForVoice(nodeId, node.transcript)
+  const node = findNodeById(nodeId)
+  if (node && node.transcript && node.pdfPage !== undefined && node.pdfPage !== null) {
+    handleAgentResponseForVoice(nodeId, node.transcript, node.pdfPage)
   }
 }
 
 // 语音节点的 AI 回答
-async function handleAgentResponseForVoice(nodeId: string, transcript: string) {
+async function handleAgentResponseForVoice(nodeId: string, transcript: string, pdfPage: number) {
   const settings = settingsStore.settings
 
   try {
-    projectStore.updateNode(nodeId, { agentStatus: 'processing' })
+    projectStore.updateNodeInPdfPage(nodeId, pdfPage, { agentStatus: 'processing' })
 
-    const selectedNodes = projectStore.currentCanvas?.nodes.filter(n => n.selectedAsContext && n.id !== nodeId) || []
+    const canvas = projectStore.getCanvasByPdfPage(pdfPage)
+    const selectedNodes = canvas?.nodes.filter(n => n.selectedAsContext && n.id !== nodeId) || []
 
     const staticContextContent = props.staticContextFiles
       .map(f => f.content)
@@ -556,7 +562,7 @@ async function handleAgentResponseForVoice(nodeId: string, transcript: string) {
       model: settings.llm.model
     }, (chunk) => {
       accumulatedContent += chunk
-      projectStore.updateNode(nodeId, {
+      projectStore.updateNodeInPdfPage(nodeId, pdfPage, {
         agentResult: accumulatedContent,
         agentStatus: 'processing'
       })
@@ -566,12 +572,12 @@ async function handleAgentResponseForVoice(nodeId: string, transcript: string) {
       }
     })
 
-    projectStore.updateNode(nodeId, {
+    projectStore.updateNodeInPdfPage(nodeId, pdfPage, {
       agentResult: result,
       agentStatus: 'done'
     })
   } catch (error) {
-    projectStore.updateNode(nodeId, {
+    projectStore.updateNodeInPdfPage(nodeId, pdfPage, {
       agentResult: String(error),
       agentStatus: 'error'
     })
@@ -664,157 +670,21 @@ async function handleAgentResponseForVoice(nodeId: string, transcript: string) {
   font-size: 14px;
 }
 
-/* 对话输入区域 */
-.chat-input-container {
+/* MagicPad 区域 */
+.magic-pad {
+  min-height: 120px;
   padding: 16px;
   border-top: 1px solid var(--border-color);
   background: var(--bg-primary);
-}
-
-.chat-input-wrapper {
   display: flex;
-  gap: 8px;
-  align-items: flex-end;
-}
-
-.chat-input-wrapper textarea {
-  flex: 1;
-  min-height: 44px;
-  max-height: 150px;
-  padding: 12px;
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  font-size: 14px;
-  resize: none;
-  outline: none;
-  font-family: inherit;
-}
-
-.chat-input-wrapper textarea:focus {
-  border-color: #4299e1;
-}
-
-.chat-input-wrapper textarea:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-/* 语音按钮 */
-.voice-btn {
-  width: 44px;
-  height: 44px;
-  border: none;
-  border-radius: 12px;
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
-  cursor: pointer;
-  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s;
-  flex-shrink: 0;
 }
 
-.voice-btn:hover:not(:disabled) {
-  background: var(--border-color);
-  color: var(--text-primary);
-}
-
-.voice-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.voice-btn.recording {
-  background: #f44;
-  color: white;
-  animation: pulse 1s infinite;
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.7;
-  }
-}
-
-.recording-indicator {
-  display: flex;
-  gap: 3px;
-  align-items: center;
-}
-
-.recording-indicator .dot {
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: white;
-  animation: bounce 1.4s infinite ease-in-out both;
-}
-
-.recording-indicator .dot:nth-child(1) {
-  animation-delay: -0.32s;
-}
-
-.recording-indicator .dot:nth-child(2) {
-  animation-delay: -0.16s;
-}
-
-@keyframes bounce {
-  0%, 80%, 100% {
-    transform: scale(0);
-  }
-  40% {
-    transform: scale(1);
-  }
-}
-
-.send-btn {
-  width: 44px;
-  height: 44px;
-  border: none;
-  border-radius: 12px;
-  background: #4299e1;
-  color: white;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-  flex-shrink: 0;
-}
-
-.send-btn:hover:not(:disabled) {
-  background: #3182ce;
-}
-
-.send-btn:disabled {
-  background: var(--border-color);
-  cursor: not-allowed;
-}
-
-.loading-spinner {
-  width: 20px;
-  height: 20px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: white;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.input-hint {
+.magic-pad-hint {
   font-size: 12px;
   color: var(--text-secondary);
-  margin: 8px 0 0 0;
+  opacity: 0.6;
 }
 </style>

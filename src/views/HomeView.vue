@@ -108,11 +108,6 @@
                   <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
                 </svg>
               </button>
-              <button class="action-btn chat-btn" @click.stop="openChat(project.id)" title="对话模式">
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                  <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/>
-                </svg>
-              </button>
             </div>
           </div>
         </div>
@@ -521,14 +516,6 @@ function openProject(projectId: string) {
   if (project) {
     projectStore.setCurrentProject(project)
     router.push(`/canvas/${projectId}`)
-  }
-}
-
-function openChat(projectId: string) {
-  const project = projectStore.projects.find(p => p.id === projectId)
-  if (project) {
-    projectStore.setCurrentProject(project)
-    router.push(`/chat/${projectId}`)
   }
 }
 

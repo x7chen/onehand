@@ -60,6 +60,7 @@
         @update-editing-text="editingText = $event"
         @save-edit="handleSaveEdit"
         @cancel-edit="handleCancelEdit"
+        @start-editing="handleStartEditing"
       />
     </div>
 
@@ -392,7 +393,8 @@ async function handleRecordingComplete(data: { audioBlob: Blob; duration: number
     if (transcriptResult.success && transcriptResult.text) {
       projectStore.updateNodeInPdfPage(nodeId, data.page, {
         transcript: transcriptResult.text,
-        transcriptStatus: 'done'
+        transcriptStatus: 'done',
+        title: transcriptResult.text.slice(0, 10)
       })
 
       if (aiAnswerEnabled.value) {
@@ -425,6 +427,11 @@ function handleNodeCreated(node: CanvasNode) {
   selectedNode.value = node
 }
 
+function handleStartEditing(nodeId: string) {
+  editingNodeId.value = nodeId
+  editingText.value = ''
+}
+
 function handleNodeUpdated(node: CanvasNode) {
   if (selectedNode.value?.id === node.id) {
     selectedNode.value = node
@@ -434,7 +441,8 @@ function handleNodeUpdated(node: CanvasNode) {
 function handleSaveEdit(nodeId: string, text: string) {
   if (text.trim()) {
     const pdfPage = projectStore.findNodePdfPage(nodeId)
-    projectStore.updateNodeAuto(nodeId, { transcript: text.trim() })
+    const title = text.trim().slice(0, 10)
+    projectStore.updateNodeAuto(nodeId, { transcript: text.trim(), title })
     if (selectedNode.value?.id === nodeId) {
       const canvas = pdfPage !== null ? projectStore.getCanvasByPdfPage(pdfPage) : null
       selectedNode.value = canvas?.nodes.find(n => n.id === nodeId) || null
@@ -627,7 +635,8 @@ async function handleRetryTranscription(nodeId: string) {
       if (transcriptResult.success && transcriptResult.text) {
         projectStore.updateNodeInPdfPage(nodeId, pdfPage, {
           transcript: transcriptResult.text,
-          transcriptStatus: 'done'
+          transcriptStatus: 'done',
+          title: transcriptResult.text.slice(0, 10)
         })
       } else {
         throw new Error(transcriptResult.error || '转写失败')
