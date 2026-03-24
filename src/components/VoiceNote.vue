@@ -35,8 +35,6 @@
           <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
         </svg>
       </div>
-      <!-- 节点标题 -->
-      <span v-if="node.title && false" class="node-title">{{ node.title }}</span>
       <!-- 功能按钮组 -->
       <div class="action-buttons">
         <!-- 收藏按钮 -->
@@ -61,6 +59,18 @@
           </svg>
         </button>
       </div>
+      <!-- 节点标题 -->
+      <input
+        v-if="isEditingTitle"
+        v-model="localTitle"
+        class="node-title-input"
+        @blur="saveTitle"
+        @keydown.enter="saveTitle"
+        @keydown.escape="cancelTitle"
+        @mousedown.stop
+        ref="titleInput"
+      />
+      <span v-else-if="node.title" class="node-title" @dblclick.stop="startEditTitle">{{ node.title }}</span>
       <span class="created-time">{{ formatCreatedTime }}</span>
       <button class="delete-btn" @click.stop="deleteNode">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
@@ -188,6 +198,35 @@ const computedIsPlaying = computed(() => props.isPlaying ?? localIsPlaying.value
 
 // 本地 AI 回答隐藏状态
 const isAiResultHidden = ref(false)
+
+// 节点标题编辑
+const isEditingTitle = ref(false)
+const localTitle = ref('')
+const titleInput = ref<HTMLInputElement | null>(null)
+
+function startEditTitle() {
+  if (!props.node.title) return
+  localTitle.value = props.node.title
+  isEditingTitle.value = true
+  nextTick(() => {
+    if (titleInput.value) {
+      titleInput.value.focus()
+      titleInput.value.select()
+    }
+  })
+}
+
+function saveTitle() {
+  const newTitle = localTitle.value.trim()
+  isEditingTitle.value = false
+  if (newTitle !== props.node.title) {
+    emit('update-node', props.node.id, { title: newTitle || undefined })
+  }
+}
+
+function cancelTitle() {
+  isEditingTitle.value = false
+}
 
 // 监听全局隐藏状态变化
 watch(() => props.globalHideAiResult, (newVal) => {
@@ -369,7 +408,8 @@ function handleMouseDown(e: MouseEvent) {
   // Only allow drag if clicking directly on the header, not on text content
   const target = e.target as HTMLElement
   if (target.closest('.transcript-content') || target.closest('.agent-content') ||
-      target.closest('.transcript-edit') || target.closest('.agent-edit')) {
+      target.closest('.transcript-edit') || target.closest('.agent-edit') ||
+      target.closest('.node-title-input')) {
     return // Don't drag when clicking on text content
   }
 
@@ -725,9 +765,24 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 150px;
-  margin-left: 4px;
-  visibility: hidden;
+  max-width: 90px;
+  margin: 0 auto;
+  text-align: center;
+  cursor: text;
+}
+
+.node-title-input {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+  border: 1px solid #4299e1;
+  border-radius: 4px;
+  padding: 2px 4px;
+  max-width: 200px;
+  margin: 0 auto;
+  text-align: center;
+  outline: none;
 }
 
 .created-time {

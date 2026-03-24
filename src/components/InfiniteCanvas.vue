@@ -158,7 +158,7 @@ const hasMovedBeyondThreshold = ref(false) // 是否已经超过阈值
 const isMouseDown = ref(false) // 鼠标是否按下
 const isRightMouseDown = ref(false) // 鼠标右键是否按下
 const isSpacePressed = ref(false) // 空格键是否按下
-
+const isCtrlPressed = ref(false) // Ctrl 键是否按下
 // 屏幕坐标位置的录音指示器（用于显示）
 const screenRecordingPosition = ref({ x: 0, y: 0 })
 
@@ -369,7 +369,7 @@ function handleWheel(e: WheelEvent) {
     })
   }
   // 空格 + 滚轮：缩放画布
-  else if (isSpacePressed.value) {
+  else if (isSpacePressed.value|| isCtrlPressed.value) {
     const delta = e.deltaY > 0 ? 0.9 : 1.1
     const newZoom = Math.min(Math.max(props.viewport.zoom * delta, 0.1), 5)
 
@@ -490,11 +490,17 @@ function handleKeyDown(e: KeyboardEvent) {
   if (e.code === 'Space' && !e.repeat) {
     isSpacePressed.value = true
   }
+    if (e.code === 'ControlLeft' || e.code === 'ControlRight') {
+    isCtrlPressed.value = true
+  }
 }
 
 function handleKeyUp(e: KeyboardEvent) {
   if (e.code === 'Space') {
     isSpacePressed.value = false
+  }
+  if (e.code === 'ControlLeft' || e.code === 'ControlRight') {
+    isCtrlPressed.value = false
   }
 }
 

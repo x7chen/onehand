@@ -31,7 +31,7 @@
           :editing-text="editingText"
           :global-hide-ai-result="globalHideAiResult"
           :is-active="activeNodeId === node.id"
-          :show-header="activeNodeId === node.id"
+          :show-header="true"
           @delete="handleDeleteNode"
           @play="handlePlayNode"
           @toggle-context="handleToggleContext"

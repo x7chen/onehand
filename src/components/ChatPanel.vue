@@ -1,24 +1,5 @@
 <template>
   <div class="chat-panel">
-    <div class="chat-header">
-      <div v-if="selectedNode" class="node-title-wrapper">
-        <input
-          v-if="isEditingTitle"
-          v-model="editingTitle"
-          ref="titleInputRef"
-          class="title-edit-input"
-          @keydown.enter.prevent="saveTitleEdit"
-          @keydown.escape="cancelTitleEdit"
-          @blur="saveTitleEdit"
-        />
-        <span
-          v-else
-          class="selected-node-title"
-          @dblclick.stop="startTitleEdit"
-        >{{ selectedNode.title || '无标题' }}</span>
-      </div>
-    </div>
-
     <!-- 节点详情区域 -->
     <div ref="nodeDetailContainerRef" class="node-detail-container" @scroll="handleNodeDetailScroll">
       <div v-if="selectedNode" class="node-detail">
@@ -133,34 +114,6 @@ const isCurrentNodeEditing = computed((): boolean => {
 const currentEditingText = computed((): string => {
   return isCurrentNodeEditing.value ? (props.editingText || '') : ''
 })
-
-// 标题编辑相关
-const isEditingTitle = ref(false)
-const editingTitle = ref('')
-const titleInputRef = ref<HTMLInputElement | null>(null)
-
-function startTitleEdit() {
-  if (!props.selectedNode) return
-  isEditingTitle.value = true
-  editingTitle.value = props.selectedNode.title || ''
-  nextTick(() => {
-    if (titleInputRef.value) {
-      titleInputRef.value.focus()
-      titleInputRef.value.select()
-    }
-  })
-}
-
-function saveTitleEdit() {
-  if (!props.selectedNode) return
-  const newTitle = editingTitle.value.trim()
-  emit('update-node', props.selectedNode.id, { title: newTitle || undefined })
-  isEditingTitle.value = false
-}
-
-function cancelTitleEdit() {
-  isEditingTitle.value = false
-}
 
 // MagicPad 录音相关
 const simpleRecorder = createAudioWorkletRecorder()
@@ -658,35 +611,6 @@ async function handleAgentResponseForVoice(nodeId: string, transcript: string, p
   padding: 12px 16px;
   border-bottom: 1px solid var(--border-color);
   background: var(--bg-primary);
-}
-
-.node-title-wrapper {
-  display: flex;
-  align-items: center;
-}
-
-.selected-node-title {
-  font-size: 13px;
-  color: var(--text-secondary);
-  background: var(--bg-secondary);
-  padding: 4px 8px;
-  border-radius: 4px;
-  cursor: text;
-}
-
-.selected-node-title:hover {
-  background: var(--border-color);
-}
-
-.title-edit-input {
-  font-size: 13px;
-  color: var(--text-primary);
-  background: var(--bg-secondary);
-  padding: 4px 8px;
-  border: 1px solid #4299e1;
-  border-radius: 4px;
-  outline: none;
-  min-width: 150px;
 }
 
 /* 节点详情区域 */
