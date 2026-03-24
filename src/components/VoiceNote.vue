@@ -71,6 +71,7 @@
         ref="titleInput"
       />
       <span v-else-if="node.title" class="node-title" @dblclick.stop="startEditTitle">{{ node.title }}</span>
+      <span v-else class="node-title-placeholder" @dblclick.stop="startEditTitle"></span>
       <span class="created-time">{{ formatCreatedTime }}</span>
       <button class="delete-btn" @click.stop="deleteNode">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
@@ -205,8 +206,7 @@ const localTitle = ref('')
 const titleInput = ref<HTMLInputElement | null>(null)
 
 function startEditTitle() {
-  if (!props.node.title) return
-  localTitle.value = props.node.title
+  localTitle.value = props.node.title || ''
   isEditingTitle.value = true
   nextTick(() => {
     if (titleInput.value) {
@@ -769,6 +769,21 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
   margin: 0 auto;
   text-align: center;
   cursor: text;
+}
+
+.node-title-placeholder {
+  display: inline-block;
+  width: 90px;
+  height: 20px;
+  margin: 0 auto;
+  border: 1px dashed transparent;
+  border-radius: 4px;
+  cursor: text;
+  transition: border-color 0.2s;
+}
+
+.node-title-placeholder:hover {
+  border-color: var(--text-secondary);
 }
 
 .node-title-input {
