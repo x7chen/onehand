@@ -22,28 +22,12 @@
             }"
             :data-node-id="item.node.id"
           >
-            <VoiceNote
+            <VoiceNoteSmall
               :ref="(el) => { if (el) voiceNoteRefs[item.node.id] = el }"
               :node="item.node"
-              :is-playing="playingNodeId === item.node.id"
-              :is-editing="editingNodeId === item.node.id"
-              :editing-text="editingText"
-              :global-hide-ai-result="true"
               :is-active="selectedNodeId === item.node.id"
-              :activate-on-hover="false"
-              :show-header="false"
-              @delete="$emit('delete', $event)"
-              @play="$emit('play', $event)"
               @toggle-context="$emit('toggle-context', $event)"
-              @retry-transcription="$emit('retry-transcription', $event)"
-              @retry-agent="$emit('retry-agent', $event)"
-              @regenerate-agent="$emit('regenerate-agent', $event)"
               @toggle-favorite="$emit('toggle-favorite', $event)"
-              @drag-start="(nodeId, offsetX, offsetY) => $emit('drag-start', nodeId, offsetX, offsetY)"
-              @update-node="(nodeId, updates) => $emit('update-node', nodeId, updates)"
-              @save-edit="handleSaveEdit"
-              @cancel-edit="handleCancelEdit"
-              @update:editing-text="editingText = $event"
               @activate="handleNodeActivate"
             />
           </div>
@@ -101,8 +85,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
-import VoiceNote from '@/components/VoiceNote.vue'
+import { ref, shallowRef, computed, watch, nextTick, onMounted, onUnmounted, triggerRef } from 'vue'
+import VoiceNoteSmall from '@/components/VoiceNoteSmall.vue'
 import { useProjectStore } from '@/stores/projectStore'
 import type { CanvasNode } from '@/types/project'
 
@@ -117,35 +101,23 @@ interface VirtualNodeItem {
 const props = withDefaults(defineProps<{
   nodes: CanvasNode[]
   selectedNodeId?: string | null
-  playingNodeId?: string | null
   panelWidth: number
 }>(), {
   selectedNodeId: null,
-  playingNodeId: null,
   panelWidth: 600
 })
 
 const projectStore = useProjectStore()
 
 const emit = defineEmits<{
-  'delete': [nodeId: string]
-  'play': [nodeId: string]
   'toggle-context': [nodeId: string]
-  'retry-transcription': [nodeId: string]
-  'retry-agent': [nodeId: string]
-  'regenerate-agent': [nodeId: string]
   'toggle-favorite': [nodeId: string]
-  'drag-start': [nodeId: string, offsetX: number, offsetY: number]
-  'update-node': [nodeId: string, updates: Partial<CanvasNode>]
   'activate': [nodeId: string]
 }>()
 
 const panelRef = ref<HTMLElement | null>(null)
 const nodeContainerRef = ref<HTMLElement | null>(null)
 const voiceNoteRefs = ref<Record<string, any>>({})
-
-const editingNodeId = ref<string | null>(null)
-const editingText = ref('')
 
 // 翻页相关状态
 const isPanelHovered = ref(false)
@@ -189,9 +161,16 @@ const SCROLL_THRESHOLD = 100
 
 const nodeHeights = ref<Record<string, number>>({})
 const measuredNodes = ref<Set<string>>(new Set())
-const virtualItems = ref<Map<string, VirtualNodeItem>>(new Map())
+const virtualItems = shallowRef<Map<string, VirtualNodeItem>>(new Map())
 const scrollTop = ref(0)
 const containerHeight = ref(600)
+
+// 防止布局计算冲突的标志
+let isLayoutCalculating = false
+// 是否正在处理翻页（翻页期间不响应选中状态变化触发的布局更新）
+let isPageChanging = false
+// 测量定时器
+let measureTimer: ReturnType<typeof setTimeout> | null = null
 
 const sortedNodes = computed(() => {
   return [...props.nodes].sort((a, b) => a.createdAt - b.createdAt)
@@ -241,49 +220,58 @@ const visibleNodes = computed(() => {
 })
 
 function calculateLayout() {
-  const nodes = sortedNodes.value
-  const cols = columnCount.value
-  const colWidth = columnWidth.value
-  const items = new Map<string, VirtualNodeItem>()
+  isLayoutCalculating = true
+  try {
+    const nodes = sortedNodes.value
+    const cols = columnCount.value
+    const colWidth = columnWidth.value
+    const items = new Map<string, VirtualNodeItem>()
 
-  if (!nodes.length) {
-    virtualItems.value = items
-    return
-  }
-
-  const colHeights = new Array(cols).fill(CONTAINER_PADDING)
-  const colTops = new Array(cols).fill(CONTAINER_PADDING)
-
-  for (const node of nodes) {
-    let minCol = 0
-    let minHeight = colHeights[0]
-
-    for (let i = 1; i < cols; i++) {
-      if (colHeights[i] < minHeight) {
-        minHeight = colHeights[i]
-        minCol = i
-      }
+    if (!nodes.length) {
+      virtualItems.value = items
+      triggerRef(virtualItems)
+      return
     }
 
-    const estimatedHeight = nodeHeights.value[node.id] || 200
-    const left = CONTAINER_PADDING + minCol * (colWidth + COLUMN_GAP)
+    // 每列当前的累积高度（下一个节点应该放置的 top 位置）
+    const colHeights = new Array(cols).fill(CONTAINER_PADDING)
 
-    items.set(node.id, {
-      node,
-      top: colTops[minCol],
-      left,
-      width: colWidth,
-      height: estimatedHeight
-    })
+    for (const node of nodes) {
+      // 找最短的列
+      let minCol = 0
+      let minHeight = colHeights[0]
 
-    colHeights[minCol] += estimatedHeight + COLUMN_GAP
-    colTops[minCol] = colHeights[minCol]
+      for (let i = 1; i < cols; i++) {
+        if (colHeights[i] < minHeight) {
+          minHeight = colHeights[i]
+          minCol = i
+        }
+      }
+
+      const estimatedHeight = nodeHeights.value[node.id] || 200
+      const left = CONTAINER_PADDING + minCol * (colWidth + COLUMN_GAP)
+
+      // 当前节点的 top 就是该列当前的高度
+      items.set(node.id, {
+        node,
+        top: colHeights[minCol],
+        left,
+        width: colWidth,
+        height: estimatedHeight
+      })
+
+      // 更新该列的累积高度
+      colHeights[minCol] += estimatedHeight + COLUMN_GAP
+    }
+
+    virtualItems.value = items
+    triggerRef(virtualItems)
+  } finally {
+    isLayoutCalculating = false
   }
-
-  virtualItems.value = items
 }
 
-function updateMeasuredHeights() {
+function updateMeasuredHeights(forceLayout = false) {
   if (!nodeContainerRef.value) return
 
   const container = nodeContainerRef.value.querySelector('.masonry-viewport')
@@ -296,7 +284,10 @@ function updateMeasuredHeights() {
     const nodeId = item.getAttribute('data-node-id')
     if (nodeId) {
       const height = (item as HTMLElement).offsetHeight
-      if (nodeHeights.value[nodeId] !== height) {
+      // 只有高度变化超过阈值才记录变化，避免选中状态变化（边框等）导致的小幅高度变化触发布局
+      const oldHeight = nodeHeights.value[nodeId]
+      const heightDiff = Math.abs((oldHeight || 0) - height)
+      if (!oldHeight || heightDiff > 5) {
         nodeHeights.value[nodeId] = height
         measuredNodes.value.add(nodeId)
         hasChanges = true
@@ -304,16 +295,34 @@ function updateMeasuredHeights() {
     }
   })
 
-  if (hasChanges) {
+  // 只有强制布局或非翻页期间且有变化时才重新计算布局
+  if ((forceLayout || !isPageChanging) && hasChanges) {
     calculateLayout()
   }
 }
 
+// 延迟测量高度，确保节点完全渲染
+function scheduleMeasureHeights(delay = 50) {
+  if (measureTimer) {
+    clearTimeout(measureTimer)
+  }
+  measureTimer = setTimeout(() => {
+    measureTimer = null
+    updateMeasuredHeights(true)
+    // 如果还在翻页状态，继续延迟测量
+    if (isPageChanging) {
+      scheduleMeasureHeights(100)
+    }
+  }, delay)
+}
+
 watch(visibleNodes, () => {
+  // 如果正在计算布局或翻页，跳过
+  if (isLayoutCalculating || isPageChanging) return
   nextTick(() => {
     updateMeasuredHeights()
   })
-}, { deep: true })
+})
 
 function handleScroll() {
   if (!nodeContainerRef.value) return
@@ -327,86 +336,203 @@ function handleNodeActivate(nodeId: string) {
   emit('activate', nodeId)
 }
 
-function handleSaveEdit(nodeId: string, text: string) {
-  emit('update-node', nodeId, { transcript: text })
-  editingNodeId.value = null
-  editingText.value = ''
-}
-
-function handleCancelEdit(nodeId: string) {
-  editingNodeId.value = null
-  editingText.value = ''
-}
-
 let scrollAnimationFrameId: number | null = null
+let scrollTimer: ReturnType<typeof setTimeout> | null = null
+let scrollRetryCount = 0
 
 watch(() => props.selectedNodeId, (newNodeId) => {
-  if (!newNodeId || !panelRef.value) return
+  if (!newNodeId) return
 
   if (scrollAnimationFrameId !== null) {
     cancelAnimationFrame(scrollAnimationFrameId)
     scrollAnimationFrameId = null
   }
+  if (scrollTimer !== null) {
+    clearTimeout(scrollTimer)
+    scrollTimer = null
+  }
+  scrollRetryCount = 0
 
-  scrollAnimationFrameId = requestAnimationFrame(() => {
-    scrollAnimationFrameId = null
-    const nodeEl = document.querySelector(`[data-node-id="${newNodeId}"]`) as HTMLElement
-    if (!nodeEl) return
-
-    const container = panelRef.value?.querySelector('.node-container') as HTMLElement
-    if (!container) return
-
-    const containerRect = container.getBoundingClientRect()
-    const nodeRect = nodeEl.getBoundingClientRect()
-
-    const nodeTop = nodeRect.top - containerRect.top + container.scrollTop
-    const nodeHeight = nodeRect.height
-    const containerHeight = container.clientHeight
-
-    const scrollTo = nodeTop - (containerHeight / 2) + (nodeHeight / 2)
-    container.scrollTo({
-      top: scrollTo,
-      behavior: 'instant'
-    })
+  nextTick(() => {
+    tryScrollToNode(newNodeId)
   })
 })
 
-watch(() => props.nodes.length, () => {
-  measuredNodes.value.clear()
-  nextTick(() => {
-    calculateLayout()
-    nextTick(() => {
-      updateMeasuredHeights()
-    })
+function tryScrollToNode(nodeId: string) {
+  const container = panelRef.value?.querySelector('.node-container') as HTMLElement
+  if (!container) {
+    scheduleScrollToNode(nodeId)
+    return
+  }
+
+  const nodeEl = container.querySelector(`[data-node-id="${nodeId}"]`) as HTMLElement
+  if (nodeEl) {
+    scrollNodeToVisible(nodeEl)
+  } else {
+    const item = virtualItems.value.get(nodeId)
+    if (item) {
+      scrollToVisibleByVirtualItem(container, item)
+    }
+    scheduleScrollToNode(nodeId)
+  }
+}
+
+function scrollToVisibleByVirtualItem(container: HTMLElement, item: { top: number; height: number }) {
+  const viewTop = container.scrollTop + 4
+  const viewBottom = container.scrollTop + container.clientHeight - 4
+  const itemTop = item.top
+  const itemBottom = itemTop + (item.height || 200)
+
+  if (itemTop >= viewTop && itemBottom <= viewBottom) {
+    return
+  }
+
+  let scrollTo: number
+  if (itemTop < viewTop) {
+    scrollTo = itemTop - 10
+  } else {
+    scrollTo = itemBottom - container.clientHeight + 10
+  }
+
+  container.scrollTo({
+    top: Math.max(0, scrollTo),
+    behavior: 'smooth'
   })
+}
+
+function scheduleScrollToNode(nodeId: string) {
+  scrollAnimationFrameId = requestAnimationFrame(() => {
+    scrollAnimationFrameId = null
+    const container = panelRef.value?.querySelector('.node-container') as HTMLElement
+    if (!container) return
+
+    const nodeEl = container.querySelector(`[data-node-id="${nodeId}"]`) as HTMLElement
+    if (!nodeEl) {
+      if (scrollRetryCount < 10) {
+        scrollRetryCount++
+        scrollTimer = setTimeout(() => {
+          scheduleScrollToNode(nodeId)
+        }, 100)
+      }
+      return
+    }
+    scrollNodeToVisible(nodeEl)
+  })
+}
+
+function scrollNodeToVisible(nodeEl: HTMLElement) {
+  const container = panelRef.value?.querySelector('.node-container') as HTMLElement
+  if (!container) return
+
+  const containerRect = container.getBoundingClientRect()
+  const nodeRect = nodeEl.getBoundingClientRect()
+
+  const nodeTop = nodeRect.top - containerRect.top + container.scrollTop
+  const nodeBottom = nodeTop + nodeRect.height
+
+  const viewTop = container.scrollTop + 4
+  const viewBottom = container.scrollTop + container.clientHeight - 4
+
+  if (nodeTop >= viewTop && nodeBottom <= viewBottom) {
+    return
+  }
+
+  let scrollTo: number
+  if (nodeTop < viewTop) {
+    scrollTo = nodeTop - 10
+  } else {
+    scrollTo = nodeBottom - container.clientHeight + 10
+  }
+
+  container.scrollTo({
+    top: Math.max(0, scrollTo),
+    behavior: 'smooth'
+  })
+}
+
+// 记录上一次的节点 ID 集合，用于判断是否是翻页
+let lastNodeIds = new Set<string>()
+
+watch(() => props.nodes, (nodes) => {
+  // 计算当前节点 ID 集合
+  const currentNodeIds = new Set(nodes.map(n => n.id))
+
+  // 检查是否是翻页（节点 ID 集合完全不同）
+  let isPageChange = false
+  if (currentNodeIds.size !== lastNodeIds.size) {
+    isPageChange = true
+  } else {
+    // 检查是否有任何 ID 不同
+    for (const id of currentNodeIds) {
+      if (!lastNodeIds.has(id)) {
+        isPageChange = true
+        break
+      }
+    }
+  }
+
+  // 更新记录
+  lastNodeIds = currentNodeIds
+
+  // 只有翻页时才重置所有状态
+  if (isPageChange) {
+    // 标记正在翻页，防止期间触发布局更新
+    isPageChanging = true
+    measuredNodes.value.clear()
+    nodeHeights.value = {}
+    scrollTop.value = 0
+    voiceNoteRefs.value = {}
+    // 重置滚动位置
+    if (nodeContainerRef.value) {
+      nodeContainerRef.value.scrollTop = 0
+    }
+    // 先清空 virtualItems，确保旧节点不显示
+    virtualItems.value = new Map()
+    triggerRef(virtualItems)
+  }
+
+  // 立即计算初始布局
+  calculateLayout()
+
+  // 延迟测量高度，确保节点完全渲染
+  scheduleMeasureHeights(isPageChange ? 100 : 50)
+
+  // 翻页时需要多次测量确保稳定
+  if (isPageChange) {
+    // 多次延迟测量，确保异步内容加载完成后也能正确布局
+    setTimeout(() => {
+      updateMeasuredHeights(true)
+      // 翻页完成后重置标志
+      isPageChanging = false
+    }, 300)
+  }
 })
 
 watch(() => props.panelWidth, () => {
   measuredNodes.value.clear()
-  nextTick(() => {
-    calculateLayout()
-  })
+  calculateLayout()
+  scheduleMeasureHeights(100)
 })
 
 let resizeObserver: ResizeObserver | null = null
 
 onMounted(() => {
-  nextTick(() => {
-    calculateLayout()
-    if (nodeContainerRef.value) {
-      containerHeight.value = nodeContainerRef.value.clientHeight
-      resizeObserver = new ResizeObserver((entries) => {
-        for (const entry of entries) {
-          if (entry.target === nodeContainerRef.value) {
-            containerHeight.value = entry.contentRect.height
-          }
+  calculateLayout()
+  if (nodeContainerRef.value) {
+    containerHeight.value = nodeContainerRef.value.clientHeight
+    resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.target === nodeContainerRef.value) {
+          containerHeight.value = entry.contentRect.height
         }
-      })
-      if (nodeContainerRef.value) {
-        resizeObserver.observe(nodeContainerRef.value)
       }
+    })
+    if (nodeContainerRef.value) {
+      resizeObserver.observe(nodeContainerRef.value)
     }
-  })
+  }
+  // 初始渲染后延迟测量高度
+  scheduleMeasureHeights(100)
 })
 
 onUnmounted(() => {
@@ -417,6 +543,18 @@ onUnmounted(() => {
   if (pageIndicatorTimer) {
     clearTimeout(pageIndicatorTimer)
     pageIndicatorTimer = null
+  }
+  if (measureTimer) {
+    clearTimeout(measureTimer)
+    measureTimer = null
+  }
+  if (scrollTimer) {
+    clearTimeout(scrollTimer)
+    scrollTimer = null
+  }
+  if (scrollAnimationFrameId !== null) {
+    cancelAnimationFrame(scrollAnimationFrameId)
+    scrollAnimationFrameId = null
   }
 })
 
@@ -430,7 +568,7 @@ defineExpose({
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: var(--bg-secondary);
+  background: var(--bg-primary);
   min-width: 298px;
   flex-shrink: 0;
   position: relative;
@@ -451,7 +589,7 @@ defineExpose({
   box-sizing: border-box;
 }
 
-.masonry-item :deep(.voice-note) {
+.masonry-item :deep(.voice-note-small) {
   position: relative !important;
   left: 0 !important;
   top: 0 !important;
@@ -462,8 +600,9 @@ defineExpose({
 /* 翻页区域 */
 .page-nav-zone {
   position: absolute;
-  top: 0;
-  bottom: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 150px;
   width: 60px;
   display: flex;
   align-items: center;
