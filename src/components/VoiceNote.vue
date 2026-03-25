@@ -120,6 +120,16 @@
           @dblclick.stop="startTranscriptEdit"
           v-html="sanitizedTranscript"
         ></div>
+        <button
+          v-if="!isEditingTranscript && node.transcript"
+          class="copy-btn transcript-copy-btn"
+          @click.stop="copyTranscript"
+          title="复制转写内容"
+        >
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+            <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+          </svg>
+        </button>
       </div>
     </div>
 
@@ -155,6 +165,16 @@
           @dblclick.stop="startAgentEdit"
           v-html="sanitizedAgentResult"
         ></div>
+        <button
+          v-if="!isEditingAgent && node.agentResult"
+          class="copy-btn agent-copy-btn"
+          @click.stop="copyAgentResult"
+          title="复制 AI 回答"
+        >
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+            <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+          </svg>
+        </button>
       </div>
     </div>
   </div>
@@ -491,6 +511,26 @@ function retryTranscription() {
 
 function retryAgent() {
   emit('retry-agent', props.node.id)
+}
+
+// 复制转写内容
+async function copyTranscript() {
+  if (!props.node.transcript) return
+  try {
+    await navigator.clipboard.writeText(props.node.transcript)
+  } catch (error) {
+    console.error('复制失败:', error)
+  }
+}
+
+// 复制 AI 回答
+async function copyAgentResult() {
+  if (!props.node.agentResult) return
+  try {
+    await navigator.clipboard.writeText(props.node.agentResult)
+  } catch (error) {
+    console.error('复制失败:', error)
+  }
 }
 
 async function saveTranscriptEdit() {
@@ -903,6 +943,37 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
   position: relative;
   padding: 8px;
   margin: -8px;
+}
+
+/* 复制按钮样式 */
+.copy-btn {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: all 0.2s;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+}
+
+.transcript-content-wrapper:hover .copy-btn,
+.agent-content-wrapper:hover .copy-btn {
+  opacity: 1;
+}
+
+.copy-btn:hover {
+  background: var(--accent-color, #4299e1);
+  color: white;
 }
 
 .transcript-content {
