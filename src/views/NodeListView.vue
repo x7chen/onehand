@@ -24,7 +24,7 @@
       <NodeListPanel
         ref="nodePanelRef"
         :nodes="projectStore.currentCanvas?.nodes || []"
-        :selected-node-id="activeNode?.id"
+        :active-node-id="activeNode?.id"
         :playing-node-id="playingNodeId"
         :panel-width="leftPanelWidth"
         @delete="handleDeleteNode"
@@ -49,7 +49,7 @@
 
       <!-- 右侧面板：聊天栏 -->
       <ChatPanel
-        :selected-node="activeNode"
+        :active-node="activeNode"
         :static-context-files="staticContextFiles"
         :dynamic-context-file="dynamicContextFile"
         :ai-answer-enabled="aiAnswerEnabled"

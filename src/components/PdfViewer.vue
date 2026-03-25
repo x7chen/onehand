@@ -122,7 +122,7 @@
                 v-for="node in pageNodes"
                 :key="node.id"
                 class="node-marker"
-                :class="{ selected: selectedNodeId === node.id, dragging: draggingNodeId === node.id }"
+                :class="{ selected: activeNodeId === node.id, dragging: draggingNodeId === node.id }"
                 :style="getNodeMarkerStyle(node)"
                 @click.stop="$emit('node-click', node)"
                 @mousedown.stop="startDragNode($event, node)"
@@ -204,11 +204,11 @@ interface ThumbnailItem {
 interface Props {
   pdfPath: string
   nodes: CanvasNode[]
-  selectedNodeId?: string | null
+  activeNodeId?: string | null
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  selectedNodeId: null
+  activeNodeId: null
 })
 
 const emit = defineEmits<{

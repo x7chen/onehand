@@ -25,7 +25,7 @@
             <VoiceNoteSmall
               :ref="(el) => { if (el) voiceNoteRefs[item.node.id] = el }"
               :node="item.node"
-              :is-active="selectedNodeId === item.node.id"
+              :is-active="activeNodeId === item.node.id"
               @toggle-context="$emit('toggle-context', $event)"
               @toggle-favorite="$emit('toggle-favorite', $event)"
               @activate="handleNodeActivate"
@@ -100,10 +100,10 @@ interface VirtualNodeItem {
 
 const props = withDefaults(defineProps<{
   nodes: CanvasNode[]
-  selectedNodeId?: string | null
+  activeNodeId?: string | null
   panelWidth: number
 }>(), {
-  selectedNodeId: null,
+  activeNodeId: null,
   panelWidth: 600
 })
 
@@ -340,7 +340,7 @@ let scrollAnimationFrameId: number | null = null
 let scrollTimer: ReturnType<typeof setTimeout> | null = null
 let scrollRetryCount = 0
 
-watch(() => props.selectedNodeId, (newNodeId) => {
+watch(() => props.activeNodeId, (newNodeId) => {
   if (!newNodeId) return
 
   if (scrollAnimationFrameId !== null) {

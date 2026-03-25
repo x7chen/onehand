@@ -24,7 +24,7 @@
           ref="pdfViewerRef"
           :pdf-path="getFullPdfPath()"
           :nodes="currentPdfPageNodes"
-          :selected-node-id="selectedNode?.id"
+          :active-node-id="activeNode?.id"
           @page-change="handlePageChange"
           @create-node="handleCreateNode"
           @recording-complete="handleRecordingComplete"
@@ -41,7 +41,7 @@
       </div>
 
       <ChatPanel
-        :selected-node="selectedNode"
+        :active-node="activeNode"
         :static-context-files="staticContextFiles"
         :dynamic-context-file="dynamicContextFile"
         :ai-answer-enabled="aiAnswerEnabled"
@@ -121,7 +121,7 @@ const pdfViewerRef = ref<InstanceType<typeof PdfViewer> | null>(null)
 const isResizing = ref(false)
 let savePanelRatioTimer: number | null = null
 
-const selectedNode = ref<CanvasNode | null>(null)
+const activeNode = ref<CanvasNode | null>(null)
 const currentAudio = ref<HTMLAudioElement | null>(null)
 const playingNodeId = ref<string | null>(null)
 const editingNodeId = ref<string | null>(null)
@@ -297,9 +297,9 @@ function selectFirstNode() {
     const nodes = projectStore.getNodesByPdfPage(currentPageNumber.value)
     if (nodes.length > 0) {
       const sortedNodes = [...nodes].sort((a, b) => a.createdAt - b.createdAt)
-      selectedNode.value = sortedNodes[0]
+      activeNode.value = sortedNodes[0]
     } else {
-      selectedNode.value = null
+      activeNode.value = null
     }
   })
 }
@@ -310,8 +310,8 @@ function handleKeyDown(e: KeyboardEvent) {
   const nodes = currentPageNodes.value
   if (nodes.length === 0) return
   
-  const currentIndex = selectedNode.value 
-    ? nodes.findIndex(n => n.id === selectedNode.value!.id)
+  const currentIndex = activeNode.value 
+    ? nodes.findIndex(n => n.id === activeNode.value!.id)
     : -1
   
   let newIndex = currentIndex
@@ -334,7 +334,7 @@ function handleKeyDown(e: KeyboardEvent) {
     return
   }
   
-  selectedNode.value = nodes[newIndex]
+  activeNode.value = nodes[newIndex]
 }
 
 function handleNodePositionChange(data: { nodeId: string; position: { x: number; y: number } }) {
@@ -365,7 +365,7 @@ function handleCreateNode(data: { type: 'text-note' | 'voice-note'; page: number
   editingText.value = ''
   // 使用新的 PDF 页面画布管理方法
   projectStore.addNodeToPdfPage(node, data.page)
-  selectedNode.value = node
+  activeNode.value = node
 }
 
 async function handleRecordingComplete(data: { audioBlob: Blob; duration: number; page: number; x: number; y: number }) {
@@ -389,7 +389,7 @@ async function handleRecordingComplete(data: { audioBlob: Blob; duration: number
 
   // 使用新的 PDF 页面画布管理方法
   projectStore.addNodeToPdfPage(node, data.page)
-  selectedNode.value = node
+  activeNode.value = node
 
   try {
     const extension = data.audioBlob.type === 'audio/wav' ? 'wav' : 'webm'
@@ -433,18 +433,18 @@ async function handleRecordingComplete(data: { audioBlob: Blob; duration: number
 }
 
 function handleNodeClick(node: CanvasNode) {
-  selectedNode.value = node
+  activeNode.value = node
 }
 
 function handleNodeActivate(nodeId: string) {
   const node = projectStore.currentCanvas?.nodes.find(n => n.id === nodeId)
   if (node) {
-    selectedNode.value = node
+    activeNode.value = node
   }
 }
 
 function handleNodeCreated(node: CanvasNode) {
-  selectedNode.value = node
+  activeNode.value = node
 }
 
 function handleStartEditing(nodeId: string) {
@@ -453,8 +453,8 @@ function handleStartEditing(nodeId: string) {
 }
 
 function handleNodeUpdated(node: CanvasNode) {
-  if (selectedNode.value?.id === node.id) {
-    selectedNode.value = node
+  if (activeNode.value?.id === node.id) {
+    activeNode.value = node
   }
 }
 
@@ -463,9 +463,9 @@ function handleSaveEdit(nodeId: string, text: string) {
     const pdfPage = projectStore.findNodePdfPage(nodeId)
     const title = text.trim().slice(0, 10)
     projectStore.updateNodeAuto(nodeId, { transcript: text.trim(), title })
-    if (selectedNode.value?.id === nodeId) {
+    if (activeNode.value?.id === nodeId) {
       const canvas = pdfPage !== null ? projectStore.getCanvasByPdfPage(pdfPage) : null
-      selectedNode.value = canvas?.nodes.find(n => n.id === nodeId) || null
+      activeNode.value = canvas?.nodes.find(n => n.id === nodeId) || null
     }
     if (aiAnswerEnabled.value && pdfPage !== null) {
       handleAgentResponse(nodeId, text.trim(), pdfPage)
@@ -508,8 +508,8 @@ function handleClickOutsideEditing(e: MouseEvent) {
   if (node) {
     if (editingText.value.trim()) {
       projectStore.updateNodeAuto(editingNodeId.value, { transcript: editingText.value.trim() })
-      if (selectedNode.value?.id === editingNodeId.value) {
-        selectedNode.value = canvas?.nodes.find(n => n.id === editingNodeId.value) || null
+      if (activeNode.value?.id === editingNodeId.value) {
+        activeNode.value = canvas?.nodes.find(n => n.id === editingNodeId.value) || null
       }
       if (aiAnswerEnabled.value && pdfPage !== null) {
         handleAgentResponse(editingNodeId.value, editingText.value.trim(), pdfPage)
@@ -580,8 +580,8 @@ function handleAgentResponse(nodeId: string, transcript: string, pdfPage: number
 
 function handleDeleteNode(nodeId: string) {
   projectStore.removeNodeAuto(nodeId)
-  if (selectedNode.value?.id === nodeId) {
-    selectedNode.value = null
+  if (activeNode.value?.id === nodeId) {
+    activeNode.value = null
   }
 }
 
@@ -684,8 +684,8 @@ function handleToggleFavorite(nodeId: string) {
 
 function handleUpdateNode(nodeId: string, updates: Partial<CanvasNode>) {
   projectStore.updateNodeAuto(nodeId, updates)
-  if (selectedNode.value?.id === nodeId) {
-    selectedNode.value = { ...selectedNode.value, ...updates }
+  if (activeNode.value?.id === nodeId) {
+    activeNode.value = { ...activeNode.value, ...updates }
   }
 }
 

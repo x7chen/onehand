@@ -2,9 +2,9 @@
   <div class="chat-panel">
     <!-- 节点详情区域 -->
     <div ref="nodeDetailContainerRef" class="node-detail-container" @scroll="handleNodeDetailScroll">
-      <div v-if="selectedNode" class="node-detail">
+      <div v-if="activeNode" class="node-detail">
         <VoiceNote
-          :node="selectedNode"
+          :node="activeNode"
           :is-active="true"
           :is-editing="isCurrentNodeEditing"
           :editing-text="currentEditingText"
@@ -68,7 +68,7 @@ import type { CanvasNode } from '@/types/project'
 import type { ContextFile } from '@/types/context'
 
 const props = defineProps<{
-  selectedNode: CanvasNode | null
+  activeNode: CanvasNode | null
   staticContextFiles: ContextFile[]
   dynamicContextFile?: ContextFile | null
   aiAnswerEnabled: boolean
@@ -108,7 +108,7 @@ const shouldAutoScroll = ref(true)
 
 // 编辑状态计算属性
 const isCurrentNodeEditing = computed((): boolean => {
-  return !!(props.editingNodeId && props.selectedNode && props.editingNodeId === props.selectedNode.id)
+  return !!(props.editingNodeId && props.activeNode && props.editingNodeId === props.activeNode.id)
 })
 
 const currentEditingText = computed((): string => {
@@ -140,7 +140,7 @@ function scrollToBottom() {
 }
 
 // 当选中节点变化时，重置自动滚动状态
-watch(() => props.selectedNode, () => {
+watch(() => props.activeNode, () => {
   shouldAutoScroll.value = true
   nextTick(() => {
     scrollToBottom()
