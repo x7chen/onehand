@@ -22,8 +22,31 @@
 
     <!-- 主内容区域 -->
     <div class="panel-container">
+      <!-- 左侧折叠条 -->
+      <div class="collapse-bar">
+        <button
+          class="collapse-btn"
+          :title="isLeftPanelCollapsed ? '展开列表' : '折叠列表'"
+          @click="toggleLeftPanel"
+        >
+          <!-- 折叠状态：展开图标 -->
+          <svg v-if="isLeftPanelCollapsed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <line x1="9" y1="3" x2="9" y2="21" />
+            <polyline points="14 9 11 12 14 15" />
+          </svg>
+          <!-- 展开状态：折叠图标 -->
+          <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <line x1="15" y1="3" x2="15" y2="21" />
+            <polyline points="10 9 13 12 10 15" />
+          </svg>
+        </button>
+      </div>
+
       <!-- 左侧面板：节点列表容器 -->
       <NodeListPanel
+        v-if="!isLeftPanelCollapsed"
         ref="nodePanelRef"
         :nodes="projectStore.currentCanvas?.nodes || []"
         :active-node-id="activeNode?.id"
@@ -43,6 +66,7 @@
 
       <!-- 可拖动分隔线 -->
       <div
+        v-if="!isLeftPanelCollapsed"
         class="panel-resizer"
         @mousedown="startResize"
       >
@@ -127,6 +151,9 @@ const contextStore = useContextStore()
 
 // 面板宽度相关
 const leftPanelWidth = ref(600)
+
+// 左侧面板折叠状态
+const isLeftPanelCollapsed = ref(false)
 
 // NodeListPanel 组件引用
 const nodePanelRef = ref<InstanceType<typeof NodeListPanel> | null>(null)
@@ -340,6 +367,11 @@ function goBack() {
   }
   playingNodeId.value = null
   router.push('/')
+}
+
+// 折叠/展开左侧面板
+function toggleLeftPanel() {
+  isLeftPanelCollapsed.value = !isLeftPanelCollapsed.value
 }
 
 // 节点激活（选中）
@@ -686,6 +718,42 @@ async function handleCopySelectedContext() {
   display: flex;
   flex: 1;
   overflow: hidden;
+}
+
+/* 左侧折叠条 */
+.collapse-bar {
+  width: 30px;
+  background: var(--bg-primary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 12px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border-color);
+}
+
+.collapse-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.collapse-btn:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.collapse-btn svg {
+  width: 16px;
+  height: 16px;
 }
 
 /* 可拖动分隔线 */

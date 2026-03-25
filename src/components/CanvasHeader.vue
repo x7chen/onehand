@@ -1,5 +1,5 @@
 <template>
-  <div class="canvas-header">
+  <div ref="headerRef" class="canvas-header">
     <button @click="$emit('back')" class="back-btn">
       <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
         <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
@@ -44,103 +44,106 @@
       <span v-else class="context-placeholder">选择静态上下文</span>
     </div>
 
-    <h2>{{ projectName }}</h2>
+    <!-- 以下元素在宽度不足时隐藏 -->
+    <template v-if="!isCompactMode">
+      <h2>{{ projectName }}</h2>
 
-    <!-- 回到原点按钮 -->
-    <button
-      v-if="showViewportControls"
-      @click="$emit('reset-viewport')"
-      class="reset-viewport-btn"
-      title="回到原点"
-    >
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm-5-9h10v2H7l3.5 3.5-1.42 1.42L4.16 13l4.92-4.92L10.5 9.5 7 13z"/>
-      </svg>
-    </button>
-
-    <!-- 自动排版按钮 -->
-    <button
-      v-if="showViewportControls"
-      @click="$emit('auto-layout')"
-      class="auto-layout-btn"
-      title="自动排版"
-    >
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-        <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
-      </svg>
-    </button>
-
-    <!-- 总隐藏 AI 回答开关 -->
-    <button
-      @click="$emit('update:globalHideAiResult', !globalHideAiResult)"
-      class="global-hide-ai-btn"
-      :class="{ active: globalHideAiResult }"
-      :title="globalHideAiResult ? '显示所有 AI 回答' : '隐藏所有 AI 回答'"
-    >
-      <svg v-if="!globalHideAiResult" viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-        <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
-      </svg>
-      <svg v-else viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-        <path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"/>
-      </svg>
-    </button>
-
-    <!-- AI 回答开关 -->
-    <button
-      @click="$emit('update:aiAnswerEnabled', !aiAnswerEnabled)"
-      class="ai-answer-toggle-btn"
-      :class="{ active: aiAnswerEnabled }"
-      :title="aiAnswerEnabled ? '关闭 AI 回答' : '开启 AI 回答'"
-    >
-      <span class="ai-icon-text">AI</span>
-    </button>
-
-    <!-- 动态上下文显示（右侧） -->
-    <div class="context-toolbar-group">
+      <!-- 回到原点按钮 -->
       <button
-        @click="$emit('copy-selected-context')"
-        class="context-action-btn copy-btn"
-        :class="{ disabled: selectedContextCount === 0 }"
-        :title="selectedContextCount > 0 ? `复制已选 ${selectedContextCount} 个节点内容` : '未选中节点'"
-        :disabled="selectedContextCount === 0"
+        v-if="showViewportControls"
+        @click="$emit('reset-viewport')"
+        class="reset-viewport-btn"
+        title="回到原点"
       >
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-          <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm-5-9h10v2H7l3.5 3.5-1.42 1.42L4.16 13l4.92-4.92L10.5 9.5 7 13z"/>
         </svg>
       </button>
-      <button @click="$emit('toggle-all-context')" class="context-action-btn" :title="isAllContextSelected ? '清空选择' : '全选所有已完成节点'">
-        <svg v-if="!isAllContextSelected" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-          <path d="M19 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.11 0 2-.9 2-2V5c0-1.1-.89-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-        </svg>
-        <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-          <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-        </svg>
-      </button>
-      <button @click="$emit('invert-selection')" class="context-action-btn" title="反选所有已完成节点">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-          <path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z"/>
-        </svg>
-      </button>
-    </div>
 
-    <div
-      class="dynamic-context-display"
-      :class="{ 'has-content': dynamicContextFile && dynamicContextFile.content }"
-      @dblclick="$emit('open-dynamic-context-editor')"
-      @dragover="handleDynamicContextDragOver"
-      @dragleave="handleDynamicContextDragLeave"
-      @drop="handleDynamicContextDrop"
-      :title="dynamicContextFile ? '双击编辑动态上下文' : '拖拽文字到此处加入动态上下文'"
-    >
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" class="context-icon">
-        <path d="M3 18h12v-2H3v2zM3 6v2h18V6H3zm0 7h18v-2H3v2z"/>
-      </svg>
-      <span v-if="dynamicContextFile" class="context-name">
-        {{ dynamicContextFile.name }}
-        <span class="word-count" v-if="dynamicContextFile.content">{{ dynamicContextFile.content.length }}字</span>
-      </span>
-      <span v-else class="context-placeholder">拖拽文字到此处</span>
-    </div>
+      <!-- 自动排版按钮 -->
+      <button
+        v-if="showViewportControls"
+        @click="$emit('auto-layout')"
+        class="auto-layout-btn"
+        title="自动排版"
+      >
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+          <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
+        </svg>
+      </button>
+
+      <!-- 总隐藏 AI 回答开关 -->
+      <button
+        @click="$emit('update:globalHideAiResult', !globalHideAiResult)"
+        class="global-hide-ai-btn"
+        :class="{ active: globalHideAiResult }"
+        :title="globalHideAiResult ? '显示所有 AI 回答' : '隐藏所有 AI 回答'"
+      >
+        <svg v-if="!globalHideAiResult" viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+          <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+        </svg>
+        <svg v-else viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+          <path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"/>
+        </svg>
+      </button>
+
+      <!-- AI 回答开关 -->
+      <button
+        @click="$emit('update:aiAnswerEnabled', !aiAnswerEnabled)"
+        class="ai-answer-toggle-btn"
+        :class="{ active: aiAnswerEnabled }"
+        :title="aiAnswerEnabled ? '关闭 AI 回答' : '开启 AI 回答'"
+      >
+        <span class="ai-icon-text">AI</span>
+      </button>
+
+      <!-- 动态上下文显示（右侧） -->
+      <div class="context-toolbar-group">
+        <button
+          @click="$emit('copy-selected-context')"
+          class="context-action-btn copy-btn"
+          :class="{ disabled: selectedContextCount === 0 }"
+          :title="selectedContextCount > 0 ? `复制已选 ${selectedContextCount} 个节点内容` : '未选中节点'"
+          :disabled="selectedContextCount === 0"
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+          </svg>
+        </button>
+        <button @click="$emit('toggle-all-context')" class="context-action-btn" :title="isAllContextSelected ? '清空选择' : '全选所有已完成节点'">
+          <svg v-if="!isAllContextSelected" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M19 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.11 0 2-.9 2-2V5c0-1.1-.89-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+          </svg>
+          <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+          </svg>
+        </button>
+        <button @click="$emit('invert-selection')" class="context-action-btn" title="反选所有已完成节点">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z"/>
+          </svg>
+        </button>
+      </div>
+
+      <div
+        class="dynamic-context-display"
+        :class="{ 'has-content': dynamicContextFile && dynamicContextFile.content }"
+        @dblclick="$emit('open-dynamic-context-editor')"
+        @dragover="handleDynamicContextDragOver"
+        @dragleave="handleDynamicContextDragLeave"
+        @drop="handleDynamicContextDrop"
+        :title="dynamicContextFile ? '双击编辑动态上下文' : '拖拽文字到此处加入动态上下文'"
+      >
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" class="context-icon">
+          <path d="M3 18h12v-2H3v2zM3 6v2h18V6H3zm0 7h18v-2H3v2z"/>
+        </svg>
+        <span v-if="dynamicContextFile" class="context-name">
+          {{ dynamicContextFile.name }}
+          <span class="word-count" v-if="dynamicContextFile.content">{{ dynamicContextFile.content.length }}字</span>
+        </span>
+        <span v-else class="context-placeholder">拖拽文字到此处</span>
+      </div>
+    </template>
   </div>
 </template>
 
@@ -180,6 +183,19 @@ const emit = defineEmits<{
 // 静态上下文选择器状态
 const showStaticContextSelector = ref(false)
 const staticContextDisplayRef = ref<HTMLElement | null>(null)
+
+// Header 宽度检测
+const headerRef = ref<HTMLElement | null>(null)
+const isCompactMode = ref(false)
+const COMPACT_MODE_THRESHOLD = 600 // 宽度小于 600px 时进入紧凑模式
+
+let resizeObserver: ResizeObserver | null = null
+
+function checkCompactMode() {
+  if (headerRef.value) {
+    isCompactMode.value = headerRef.value.offsetWidth < COMPACT_MODE_THRESHOLD
+  }
+}
 
 function toggleStaticContextSelector() {
   showStaticContextSelector.value = !showStaticContextSelector.value
@@ -224,10 +240,23 @@ function handleDynamicContextDrop(e: DragEvent) {
 
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
+
+  // 监听宽度变化
+  if (headerRef.value) {
+    resizeObserver = new ResizeObserver(() => {
+      checkCompactMode()
+    })
+    resizeObserver.observe(headerRef.value)
+    checkCompactMode()
+  }
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
+  if (resizeObserver) {
+    resizeObserver.disconnect()
+    resizeObserver = null
+  }
 })
 </script>
 
