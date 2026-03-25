@@ -55,7 +55,7 @@
       </Transition>
     </div>
 
-    <!-- 右边缘翻页按钮（下一页） -->
+    <!-- 右边缘翻页按钮（下一页/新增页面） -->
     <div
       class="page-nav-zone page-nav-right"
       @mouseenter="isRightZoneHovered = true"
@@ -63,13 +63,18 @@
     >
       <Transition name="page-nav-fade">
         <button
-          v-if="isRightZoneHovered && hasNextPage"
+          v-if="isRightZoneHovered && (hasNextPage || canAddNewPage)"
           class="page-nav-btn"
-          @click="handleNextPage"
-          title="下一页"
+          :class="{ 'add-new-page': !hasNextPage }"
+          @click="handleNextOrAddPage"
+          :title="hasNextPage ? '下一页' : '新增页面'"
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg v-if="hasNextPage" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+          <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
           </svg>
         </button>
       </Transition>
@@ -132,15 +137,27 @@ const hasNextPage = computed(() => projectStore.hasNextPage)
 const currentPageNumber = computed(() => projectStore.currentPageNumber)
 const totalPages = computed(() => projectStore.totalPages)
 
+// 是否可以新增页面（当前页有节点时可以新增）
+const canAddNewPage = computed(() => {
+  const currentCanvas = projectStore.currentCanvas
+  return currentCanvas && currentCanvas.nodes && currentCanvas.nodes.length > 0
+})
+
 // 翻页方法
 function handlePrevPage() {
   projectStore.goToPrevPage()
   showPageIndicatorTemporarily()
 }
 
-function handleNextPage() {
-  projectStore.goToNextPage()
-  showPageIndicatorTemporarily()
+// 下一页或新增页面
+function handleNextOrAddPage() {
+  if (hasNextPage.value) {
+    projectStore.goToNextPage()
+    showPageIndicatorTemporarily()
+  } else if (canAddNewPage.value) {
+    projectStore.addNewPage()
+    showPageIndicatorTemporarily()
+  }
 }
 
 function showPageIndicatorTemporarily() {
@@ -603,7 +620,7 @@ defineExpose({
   top: 50%;
   transform: translateY(-50%);
   height: 150px;
-  width: 60px;
+  width: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -639,6 +656,19 @@ defineExpose({
   background: var(--accent-color, #4a9eff);
   color: white;
   transform: scale(1.1);
+}
+
+/* 新增页面按钮样式 */
+.page-nav-btn.add-new-page {
+  background: var(--bg-primary);
+  border: 2px dashed var(--accent-color, #4a9eff);
+  color: var(--accent-color, #4a9eff);
+}
+
+.page-nav-btn.add-new-page:hover {
+  background: var(--accent-color, #4a9eff);
+  color: white;
+  border-style: solid;
 }
 
 .page-nav-btn svg {
