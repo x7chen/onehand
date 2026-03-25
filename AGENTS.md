@@ -32,7 +32,7 @@ npm run preview           # Preview production build
 
 ```
 src/
-├── components/     # Vue components (PascalCase: VoiceNote.vue, NodeMasonryPanel.vue)
+├── components/     # Vue components (PascalCase: VoiceNote.vue, NodeListPanel.vue)
 ├── composables/    # Reusable composition functions (useCamelCase.ts)
 ├── stores/         # Pinia stores (useXxxStore.ts pattern)
 ├── types/          # TypeScript type definitions

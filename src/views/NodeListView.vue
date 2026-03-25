@@ -20,11 +20,11 @@
 
     <!-- 主内容区域 -->
     <div class="panel-container">
-      <!-- 左侧面板：瀑布流节点容器 -->
-      <NodeMasonryPanel
+      <!-- 左侧面板：节点列表容器 -->
+      <NodeListPanel
         ref="nodePanelRef"
         :nodes="projectStore.currentCanvas?.nodes || []"
-        :selected-node-id="selectedNode?.id"
+        :selected-node-id="activeNode?.id"
         :playing-node-id="playingNodeId"
         :panel-width="leftPanelWidth"
         @delete="handleDeleteNode"
@@ -49,7 +49,7 @@
 
       <!-- 右侧面板：聊天栏 -->
       <ChatPanel
-        :selected-node="selectedNode"
+        :selected-node="activeNode"
         :static-context-files="staticContextFiles"
         :dynamic-context-file="dynamicContextFile"
         :ai-answer-enabled="aiAnswerEnabled"
@@ -111,7 +111,7 @@ import { useProjectStore } from '@/stores/projectStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useContextStore } from '@/stores/contextStore'
 import CanvasHeader from '@/components/CanvasHeader.vue'
-import NodeMasonryPanel from '@/components/NodeMasonryPanel.vue'
+import NodeListPanel from '@/components/NodeListPanel.vue'
 import ChatPanel from '@/components/ChatPanel.vue'
 import ContextToolbar from '@/components/ContextToolbar.vue'
 import { chatWithLLM, buildFullContextMessages } from '@/composables/useQwenAgent'
@@ -126,8 +126,8 @@ const contextStore = useContextStore()
 // 面板宽度相关
 const leftPanelWidth = ref(600)
 
-// NodeMasonryPanel 组件引用
-const nodePanelRef = ref<InstanceType<typeof NodeMasonryPanel> | null>(null)
+// NodeListPanel 组件引用
+const nodePanelRef = ref<InstanceType<typeof NodeListPanel> | null>(null)
 
 // 拖拽调整宽度相关
 const isResizing = ref(false)
@@ -193,8 +193,14 @@ function initPanelWidth() {
   leftPanelWidth.value = Math.max(minWidth, Math.min(maxWidth, containerRect.width * ratio))
 }
 
-// 选中的节点
-const selectedNode = ref<CanvasNode | null>(null)
+// 当前激活的节点 ID
+const activeNodeId = ref<string | null>(null)
+
+// 当前激活的节点（通过 ID 从 store 中查找，确保始终获取最新数据）
+const activeNode = computed(() => {
+  if (!activeNodeId.value) return null
+  return projectStore.currentCanvas?.nodes.find(n => n.id === activeNodeId.value) || null
+})
 
 // 音频播放
 const currentAudio = ref<HTMLAudioElement | null>(null)
@@ -253,9 +259,9 @@ function selectFirstNode() {
   const nodes = projectStore.currentCanvas?.nodes || []
   if (nodes.length > 0) {
     const sortedNodes = [...nodes].sort((a, b) => a.createdAt - b.createdAt)
-    selectedNode.value = sortedNodes[0]
+    activeNodeId.value = sortedNodes[0].id
   } else {
-    selectedNode.value = null
+    activeNodeId.value = null
   }
 }
 
@@ -309,8 +315,8 @@ function handleKeyDown(event: KeyboardEvent) {
     event.preventDefault()
 
     const sortedNodes = [...nodes].sort((a, b) => a.createdAt - b.createdAt)
-    const currentIndex = selectedNode.value
-      ? sortedNodes.findIndex(n => n.id === selectedNode.value!.id)
+    const currentIndex = activeNodeId.value
+      ? sortedNodes.findIndex(n => n.id === activeNodeId.value)
       : -1
 
     let newIndex: number
@@ -320,7 +326,7 @@ function handleKeyDown(event: KeyboardEvent) {
       newIndex = currentIndex >= sortedNodes.length - 1 ? 0 : currentIndex + 1
     }
 
-    selectedNode.value = sortedNodes[newIndex]
+    activeNodeId.value = sortedNodes[newIndex].id
   }
 }
 
@@ -336,22 +342,18 @@ function goBack() {
 
 // 节点激活（选中）
 function handleNodeActivate(nodeId: string) {
-  const node = projectStore.currentCanvas?.nodes.find(n => n.id === nodeId)
-  if (node) {
-    selectedNode.value = node
-  }
+  activeNodeId.value = nodeId
 }
 
 // ChatPanel 创建新节点
 function handleNodeCreated(node: CanvasNode) {
-  selectedNode.value = node
+  activeNodeId.value = node.id
 }
 
 // ChatPanel 更新节点
 function handleNodeUpdated(node: CanvasNode) {
-  if (selectedNode.value?.id === node.id) {
-    selectedNode.value = node
-  }
+  // 由于 activeNode 现在是计算属性，会自动获取最新数据
+  // 这里不需要手动更新
 }
 
 // 编辑相关处理
@@ -363,12 +365,6 @@ function handleStartEditing(nodeId: string) {
 function handleSaveEdit(nodeId: string, text: string) {
   if (text.trim()) {
     projectStore.updateNode(nodeId, { transcript: text.trim() })
-    if (selectedNode.value?.id === nodeId) {
-      const updatedNode = projectStore.currentCanvas?.nodes.find(n => n.id === nodeId)
-      if (updatedNode) {
-        selectedNode.value = { ...updatedNode }
-      }
-    }
     if (aiAnswerEnabled.value) {
       handleAgentResponse(nodeId, text.trim())
     }
@@ -407,12 +403,6 @@ function handleClickOutsideEditing(e: MouseEvent) {
   if (node) {
     if (editingText.value.trim()) {
       projectStore.updateNode(editingNodeId.value, { transcript: editingText.value.trim() })
-      if (selectedNode.value?.id === editingNodeId.value) {
-        const updatedNode = projectStore.currentCanvas?.nodes.find(n => n.id === editingNodeId.value)
-        if (updatedNode) {
-          selectedNode.value = { ...updatedNode }
-        }
-      }
       if (aiAnswerEnabled.value) {
         handleAgentResponse(editingNodeId.value, editingText.value.trim())
       }
@@ -429,8 +419,8 @@ function handleClickOutsideEditing(e: MouseEvent) {
 // 节点操作
 function handleDeleteNode(nodeId: string) {
   projectStore.removeNode(nodeId)
-  if (selectedNode.value?.id === nodeId) {
-    selectedNode.value = null
+  if (activeNodeId.value === nodeId) {
+    activeNodeId.value = null
   }
 }
 
@@ -525,24 +515,14 @@ async function handleAgentResponse(nodeId: string, transcript: string) {
         agentResult: accumulatedContent,
         agentStatus: 'processing'
       })
-
-      // 更新选中的节点引用
-      const updatedNode = projectStore.currentCanvas?.nodes.find(n => n.id === nodeId)
-      if (updatedNode && selectedNode.value?.id === nodeId) {
-        selectedNode.value = { ...updatedNode }
-      }
+      // activeNode 现在是计算属性，会自动获取最新数据
     })
 
     projectStore.updateNode(nodeId, {
       agentResult: result,
       agentStatus: 'done'
     })
-
-    // 更新选中的节点引用
-    const updatedNode = projectStore.currentCanvas?.nodes.find(n => n.id === nodeId)
-    if (updatedNode && selectedNode.value?.id === nodeId) {
-      selectedNode.value = { ...updatedNode }
-    }
+    // activeNode 现在是计算属性，会自动获取最新数据
   } catch (error) {
     projectStore.updateNode(nodeId, {
       agentResult: String(error),
@@ -564,9 +544,7 @@ function handleDragStart(nodeId: string, offsetX: number, offsetY: number) {
 
 function handleUpdateNode(nodeId: string, updates: Partial<CanvasNode>) {
   projectStore.updateNode(nodeId, updates)
-  if (selectedNode.value?.id === nodeId) {
-    selectedNode.value = { ...selectedNode.value, ...updates }
-  }
+  // activeNode 现在是计算属性，会自动获取最新数据
 }
 
 // 静态上下文选择

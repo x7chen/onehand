@@ -1,7 +1,7 @@
 <template>
   <div
     ref="panelRef"
-    class="node-masonry-panel"
+    class="node-list-panel"
     :style="{ width: panelWidth + 'px' }"
     @mouseenter="isPanelHovered = true"
     @mouseleave="isPanelHovered = false"
@@ -564,7 +564,7 @@ defineExpose({
 </script>
 
 <style scoped>
-.node-masonry-panel {
+.node-list-panel {
   display: flex;
   flex-direction: column;
   overflow: hidden;

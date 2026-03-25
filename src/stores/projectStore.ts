@@ -428,7 +428,8 @@ export const useProjectStore = defineStore('project', () => {
 
   function addNode(node: CanvasNode) {
     if (currentProject.value && currentCanvas.value) {
-      currentCanvas.value.nodes.push(node)
+      // 创建新数组以触发 Vue 响应式更新
+      currentCanvas.value.nodes = [...currentCanvas.value.nodes, node]
       saveProject(currentProject.value)
     }
   }
@@ -530,7 +531,8 @@ export const useProjectStore = defineStore('project', () => {
   function addNodeToPdfPage(node: CanvasNode, pdfPageNumber: number) {
     const canvas = getOrCreateCanvasForPdfPage(pdfPageNumber)
     if (canvas) {
-      canvas.nodes.push(node)
+      // 创建新数组以触发 Vue 响应式更新
+      canvas.nodes = [...canvas.nodes, node]
       saveProject(currentProject.value!)
     }
   }
