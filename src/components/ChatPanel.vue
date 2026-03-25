@@ -1,7 +1,13 @@
 <template>
   <div class="chat-panel">
     <!-- 节点详情区域 -->
-    <div ref="nodeDetailContainerRef" class="node-detail-container" @scroll="handleNodeDetailScroll">
+    <div
+      ref="nodeDetailContainerRef"
+      class="node-detail-container"
+      @scroll="handleNodeDetailScroll"
+      @wheel="handleUserWheel"
+      @mousedown="handleMouseDown"
+    >
       <div v-if="activeNode" class="node-detail">
         <VoiceNote
           :node="activeNode"
@@ -105,6 +111,56 @@ const LONG_PRESS_DURATION = 500
 // 节点详情区域滚动相关
 const nodeDetailContainerRef = ref<HTMLElement | null>(null)
 const shouldAutoScroll = ref(true)
+let isProgrammaticScroll = false  // 标记是否为程序触发的滚动
+
+// 检查是否在滚动条上点击（用于检测拖拽滚动条）
+function handleMouseDown(e: MouseEvent) {
+  if (!nodeDetailContainerRef.value) return
+  const container = nodeDetailContainerRef.value
+  const rect = container.getBoundingClientRect()
+  // 检查是否点击在滚动条区域（右侧或底部）
+  const scrollbarWidth = rect.width - container.clientWidth
+  const scrollbarHeight = rect.height - container.clientHeight
+  const isOnScrollbar = e.clientX > rect.right - scrollbarWidth || e.clientY > rect.bottom - scrollbarHeight
+  if (isOnScrollbar) {
+    shouldAutoScroll.value = false
+  }
+}
+
+// 用户滚轮操作时中断自动滚动
+function handleUserWheel(e: WheelEvent) {
+  // 如果向下滚动，检查是否到底
+  if (e.deltaY > 0) {
+    // 向下滚动，保持当前状态（handleNodeDetailScroll 会处理）
+    return
+  }
+  // 向上滚动时，立即中断自动滚动
+  shouldAutoScroll.value = false
+}
+
+// 节点详情区域滚动处理
+function handleNodeDetailScroll() {
+  // 如果是程序触发的滚动，忽略
+  if (isProgrammaticScroll) {
+    isProgrammaticScroll = false
+    return
+  }
+
+  if (!nodeDetailContainerRef.value) return
+
+  const container = nodeDetailContainerRef.value
+  const { scrollTop, scrollHeight, clientHeight } = container
+  const isNearBottom = scrollHeight - scrollTop - clientHeight < 50
+
+  // 用户滚动到底部时恢复自动滚动
+  shouldAutoScroll.value = isNearBottom
+}
+
+function scrollToBottom() {
+  if (!nodeDetailContainerRef.value) return
+  isProgrammaticScroll = true
+  nodeDetailContainerRef.value.scrollTop = nodeDetailContainerRef.value.scrollHeight
+}
 
 // 编辑状态计算属性
 const isCurrentNodeEditing = computed((): boolean => {
@@ -122,22 +178,6 @@ const recordingDuration = ref(0)
 const recordingPosition = ref({ x: 0, y: 0 })
 const recordingStartPosition = ref<{ x: number; y: number } | null>(null)
 let recordingTimer: number | null = null
-
-// 节点详情区域滚动处理
-function handleNodeDetailScroll() {
-  if (!nodeDetailContainerRef.value) return
-
-  const container = nodeDetailContainerRef.value
-  const { scrollTop, scrollHeight, clientHeight } = container
-  const isNearBottom = scrollHeight - scrollTop - clientHeight < 50
-
-  shouldAutoScroll.value = isNearBottom
-}
-
-function scrollToBottom() {
-  if (!nodeDetailContainerRef.value) return
-  nodeDetailContainerRef.value.scrollTop = nodeDetailContainerRef.value.scrollHeight
-}
 
 // 当选中节点变化时，重置自动滚动状态
 watch(() => props.activeNode, () => {
