@@ -9,12 +9,14 @@
       v-model:ai-answer-enabled="aiAnswerEnabled"
       :is-all-context-selected="isAllContextSelected"
       :show-viewport-controls="false"
+      :selected-context-count="selectedContextCount"
       @back="goBack"
       @toggle-all-context="handleToggleAllContext"
       @invert-selection="handleInvertSelection"
       @open-dynamic-context-editor="openDynamicContextEditor"
       @toggle-static-context="toggleStaticContext"
       @dynamic-context-drop="handleDynamicContextDrop"
+      @copy-selected-context="handleCopySelectedContext"
     />
 
     <div class="panel-container">
@@ -782,6 +784,32 @@ function clearContextSelection() {
       projectStore.updateNodeAuto(node.id, { selectedAsContext: false })
     }
   })
+}
+
+// 复制已选中节点的内容到剪贴板
+async function handleCopySelectedContext() {
+  const nodes = projectStore.getNodesByPdfPage(currentPageNumber.value)
+  const selectedNodes = nodes
+    .filter(n => n.selectedAsContext && n.transcript)
+    .sort((a, b) => a.createdAt - b.createdAt)
+
+  if (selectedNodes.length === 0) return
+
+  // 格式化内容：每个节点包含转录文本和 AI 回答（如果有）
+  const content = selectedNodes.map(node => {
+    let text = `[${node.title || 'node'}]\n\n${node.transcript || ''}`
+    if (node.agentResult) {
+      text += `\n\n--- AI answer ---\n\n${node.agentResult}`
+    }
+    return text
+  }).join('\n\n---\n\n')
+
+  try {
+    await navigator.clipboard.writeText(content)
+    console.log(`已复制 ${selectedNodes.length} 个节点的内容到剪贴板`)
+  } catch (error) {
+    console.error('复制失败:', error)
+  }
 }
 </script>
 

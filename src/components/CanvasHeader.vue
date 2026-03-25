@@ -97,6 +97,17 @@
 
     <!-- 动态上下文显示（右侧） -->
     <div class="context-toolbar-group">
+      <button
+        @click="$emit('copy-selected-context')"
+        class="context-action-btn copy-btn"
+        :class="{ disabled: selectedContextCount === 0 }"
+        :title="selectedContextCount > 0 ? `复制已选 ${selectedContextCount} 个节点内容` : '未选中节点'"
+        :disabled="selectedContextCount === 0"
+      >
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+          <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+        </svg>
+      </button>
       <button @click="$emit('toggle-all-context')" class="context-action-btn" :title="isAllContextSelected ? '清空选择' : '全选所有已完成节点'">
         <svg v-if="!isAllContextSelected" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
           <path d="M19 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.11 0 2-.9 2-2V5c0-1.1-.89-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
@@ -146,8 +157,10 @@ const props = withDefaults(defineProps<{
   aiAnswerEnabled: boolean
   isAllContextSelected: boolean
   showViewportControls?: boolean
+  selectedContextCount?: number
 }>(), {
-  showViewportControls: true
+  showViewportControls: true,
+  selectedContextCount: 0
 })
 
 const emit = defineEmits<{
@@ -158,6 +171,7 @@ const emit = defineEmits<{
   'update:aiAnswerEnabled': [value: boolean]
   'toggle-all-context': []
   'invert-selection': []
+  'copy-selected-context': []
   'open-dynamic-context-editor': []
   'toggle-static-context': [contextId: string]
   'dynamic-context-drop': [text: string]
@@ -369,6 +383,18 @@ onUnmounted(() => {
 .context-action-btn:hover {
   background: var(--border-color);
   color: var(--text-primary);
+}
+
+.context-action-btn.disabled,
+.context-action-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.context-action-btn.disabled:hover,
+.context-action-btn:disabled:hover {
+  background: transparent;
+  color: var(--text-secondary);
 }
 
 .canvas-header h2 {

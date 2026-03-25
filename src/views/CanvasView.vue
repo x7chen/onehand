@@ -8,6 +8,7 @@
       v-model:global-hide-ai-result="globalHideAiResult"
       v-model:ai-answer-enabled="aiAnswerEnabled"
       :is-all-context-selected="isAllContextSelected"
+      :selected-context-count="selectedContextCount"
       @back="goBack"
       @reset-viewport="handleResetViewport"
       @auto-layout="handleAutoLayout"
@@ -16,6 +17,7 @@
       @open-dynamic-context-editor="openDynamicContextEditor"
       @toggle-static-context="toggleStaticContext"
       @dynamic-context-drop="handleDynamicContextDrop"
+      @copy-selected-context="handleCopySelectedContext"
     />
 
     <CanvasArea
@@ -205,6 +207,33 @@ function handleInvertSelection() {
     }
   }
   projectStore.saveProject(projectStore.currentProject)
+}
+
+// 复制已选中节点的内容到剪贴板
+async function handleCopySelectedContext() {
+  if (!projectStore.currentCanvas) return
+
+  const selectedNodes = projectStore.currentCanvas.nodes
+    .filter(n => n.selectedAsContext && n.transcript)
+    .sort((a, b) => a.createdAt - b.createdAt)
+
+  if (selectedNodes.length === 0) return
+
+  // 格式化内容：每个节点包含转录文本和 AI 回答（如果有）
+  const content = selectedNodes.map(node => {
+    let text = `[${node.title || 'node'}]\n\n${node.transcript || ''}`
+    if (node.agentResult) {
+      text += `\n\n--- AI answer ---\n\n${node.agentResult}`
+    }
+    return text
+  }).join('\n\n---\n\n')
+
+  try {
+    await navigator.clipboard.writeText(content)
+    console.log(`已复制 ${selectedNodes.length} 个节点的内容到剪贴板`)
+  } catch (error) {
+    console.error('复制失败:', error)
+  }
 }
 
 // 静态上下文选择
