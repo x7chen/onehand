@@ -17,7 +17,7 @@
         <div class="form-group">
           <label>服务提供商</label>
           <select v-model="settingsStore.settings.llm.provider">
-            <option value="custom">自定义</option>
+            <option value="custom">OpenAI兼容API</option>
           </select>
         </div>
 
