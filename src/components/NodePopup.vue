@@ -238,13 +238,13 @@ function handleDelete(nodeId: string) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px;
+  padding: 10px 16px;
   border-bottom: 1px solid var(--border-color);
 }
 
 .popup-header h3 {
   margin: 0;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 500;
   color: var(--text-primary);
   overflow: hidden;
