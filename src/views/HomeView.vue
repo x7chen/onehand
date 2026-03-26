@@ -106,14 +106,9 @@
               </p>
             </div>
             <div class="notebook-card-actions">
-              <button v-if="notebook.pdfPath" class="action-btn pdf-btn" @click.stop="openPdf(notebook.id)" title="PDF阅读模式">
+              <button class="action-btn canvas-btn" @click.stop="openCanvas(notebook.id)" title="画布视图">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                  <path d="M20 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8.5 7.5c0 .83-.67 1.5-1.5 1.5H9v2H7.5V7H10c.83 0 1.5.67 1.5 1.5v1zm5 2c0 .83-.67 1.5-1.5 1.5h-2.5V7H15c.83 0 1.5.67 1.5 1.5v3zm4-3H19v1h1.5V11H19v2h-1.5V7h3v1.5zM9 9.5h1v-1H9v1zM4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm10 5.5h1v-3h-1v3z"/>
-                </svg>
-              </button>
-              <button v-else class="action-btn node-list-btn" @click.stop="openNodeList(notebook.id)" title="列表视图">
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                  <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
+                  <path d="M4 8h4V4H4v4zm6 12h4v-4h-4v4zm-6 0h4v-4H4v4zm0-6h4v-4H4v4zm6 0h4v-4h-4v4zm6-10v4h4V4h-4zm-6 4h4V4h-4v4zm6 6h4v-4h-4v4zm0 6h4v-4h-4v4z"/>
                 </svg>
               </button>
             </div>
@@ -490,11 +485,8 @@ async function createNotebook() {
   newNotebookStaticContexts.value = []
   newNotebookDynamicContext.value = ''
 
-  if (pdfPath) {
-    openPdf(notebook.id)
-  } else {
-    openNotebook(notebook.id)
-  }
+  // 创建后默认打开 NodeListView 或 PdfReaderView
+  openNotebook(notebook.id)
 }
 
 // 切换静态上下文选择
@@ -533,23 +525,20 @@ function openNotebook(notebookId: string) {
   const notebook = notebookStore.notebooks.find(p => p.id === notebookId)
   if (notebook) {
     notebookStore.setCurrentNotebook(notebook)
+    // 根据是否有PDF，默认打开不同视图
+    if (notebook.pdfPath) {
+      router.push(`/pdf/${notebookId}`)
+    } else {
+      router.push(`/node-list/${notebookId}`)
+    }
+  }
+}
+
+function openCanvas(notebookId: string) {
+  const notebook = notebookStore.notebooks.find(p => p.id === notebookId)
+  if (notebook) {
+    notebookStore.setCurrentNotebook(notebook)
     router.push(`/canvas/${notebookId}`)
-  }
-}
-
-function openNodeList(notebookId: string) {
-  const notebook = notebookStore.notebooks.find(p => p.id === notebookId)
-  if (notebook) {
-    notebookStore.setCurrentNotebook(notebook)
-    router.push(`/node-list/${notebookId}`)
-  }
-}
-
-function openPdf(notebookId: string) {
-  const notebook = notebookStore.notebooks.find(p => p.id === notebookId)
-  if (notebook) {
-    notebookStore.setCurrentNotebook(notebook)
-    router.push(`/pdf/${notebookId}`)
   }
 }
 
@@ -830,21 +819,8 @@ async function confirmDeleteNotebook() {
   color: white;
 }
 
-.node-list-btn:hover {
-  background: #66bb6a;
-}
-
-.chat-btn:hover {
-  background: #4299e1;
-}
-
-.pdf-btn {
-  color: #e53e3e;
-}
-
-.pdf-btn:hover {
-  background: #e53e3e;
-  color: white;
+.canvas-btn:hover {
+  background: #9c27b0;
 }
 
 .pdf-badge {
@@ -1002,48 +978,11 @@ async function confirmDeleteNotebook() {
   cursor: pointer;
 }
 
-.checkbox-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 8px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  background: var(--bg-secondary);
-  max-height: 200px;
-  overflow-y: auto;
-}
-
-.checkbox-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 4px;
-  transition: background 0.2s;
-}
-
-.checkbox-item:hover {
-  background: var(--border-color);
-}
-
-.checkbox-item input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-  cursor: pointer;
-}
-
-.checkbox-label {
-  font-size: 14px;
-  color: var(--text-primary);
-  cursor: pointer;
-  flex: 1;
-}
 
 .pdf-file-selector {
   display: flex;
   gap: 8px;
+  align-items: stretch;
 }
 
 .pdf-input {
@@ -1055,6 +994,8 @@ async function confirmDeleteNotebook() {
   background: var(--bg-secondary);
   color: var(--text-primary);
   cursor: pointer;
+  height: 38px;
+  box-sizing: border-box;
 }
 
 .pdf-input:focus {
@@ -1066,14 +1007,15 @@ async function confirmDeleteNotebook() {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   border: 1px solid var(--border-color);
   border-radius: 6px;
   background: var(--bg-secondary);
   color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.2s;
+  box-sizing: border-box;
 }
 
 .clear-pdf-btn:hover {
@@ -1083,13 +1025,14 @@ async function confirmDeleteNotebook() {
 }
 
 .browse-btn {
-  padding: 10px 16px;
+  padding: 0 12px;
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: 6px;
-  color: var(--text-primary);
   cursor: pointer;
-  transition: all 0.2s;
+  color: var(--text-primary);
+  height: 38px;
+  box-sizing: border-box;
 }
 
 .browse-btn:hover {
