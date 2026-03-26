@@ -117,10 +117,15 @@ export function useDeepLink() {
     // Set the project as current
     projectStore.setCurrentProject(nodeData.project)
 
-    // Find the canvas index
-    const canvasIndex = nodeData.project.canvases?.findIndex(c => c.id === data.canvasId) ?? 0
-    if (canvasIndex >= 0) {
-      nodeData.project.currentCanvasIndex = canvasIndex
+    // For PDF projects, switch to the correct PDF page
+    if (nodeData.project.pdfPath && nodeData.canvas.pdfPage) {
+      projectStore.switchToPdfPage(nodeData.canvas.pdfPage)
+    } else {
+      // For non-PDF projects, find the canvas index by ID
+      const canvasIndex = nodeData.project.canvases?.findIndex(c => c.id === data.canvasId) ?? 0
+      if (canvasIndex >= 0 && nodeData.project.currentCanvasIndex !== canvasIndex) {
+        nodeData.project.currentCanvasIndex = canvasIndex
+      }
     }
 
     // Navigate to the correct view based on project type

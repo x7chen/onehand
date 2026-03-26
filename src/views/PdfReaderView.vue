@@ -251,6 +251,11 @@ onMounted(async () => {
     const project = projectStore.projects.find(p => p.id === projectId)
     if (project) {
       projectStore.setCurrentProject(project)
+      // Set initial page from current canvas's pdfPage
+      const currentCanvas = project.canvases?.[project.currentCanvasIndex ?? 0]
+      if (currentCanvas?.pdfPage) {
+        currentPageNumber.value = currentCanvas.pdfPage
+      }
     }
   }
   await contextStore.loadContextFiles()
@@ -305,6 +310,24 @@ function selectFirstNode() {
     }
   })
 }
+
+// Watch for canvas changes (e.g., from deep link navigation) and update page
+watch(() => projectStore.currentCanvas, (newCanvas) => {
+  if (newCanvas?.pdfPage && newCanvas.pdfPage !== currentPageNumber.value) {
+    currentPageNumber.value = newCanvas.pdfPage
+    // Navigate PdfViewer to the new page
+    nextTick(() => {
+      pdfViewerRef.value?.goToPage(newCanvas.pdfPage!)
+    })
+  }
+}, { immediate: false })
+
+// Watch for currentPageNumber changes and sync with PdfViewer
+watch(currentPageNumber, (newPage) => {
+  nextTick(() => {
+    pdfViewerRef.value?.goToPage(newPage)
+  })
+})
 
 function handleKeyDown(e: KeyboardEvent) {
   if (editingNodeId.value) return

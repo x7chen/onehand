@@ -240,6 +240,7 @@ const isRendering = ref(false)
 const loadError = ref<string | null>(null)
 const isLoading = ref(false)
 const isDocReady = ref(false)
+const pendingPage = ref<number | null>(null) // Page to navigate to after PDF loads
 
 const sidebarVisible = ref(false)
 const sidebarTab = ref<'outline' | 'thumbnails'>('outline')
@@ -484,6 +485,9 @@ async function renderThumbnail(pageNumber: number, canvas: HTMLCanvasElement) {
 function goToPage(page: number) {
   if (page >= 1 && page <= totalPages.value) {
     currentPage.value = page
+  } else if (isLoading.value || totalPages.value === 0) {
+    // PDF is still loading, save the page for later
+    pendingPage.value = page
   }
 }
 
@@ -520,6 +524,13 @@ async function loadPdf() {
     isLoading.value = false
     isDocReady.value = true
     await nextTick()  // 等待 canvas 元素渲染到 DOM
+
+    // Check if there's a pending page to navigate to
+    if (pendingPage.value !== null && pendingPage.value >= 1 && pendingPage.value <= totalPages.value) {
+      currentPage.value = pendingPage.value
+      pendingPage.value = null
+    }
+
     await renderPage()
     
     await Promise.all([
@@ -1014,11 +1025,7 @@ onUnmounted(() => {
 })
 
 defineExpose({
-  goToPage: (page: number) => {
-    if (page >= 1 && page <= totalPages.value) {
-      currentPage.value = page
-    }
-  },
+  goToPage,
   rotateClockwise,
   rotateCounterClockwise
 })
