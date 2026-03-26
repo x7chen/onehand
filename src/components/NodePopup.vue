@@ -3,13 +3,13 @@
     <div class="dialog node-popup-dialog" @click.stop>
       <div class="popup-header">
         <h3 v-if="nodeData">{{ nodeData.notebook.name }}</h3>
-        <h3 v-else>节点详情</h3>
+        <h3 v-else>笔记详情</h3>
         <div class="header-actions">
           <button
             v-if="nodeData"
             class="navigate-btn"
             @click="handleNavigate"
-            title="跳转到节点位置"
+            title="跳转到笔记位置"
           >
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M15 3l2.3 2.3-2.89 2.87-1.42-1.42L15 3zm-6 6l2.3 2.3-2.89 2.87-1.42-1.42L9 9zm3 3l2.3 2.3-2.89 2.87-1.42-1.42L12 12z"/>
@@ -119,7 +119,7 @@ async function loadNodeData(url: string) {
 
     const result = await findNodeByDeepLink(linkData)
     if (!result) {
-      error.value = '找不到链接指向的节点，可能已被删除'
+      error.value = '找不到链接指向的笔记，可能已被删除'
       loading.value = false
       return
     }
@@ -128,7 +128,7 @@ async function loadNodeData(url: string) {
     loading.value = false
   } catch (err) {
     console.error('Error loading node data:', err)
-    error.value = '加载节点失败'
+    error.value = '加载笔记失败'
     loading.value = false
   }
 }

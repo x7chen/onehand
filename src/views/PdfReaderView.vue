@@ -395,7 +395,7 @@ function handleCreateNode(data: { type: 'text-note' | 'voice-note'; page: number
   if (data.type === 'voice-note') return
 
   const nodeId = `node-${Date.now()}`
-  const title = `第 ${data.page} 页节点`
+  const title = `第 ${data.page} 页笔记`
 
   const node: CanvasNode = {
     id: nodeId,
@@ -854,7 +854,7 @@ async function handleCopySelectedContext() {
 
   try {
     await navigator.clipboard.writeText(content)
-    console.log(`已复制 ${selectedNodes.length} 个节点的内容到剪贴板`)
+    console.log(`已复制 ${selectedNodes.length} 个笔记的内容到剪贴板`)
   } catch (error) {
     console.error('复制失败:', error)
   }

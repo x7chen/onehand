@@ -1,6 +1,6 @@
 <template>
   <div class="chat-panel">
-    <!-- 节点详情区域 -->
+    <!-- 笔记详情区域 -->
     <div
       ref="nodeDetailContainerRef"
       class="node-detail-container"
@@ -37,7 +37,7 @@
         <svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor" class="empty-icon">
           <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/>
         </svg>
-        <p>点击左侧节点查看详情</p>
+        <p>点击左侧笔记查看详情</p>
       </div>
     </div>
 
@@ -665,7 +665,7 @@ async function handleAgentResponseForVoice(nodeId: string, transcript: string, p
   background: var(--bg-primary);
 }
 
-/* 节点详情区域 */
+/* 笔记详情区域 */
 .node-detail-container {
   flex: 1;
   overflow-y: auto;

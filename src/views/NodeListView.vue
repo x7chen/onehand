@@ -44,7 +44,7 @@
         </button>
       </div>
 
-      <!-- 左侧面板：节点列表容器 -->
+      <!-- 左侧面板：笔记列表容器 -->
       <NodeListPanel
         v-if="!isLeftPanelCollapsed"
         ref="nodePanelRef"
@@ -746,7 +746,7 @@ async function handleCopySelectedContext() {
   try {
     await navigator.clipboard.writeText(content)
     // 可选：显示复制成功提示
-    console.log(`已复制 ${selectedNodes.length} 个节点的内容到剪贴板`)
+    console.log(`已复制 ${selectedNodes.length} 个笔记的内容到剪贴板`)
   } catch (error) {
     console.error('复制失败:', error)
   }

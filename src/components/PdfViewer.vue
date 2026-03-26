@@ -126,7 +126,7 @@
                 :style="getNodeMarkerStyle(node)"
                 @click.stop="$emit('node-click', node)"
                 @mousedown.stop="startDragNode($event, node)"
-                :title="node.title || '节点'"
+                :title="node.title || '笔记'"
               >
                 {{ getNodeMarkerText(node) }}
               </div>
@@ -312,7 +312,7 @@ function getNodeMarkerStyle(node: CanvasNode) {
 }
 
 function getNodeMarkerText(node: CanvasNode): string {
-  const title = node.title || '节点'
+  const title = node.title || '笔记'
   return title.length > 8 ? title.substring(0, 8) + '...' : title
 }
 

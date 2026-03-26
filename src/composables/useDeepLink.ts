@@ -110,7 +110,7 @@ export function useDeepLink() {
 
     const nodeData = await findNodeByDeepLink(data)
     if (!nodeData) {
-      error.value = '找不到链接指向的节点，可能已被删除'
+      error.value = '找不到链接指向的笔记，可能已被删除'
       return
     }
 

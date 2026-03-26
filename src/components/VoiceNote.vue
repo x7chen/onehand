@@ -65,7 +65,7 @@
           </svg>
         </button>
       </div>
-      <!-- 节点标题 -->
+      <!-- 笔记标题 -->
       <input
         v-if="isEditingTitle"
         v-model="localTitle"
@@ -229,7 +229,7 @@ const computedIsPlaying = computed(() => props.isPlaying ?? localIsPlaying.value
 // 本地 AI 回答隐藏状态
 const isAiResultHidden = ref(false)
 
-// 节点标题编辑
+// 笔记标题编辑
 const isEditingTitle = ref(false)
 const localTitle = ref('')
 const titleInput = ref<HTMLInputElement | null>(null)
@@ -542,7 +542,7 @@ async function copyAgentResult() {
   }
 }
 
-// 复制节点链接
+// 复制笔记链接
 async function handleCopyLink() {
   if (!props.notebookId || !props.canvasId) return
   const url = `onehand://${props.notebookId}/${props.canvasId}/${props.node.id}`
