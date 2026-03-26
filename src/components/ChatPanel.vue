@@ -11,6 +11,8 @@
       <div v-if="activeNode" class="node-detail">
         <VoiceNote
           :node="activeNode"
+          :project-id="projectId"
+          :canvas-id="canvasId"
           :is-active="true"
           :is-editing="isCurrentNodeEditing"
           :editing-text="currentEditingText"
@@ -28,6 +30,7 @@
           @cancel-edit="handleCancelEdit"
           @update:editing-text="(text) => $emit('update-editing-text', text)"
           @activate="() => {}"
+          @copy-link="handleCopyLink"
         />
       </div>
       <div v-else class="empty-node">
@@ -102,6 +105,10 @@ const emit = defineEmits<{
 
 const projectStore = useProjectStore()
 const settingsStore = useSettingsStore()
+
+// Get projectId and canvasId from projectStore
+const projectId = computed(() => projectStore.currentProject?.id)
+const canvasId = computed(() => projectStore.currentCanvas?.id)
 
 // MagicPad 相关
 const magicPadRef = ref<HTMLElement | null>(null)
@@ -552,6 +559,11 @@ function handleRegenerateAgent(nodeId: string) {
   if (node && node.transcript) {
     handleAgentResponseForVoice(nodeId, node.transcript, node.pdfPage)
   }
+}
+
+// 复制链接
+function handleCopyLink(nodeId: string) {
+  console.log('Link copied for node:', nodeId)
 }
 
 // 语音节点的 AI 回答

@@ -2,6 +2,14 @@ const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron')
 const path = require('path')
 const fs = require('fs')
 
+// Check for single instance lock (needed for deep link handling on Windows)
+const gotTheLock = app.requestSingleInstanceLock()
+
+if (!gotTheLock) {
+  // Another instance is already running, quit this one
+  app.quit()
+}
+
 // Sherpa-ONNX 相关
 let sherpaOnnx = null
 try {
@@ -12,6 +20,9 @@ try {
 }
 
 let mainWindow = null
+
+// Deep link URL storage
+let pendingDeepLinkUrl = null
 
 // 配置文件路径 - 始终使用用户数据目录
 const getConfigPath = () => {
@@ -191,8 +202,8 @@ function createWindow() {
 
   // 处理页面内链接点击
   mainWindow.webContents.on('will-navigate', (event, url) => {
-    // 允许内部导航（如路由跳转）
-    const isInternal = url.startsWith('http://localhost:') || url.startsWith('file://')
+    // 允许内部导航（如路由跳转）和 onehand:// 协议
+    const isInternal = url.startsWith('http://localhost:') || url.startsWith('file://') || url.startsWith('onehand://')
     if (!isInternal) {
       event.preventDefault()
       shell.openExternal(url)
@@ -200,8 +211,72 @@ function createWindow() {
   })
 }
 
+// Register onehand:// protocol
+if (process.defaultApp) {
+  // Development mode: need to pass the app path
+  if (process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient('onehand', process.execPath, [path.resolve(process.argv[1])])
+  }
+} else {
+  // Production mode
+  app.setAsDefaultProtocolClient('onehand')
+}
+
+// Handle deep link from second instance (Windows/Linux)
+app.on('second-instance', (event, commandLine, workingDirectory) => {
+  // Someone tried to run a second instance, focus our window instead
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) {
+      mainWindow.restore()
+    }
+    mainWindow.focus()
+  }
+
+  // Find the onehand:// URL in command line arguments
+  const deepLinkUrl = commandLine.find(arg => arg.startsWith('onehand://'))
+  if (deepLinkUrl) {
+    console.log('Deep link received (second-instance):', deepLinkUrl)
+    handleDeepLink(deepLinkUrl)
+  }
+})
+
+// Handle deep link from open-url (macOS)
+app.on('open-url', (event, url) => {
+  event.preventDefault()
+  console.log('Deep link received (open-url):', url)
+  handleDeepLink(url)
+})
+
+// Process deep link URL
+function handleDeepLink(url) {
+  if (!url || !url.startsWith('onehand://')) return
+
+  // If window is not ready yet, store the URL for later
+  if (!mainWindow || !mainWindow.webContents) {
+    pendingDeepLinkUrl = url
+    return
+  }
+
+  // Send the URL to the renderer process
+  mainWindow.webContents.send('deep-link', url)
+}
+
 app.whenReady().then(() => {
   createWindow()
+
+  // Check for deep link in command line arguments (first launch)
+  const deepLinkUrl = process.argv.find(arg => arg.startsWith('onehand://'))
+  if (deepLinkUrl) {
+    console.log('Deep link received (first launch):', deepLinkUrl)
+    // Store it for the renderer to pick up
+    pendingDeepLinkUrl = deepLinkUrl
+  }
+
+  // If there was a pending deep link from before window was ready, send it now
+  if (pendingDeepLinkUrl && mainWindow && mainWindow.webContents) {
+    mainWindow.webContents.send('deep-link', pendingDeepLinkUrl)
+    pendingDeepLinkUrl = null
+  }
 
   // 异步初始化语音识别器
   recognizerInitializing = true
@@ -367,6 +442,13 @@ ipcMain.handle('save-config', async (event, data) => {
   } catch (error) {
     return { success: false, error: String(error) }
   }
+})
+
+// Deep link IPC handler
+ipcMain.handle('get-deep-link', () => {
+  const url = pendingDeepLinkUrl
+  pendingDeepLinkUrl = null // Clear after reading
+  return url
 })
 
 // 音频转写 IPC 处理

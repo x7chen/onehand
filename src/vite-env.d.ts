@@ -40,6 +40,10 @@ interface ElectronAPI {
   readConfig: () => Promise<{ success: boolean; data?: string; error?: string }>
   saveConfig: (data: string) => Promise<{ success: boolean; error?: string }>
   transcribeAudio: (audioData: number[], mimeType: string, config: SherpaOnnxConfig) => Promise<TranscriptionResult>
+  // Deep link API
+  getDeepLink: () => Promise<string | null>
+  onDeepLink: (callback: (url: string) => void) => void
+  removeDeepLinkListener: () => void
 }
 
 interface Window {

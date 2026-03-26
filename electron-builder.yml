@@ -1,6 +1,10 @@
 appId: com.onehand.app
 productName: OneHand
 generateUpdatesFilesForAllChannels: false
+protocols:
+  name: OneHand
+  schemes:
+    - onehand
 directories:
   output: release
   buildResources: build

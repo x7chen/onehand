@@ -1,18 +1,66 @@
 <template>
   <router-view />
+  <!-- Node popup for in-app deep link clicks -->
+  <NodePopup
+    :visible="showNodePopup"
+    :url="popupUrl"
+    @close="closeNodePopup"
+  />
 </template>
 
 <script setup lang="ts">
-import { onMounted, watchEffect } from 'vue'
+import { onMounted, onUnmounted, watchEffect, ref } from 'vue'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useTheme } from '@/composables/useTheme'
+import { useDeepLink } from '@/composables/useDeepLink'
+import { useLinkPaste } from '@/composables/useLinkPaste'
+import NodePopup from '@/components/NodePopup.vue'
 
 const settingsStore = useSettingsStore()
 useTheme(settingsStore)
 
+// Initialize deep link handler
+useDeepLink()
+
+// Initialize link paste handler
+useLinkPaste()
+
+// Node popup state
+const showNodePopup = ref(false)
+const popupUrl = ref<string | undefined>(undefined)
+
+// Handle click on onehand:// links in the app
+function handleDeepLinkClick(event: MouseEvent) {
+  const target = event.target as HTMLElement
+  const link = target.closest('a[href^="onehand://"]') as HTMLAnchorElement | null
+
+  if (link) {
+    event.preventDefault()
+    event.stopPropagation()
+
+    const url = link.getAttribute('href')
+    if (url) {
+      popupUrl.value = url
+      showNodePopup.value = true
+    }
+  }
+}
+
+function closeNodePopup() {
+  showNodePopup.value = false
+  popupUrl.value = undefined
+}
+
 // 在应用启动时加载设置
 onMounted(() => {
   settingsStore.loadSettings()
+
+  // Add global click handler for onehand:// links
+  document.addEventListener('click', handleDeepLinkClick, true)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleDeepLinkClick, true)
 })
 
 // 监听主题变化，切换 highlight.js 和 Mermaid 主题

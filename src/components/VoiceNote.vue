@@ -58,6 +58,12 @@
             <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
           </svg>
         </button>
+        <!-- 复制链接按钮 -->
+        <button v-if="projectId && canvasId" class="action-btn copy-link-btn" @click.stop="handleCopyLink" title="复制链接">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/>
+          </svg>
+        </button>
       </div>
       <!-- 节点标题 -->
       <input
@@ -188,6 +194,8 @@ import type { CanvasNode } from '@/types/project'
 
 const props = defineProps<{
   node: CanvasNode
+  projectId?: string
+  canvasId?: string
   isPlaying?: boolean
   isEditing?: boolean
   editingText?: string
@@ -211,6 +219,7 @@ const emit = defineEmits<{
   (e: 'cancel-edit', nodeId: string): void
   (e: 'update:editingText', text: string): void
   (e: 'activate', nodeId: string): void
+  (e: 'copy-link', nodeId: string): void
 }>()
 
 // 使用外部传入的 isPlaying 或本地状态
@@ -531,6 +540,19 @@ async function copyAgentResult() {
   } catch (error) {
     console.error('复制失败:', error)
   }
+}
+
+// 复制节点链接
+async function handleCopyLink() {
+  if (!props.projectId || !props.canvasId) return
+  const url = `onehand://${props.projectId}/${props.canvasId}/${props.node.id}`
+  try {
+    await navigator.clipboard.writeText(url)
+    console.log('Link copied:', url)
+  } catch (error) {
+    console.error('复制链接失败:', error)
+  }
+  emit('copy-link', props.node.id)
 }
 
 async function saveTranscriptEdit() {
@@ -927,6 +949,15 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
 }
 
 .regenerate-btn:not(:disabled):hover {
+  color: #4299e1;
+}
+
+/* 复制链接按钮 */
+.copy-link-btn {
+  color: var(--text-secondary);
+}
+
+.copy-link-btn:hover {
   color: #4299e1;
 }
 

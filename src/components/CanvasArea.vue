@@ -26,6 +26,8 @@
           :key="node.id"
           :ref="(el) => { if (el) voiceNoteRefs[node.id] = el }"
           :node="node"
+          :project-id="projectStore.currentProject?.id"
+          :canvas-id="projectStore.currentCanvas?.id"
           :is-playing="playingNodeId === node.id"
           :is-editing="editingNodeId === node.id"
           :editing-text="editingText"
@@ -45,6 +47,7 @@
           @cancel-edit="handleCancelEdit"
           @update:editing-text="editingText = $event"
           @activate="handleActivateNode"
+          @copy-link="handleCopyLink"
         />
       </template>
     </InfiniteCanvas>
@@ -633,6 +636,10 @@ function handleRegenerateAgent(nodeId: string) {
   if (node && node.transcript) {
     handleAgentResponse(nodeId, node.transcript)
   }
+}
+
+function handleCopyLink(nodeId: string) {
+  console.log('Link copied for node:', nodeId)
 }
 
 function handleToggleFavorite(nodeId: string) {
