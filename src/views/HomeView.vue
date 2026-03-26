@@ -215,62 +215,49 @@
           @keyup.enter="createProject"
           ref="projectNameInput"
         />
-        
-        <!-- 项目类型选择 -->
-        <div class="form-group">
-          <label>项目类型：</label>
-          <div class="project-type-selector">
-            <button 
-              class="type-btn" 
-              :class="{ active: newProjectType === 'normal' }"
-              @click="newProjectType = 'normal'"
-            >
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-                <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
-              </svg>
-              常规项目
-            </button>
-            <button 
-              class="type-btn" 
-              :class="{ active: newProjectType === 'pdf' }"
-              @click="newProjectType = 'pdf'"
-            >
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-                <path d="M20 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8.5 7.5c0 .83-.67 1.5-1.5 1.5H9v2H7.5V7H10c.83 0 1.5.67 1.5 1.5v1zm5 2c0 .83-.67 1.5-1.5 1.5h-2.5V7H15c.83 0 1.5.67 1.5 1.5v3zm4-3H19v1h1.5V11H19v2h-1.5V7h3v1.5zM9 9.5h1v-1H9v1zM4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm10 5.5h1v-3h-1v3z"/>
-              </svg>
-              PDF阅读项目
-            </button>
-          </div>
-        </div>
 
-        <!-- PDF 文件选择（仅 PDF 类型显示） -->
-        <div v-if="newProjectType === 'pdf'" class="form-group">
-          <label>选择 PDF 文件：</label>
+        <!-- PDF 文件选择（可选） -->
+        <div class="form-group">
+          <label>PDF 文件（可选，添加后为 PDF 阅读项目）：</label>
           <div class="pdf-file-selector">
             <input
               v-model="newProjectPdfName"
               type="text"
-              placeholder="点击选择 PDF 文件"
+              placeholder="留空则为常规项目"
               readonly
               @click="selectPdfFile"
               class="pdf-input"
             />
+            <button v-if="newProjectPdfPath" @click="clearPdfFile" class="clear-pdf-btn" title="清除">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+              </svg>
+            </button>
             <button @click="selectPdfFile" class="browse-btn">浏览</button>
           </div>
         </div>
-        
-        <!-- 选择静态上下文（多选） -->
+
+        <!-- 选择静态上下文（标签方式） -->
         <div class="form-group">
           <label>静态上下文（可选，可多选）：</label>
-          <div class="checkbox-list">
-            <label class="checkbox-item" v-for="file in contextStore.staticContextFiles" :key="file.id">
-              <input
-                type="checkbox"
-                :value="file.id"
-                v-model="newProjectStaticContexts"
-              />
-              <span class="checkbox-label">{{ file.name }}</span>
-            </label>
+          <div v-if="contextStore.staticContextFiles.length > 0" class="context-tags-selector">
+            <span
+              v-for="file in contextStore.staticContextFiles"
+              :key="file.id"
+              class="context-tag-selectable"
+              :class="{ selected: newProjectStaticContexts.includes(file.id) }"
+              :style="{
+                backgroundColor: newProjectStaticContexts.includes(file.id) ? file.color + '40' : 'var(--bg-secondary)',
+                borderColor: newProjectStaticContexts.includes(file.id) ? file.color : 'var(--border-color)',
+                color: newProjectStaticContexts.includes(file.id) ? file.color : 'var(--text-secondary)'
+              }"
+              @click="toggleStaticContextSelection(file.id)"
+            >
+              {{ file.name }}
+            </span>
+          </div>
+          <div v-else class="no-context-hint">
+            <span>暂无静态上下文，请先创建</span>
           </div>
         </div>
 
@@ -287,7 +274,7 @@
 
         <div class="dialog-actions">
           <button @click="showNewProjectDialog = false" class="cancel-btn">取消</button>
-          <button @click="createProject" class="confirm-btn" :disabled="newProjectType === 'pdf' && !newProjectPdfPath">创建</button>
+          <button @click="createProject" class="confirm-btn">创建</button>
         </div>
       </div>
     </div>
@@ -363,7 +350,6 @@ const editingContext = ref<ContextFile | undefined>(undefined)
 
 const showNewProjectDialog = ref(false)
 const newProjectName = ref('')
-const newProjectType = ref<'normal' | 'pdf'>('normal')
 const newProjectPdfPath = ref('')
 const newProjectPdfName = ref('')
 const newProjectStaticContexts = ref<string[]>([])
@@ -482,35 +468,49 @@ async function deleteContextFile() {
 // Project management
 async function createProject() {
   if (!newProjectName.value.trim()) return
-  if (newProjectType.value === 'pdf' && !newProjectPdfPath.value) return
 
   const context = {
     staticContextIds: newProjectStaticContexts.value.length > 0 ? newProjectStaticContexts.value : undefined,
     dynamicContextId: newProjectDynamicContext.value || undefined
   }
 
-  const projectType = newProjectType.value
-  const pdfPath = newProjectPdfPath.value
+  // 根据 PDF 路径判断项目类型
+  const pdfPath = newProjectPdfPath.value || undefined
 
   const project = await projectStore.createProject(
     newProjectName.value,
     (context.staticContextIds || context.dynamicContextId) ? context : undefined,
-    projectType === 'pdf' ? pdfPath : undefined
+    pdfPath
   )
 
   showNewProjectDialog.value = false
   newProjectName.value = ''
-  newProjectType.value = 'normal'
   newProjectPdfPath.value = ''
   newProjectPdfName.value = ''
   newProjectStaticContexts.value = []
   newProjectDynamicContext.value = ''
-  
-  if (projectType === 'pdf') {
+
+  if (pdfPath) {
     openPdf(project.id)
   } else {
     openProject(project.id)
   }
+}
+
+// 切换静态上下文选择
+function toggleStaticContextSelection(contextId: string) {
+  const index = newProjectStaticContexts.value.indexOf(contextId)
+  if (index === -1) {
+    newProjectStaticContexts.value.push(contextId)
+  } else {
+    newProjectStaticContexts.value.splice(index, 1)
+  }
+}
+
+// 清除 PDF 文件选择
+function clearPdfFile() {
+  newProjectPdfPath.value = ''
+  newProjectPdfName.value = ''
 }
 
 async function selectPdfFile() {
@@ -1041,39 +1041,6 @@ async function confirmDeleteProject() {
   flex: 1;
 }
 
-.project-type-selector {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.type-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 12px 16px;
-  border: 2px solid var(--border-color);
-  border-radius: 8px;
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.2s;
-  font-size: 14px;
-}
-
-.type-btn:hover {
-  border-color: #4299e1;
-  color: #4299e1;
-}
-
-.type-btn.active {
-  border-color: #4299e1;
-  background: rgba(66, 153, 225, 0.1);
-  color: #4299e1;
-}
-
 .pdf-file-selector {
   display: flex;
   gap: 8px;
@@ -1093,6 +1060,26 @@ async function confirmDeleteProject() {
 .pdf-input:focus {
   outline: none;
   border-color: #4299e1;
+}
+
+.clear-pdf-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.clear-pdf-btn:hover {
+  background: #f44;
+  border-color: #f44;
+  color: white;
 }
 
 .browse-btn {
@@ -1126,6 +1113,49 @@ async function confirmDeleteProject() {
 
 .name-input {
   margin-bottom: 12px !important;
+}
+
+/* 静态上下文标签选择器 */
+.context-tags-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  min-height: 44px;
+}
+
+.context-tag-selectable {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 12px;
+  border: 1px solid;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.2s;
+  user-select: none;
+}
+
+.context-tag-selectable:hover {
+  transform: scale(1.05);
+}
+
+.context-tag-selectable.selected {
+  font-weight: 600;
+}
+
+.no-context-hint {
+  padding: 12px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
 }
 
 .dialog-actions {
