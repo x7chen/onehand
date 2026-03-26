@@ -91,7 +91,24 @@ function extractLatex(markdown: string, context: LatexContext): string {
   processed = processed.replace(/\$\$([\s\S]+?)\$\$/g, (_, equation) => {
     const id = `LATEX_DISPLAY_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     context.placeholders.set(id, { type: 'display', equation: equation.trim() })
-    console.log('[MarkdownRenderer] Extracted display formula:', id)
+    console.log('[MarkdownRenderer] Extracted display formula ($$):', id)
+    return createPlaceholder(id)
+  })
+
+  // 提取块级公式 \[...\] (LaTeX 标准语法)
+  processed = processed.replace(/\\\[([\s\S]+?)\\\]/g, (_, equation) => {
+    const id = `LATEX_DISPLAY_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    context.placeholders.set(id, { type: 'display', equation: equation.trim() })
+    console.log('[MarkdownRenderer] Extracted display formula (\\[):', id)
+    return createPlaceholder(id)
+  })
+
+  // 提取行内公式 \(...\) (LaTeX 标准语法) - 需要在 $...$ 之前处理
+  processed = processed.replace(/\\\(([^)]+?)\\\)/g, (_, equation) => {
+    const trimmedEquation = equation.trim()
+    const id = `LATEX_INLINE_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    context.placeholders.set(id, { type: 'inline', equation: trimmedEquation })
+    console.log('[MarkdownRenderer] Extracted inline formula (\\():', id)
     return createPlaceholder(id)
   })
 
@@ -104,7 +121,7 @@ function extractLatex(markdown: string, context: LatexContext): string {
     }
     const id = `LATEX_INLINE_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     context.placeholders.set(id, { type: 'inline', equation: trimmedEquation })
-    console.log('[MarkdownRenderer] Extracted inline formula:', id)
+    console.log('[MarkdownRenderer] Extracted inline formula ($):', id)
     // 保留前面的字符
     return before + createPlaceholder(id)
   })
