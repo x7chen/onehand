@@ -5,18 +5,24 @@
     :visible="showNodePopup"
     :url="popupUrl"
     @close="closeNodePopup"
+    @navigate="handleNavigate"
   />
 </template>
 
 <script setup lang="ts">
 import { onMounted, onUnmounted, watchEffect, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { useProjectStore } from '@/stores/projectStore'
 import { useTheme } from '@/composables/useTheme'
 import { useDeepLink } from '@/composables/useDeepLink'
 import { useLinkPaste } from '@/composables/useLinkPaste'
 import NodePopup from '@/components/NodePopup.vue'
+import type { DeepLinkData } from '@/composables/useDeepLink'
 
 const settingsStore = useSettingsStore()
+const projectStore = useProjectStore()
+const router = useRouter()
 useTheme(settingsStore)
 
 // Initialize deep link handler
@@ -49,6 +55,24 @@ function handleDeepLinkClick(event: MouseEvent) {
 function closeNodePopup() {
   showNodePopup.value = false
   popupUrl.value = undefined
+}
+
+function handleNavigate(data: DeepLinkData) {
+  // Close popup first
+  closeNodePopup()
+
+  // Navigate to the node
+  const project = projectStore.projects.find(p => p.id === data.projectId)
+  if (project) {
+    projectStore.setCurrentProject(project)
+
+    // Navigate with query parameters to activate the node
+    if (project.pdfPath) {
+      router.push(`/pdf/${data.projectId}?nodeId=${data.nodeId}`)
+    } else {
+      router.push(`/node-list/${data.projectId}?canvasId=${data.canvasId}&nodeId=${data.nodeId}`)
+    }
+  }
 }
 
 // 在应用启动时加载设置

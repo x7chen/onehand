@@ -576,8 +576,21 @@ onUnmounted(() => {
 })
 
 defineExpose({
-  updateNodeHeights: updateMeasuredHeights
+  updateNodeHeights: updateMeasuredHeights,
+  scrollToNode
 })
+
+// 滚动到指定节点
+function scrollToNode(nodeId: string) {
+  const item = virtualItems.value.get(nodeId)
+  if (!item || !nodeContainerRef.value) return
+
+  const targetTop = item.top - CONTAINER_PADDING
+  nodeContainerRef.value.scrollTo({
+    top: targetTop,
+    behavior: 'smooth'
+  })
+}
 </script>
 
 <style scoped>

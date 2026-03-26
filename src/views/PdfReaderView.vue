@@ -251,10 +251,33 @@ onMounted(async () => {
     const project = projectStore.projects.find(p => p.id === projectId)
     if (project) {
       projectStore.setCurrentProject(project)
-      // Set initial page from current canvas's pdfPage
-      const currentCanvas = project.canvases?.[project.currentCanvasIndex ?? 0]
-      if (currentCanvas?.pdfPage) {
-        currentPageNumber.value = currentCanvas.pdfPage
+
+      // 处理深度链接参数
+      const nodeId = route.query.nodeId as string
+      if (nodeId) {
+        // 查找节点所在的 PDF 页面
+        const pdfPage = projectStore.findNodePdfPage(nodeId)
+        if (pdfPage !== null) {
+          // 切换到该页面
+          projectStore.switchToPdfPage(pdfPage)
+          currentPageNumber.value = pdfPage
+          // 激活该节点
+          const canvas = projectStore.getCanvasByPdfPage(pdfPage)
+          if (canvas) {
+            const node = canvas.nodes.find(n => n.id === nodeId)
+            if (node) {
+              activeNode.value = node
+            }
+          }
+        }
+        // 清除 URL 中的查询参数
+        router.replace({ path: route.path, query: {} })
+      } else {
+        // 没有指定节点时，使用当前画布的页面
+        const currentCanvas = project.canvases?.[project.currentCanvasIndex ?? 0]
+        if (currentCanvas?.pdfPage) {
+          currentPageNumber.value = currentCanvas.pdfPage
+        }
       }
     }
   }
@@ -263,10 +286,12 @@ onMounted(async () => {
   document.addEventListener('click', handleClickOutsideEditing)
   window.addEventListener('keydown', handleKeyDown)
 
-  // 初始化时选中第一个节点
-  nextTick(() => {
-    selectFirstNode()
-  })
+  // 如果没有通过深度链接激活节点，选中第一个节点
+  if (!activeNode.value) {
+    nextTick(() => {
+      selectFirstNode()
+    })
+  }
 })
 
 onUnmounted(() => {

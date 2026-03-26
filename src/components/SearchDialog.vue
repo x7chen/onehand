@@ -88,6 +88,7 @@
 
 <script setup lang="ts">
 import { ref, watch, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
 import NodePopup from '@/components/NodePopup.vue'
 import { useProjectStore } from '@/stores/projectStore'
 import { generateDeepLinkUrl } from '@/composables/useDeepLink'
@@ -115,6 +116,7 @@ interface SearchResult {
 }
 
 const projectStore = useProjectStore()
+const router = useRouter()
 const searchInput = ref<HTMLInputElement | null>(null)
 const resultsContainer = ref<HTMLElement | null>(null)
 const searchQuery = ref('')
@@ -320,21 +322,22 @@ function closeNodePopup() {
 }
 
 function handleNavigate(data: DeepLinkData) {
-  // Close search dialog and navigate
-  closeNodePopup()
-  close()
-
-  // Navigate to the node
+  // Navigate to the node first, then close dialogs
   const project = projectStore.projects.find(p => p.id === data.projectId)
   if (project) {
     projectStore.setCurrentProject(project)
 
-    // Find the canvas index
-    const canvasIndex = project.canvases?.findIndex(c => c.id === data.canvasId) ?? 0
-    if (canvasIndex >= 0 && project.currentCanvasIndex !== canvasIndex) {
-      project.currentCanvasIndex = canvasIndex
+    // Navigate with query parameters to activate the node
+    if (project.pdfPath) {
+      router.push(`/pdf/${data.projectId}?nodeId=${data.nodeId}`)
+    } else {
+      router.push(`/node-list/${data.projectId}?canvasId=${data.canvasId}&nodeId=${data.nodeId}`)
     }
   }
+
+  // Close dialogs after navigation
+  closeNodePopup()
+  close()
 }
 </script>
 

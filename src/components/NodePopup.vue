@@ -4,11 +4,25 @@
       <div class="popup-header">
         <h3 v-if="nodeData">{{ nodeData.project.name }}</h3>
         <h3 v-else>节点详情</h3>
-        <button class="close-btn" @click="close" title="关闭">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-          </svg>
-        </button>
+        <div class="header-actions">
+          <button
+            v-if="nodeData"
+            class="navigate-btn"
+            @click="handleNavigate"
+            title="跳转到节点位置"
+          >
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M15 3l2.3 2.3-2.89 2.87-1.42-1.42L15 3zm-6 6l2.3 2.3-2.89 2.87-1.42-1.42L9 9zm3 3l2.3 2.3-2.89 2.87-1.42-1.42L12 12z"/>
+              <path d="M9 21l-2.3-2.3 2.89-2.87 1.42 1.42L9 21zm6-6l-2.3-2.3 2.89-2.87 1.42 1.42L15 15z"/>
+            </svg>
+            <span>跳转</span>
+          </button>
+          <button class="close-btn" @click="close" title="关闭">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+            </svg>
+          </button>
+        </div>
       </div>
 
       <!-- Error state -->
@@ -127,6 +141,21 @@ function close() {
   emit('close')
 }
 
+function handleNavigate() {
+  if (!nodeData.value) return
+
+  if (currentAudio.value) {
+    currentAudio.value.pause()
+    currentAudio.value = null
+  }
+
+  emit('navigate', {
+    projectId: nodeData.value.project.id,
+    canvasId: nodeData.value.canvas.id,
+    nodeId: nodeData.value.node.id
+  })
+}
+
 function handleOverlayClick(e: MouseEvent) {
   // Only close if clicking on the overlay itself
   if (e.target === e.currentTarget) {
@@ -221,6 +250,36 @@ function handleDelete(nodeId: string) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.navigate-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.navigate-btn:hover {
+  background: #4299e1;
+  border-color: #4299e1;
+  color: white;
+}
+
+.navigate-btn svg {
+  flex-shrink: 0;
 }
 
 .close-btn {

@@ -120,21 +120,16 @@ export function useDeepLink() {
     // For PDF projects, switch to the correct PDF page
     if (nodeData.project.pdfPath && nodeData.canvas.pdfPage) {
       projectStore.switchToPdfPage(nodeData.canvas.pdfPage)
+      // PDF project - navigate to PdfReaderView with nodeId query
+      router.push(`/pdf/${data.projectId}?nodeId=${data.nodeId}`)
     } else {
-      // For non-PDF projects, find the canvas index by ID
+      // For non-PDF projects, find the canvas index by ID and switch
       const canvasIndex = nodeData.project.canvases?.findIndex(c => c.id === data.canvasId) ?? 0
-      if (canvasIndex >= 0 && nodeData.project.currentCanvasIndex !== canvasIndex) {
+      if (canvasIndex >= 0) {
         nodeData.project.currentCanvasIndex = canvasIndex
       }
-    }
-
-    // Navigate to the correct view based on project type
-    if (nodeData.project.pdfPath) {
-      // PDF project - navigate to PdfReaderView
-      router.push(`/pdf/${data.projectId}`)
-    } else {
-      // Normal project - navigate to NodeListView
-      router.push(`/node-list/${data.projectId}`)
+      // Normal project - navigate to NodeListView with canvasId and nodeId query
+      router.push(`/node-list/${data.projectId}?canvasId=${data.canvasId}&nodeId=${data.nodeId}`)
     }
   }
 

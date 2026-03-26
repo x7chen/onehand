@@ -225,6 +225,9 @@ function initPanelWidth() {
 // 当前激活的节点 ID
 const activeNodeId = ref<string | null>(null)
 
+// 导航模式标志（导航时跳过自动选中第一个节点）
+const isNavigating = ref(false)
+
 // 当前激活的节点（通过 ID 从 store 中查找，确保始终获取最新数据）
 const activeNode = computed(() => {
   if (!activeNodeId.value) return null
@@ -274,9 +277,14 @@ const isAllContextSelected = computed(() => {
   return completedNodesCount.value > 0 && selectedContextCount.value === completedNodesCount.value
 })
 
-// 监听画布切换，自动选中第一个节点
+// 监听画布切换，自动选中第一个节点（导航时除外）
 watch(() => projectStore.currentCanvas?.id, (newCanvasId, oldCanvasId) => {
   if (newCanvasId && newCanvasId !== oldCanvasId) {
+    // 导航模式下跳过自动选中
+    if (isNavigating.value) {
+      return
+    }
+    // 非导航时选中第一个节点
     nextTick(() => {
       selectFirstNode()
     })
@@ -294,6 +302,13 @@ function selectFirstNode() {
   }
 }
 
+// 滚动到指定节点
+function scrollToNode(nodeId: string) {
+  nextTick(() => {
+    nodePanelRef.value?.scrollToNode(nodeId)
+  })
+}
+
 // 加载项目
 onMounted(async () => {
   const projectId = route.params.projectId as string
@@ -302,6 +317,36 @@ onMounted(async () => {
     const project = projectStore.projects.find(p => p.id === projectId)
     if (project) {
       projectStore.setCurrentProject(project)
+
+      // 处理深度链接参数：切换到指定画布并激活节点
+      const canvasId = route.query.canvasId as string
+      const nodeId = route.query.nodeId as string
+
+      if (nodeId) {
+        // 进入导航模式，阻止 watch 自动选中第一个节点
+        isNavigating.value = true
+      }
+
+      if (canvasId && project.canvases) {
+        const canvasIndex = project.canvases.findIndex(c => c.id === canvasId)
+        if (canvasIndex >= 0 && project.currentCanvasIndex !== canvasIndex) {
+          project.currentCanvasIndex = canvasIndex
+        }
+      }
+
+      // 如果有指定节点ID，激活该节点
+      if (nodeId) {
+        await nextTick()
+        activeNodeId.value = nodeId
+        // 滚动到该节点
+        scrollToNode(nodeId)
+        // 清除 URL 中的查询参数，避免后续翻页时误判为导航
+        router.replace({ path: route.path, query: {} })
+        // 延迟退出导航模式，确保 watch 已经执行完毕
+        setTimeout(() => {
+          isNavigating.value = false
+        }, 100)
+      }
     }
   }
   await contextStore.loadContextFiles()
@@ -311,10 +356,12 @@ onMounted(async () => {
 
   initPanelWidth()
 
-  // 初始化时选中第一个节点
-  nextTick(() => {
-    selectFirstNode()
-  })
+  // 如果没有通过深度链接激活节点，选中第一个节点
+  if (!activeNodeId.value) {
+    nextTick(() => {
+      selectFirstNode()
+    })
+  }
 })
 
 onUnmounted(() => {
