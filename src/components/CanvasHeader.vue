@@ -46,7 +46,7 @@
 
     <!-- 以下元素在宽度不足时隐藏 -->
     <template v-if="!isCompactMode">
-      <h2>{{ projectName }}</h2>
+      <h2>{{ notebookName }}</h2>
 
       <!-- 回到原点按钮 -->
       <button
@@ -152,7 +152,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import type { ContextFile } from '@/types/context'
 
 const props = withDefaults(defineProps<{
-  projectName: string
+  notebookName: string
   staticContextFiles: ContextFile[]
   allStaticContextFiles: ContextFile[]
   dynamicContextFile?: ContextFile

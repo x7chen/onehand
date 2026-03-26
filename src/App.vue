@@ -13,7 +13,7 @@
 import { onMounted, onUnmounted, watchEffect, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSettingsStore } from '@/stores/settingsStore'
-import { useProjectStore } from '@/stores/projectStore'
+import { useNotebookStore } from '@/stores/notebookStore'
 import { useTheme } from '@/composables/useTheme'
 import { useDeepLink } from '@/composables/useDeepLink'
 import { useLinkPaste } from '@/composables/useLinkPaste'
@@ -21,7 +21,7 @@ import NodePopup from '@/components/NodePopup.vue'
 import type { DeepLinkData } from '@/composables/useDeepLink'
 
 const settingsStore = useSettingsStore()
-const projectStore = useProjectStore()
+const notebookStore = useNotebookStore()
 const router = useRouter()
 useTheme(settingsStore)
 
@@ -62,15 +62,15 @@ function handleNavigate(data: DeepLinkData) {
   closeNodePopup()
 
   // Navigate to the node
-  const project = projectStore.projects.find(p => p.id === data.projectId)
-  if (project) {
-    projectStore.setCurrentProject(project)
+  const notebook = notebookStore.notebooks.find(p => p.id === data.notebookId)
+  if (notebook) {
+    notebookStore.setCurrentNotebook(notebook)
 
     // Navigate with query parameters to activate the node
-    if (project.pdfPath) {
-      router.push(`/pdf/${data.projectId}?nodeId=${data.nodeId}`)
+    if (notebook.pdfPath) {
+      router.push(`/pdf/${data.notebookId}?nodeId=${data.nodeId}`)
     } else {
-      router.push(`/node-list/${data.projectId}?canvasId=${data.canvasId}&nodeId=${data.nodeId}`)
+      router.push(`/node-list/${data.notebookId}?canvasId=${data.canvasId}&nodeId=${data.nodeId}`)
     }
   }
 }
@@ -166,7 +166,6 @@ body {
   background: var(--bg-primary) !important;
 }
 
-:root.dark .project-card,
 :root.dark .voice-note,
 :root.dark .section-header,
 :root.dark .canvas-header {

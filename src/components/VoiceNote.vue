@@ -59,7 +59,7 @@
           </svg>
         </button>
         <!-- 复制链接按钮 -->
-        <button v-if="projectId && canvasId" class="action-btn copy-link-btn" @click.stop="handleCopyLink" title="复制链接">
+        <button v-if="notebookId && canvasId" class="action-btn copy-link-btn" @click.stop="handleCopyLink" title="复制链接">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
             <path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/>
           </svg>
@@ -190,11 +190,11 @@
 import { ref, nextTick, watch, computed, onMounted, onUnmounted, watchEffect } from 'vue'
 import { formatDuration } from '@/utils/helpers'
 import { renderMarkdown, renderMermaidCharts } from '@/utils/markdownRenderer'
-import type { CanvasNode } from '@/types/project'
+import type { CanvasNode } from '@/types/notebook'
 
 const props = defineProps<{
   node: CanvasNode
-  projectId?: string
+  notebookId?: string
   canvasId?: string
   isPlaying?: boolean
   isEditing?: boolean
@@ -544,8 +544,8 @@ async function copyAgentResult() {
 
 // 复制节点链接
 async function handleCopyLink() {
-  if (!props.projectId || !props.canvasId) return
-  const url = `onehand://${props.projectId}/${props.canvasId}/${props.node.id}`
+  if (!props.notebookId || !props.canvasId) return
+  const url = `onehand://${props.notebookId}/${props.canvasId}/${props.node.id}`
   try {
     await navigator.clipboard.writeText(url)
     console.log('Link copied:', url)

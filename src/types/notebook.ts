@@ -1,6 +1,6 @@
-import type { ProjectContext } from './context'
+import type { NotebookContext } from './context'
 
-export interface Project {
+export interface Notebook {
   id: string
   name: string
   createdAt: number
@@ -9,7 +9,7 @@ export interface Project {
   canvas?: Canvas
   canvases?: CanvasPage[]
   currentCanvasIndex?: number
-  context?: ProjectContext
+  context?: NotebookContext
   pdfPath?: string
 }
 

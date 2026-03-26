@@ -92,8 +92,8 @@
 <script setup lang="ts">
 import { ref, shallowRef, computed, watch, nextTick, onMounted, onUnmounted, triggerRef } from 'vue'
 import VoiceNoteSmall from '@/components/VoiceNoteSmall.vue'
-import { useProjectStore } from '@/stores/projectStore'
-import type { CanvasNode } from '@/types/project'
+import { useNotebookStore } from '@/stores/notebookStore'
+import type { CanvasNode } from '@/types/notebook'
 
 interface VirtualNodeItem {
   node: CanvasNode
@@ -112,7 +112,7 @@ const props = withDefaults(defineProps<{
   panelWidth: 600
 })
 
-const projectStore = useProjectStore()
+const notebookStore = useNotebookStore()
 
 const emit = defineEmits<{
   'toggle-context': [nodeId: string]
@@ -132,30 +132,30 @@ const showPageIndicator = ref(false)
 let pageIndicatorTimer: ReturnType<typeof setTimeout> | null = null
 
 // 翻页相关计算属性
-const hasPrevPage = computed(() => projectStore.hasPrevPage)
-const hasNextPage = computed(() => projectStore.hasNextPage)
-const currentPageNumber = computed(() => projectStore.currentPageNumber)
-const totalPages = computed(() => projectStore.totalPages)
+const hasPrevPage = computed(() => notebookStore.hasPrevPage)
+const hasNextPage = computed(() => notebookStore.hasNextPage)
+const currentPageNumber = computed(() => notebookStore.currentPageNumber)
+const totalPages = computed(() => notebookStore.totalPages)
 
 // 是否可以新增页面（当前页有节点时可以新增）
 const canAddNewPage = computed(() => {
-  const currentCanvas = projectStore.currentCanvas
+  const currentCanvas = notebookStore.currentCanvas
   return currentCanvas && currentCanvas.nodes && currentCanvas.nodes.length > 0
 })
 
 // 翻页方法
 function handlePrevPage() {
-  projectStore.goToPrevPage()
+  notebookStore.goToPrevPage()
   showPageIndicatorTemporarily()
 }
 
 // 下一页或新增页面
 function handleNextOrAddPage() {
   if (hasNextPage.value) {
-    projectStore.goToNextPage()
+    notebookStore.goToNextPage()
     showPageIndicatorTemporarily()
   } else if (canAddNewPage.value) {
-    projectStore.addNewPage()
+    notebookStore.addNewPage()
     showPageIndicatorTemporarily()
   }
 }

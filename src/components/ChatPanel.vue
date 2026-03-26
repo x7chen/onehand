@@ -11,7 +11,7 @@
       <div v-if="activeNode" class="node-detail">
         <VoiceNote
           :node="activeNode"
-          :project-id="projectId"
+          :notebook-id="notebookId"
           :canvas-id="canvasId"
           :is-active="true"
           :is-editing="isCurrentNodeEditing"
@@ -66,14 +66,14 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
-import { useProjectStore } from '@/stores/projectStore'
+import { useNotebookStore } from '@/stores/notebookStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import VoiceNote from '@/components/VoiceNote.vue'
 import RecordingIndicator from '@/components/RecordingIndicator.vue'
 import { chatWithLLM, buildFullContextMessages } from '@/composables/useQwenAgent'
 import { createAudioWorkletRecorder } from '@/utils/audioWorkletRecorder'
 import { transcribeWithSherpaOnnx } from '@/composables/useSherpaOnnx'
-import type { CanvasNode } from '@/types/project'
+import type { CanvasNode } from '@/types/notebook'
 import type { ContextFile } from '@/types/context'
 
 const props = defineProps<{
@@ -103,12 +103,12 @@ const emit = defineEmits<{
   'start-editing': [nodeId: string]
 }>()
 
-const projectStore = useProjectStore()
+const notebookStore = useNotebookStore()
 const settingsStore = useSettingsStore()
 
-// Get projectId and canvasId from projectStore
-const projectId = computed(() => projectStore.currentProject?.id)
-const canvasId = computed(() => projectStore.currentCanvas?.id)
+// Get notebookId and canvasId from notebookStore
+const notebookId = computed(() => notebookStore.currentNotebook?.id)
+const canvasId = computed(() => notebookStore.currentCanvas?.id)
 
 // MagicPad 相关
 const magicPadRef = ref<HTMLElement | null>(null)
@@ -219,9 +219,9 @@ function handleMagicPadDblClick(e: MouseEvent) {
   }
 
   if (props.currentPage) {
-    projectStore.addNodeToPdfPage(newNode, props.currentPage)
+    notebookStore.addNodeToPdfPage(newNode, props.currentPage)
   } else {
-    projectStore.addNode(newNode)
+    notebookStore.addNode(newNode)
   }
   emit('node-created', newNode)
   emit('update-editing-text', '')
@@ -321,9 +321,9 @@ async function handleMagicPadDrop(e: DragEvent) {
   }
 
   if (props.currentPage) {
-    projectStore.addNodeToPdfPage(newNode, props.currentPage)
+    notebookStore.addNodeToPdfPage(newNode, props.currentPage)
   } else {
-    projectStore.addNode(newNode)
+    notebookStore.addNode(newNode)
   }
   emit('node-created', newNode)
 
@@ -338,12 +338,12 @@ async function handleAgentResponseForText(nodeId: string, transcript: string) {
 
   try {
     if (pdfPage) {
-      projectStore.updateNodeInPdfPage(nodeId, pdfPage, { agentStatus: 'processing' })
+      notebookStore.updateNodeInPdfPage(nodeId, pdfPage, { agentStatus: 'processing' })
     } else {
-      projectStore.updateNode(nodeId, { agentStatus: 'processing' })
+      notebookStore.updateNode(nodeId, { agentStatus: 'processing' })
     }
 
-    const canvas = pdfPage ? projectStore.getCanvasByPdfPage(pdfPage) : projectStore.currentCanvas
+    const canvas = pdfPage ? notebookStore.getCanvasByPdfPage(pdfPage) : notebookStore.currentCanvas
     const selectedNodes = canvas?.nodes.filter(n => n.selectedAsContext && n.id !== nodeId) || []
 
     const staticContextContent = props.staticContextFiles
@@ -367,12 +367,12 @@ async function handleAgentResponseForText(nodeId: string, transcript: string) {
     }, (chunk) => {
       accumulatedContent += chunk
       if (pdfPage) {
-        projectStore.updateNodeInPdfPage(nodeId, pdfPage, {
+        notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
           agentResult: accumulatedContent,
           agentStatus: 'processing'
         })
       } else {
-        projectStore.updateNode(nodeId, {
+        notebookStore.updateNode(nodeId, {
           agentResult: accumulatedContent,
           agentStatus: 'processing'
         })
@@ -380,24 +380,24 @@ async function handleAgentResponseForText(nodeId: string, transcript: string) {
     })
 
     if (pdfPage) {
-      projectStore.updateNodeInPdfPage(nodeId, pdfPage, {
+      notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
         agentResult: result,
         agentStatus: 'done'
       })
     } else {
-      projectStore.updateNode(nodeId, {
+      notebookStore.updateNode(nodeId, {
         agentResult: result,
         agentStatus: 'done'
       })
     }
   } catch (error) {
     if (pdfPage) {
-      projectStore.updateNodeInPdfPage(nodeId, pdfPage, {
+      notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
         agentResult: String(error),
         agentStatus: 'error'
       })
     } else {
-      projectStore.updateNode(nodeId, {
+      notebookStore.updateNode(nodeId, {
         agentResult: String(error),
         agentStatus: 'error'
       })
@@ -439,14 +439,14 @@ async function createVoiceNode(audioBlob: Blob, duration: number) {
   const audioPath = `audio/${nodeId}.${extension}`
 
   const appDataPath = await window.electronAPI.getAppPath('userData')
-  const project = projectStore.currentProject
-  if (!project) return
+  const notebook = notebookStore.currentNotebook
+  if (!notebook) return
 
-  const projectDir = `${appDataPath}/projects/${project.id}`
-  await window.electronAPI.mkdir(`${projectDir}/audio`)
+  const notebookDir = `${appDataPath}/notebooks/${notebook.id}`
+  await window.electronAPI.mkdir(`${notebookDir}/audio`)
 
   const arrayBuffer = await audioBlob.arrayBuffer()
-  await window.electronAPI.saveFileBuffer(`${projectDir}/${audioPath}`, arrayBuffer)
+  await window.electronAPI.saveFileBuffer(`${notebookDir}/${audioPath}`, arrayBuffer)
 
   const pdfPage = props.currentPage
 
@@ -467,9 +467,9 @@ async function createVoiceNode(audioBlob: Blob, duration: number) {
   }
 
   if (pdfPage) {
-    projectStore.addNodeToPdfPage(node, pdfPage)
+    notebookStore.addNodeToPdfPage(node, pdfPage)
   } else {
-    projectStore.addNode(node)
+    notebookStore.addNode(node)
   }
   emit('node-created', node)
 
@@ -499,10 +499,10 @@ async function handleTranscription(node: CanvasNode) {
     updateNodeWithPage(node.id, { transcriptStatus: 'processing' })
 
     const appDataPath = await window.electronAPI.getAppPath('userData')
-    const project = projectStore.currentProject
-    if (!project || !node.audioPath) return
+    const notebook = notebookStore.currentNotebook
+    if (!notebook || !node.audioPath) return
 
-    const audioPath = `${appDataPath}/projects/${project.id}/${node.audioPath}`
+    const audioPath = `${appDataPath}/notebooks/${notebook.id}/${node.audioPath}`
     const result = await window.electronAPI.readFile(audioPath, 'arraybuffer')
 
     if (result.success && result.data) {
@@ -538,15 +538,15 @@ async function handleTranscription(node: CanvasNode) {
 function updateNodeWithPage(nodeId: string, updates: Partial<CanvasNode>) {
   const node = findNodeById(nodeId)
   if (node?.pdfPage !== undefined && node.pdfPage !== null) {
-    projectStore.updateNodeInPdfPage(nodeId, node.pdfPage, updates)
+    notebookStore.updateNodeInPdfPage(nodeId, node.pdfPage, updates)
   } else {
-    projectStore.updateNode(nodeId, updates)
+    notebookStore.updateNode(nodeId, updates)
   }
 }
 
 function findNodeById(nodeId: string): CanvasNode | undefined {
-  if (!projectStore.currentProject?.canvases) return undefined
-  for (const canvas of projectStore.currentProject.canvases) {
+  if (!notebookStore.currentNotebook?.canvases) return undefined
+  for (const canvas of notebookStore.currentNotebook.canvases) {
     const node = canvas.nodes.find(n => n.id === nodeId)
     if (node) return node
   }
@@ -572,14 +572,14 @@ async function handleAgentResponseForVoice(nodeId: string, transcript: string, p
 
   try {
     if (pdfPage !== undefined && pdfPage !== null) {
-      projectStore.updateNodeInPdfPage(nodeId, pdfPage, { agentStatus: 'processing' })
+      notebookStore.updateNodeInPdfPage(nodeId, pdfPage, { agentStatus: 'processing' })
     } else {
-      projectStore.updateNode(nodeId, { agentStatus: 'processing' })
+      notebookStore.updateNode(nodeId, { agentStatus: 'processing' })
     }
 
     const canvas = pdfPage !== undefined && pdfPage !== null
-      ? projectStore.getCanvasByPdfPage(pdfPage)
-      : projectStore.currentCanvas
+      ? notebookStore.getCanvasByPdfPage(pdfPage)
+      : notebookStore.currentCanvas
     const selectedNodes = canvas?.nodes.filter(n => n.selectedAsContext && n.id !== nodeId) || []
 
     const staticContextContent = props.staticContextFiles
@@ -603,12 +603,12 @@ async function handleAgentResponseForVoice(nodeId: string, transcript: string, p
     }, (chunk) => {
       accumulatedContent += chunk
       if (pdfPage !== undefined && pdfPage !== null) {
-        projectStore.updateNodeInPdfPage(nodeId, pdfPage, {
+        notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
           agentResult: accumulatedContent,
           agentStatus: 'processing'
         })
       } else {
-        projectStore.updateNode(nodeId, {
+        notebookStore.updateNode(nodeId, {
           agentResult: accumulatedContent,
           agentStatus: 'processing'
         })
@@ -620,24 +620,24 @@ async function handleAgentResponseForVoice(nodeId: string, transcript: string, p
     })
 
     if (pdfPage !== undefined && pdfPage !== null) {
-      projectStore.updateNodeInPdfPage(nodeId, pdfPage, {
+      notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
         agentResult: result,
         agentStatus: 'done'
       })
     } else {
-      projectStore.updateNode(nodeId, {
+      notebookStore.updateNode(nodeId, {
         agentResult: result,
         agentStatus: 'done'
       })
     }
   } catch (error) {
     if (pdfPage !== undefined && pdfPage !== null) {
-      projectStore.updateNodeInPdfPage(nodeId, pdfPage, {
+      notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
         agentResult: String(error),
         agentStatus: 'error'
       })
     } else {
-      projectStore.updateNode(nodeId, {
+      notebookStore.updateNode(nodeId, {
         agentResult: String(error),
         agentStatus: 'error'
       })

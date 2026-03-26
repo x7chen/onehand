@@ -2,7 +2,7 @@
   <div v-if="visible" class="dialog-overlay" @click="handleOverlayClick">
     <div class="dialog node-popup-dialog" @click.stop>
       <div class="popup-header">
-        <h3 v-if="nodeData">{{ nodeData.project.name }}</h3>
+        <h3 v-if="nodeData">{{ nodeData.notebook.name }}</h3>
         <h3 v-else>节点详情</h3>
         <div class="header-actions">
           <button
@@ -44,7 +44,7 @@
       <div v-else-if="nodeData" class="popup-content">
         <VoiceNote
           :node="nodeData.node"
-          :project-id="nodeData.project.id"
+          :notebook-id="nodeData.notebook.id"
           :canvas-id="nodeData.canvas.id"
           :show-header="true"
           :is-active="true"
@@ -62,7 +62,7 @@
 import { ref, watch } from 'vue'
 import VoiceNote from '@/components/VoiceNote.vue'
 import { parseDeepLinkUrl, findNodeByDeepLink, type NodePopupData } from '@/composables/useDeepLink'
-import { useProjectStore } from '@/stores/projectStore'
+import { useNotebookStore } from '@/stores/notebookStore'
 import type { DeepLinkData } from '@/composables/useDeepLink'
 
 const props = defineProps<{
@@ -75,7 +75,7 @@ const emit = defineEmits<{
   (e: 'navigate', data: DeepLinkData): void
 }>()
 
-const projectStore = useProjectStore()
+const notebookStore = useNotebookStore()
 
 const loading = ref(false)
 const error = ref<string | null>(null)
@@ -150,7 +150,7 @@ function handleNavigate() {
   }
 
   emit('navigate', {
-    projectId: nodeData.value.project.id,
+    notebookId: nodeData.value.notebook.id,
     canvasId: nodeData.value.canvas.id,
     nodeId: nodeData.value.node.id
   })

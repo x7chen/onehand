@@ -84,7 +84,7 @@ export const useContextStore = defineStore('context', () => {
     name: string,
     type: ContextType,
     content: string = '',
-    projectId?: string
+    notebookId?: string
   ): Promise<ContextFile> {
     const existingFiles = type === 'static' ? staticContextFiles.value : dynamicContextFiles.value
     const contextFile: ContextFile = {
@@ -95,7 +95,7 @@ export const useContextStore = defineStore('context', () => {
       content,
       createdAt: Date.now(),
       updatedAt: Date.now(),
-      projectId
+      notebookId
     }
 
     contextFiles.value.push(contextFile)

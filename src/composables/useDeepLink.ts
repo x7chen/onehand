@@ -1,23 +1,23 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useProjectStore } from '@/stores/projectStore'
-import type { CanvasNode, CanvasPage, Project } from '@/types/project'
+import { useNotebookStore } from '@/stores/notebookStore'
+import type { CanvasNode, CanvasPage, Notebook } from '@/types/notebook'
 
 export interface DeepLinkData {
-  projectId: string
+  notebookId: string
   canvasId: string
   nodeId: string
 }
 
 export interface NodePopupData {
-  project: Project
+  notebook: Notebook
   canvas: CanvasPage
   node: CanvasNode
 }
 
 /**
  * Parse onehand:// URL
- * Format: onehand://project_id/canvas_id/node_id
+ * Format: onehand://notebook_id/canvas_id/node_id
  */
 export function parseDeepLinkUrl(url: string): DeepLinkData | null {
   if (!url || !url.startsWith('onehand://')) {
@@ -35,7 +35,7 @@ export function parseDeepLinkUrl(url: string): DeepLinkData | null {
     }
 
     return {
-      projectId: parts[0],
+      notebookId: parts[0],
       canvasId: parts[1],
       nodeId: parts[2]
     }
@@ -48,30 +48,30 @@ export function parseDeepLinkUrl(url: string): DeepLinkData | null {
 /**
  * Generate a deep link URL for a node
  */
-export function generateDeepLinkUrl(projectId: string, canvasId: string, nodeId: string): string {
-  return `onehand://${projectId}/${canvasId}/${nodeId}`
+export function generateDeepLinkUrl(notebookId: string, canvasId: string, nodeId: string): string {
+  return `onehand://${notebookId}/${canvasId}/${nodeId}`
 }
 
 /**
  * Find a node by deep link data
  */
 export async function findNodeByDeepLink(data: DeepLinkData): Promise<NodePopupData | null> {
-  const projectStore = useProjectStore()
+  const notebookStore = useNotebookStore()
 
-  // Load projects if not loaded
-  if (projectStore.projects.length === 0) {
-    await projectStore.loadProjects()
+  // Load notebooks if not loaded
+  if (notebookStore.notebooks.length === 0) {
+    await notebookStore.loadNotebooks()
   }
 
-  // Find the project
-  const project = projectStore.projects.find(p => p.id === data.projectId)
-  if (!project) {
-    console.warn('Project not found:', data.projectId)
+  // Find the notebook
+  const notebook = notebookStore.notebooks.find(p => p.id === data.notebookId)
+  if (!notebook) {
+    console.warn('Notebook not found:', data.notebookId)
     return null
   }
 
   // Find the canvas
-  const canvas = project.canvases?.find(c => c.id === data.canvasId)
+  const canvas = notebook.canvases?.find(c => c.id === data.canvasId)
   if (!canvas) {
     console.warn('Canvas not found:', data.canvasId)
     return null
@@ -84,7 +84,7 @@ export async function findNodeByDeepLink(data: DeepLinkData): Promise<NodePopupD
     return null
   }
 
-  return { project, canvas, node }
+  return { notebook, canvas, node }
 }
 
 /**
@@ -92,7 +92,7 @@ export async function findNodeByDeepLink(data: DeepLinkData): Promise<NodePopupD
  */
 export function useDeepLink() {
   const router = useRouter()
-  const projectStore = useProjectStore()
+  const notebookStore = useNotebookStore()
   const deepLinkUrl = ref<string | null>(null)
   const error = ref<string | null>(null)
 
@@ -114,22 +114,22 @@ export function useDeepLink() {
       return
     }
 
-    // Set the project as current
-    projectStore.setCurrentProject(nodeData.project)
+    // Set the notebook as current
+    notebookStore.setCurrentNotebook(nodeData.notebook)
 
-    // For PDF projects, switch to the correct PDF page
-    if (nodeData.project.pdfPath && nodeData.canvas.pdfPage) {
-      projectStore.switchToPdfPage(nodeData.canvas.pdfPage)
-      // PDF project - navigate to PdfReaderView with nodeId query
-      router.push(`/pdf/${data.projectId}?nodeId=${data.nodeId}`)
+    // For PDF notebooks, switch to the correct PDF page
+    if (nodeData.notebook.pdfPath && nodeData.canvas.pdfPage) {
+      notebookStore.switchToPdfPage(nodeData.canvas.pdfPage)
+      // PDF notebook - navigate to PdfReaderView with nodeId query
+      router.push(`/pdf/${data.notebookId}?nodeId=${data.nodeId}`)
     } else {
-      // For non-PDF projects, find the canvas index by ID and switch
-      const canvasIndex = nodeData.project.canvases?.findIndex(c => c.id === data.canvasId) ?? 0
+      // For non-PDF notebooks, find the canvas index by ID and switch
+      const canvasIndex = nodeData.notebook.canvases?.findIndex(c => c.id === data.canvasId) ?? 0
       if (canvasIndex >= 0) {
-        nodeData.project.currentCanvasIndex = canvasIndex
+        nodeData.notebook.currentCanvasIndex = canvasIndex
       }
-      // Normal project - navigate to NodeListView with canvasId and nodeId query
-      router.push(`/node-list/${data.projectId}?canvasId=${data.canvasId}&nodeId=${data.nodeId}`)
+      // Normal notebook - navigate to NodeListView with canvasId and nodeId query
+      router.push(`/node-list/${data.notebookId}?canvasId=${data.canvasId}&nodeId=${data.nodeId}`)
     }
   }
 

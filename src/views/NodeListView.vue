@@ -2,7 +2,7 @@
   <div class="node-list-view">
     <!-- 顶部工具栏 -->
     <CanvasHeader
-      :project-name="projectStore.currentProject?.name || ''"
+      :notebook-name="notebookStore.currentNotebook?.name || ''"
       :static-context-files="staticContextFiles"
       :all-static-context-files="contextStore.staticContextFiles"
       :dynamic-context-file="dynamicContextFile || undefined"
@@ -48,7 +48,7 @@
       <NodeListPanel
         v-if="!isLeftPanelCollapsed"
         ref="nodePanelRef"
-        :nodes="projectStore.currentCanvas?.nodes || []"
+        :nodes="notebookStore.currentCanvas?.nodes || []"
         :active-node-id="activeNode?.id"
         :playing-node-id="playingNodeId"
         :panel-width="leftPanelWidth"
@@ -133,7 +133,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useProjectStore } from '@/stores/projectStore'
+import { useNotebookStore } from '@/stores/notebookStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useContextStore } from '@/stores/contextStore'
 import CanvasHeader from '@/components/CanvasHeader.vue'
@@ -141,11 +141,11 @@ import NodeListPanel from '@/components/NodeListPanel.vue'
 import ChatPanel from '@/components/ChatPanel.vue'
 import ContextToolbar from '@/components/ContextToolbar.vue'
 import { chatWithLLM, buildFullContextMessages } from '@/composables/useQwenAgent'
-import type { CanvasNode } from '@/types/project'
+import type { CanvasNode } from '@/types/notebook'
 
 const route = useRoute()
 const router = useRouter()
-const projectStore = useProjectStore()
+const notebookStore = useNotebookStore()
 const settingsStore = useSettingsStore()
 const contextStore = useContextStore()
 
@@ -231,7 +231,7 @@ const isNavigating = ref(false)
 // 当前激活的节点（通过 ID 从 store 中查找，确保始终获取最新数据）
 const activeNode = computed(() => {
   if (!activeNodeId.value) return null
-  return projectStore.currentCanvas?.nodes.find(n => n.id === activeNodeId.value) || null
+  return notebookStore.currentCanvas?.nodes.find(n => n.id === activeNodeId.value) || null
 })
 
 // 音频播放
@@ -250,7 +250,7 @@ const aiAnswerEnabled = ref(true)
 
 // 静态上下文
 const staticContextFiles = computed(() => {
-  const ids = projectStore.currentProject?.context?.staticContextIds || []
+  const ids = notebookStore.currentNotebook?.context?.staticContextIds || []
   return contextStore.staticContextFiles.filter(f => ids.includes(f.id))
 })
 
@@ -258,18 +258,18 @@ const staticContextFiles = computed(() => {
 const showDynamicContextEditor = ref(false)
 const dynamicContextEditContent = ref('')
 const dynamicContextFile = computed(() => {
-  const id = projectStore.currentProject?.context?.dynamicContextId
+  const id = notebookStore.currentNotebook?.context?.dynamicContextId
   return id ? contextStore.dynamicContextFiles.find(f => f.id === id) : null
 })
 
 // 选中的上下文数量
 const selectedContextCount = computed(() => {
-  return projectStore.currentCanvas?.nodes.filter(n => n.selectedAsContext && n.transcriptStatus === 'done').length || 0
+  return notebookStore.currentCanvas?.nodes.filter(n => n.selectedAsContext && n.transcriptStatus === 'done').length || 0
 })
 
 // 已完成节点数量
 const completedNodesCount = computed(() => {
-  return projectStore.currentCanvas?.nodes.filter(n => n.transcriptStatus === 'done').length || 0
+  return notebookStore.currentCanvas?.nodes.filter(n => n.transcriptStatus === 'done').length || 0
 })
 
 // 是否全选
@@ -278,7 +278,7 @@ const isAllContextSelected = computed(() => {
 })
 
 // 监听画布切换，自动选中第一个节点（导航时除外）
-watch(() => projectStore.currentCanvas?.id, (newCanvasId, oldCanvasId) => {
+watch(() => notebookStore.currentCanvas?.id, (newCanvasId, oldCanvasId) => {
   if (newCanvasId && newCanvasId !== oldCanvasId) {
     // 导航模式下跳过自动选中
     if (isNavigating.value) {
@@ -293,7 +293,7 @@ watch(() => projectStore.currentCanvas?.id, (newCanvasId, oldCanvasId) => {
 
 // 选中当前画布的第一个节点
 function selectFirstNode() {
-  const nodes = projectStore.currentCanvas?.nodes || []
+  const nodes = notebookStore.currentCanvas?.nodes || []
   if (nodes.length > 0) {
     const sortedNodes = [...nodes].sort((a, b) => a.createdAt - b.createdAt)
     activeNodeId.value = sortedNodes[0].id
@@ -309,14 +309,14 @@ function scrollToNode(nodeId: string) {
   })
 }
 
-// 加载项目
+// 加载笔记本
 onMounted(async () => {
-  const projectId = route.params.projectId as string
-  if (projectId) {
-    await projectStore.loadProjects()
-    const project = projectStore.projects.find(p => p.id === projectId)
-    if (project) {
-      projectStore.setCurrentProject(project)
+  const notebookId = route.params.notebookId as string
+  if (notebookId) {
+    await notebookStore.loadNotebooks()
+    const notebook = notebookStore.notebooks.find(p => p.id === notebookId)
+    if (notebook) {
+      notebookStore.setCurrentNotebook(notebook)
 
       // 处理深度链接参数：切换到指定画布并激活节点
       const canvasId = route.query.canvasId as string
@@ -327,10 +327,10 @@ onMounted(async () => {
         isNavigating.value = true
       }
 
-      if (canvasId && project.canvases) {
-        const canvasIndex = project.canvases.findIndex(c => c.id === canvasId)
-        if (canvasIndex >= 0 && project.currentCanvasIndex !== canvasIndex) {
-          project.currentCanvasIndex = canvasIndex
+      if (canvasId && notebook.canvases) {
+        const canvasIndex = notebook.canvases.findIndex(c => c.id === canvasId)
+        if (canvasIndex >= 0 && notebook.currentCanvasIndex !== canvasIndex) {
+          notebook.currentCanvasIndex = canvasIndex
         }
       }
 
@@ -383,7 +383,7 @@ function handleKeyDown(event: KeyboardEvent) {
     return
   }
 
-  const nodes = projectStore.currentCanvas?.nodes || []
+  const nodes = notebookStore.currentCanvas?.nodes || []
   if (!nodes || nodes.length === 0) return
 
   if (event.key === 'ArrowLeft' || event.key === 'ArrowRight' ||
@@ -413,6 +413,7 @@ function goBack() {
     currentAudio.value = null
   }
   playingNodeId.value = null
+  notebookStore.cleanupEmptyPages()
   router.push('/')
 }
 
@@ -445,13 +446,13 @@ function handleStartEditing(nodeId: string) {
 
 function handleSaveEdit(nodeId: string, text: string) {
   if (text.trim()) {
-    projectStore.updateNode(nodeId, { transcript: text.trim() })
+    notebookStore.updateNode(nodeId, { transcript: text.trim() })
     if (aiAnswerEnabled.value) {
       handleAgentResponse(nodeId, text.trim())
     }
   } else {
     // 删除空节点后选中第一个节点
-    projectStore.removeNode(nodeId)
+    notebookStore.removeNode(nodeId)
     selectFirstNode()
   }
   editingNodeId.value = null
@@ -459,10 +460,10 @@ function handleSaveEdit(nodeId: string, text: string) {
 }
 
 function handleCancelEdit(nodeId: string) {
-  const node = projectStore.currentCanvas?.nodes.find(n => n.id === nodeId)
+  const node = notebookStore.currentCanvas?.nodes.find(n => n.id === nodeId)
   if (node && !node.transcript) {
     // 删除空节点后选中第一个节点
-    projectStore.removeNode(nodeId)
+    notebookStore.removeNode(nodeId)
     selectFirstNode()
   }
   editingNodeId.value = null
@@ -480,16 +481,16 @@ function handleClickOutsideEditing(e: MouseEvent) {
     return
   }
 
-  const node = projectStore.currentCanvas?.nodes.find(n => n.id === editingNodeId.value)
+  const node = notebookStore.currentCanvas?.nodes.find(n => n.id === editingNodeId.value)
   if (node) {
     if (editingText.value.trim()) {
-      projectStore.updateNode(editingNodeId.value, { transcript: editingText.value.trim() })
+      notebookStore.updateNode(editingNodeId.value, { transcript: editingText.value.trim() })
       if (aiAnswerEnabled.value) {
         handleAgentResponse(editingNodeId.value, editingText.value.trim())
       }
     } else {
       // 删除空节点后选中第一个节点
-      projectStore.removeNode(editingNodeId.value)
+      notebookStore.removeNode(editingNodeId.value)
       selectFirstNode()
     }
   }
@@ -499,14 +500,14 @@ function handleClickOutsideEditing(e: MouseEvent) {
 
 // 节点操作
 function handleDeleteNode(nodeId: string) {
-  projectStore.removeNode(nodeId)
+  notebookStore.removeNode(nodeId)
   if (activeNodeId.value === nodeId) {
     activeNodeId.value = null
   }
 }
 
 async function handlePlayNode(nodeId: string) {
-  const node = projectStore.currentCanvas?.nodes.find(n => n.id === nodeId)
+  const node = notebookStore.currentCanvas?.nodes.find(n => n.id === nodeId)
   if (!node?.audioPath) return
 
   if (playingNodeId.value === nodeId && currentAudio.value) {
@@ -540,9 +541,9 @@ async function handlePlayNode(nodeId: string) {
 }
 
 function handleToggleContext(nodeId: string) {
-  const node = projectStore.currentCanvas?.nodes.find(n => n.id === nodeId)
+  const node = notebookStore.currentCanvas?.nodes.find(n => n.id === nodeId)
   if (node) {
-    projectStore.updateNode(nodeId, { selectedAsContext: !node.selectedAsContext })
+    notebookStore.updateNode(nodeId, { selectedAsContext: !node.selectedAsContext })
   }
 }
 
@@ -555,7 +556,7 @@ function handleRetryAgent(nodeId: string) {
 }
 
 function handleRegenerateAgent(nodeId: string) {
-  const node = projectStore.currentCanvas?.nodes.find(n => n.id === nodeId)
+  const node = notebookStore.currentCanvas?.nodes.find(n => n.id === nodeId)
   if (node && node.transcript) {
     handleAgentResponse(nodeId, node.transcript)
   }
@@ -565,12 +566,12 @@ async function handleAgentResponse(nodeId: string, transcript: string) {
   const settings = settingsStore.settings
 
   try {
-    projectStore.updateNode(nodeId, { agentStatus: 'processing' })
+    notebookStore.updateNode(nodeId, { agentStatus: 'processing' })
 
-    const node = projectStore.currentCanvas?.nodes.find(n => n.id === nodeId)
+    const node = notebookStore.currentCanvas?.nodes.find(n => n.id === nodeId)
     if (!node) return
 
-    const selectedNodes = projectStore.currentCanvas?.nodes.filter(n => n.selectedAsContext && n.id !== nodeId) || []
+    const selectedNodes = notebookStore.currentCanvas?.nodes.filter(n => n.selectedAsContext && n.id !== nodeId) || []
 
     const staticContextContent = staticContextFiles.value
       .map(f => f.content)
@@ -592,20 +593,20 @@ async function handleAgentResponse(nodeId: string, transcript: string) {
       model: settings.llm.model
     }, (chunk) => {
       accumulatedContent += chunk
-      projectStore.updateNode(nodeId, {
+      notebookStore.updateNode(nodeId, {
         agentResult: accumulatedContent,
         agentStatus: 'processing'
       })
       // activeNode 现在是计算属性，会自动获取最新数据
     })
 
-    projectStore.updateNode(nodeId, {
+    notebookStore.updateNode(nodeId, {
       agentResult: result,
       agentStatus: 'done'
     })
     // activeNode 现在是计算属性，会自动获取最新数据
   } catch (error) {
-    projectStore.updateNode(nodeId, {
+    notebookStore.updateNode(nodeId, {
       agentResult: String(error),
       agentStatus: 'error'
     })
@@ -613,9 +614,9 @@ async function handleAgentResponse(nodeId: string, transcript: string) {
 }
 
 function handleToggleFavorite(nodeId: string) {
-  const node = projectStore.currentCanvas?.nodes.find(n => n.id === nodeId)
+  const node = notebookStore.currentCanvas?.nodes.find(n => n.id === nodeId)
   if (node) {
-    projectStore.updateNode(nodeId, { isFavorite: !node.isFavorite })
+    notebookStore.updateNode(nodeId, { isFavorite: !node.isFavorite })
   }
 }
 
@@ -624,33 +625,33 @@ function handleDragStart(nodeId: string, offsetX: number, offsetY: number) {
 }
 
 function handleUpdateNode(nodeId: string, updates: Partial<CanvasNode>) {
-  projectStore.updateNode(nodeId, updates)
+  notebookStore.updateNode(nodeId, updates)
   // activeNode 现在是计算属性，会自动获取最新数据
 }
 
 // 静态上下文选择
 async function toggleStaticContext(contextId: string) {
-  if (!projectStore.currentProject) return
+  if (!notebookStore.currentNotebook) return
 
-  const currentIds = projectStore.currentProject.context?.staticContextIds || []
+  const currentIds = notebookStore.currentNotebook.context?.staticContextIds || []
   const newIds = currentIds.includes(contextId)
     ? currentIds.filter(id => id !== contextId)
     : [...currentIds, contextId]
 
-  if (!projectStore.currentProject.context) {
-    projectStore.currentProject.context = {}
+  if (!notebookStore.currentNotebook.context) {
+    notebookStore.currentNotebook.context = {}
   }
 
   if (newIds.length > 0) {
-    if (!projectStore.currentProject.context.staticContextIds) {
-      projectStore.currentProject.context.staticContextIds = []
+    if (!notebookStore.currentNotebook.context.staticContextIds) {
+      notebookStore.currentNotebook.context.staticContextIds = []
     }
-    projectStore.currentProject.context.staticContextIds.splice(0, projectStore.currentProject.context.staticContextIds.length, ...newIds)
+    notebookStore.currentNotebook.context.staticContextIds.splice(0, notebookStore.currentNotebook.context.staticContextIds.length, ...newIds)
   } else {
-    projectStore.currentProject.context.staticContextIds = undefined
+    notebookStore.currentNotebook.context.staticContextIds = undefined
   }
 
-  await projectStore.saveProject(projectStore.currentProject)
+  await notebookStore.saveNotebook(notebookStore.currentNotebook)
 }
 
 // 动态上下文操作
@@ -675,12 +676,12 @@ async function handleDynamicContextDrop(text: string) {
   let file = dynamicContextFile.value
   if (!file) {
     file = await contextStore.createContextFile('动态上下文', 'dynamic')
-    if (projectStore.currentProject) {
-      projectStore.currentProject.context = {
-        ...projectStore.currentProject.context,
+    if (notebookStore.currentNotebook) {
+      notebookStore.currentNotebook.context = {
+        ...notebookStore.currentNotebook.context,
         dynamicContextId: file.id
       }
-      projectStore.saveProject(projectStore.currentProject)
+      notebookStore.saveNotebook(notebookStore.currentNotebook)
     }
   }
 
@@ -690,43 +691,43 @@ async function handleDynamicContextDrop(text: string) {
 
 // 上下文选择操作
 function handleToggleAllContext() {
-  const nodes = projectStore.currentCanvas?.nodes || []
+  const nodes = notebookStore.currentCanvas?.nodes || []
   if (isAllContextSelected.value) {
     nodes.forEach(node => {
       if (node.selectedAsContext) {
-        projectStore.updateNode(node.id, { selectedAsContext: false })
+        notebookStore.updateNode(node.id, { selectedAsContext: false })
       }
     })
   } else {
     nodes.forEach(node => {
       if (node.transcriptStatus === 'done') {
-        projectStore.updateNode(node.id, { selectedAsContext: true })
+        notebookStore.updateNode(node.id, { selectedAsContext: true })
       }
     })
   }
 }
 
 function handleInvertSelection() {
-  const nodes = projectStore.currentCanvas?.nodes || []
+  const nodes = notebookStore.currentCanvas?.nodes || []
   nodes.forEach(node => {
     if (node.transcriptStatus === 'done') {
-      projectStore.updateNode(node.id, { selectedAsContext: !node.selectedAsContext })
+      notebookStore.updateNode(node.id, { selectedAsContext: !node.selectedAsContext })
     }
   })
 }
 
 function clearContextSelection() {
-  const nodes = projectStore.currentCanvas?.nodes || []
+  const nodes = notebookStore.currentCanvas?.nodes || []
   nodes.forEach(node => {
     if (node.selectedAsContext) {
-      projectStore.updateNode(node.id, { selectedAsContext: false })
+      notebookStore.updateNode(node.id, { selectedAsContext: false })
     }
   })
 }
 
 // 复制已选中节点的内容到剪贴板
 async function handleCopySelectedContext() {
-  const nodes = projectStore.currentCanvas?.nodes || []
+  const nodes = notebookStore.currentCanvas?.nodes || []
   const selectedNodes = nodes
     .filter(n => n.selectedAsContext && n.transcript)
     .sort((a, b) => a.createdAt - b.createdAt)

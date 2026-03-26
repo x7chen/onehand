@@ -182,7 +182,7 @@ import {
   EventBus
 } from 'pdfjs-dist/web/pdf_viewer.mjs'
 import 'pdfjs-dist/web/pdf_viewer.css'
-import type { CanvasNode } from '@/types/project'
+import type { CanvasNode } from '@/types/notebook'
 import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist'
 import RecordingIndicator from '@/components/RecordingIndicator.vue'
 import { createAudioWorkletRecorder } from '@/utils/audioWorkletRecorder'

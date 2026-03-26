@@ -51,7 +51,7 @@
           >
             <div class="result-content" @click="openNodeDetail(result)">
               <div class="result-meta">
-                <span class="project-name">{{ result.projectName }}</span>
+                <span class="notebook-name">{{ result.notebookName }}</span>
                 <span class="separator">·</span>
                 <span class="canvas-info">{{ result.canvasName }}</span>
               </div>
@@ -90,10 +90,10 @@
 import { ref, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import NodePopup from '@/components/NodePopup.vue'
-import { useProjectStore } from '@/stores/projectStore'
+import { useNotebookStore } from '@/stores/notebookStore'
 import { generateDeepLinkUrl } from '@/composables/useDeepLink'
 import type { DeepLinkData } from '@/composables/useDeepLink'
-import type { Project, CanvasPage, CanvasNode } from '@/types/project'
+import type { Notebook, CanvasPage, CanvasNode } from '@/types/notebook'
 
 const props = defineProps<{
   visible: boolean
@@ -104,8 +104,8 @@ const emit = defineEmits<{
 }>()
 
 interface SearchResult {
-  projectId: string
-  projectName: string
+  notebookId: string
+  notebookName: string
   canvasId: string
   canvasName: string
   nodeId: string
@@ -115,7 +115,7 @@ interface SearchResult {
   matchIndex: number
 }
 
-const projectStore = useProjectStore()
+const notebookStore = useNotebookStore()
 const router = useRouter()
 const searchInput = ref<HTMLInputElement | null>(null)
 const resultsContainer = ref<HTMLElement | null>(null)
@@ -184,10 +184,10 @@ function performSearch() {
 
   const results: SearchResult[] = []
 
-  for (const project of projectStore.projects) {
-    if (!project.canvases) continue
+  for (const notebook of notebookStore.notebooks) {
+    if (!notebook.canvases) continue
 
-    for (const canvas of project.canvases) {
+    for (const canvas of notebook.canvases) {
       if (!canvas.nodes) continue
 
       for (const node of canvas.nodes) {
@@ -196,10 +196,10 @@ function performSearch() {
           const matches = findMatches(node.transcript, query)
           for (const match of matches) {
             results.push({
-              projectId: project.id,
-              projectName: project.name,
+              notebookId: notebook.id,
+              notebookName: notebook.name,
               canvasId: canvas.id,
-              canvasName: getCanvasName(canvas, project),
+              canvasName: getCanvasName(canvas, notebook),
               nodeId: node.id,
               fieldType: 'transcript',
               fullText: node.transcript,
@@ -214,10 +214,10 @@ function performSearch() {
           const matches = findMatches(node.agentResult, query)
           for (const match of matches) {
             results.push({
-              projectId: project.id,
-              projectName: project.name,
+              notebookId: notebook.id,
+              notebookName: notebook.name,
               canvasId: canvas.id,
-              canvasName: getCanvasName(canvas, project),
+              canvasName: getCanvasName(canvas, notebook),
               nodeId: node.id,
               fieldType: 'agentResult',
               fullText: node.agentResult,
@@ -230,10 +230,10 @@ function performSearch() {
     }
   }
 
-  // Sort by project name and canvas name
+  // Sort by notebook name and canvas name
   results.sort((a, b) => {
-    if (a.projectName !== b.projectName) {
-      return a.projectName.localeCompare(b.projectName)
+    if (a.notebookName !== b.notebookName) {
+      return a.notebookName.localeCompare(b.notebookName)
     }
     if (a.canvasName !== b.canvasName) {
       return a.canvasName.localeCompare(b.canvasName)
@@ -294,14 +294,14 @@ function escapeHtml(text: string): string {
   return div.innerHTML
 }
 
-function getCanvasName(canvas: CanvasPage, project: Project): string {
+function getCanvasName(canvas: CanvasPage, notebook: Notebook): string {
   if (canvas.pdfPage !== undefined) {
     return `第 ${canvas.pdfPage} 页`
   }
 
-  // Find canvas index for non-PDF projects
-  const index = project.canvases?.findIndex(c => c.id === canvas.id) ?? 0
-  if (project.canvases && project.canvases.length > 1) {
+  // Find canvas index for non-PDF notebooks
+  const index = notebook.canvases?.findIndex(c => c.id === canvas.id) ?? 0
+  if (notebook.canvases && notebook.canvases.length > 1) {
     return `画布 ${index + 1}`
   }
   return '画布'
@@ -309,7 +309,7 @@ function getCanvasName(canvas: CanvasPage, project: Project): string {
 
 function openNodeDetail(result: SearchResult) {
   selectedNodeUrl.value = generateDeepLinkUrl(
-    result.projectId,
+    result.notebookId,
     result.canvasId,
     result.nodeId
   )
@@ -323,15 +323,15 @@ function closeNodePopup() {
 
 function handleNavigate(data: DeepLinkData) {
   // Navigate to the node first, then close dialogs
-  const project = projectStore.projects.find(p => p.id === data.projectId)
-  if (project) {
-    projectStore.setCurrentProject(project)
+  const notebook = notebookStore.notebooks.find(p => p.id === data.notebookId)
+  if (notebook) {
+    notebookStore.setCurrentNotebook(notebook)
 
     // Navigate with query parameters to activate the node
-    if (project.pdfPath) {
-      router.push(`/pdf/${data.projectId}?nodeId=${data.nodeId}`)
+    if (notebook.pdfPath) {
+      router.push(`/pdf/${data.notebookId}?nodeId=${data.nodeId}`)
     } else {
-      router.push(`/node-list/${data.projectId}?canvasId=${data.canvasId}&nodeId=${data.nodeId}`)
+      router.push(`/node-list/${data.notebookId}?canvasId=${data.canvasId}&nodeId=${data.nodeId}`)
     }
   }
 
@@ -530,7 +530,7 @@ function handleNavigate(data: DeepLinkData) {
   margin-bottom: 6px;
 }
 
-.project-name {
+.notebook-name {
   color: #4299e1;
   font-weight: 500;
 }

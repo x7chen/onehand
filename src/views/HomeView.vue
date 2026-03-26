@@ -31,7 +31,7 @@
         </div>
 
         <div v-if="contextStore.contextFiles.length === 0" class="empty-state">
-          <p>暂无上下文标签，创建一个作为项目背景知识或动态积累内容吧！</p>
+          <p>暂无上下文标签，创建一个作为笔记本背景知识或动态积累内容吧！</p>
         </div>
 
         <div v-else class="contexts-container">
@@ -69,49 +69,49 @@
         </div>
       </div>
 
-      <!-- 项目列表区域 -->
-      <div class="projects-section">
+      <!-- 笔记本列表区域 -->
+      <div class="notebooks-section">
         <div class="section-header">
-          <h2>我的项目</h2>
-          <button @click="showNewProjectDialog = true" class="new-project-btn">
-            + 新建项目
+          <h2>我的笔记本</h2>
+          <button @click="showNewNotebookDialog = true" class="new-notebook-btn">
+            + 新建笔记本
           </button>
         </div>
 
-        <div v-if="projectStore.projects.length === 0" class="empty-state">
-          <p>暂无项目，创建一个新项目开始记录吧！</p>
+        <div v-if="notebookStore.notebooks.length === 0" class="empty-state">
+          <p>暂无笔记本，创建一个新笔记本开始记录吧！</p>
         </div>
 
-        <div v-else class="projects-grid">
+        <div v-else class="notebooks-grid">
           <div
-            v-for="project in projectStore.projects"
-            :key="project.id"
-            class="project-card"
+            v-for="notebook in notebookStore.notebooks"
+            :key="notebook.id"
+            class="notebook-card"
             draggable="true"
-            @dragstart="handleProjectDragStart($event, project)"
-            @dragend="handleProjectDragEnd"
+            @dragstart="handleNotebookDragStart($event, notebook)"
+            @dragend="handleNotebookDragEnd"
           >
-            <div class="project-card-content" @click="openProject(project.id)">
-              <h3>{{ project.name }}</h3>
-              <p class="project-info">
-                <span v-if="project.pdfPath" class="pdf-badge">PDF</span>
-                {{ getCanvasesCount(project) }} 页 · {{ getTotalNodesCount(project) }} 个笔记 · {{ formatDate(project.updatedAt) }}
-                <span v-if="project.context?.staticContextIds?.length || project.context?.dynamicContextId" class="context-indicator">
+            <div class="notebook-card-content" @click="openNotebook(notebook.id)">
+              <h3>{{ notebook.name }}</h3>
+              <p class="notebook-info">
+                <span v-if="notebook.pdfPath" class="pdf-badge">PDF</span>
+                {{ getCanvasesCount(notebook) }} 页 · {{ getTotalNodesCount(notebook) }} 个笔记 · {{ formatDate(notebook.updatedAt) }}
+                <span v-if="notebook.context?.staticContextIds?.length || notebook.context?.dynamicContextId" class="context-indicator">
                   ·
-                  <span v-if="project.context.staticContextIds?.length" :title="`静态上下文 (${project.context.staticContextIds.length}个)`">
-                    📄{{ project.context.staticContextIds.length > 1 ? `(${project.context.staticContextIds.length})` : '' }}
+                  <span v-if="notebook.context.staticContextIds?.length" :title="`静态上下文 (${notebook.context.staticContextIds.length}个)`">
+                    📄{{ notebook.context.staticContextIds.length > 1 ? `(${notebook.context.staticContextIds.length})` : '' }}
                   </span>
-                  <span v-if="project.context.dynamicContextId" title="动态上下文">📝</span>
+                  <span v-if="notebook.context.dynamicContextId" title="动态上下文">📝</span>
                 </span>
               </p>
             </div>
-            <div class="project-card-actions">
-              <button v-if="project.pdfPath" class="action-btn pdf-btn" @click.stop="openPdf(project.id)" title="PDF阅读模式">
+            <div class="notebook-card-actions">
+              <button v-if="notebook.pdfPath" class="action-btn pdf-btn" @click.stop="openPdf(notebook.id)" title="PDF阅读模式">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
                   <path d="M20 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8.5 7.5c0 .83-.67 1.5-1.5 1.5H9v2H7.5V7H10c.83 0 1.5.67 1.5 1.5v1zm5 2c0 .83-.67 1.5-1.5 1.5h-2.5V7H15c.83 0 1.5.67 1.5 1.5v3zm4-3H19v1h1.5V11H19v2h-1.5V7h3v1.5zM9 9.5h1v-1H9v1zM4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm10 5.5h1v-3h-1v3z"/>
                 </svg>
               </button>
-              <button v-else class="action-btn node-list-btn" @click.stop="openNodeList(project.id)" title="列表视图">
+              <button v-else class="action-btn node-list-btn" @click.stop="openNodeList(notebook.id)" title="列表视图">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
                   <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
                 </svg>
@@ -135,7 +135,7 @@
         <div class="form-group">
           <label>类型：</label>
           <select v-model="newContextType">
-            <option value="static">静态上下文（固定背景知识、术语表、项目说明等）</option>
+            <option value="static">静态上下文（固定背景知识、术语表、笔记本说明等）</option>
             <option value="dynamic">动态上下文（使用过程中动态积累的内容）</option>
           </select>
         </div>
@@ -204,31 +204,31 @@
       </div>
     </div>
 
-    <!-- New Project Dialog -->
-    <div v-if="showNewProjectDialog" class="dialog-overlay" @click="showNewProjectDialog = false">
+    <!-- New Notebook Dialog -->
+    <div v-if="showNewNotebookDialog" class="dialog-overlay" @click="showNewNotebookDialog = false">
       <div class="dialog" @click.stop>
-        <h3>新建项目</h3>
+        <h3>新建笔记本</h3>
         <input
-          v-model="newProjectName"
+          v-model="newNotebookName"
           type="text"
-          placeholder="项目名称"
-          @keyup.enter="createProject"
-          ref="projectNameInput"
+          placeholder="笔记本名称"
+          @keyup.enter="createNotebook"
+          ref="notebookNameInput"
         />
 
         <!-- PDF 文件选择（可选） -->
         <div class="form-group">
-          <label>PDF 文件（可选，添加后为 PDF 阅读项目）：</label>
+          <label>PDF 文件（可选，添加后为 PDF 阅读笔记本）：</label>
           <div class="pdf-file-selector">
             <input
-              v-model="newProjectPdfName"
+              v-model="newNotebookPdfName"
               type="text"
-              placeholder="留空则为常规项目"
+              placeholder="留空则为常规笔记本"
               readonly
               @click="selectPdfFile"
               class="pdf-input"
             />
-            <button v-if="newProjectPdfPath" @click="clearPdfFile" class="clear-pdf-btn" title="清除">
+            <button v-if="newNotebookPdfPath" @click="clearPdfFile" class="clear-pdf-btn" title="清除">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
                 <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
               </svg>
@@ -245,11 +245,11 @@
               v-for="file in contextStore.staticContextFiles"
               :key="file.id"
               class="context-tag-selectable"
-              :class="{ selected: newProjectStaticContexts.includes(file.id) }"
+              :class="{ selected: newNotebookStaticContexts.includes(file.id) }"
               :style="{
-                backgroundColor: newProjectStaticContexts.includes(file.id) ? file.color + '40' : 'var(--bg-secondary)',
-                borderColor: newProjectStaticContexts.includes(file.id) ? file.color : 'var(--border-color)',
-                color: newProjectStaticContexts.includes(file.id) ? file.color : 'var(--text-secondary)'
+                backgroundColor: newNotebookStaticContexts.includes(file.id) ? file.color + '40' : 'var(--bg-secondary)',
+                borderColor: newNotebookStaticContexts.includes(file.id) ? file.color : 'var(--border-color)',
+                color: newNotebookStaticContexts.includes(file.id) ? file.color : 'var(--text-secondary)'
               }"
               @click="toggleStaticContextSelection(file.id)"
             >
@@ -264,7 +264,7 @@
         <!-- 选择动态上下文 -->
         <div class="form-group">
           <label>动态上下文（可选）：</label>
-          <select v-model="newProjectDynamicContext">
+          <select v-model="newNotebookDynamicContext">
             <option value="">无</option>
             <option v-for="file in contextStore.dynamicContextFiles" :key="file.id" :value="file.id">
               {{ file.name }}
@@ -273,8 +273,8 @@
         </div>
 
         <div class="dialog-actions">
-          <button @click="showNewProjectDialog = false" class="cancel-btn">取消</button>
-          <button @click="createProject" class="confirm-btn">创建</button>
+          <button @click="showNewNotebookDialog = false" class="cancel-btn">取消</button>
+          <button @click="createNotebook" class="confirm-btn">创建</button>
         </div>
       </div>
     </div>
@@ -305,14 +305,14 @@
       <span class="trash-text">拖拽到此处删除</span>
     </div>
 
-    <!-- 项目删除确认对话框 -->
-    <div v-if="showProjectDeleteConfirm" class="dialog-overlay" @click="showProjectDeleteConfirm = false">
+    <!-- 笔记本删除确认对话框 -->
+    <div v-if="showNotebookDeleteConfirm" class="dialog-overlay" @click="showNotebookDeleteConfirm = false">
       <div class="dialog confirm-dialog" @click.stop>
-        <h3>确认删除项目</h3>
-        <p>确定要删除项目 "{{ projectToDelete?.name }}" 吗？此操作不可恢复。</p>
+        <h3>确认删除笔记本</h3>
+        <p>确定要删除笔记本 "{{ notebookToDelete?.name }}" 吗？此操作不可恢复。</p>
         <div class="dialog-actions">
-          <button @click="showProjectDeleteConfirm = false" class="cancel-btn">取消</button>
-          <button @click="confirmDeleteProject" class="delete-btn confirm-delete">删除</button>
+          <button @click="showNotebookDeleteConfirm = false" class="cancel-btn">取消</button>
+          <button @click="confirmDeleteNotebook" class="delete-btn confirm-delete">删除</button>
         </div>
       </div>
     </div>
@@ -328,15 +328,15 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { useProjectStore } from '@/stores/projectStore'
+import { useNotebookStore } from '@/stores/notebookStore'
 import { useContextStore } from '@/stores/contextStore'
 import SearchDialog from '@/components/SearchDialog.vue'
 import type { ContextFile, ContextType } from '@/types/context'
 import { CONTEXT_COLORS } from '@/types/context'
-import type { Project } from '@/types/project'
+import type { Notebook } from '@/types/notebook'
 
 const router = useRouter()
-const projectStore = useProjectStore()
+const notebookStore = useNotebookStore()
 const contextStore = useContextStore()
 
 const contextColors = computed(() => CONTEXT_COLORS)
@@ -348,13 +348,13 @@ const newContextType = ref<ContextType>('static')
 const showEditContextDialog = ref(false)
 const editingContext = ref<ContextFile | undefined>(undefined)
 
-const showNewProjectDialog = ref(false)
-const newProjectName = ref('')
-const newProjectPdfPath = ref('')
-const newProjectPdfName = ref('')
-const newProjectStaticContexts = ref<string[]>([])
-const newProjectDynamicContext = ref('')
-const projectNameInput = ref<HTMLInputElement | null>(null)
+const showNewNotebookDialog = ref(false)
+const newNotebookName = ref('')
+const newNotebookPdfPath = ref('')
+const newNotebookPdfName = ref('')
+const newNotebookStaticContexts = ref<string[]>([])
+const newNotebookDynamicContext = ref('')
+const notebookNameInput = ref<HTMLInputElement | null>(null)
 
 const showDeleteConfirm = ref(false)
 const contextToDelete = ref<string | null>(null)
@@ -362,34 +362,34 @@ const shouldCloseEditDialogAfterDelete = ref(false)
 
 // 拖拽删除相关
 const isDragOverTrash = ref(false)
-const draggedProject = ref<Project | null>(null)
-const showProjectDeleteConfirm = ref(false)
-const projectToDelete = ref<Project | null>(null)
+const draggedNotebook = ref<Notebook | null>(null)
+const showNotebookDeleteConfirm = ref(false)
+const notebookToDelete = ref<Notebook | null>(null)
 
 // 搜索对话框
 const showSearchDialog = ref(false)
 
 onMounted(() => {
-  projectStore.loadProjects()
+  notebookStore.loadNotebooks()
   contextStore.loadContextFiles()
 })
 
-// 计算项目所有画布的节点总数
-function getTotalNodesCount(project: Project): number {
-  if (project.canvases && project.canvases.length > 0) {
-    return project.canvases.reduce((total, canvas) => total + (canvas.nodes?.length || 0), 0)
+// 计算笔记本所有画布的节点总数
+function getTotalNodesCount(notebook: Notebook): number {
+  if (notebook.canvases && notebook.canvases.length > 0) {
+    return notebook.canvases.reduce((total, canvas) => total + (canvas.nodes?.length || 0), 0)
   }
   // 兼容旧数据格式
-  return project.canvas?.nodes?.length || 0
+  return notebook.canvas?.nodes?.length || 0
 }
 
-// 计算项目画布页数
-function getCanvasesCount(project: Project): number {
-  if (project.canvases && project.canvases.length > 0) {
-    return project.canvases.length
+// 计算笔记本画布页数
+function getCanvasesCount(notebook: Notebook): number {
+  if (notebook.canvases && notebook.canvases.length > 0) {
+    return notebook.canvases.length
   }
   // 兼容旧数据格式
-  return project.canvas ? 1 : 0
+  return notebook.canvas ? 1 : 0
 }
 
 function formatDate(timestamp: number): string {
@@ -465,52 +465,52 @@ async function deleteContextFile() {
   }
 }
 
-// Project management
-async function createProject() {
-  if (!newProjectName.value.trim()) return
+// Notebook management
+async function createNotebook() {
+  if (!newNotebookName.value.trim()) return
 
   const context = {
-    staticContextIds: newProjectStaticContexts.value.length > 0 ? newProjectStaticContexts.value : undefined,
-    dynamicContextId: newProjectDynamicContext.value || undefined
+    staticContextIds: newNotebookStaticContexts.value.length > 0 ? newNotebookStaticContexts.value : undefined,
+    dynamicContextId: newNotebookDynamicContext.value || undefined
   }
 
-  // 根据 PDF 路径判断项目类型
-  const pdfPath = newProjectPdfPath.value || undefined
+  // 根据 PDF 路径判断笔记本类型
+  const pdfPath = newNotebookPdfPath.value || undefined
 
-  const project = await projectStore.createProject(
-    newProjectName.value,
+  const notebook = await notebookStore.createNotebook(
+    newNotebookName.value,
     (context.staticContextIds || context.dynamicContextId) ? context : undefined,
     pdfPath
   )
 
-  showNewProjectDialog.value = false
-  newProjectName.value = ''
-  newProjectPdfPath.value = ''
-  newProjectPdfName.value = ''
-  newProjectStaticContexts.value = []
-  newProjectDynamicContext.value = ''
+  showNewNotebookDialog.value = false
+  newNotebookName.value = ''
+  newNotebookPdfPath.value = ''
+  newNotebookPdfName.value = ''
+  newNotebookStaticContexts.value = []
+  newNotebookDynamicContext.value = ''
 
   if (pdfPath) {
-    openPdf(project.id)
+    openPdf(notebook.id)
   } else {
-    openProject(project.id)
+    openNotebook(notebook.id)
   }
 }
 
 // 切换静态上下文选择
 function toggleStaticContextSelection(contextId: string) {
-  const index = newProjectStaticContexts.value.indexOf(contextId)
+  const index = newNotebookStaticContexts.value.indexOf(contextId)
   if (index === -1) {
-    newProjectStaticContexts.value.push(contextId)
+    newNotebookStaticContexts.value.push(contextId)
   } else {
-    newProjectStaticContexts.value.splice(index, 1)
+    newNotebookStaticContexts.value.splice(index, 1)
   }
 }
 
 // 清除 PDF 文件选择
 function clearPdfFile() {
-  newProjectPdfPath.value = ''
-  newProjectPdfName.value = ''
+  newNotebookPdfPath.value = ''
+  newNotebookPdfName.value = ''
 }
 
 async function selectPdfFile() {
@@ -521,35 +521,35 @@ async function selectPdfFile() {
       properties: ['openFile']
     })
     if (result.canceled || !result.filePaths || result.filePaths.length === 0) return
-    newProjectPdfPath.value = result.filePaths[0]
+    newNotebookPdfPath.value = result.filePaths[0]
     const fileName = result.filePaths[0].split(/[/\\]/).pop()
-    newProjectPdfName.value = fileName || result.filePaths[0]
+    newNotebookPdfName.value = fileName || result.filePaths[0]
   } catch (error) {
     console.error('Failed to select PDF file:', error)
   }
 }
 
-function openProject(projectId: string) {
-  const project = projectStore.projects.find(p => p.id === projectId)
-  if (project) {
-    projectStore.setCurrentProject(project)
-    router.push(`/canvas/${projectId}`)
+function openNotebook(notebookId: string) {
+  const notebook = notebookStore.notebooks.find(p => p.id === notebookId)
+  if (notebook) {
+    notebookStore.setCurrentNotebook(notebook)
+    router.push(`/canvas/${notebookId}`)
   }
 }
 
-function openNodeList(projectId: string) {
-  const project = projectStore.projects.find(p => p.id === projectId)
-  if (project) {
-    projectStore.setCurrentProject(project)
-    router.push(`/node-list/${projectId}`)
+function openNodeList(notebookId: string) {
+  const notebook = notebookStore.notebooks.find(p => p.id === notebookId)
+  if (notebook) {
+    notebookStore.setCurrentNotebook(notebook)
+    router.push(`/node-list/${notebookId}`)
   }
 }
 
-function openPdf(projectId: string) {
-  const project = projectStore.projects.find(p => p.id === projectId)
-  if (project) {
-    projectStore.setCurrentProject(project)
-    router.push(`/pdf/${projectId}`)
+function openPdf(notebookId: string) {
+  const notebook = notebookStore.notebooks.find(p => p.id === notebookId)
+  if (notebook) {
+    notebookStore.setCurrentNotebook(notebook)
+    router.push(`/pdf/${notebookId}`)
   }
 }
 
@@ -557,22 +557,22 @@ function openSettings() {
   router.push('/settings')
 }
 
-// 项目拖拽删除功能
-function handleProjectDragStart(e: DragEvent, project: Project) {
-  draggedProject.value = project
+// 笔记本拖拽删除功能
+function handleNotebookDragStart(e: DragEvent, notebook: Notebook) {
+  draggedNotebook.value = notebook
   if (e.dataTransfer) {
     e.dataTransfer.effectAllowed = 'move'
-    e.dataTransfer.setData('text/plain', project.id)
+    e.dataTransfer.setData('text/plain', notebook.id)
     // 设置拖拽时的半透明效果
     const target = e.target as HTMLElement
     target.style.opacity = '0.5'
   }
 }
 
-function handleProjectDragEnd(e: DragEvent) {
+function handleNotebookDragEnd(e: DragEvent) {
   const target = e.target as HTMLElement
   target.style.opacity = '1'
-  draggedProject.value = null
+  draggedNotebook.value = null
   isDragOverTrash.value = false
 }
 
@@ -592,18 +592,18 @@ function handleTrashDrop(e: DragEvent) {
   e.preventDefault()
   isDragOverTrash.value = false
 
-  const projectId = e.dataTransfer?.getData('text/plain')
-  if (projectId && draggedProject.value) {
-    projectToDelete.value = draggedProject.value
-    showProjectDeleteConfirm.value = true
+  const notebookId = e.dataTransfer?.getData('text/plain')
+  if (notebookId && draggedNotebook.value) {
+    notebookToDelete.value = draggedNotebook.value
+    showNotebookDeleteConfirm.value = true
   }
 }
 
-async function confirmDeleteProject() {
-  if (projectToDelete.value) {
-    await projectStore.deleteProject(projectToDelete.value.id)
-    showProjectDeleteConfirm.value = false
-    projectToDelete.value = null
+async function confirmDeleteNotebook() {
+  if (notebookToDelete.value) {
+    await notebookStore.deleteNotebook(notebookToDelete.value.id)
+    showNotebookDeleteConfirm.value = false
+    notebookToDelete.value = null
   }
 }
 </script>
@@ -677,7 +677,7 @@ async function confirmDeleteProject() {
 }
 
 .contexts-section,
-.projects-section {
+.notebooks-section {
   max-width: 1200px;
   margin: 0 auto 40px;
   width: 100%;
@@ -715,7 +715,7 @@ async function confirmDeleteProject() {
   background: #4caf50;
 }
 
-.new-project-btn {
+.new-notebook-btn {
   padding: 10px 20px;
   background: #4299e1;
   border: none;
@@ -726,7 +726,7 @@ async function confirmDeleteProject() {
   transition: background 0.2s;
 }
 
-.new-project-btn:hover {
+.new-notebook-btn:hover {
   background: #3182ce;
 }
 
@@ -778,13 +778,13 @@ async function confirmDeleteProject() {
   font-weight: 500;
 }
 
-.projects-grid {
+.notebooks-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 20px;
 }
 
-.project-card {
+.notebook-card {
   background: var(--bg-primary);
   padding: 20px;
   border-radius: 12px;
@@ -796,17 +796,17 @@ async function confirmDeleteProject() {
   gap: 12px;
 }
 
-.project-card:hover {
+.notebook-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px var(--shadow-color);
 }
 
-.project-card-content {
+.notebook-card-content {
   flex: 1;
   min-width: 0;
 }
 
-.project-card-actions {
+.notebook-card-actions {
   flex-shrink: 0;
   display: flex;
   gap: 8px;
@@ -858,13 +858,13 @@ async function confirmDeleteProject() {
   margin-right: 6px;
 }
 
-.project-card h3 {
+.notebook-card h3 {
   font-size: 18px;
   color: var(--text-primary);
   margin-bottom: 8px;
 }
 
-.project-info {
+.notebook-info {
   font-size: 14px;
   color: var(--text-secondary);
 }
@@ -1259,17 +1259,17 @@ async function confirmDeleteProject() {
   white-space: nowrap;
 }
 
-/* 拖拽时的项目卡片样式 */
-.project-card {
+/* 拖拽时的笔记本卡片样式 */
+.notebook-card {
   cursor: grab;
   user-select: none;
 }
 
-.project-card:active {
+.notebook-card:active {
   cursor: grabbing;
 }
 
-.project-card[draggable="true"] {
+.notebook-card[draggable="true"] {
   -webkit-user-drag: element;
 }
 </style>

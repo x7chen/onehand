@@ -10,17 +10,17 @@ const router = createRouter({
       component: HomeView
     },
     {
-      path: '/canvas/:projectId',
+      path: '/canvas/:notebookId',
       name: 'canvas',
       component: () => import('../views/CanvasView.vue')
     },
     {
-      path: '/node-list/:projectId',
+      path: '/node-list/:notebookId',
       name: 'node-list',
       component: () => import('../views/NodeListView.vue')
     },
     {
-      path: '/pdf/:projectId',
+      path: '/pdf/:notebookId',
       name: 'pdf',
       component: () => import('../views/PdfReaderView.vue')
     },

@@ -6,11 +6,11 @@
       :is-recording="isRecording"
       :recording-position="recordingPosition"
       :recording-duration="recordingDuration"
-      :has-prev-page="projectStore.hasPrevPage"
-      :has-next-page="projectStore.hasNextPage"
-      :is-current-canvas-empty="projectStore.isCurrentCanvasEmpty"
-      :current-page-number="projectStore.currentPageNumber"
-      :total-pages="projectStore.totalPages"
+      :has-prev-page="notebookStore.hasPrevPage"
+      :has-next-page="notebookStore.hasNextPage"
+      :is-current-canvas-empty="notebookStore.isCurrentCanvasEmpty"
+      :current-page-number="notebookStore.currentPageNumber"
+      :total-pages="notebookStore.totalPages"
       @viewport-change="handleViewportChange"
       @long-press="handleLongPress"
       @long-press-end="handleLongPressEnd($event)"
@@ -22,12 +22,12 @@
     >
       <template #nodes>
         <VoiceNote
-          v-for="node in projectStore.currentCanvas?.nodes"
+          v-for="node in notebookStore.currentCanvas?.nodes"
           :key="node.id"
           :ref="(el) => { if (el) voiceNoteRefs[node.id] = el }"
           :node="node"
-          :project-id="projectStore.currentProject?.id"
-          :canvas-id="projectStore.currentCanvas?.id"
+          :notebook-id="notebookStore.currentNotebook?.id"
+          :canvas-id="notebookStore.currentCanvas?.id"
           :is-playing="playingNodeId === node.id"
           :is-editing="editingNodeId === node.id"
           :editing-text="editingText"
@@ -63,12 +63,12 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
-import { useProjectStore } from '@/stores/projectStore'
+import { useNotebookStore } from '@/stores/notebookStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import InfiniteCanvas from '@/components/InfiniteCanvas.vue'
 import VoiceNote from '@/components/VoiceNote.vue'
 import ContextToolbar from '@/components/ContextToolbar.vue'
-import type { CanvasNode, Viewport } from '@/types/project'
+import type { CanvasNode, Viewport } from '@/types/notebook'
 import type { ContextFile } from '@/types/context'
 import { createAudioWorkletRecorder } from '@/utils/audioWorkletRecorder'
 import { transcribeWithSherpaOnnx } from '@/composables/useSherpaOnnx'
@@ -88,7 +88,7 @@ const emit = defineEmits<{
   'next-page': []
 }>()
 
-const projectStore = useProjectStore()
+const notebookStore = useNotebookStore()
 const settingsStore = useSettingsStore()
 
 // 录音实例
@@ -119,7 +119,7 @@ const activeNodeId = ref<string | null>(null)
 watch(activeNodeId, (newNodeId) => {
   if (!newNodeId) return
 
-  const node = projectStore.currentCanvas?.nodes.find(n => n.id === newNodeId)
+  const node = notebookStore.currentCanvas?.nodes.find(n => n.id === newNodeId)
   if (!node) return
 
   nextTick(() => {
@@ -178,7 +178,7 @@ function animateViewportTo(targetX: number, targetY: number, zoom: number) {
 
     const newViewport = { x: newX, y: newY, zoom }
     viewport.value = newViewport
-    projectStore.updateCurrentViewport(newViewport)
+    notebookStore.updateCurrentViewport(newViewport)
 
     if (progress < 1) {
       requestAnimationFrame(animate)
@@ -197,12 +197,12 @@ const editingNodeId = ref<string | null>(null)
 const editingText = ref('')
 
 const selectedContextCount = computed(() =>
-  projectStore.currentCanvas?.nodes.filter(n => n.selectedAsContext).length || 0
+  notebookStore.currentCanvas?.nodes.filter(n => n.selectedAsContext).length || 0
 )
 
 // 初始化 viewport
 function initViewport() {
-  viewport.value = projectStore.getCurrentViewport()
+  viewport.value = notebookStore.getCurrentViewport()
 }
 
 onMounted(() => {
@@ -223,19 +223,19 @@ onUnmounted(() => {
 
 function handleViewportChange(newViewport: Viewport) {
   viewport.value = newViewport
-  projectStore.updateCurrentViewport(newViewport)
+  notebookStore.updateCurrentViewport(newViewport)
 }
 
 function handleResetViewport() {
   const resetViewport: Viewport = { x: 0, y: 0, zoom: 1 }
   viewport.value = resetViewport
-  projectStore.updateCurrentViewport(resetViewport)
+  notebookStore.updateCurrentViewport(resetViewport)
 }
 
 function handlePrevPage() {
   cancelTextEdit()
-  projectStore.goToPrevPage()
-  viewport.value = projectStore.getCurrentViewport()
+  notebookStore.goToPrevPage()
+  viewport.value = notebookStore.getCurrentViewport()
   // 切换后选中第一个节点
   selectFirstNode()
   emit('prev-page')
@@ -243,13 +243,13 @@ function handlePrevPage() {
 
 function handleNextPage() {
   cancelTextEdit()
-  if (projectStore.hasNextPage) {
-    projectStore.goToNextPage()
-    viewport.value = projectStore.getCurrentViewport()
+  if (notebookStore.hasNextPage) {
+    notebookStore.goToNextPage()
+    viewport.value = notebookStore.getCurrentViewport()
   } else {
-    const success = projectStore.addNewPage()
+    const success = notebookStore.addNewPage()
     if (success) {
-      viewport.value = projectStore.getCurrentViewport()
+      viewport.value = notebookStore.getCurrentViewport()
     }
   }
   // 切换后选中第一个节点
@@ -260,7 +260,7 @@ function handleNextPage() {
 // 选中当前画布的第一个节点
 function selectFirstNode() {
   nextTick(() => {
-    const nodes = projectStore.currentCanvas?.nodes || []
+    const nodes = notebookStore.currentCanvas?.nodes || []
     if (nodes.length > 0) {
       // 按创建时间排序，选中最早的节点
       const sortedNodes = [...nodes].sort((a, b) => a.createdAt - b.createdAt)
@@ -316,14 +316,14 @@ async function handleLongPressEnd(isCancel = false) {
     const audioPath = `audio/${nodeId}.${extension}`
 
     const appDataPath = await window.electronAPI.getAppPath('userData')
-    const project = projectStore.currentProject
-    if (!project) return
+    const notebook = notebookStore.currentNotebook
+    if (!notebook) return
 
-    const projectDir = `${appDataPath}/projects/${project.id}`
-    await window.electronAPI.mkdir(`${projectDir}/audio`)
+    const notebookDir = `${appDataPath}/notebooks/${notebook.id}`
+    await window.electronAPI.mkdir(`${notebookDir}/audio`)
 
     const arrayBuffer = await audioBlob.arrayBuffer()
-    await window.electronAPI.saveFileBuffer(`${projectDir}/${audioPath}`, arrayBuffer)
+    await window.electronAPI.saveFileBuffer(`${notebookDir}/${audioPath}`, arrayBuffer)
 
     const startX = recordingStartPosition.value?.x || 100
     const startY = recordingStartPosition.value?.y || 100
@@ -342,7 +342,7 @@ async function handleLongPressEnd(isCancel = false) {
       duration: recordingDuration.value
     }
 
-    projectStore.addNode(node)
+    notebookStore.addNode(node)
     isRecording.value = false
     recordingPosition.value = undefined
     recordingStartPosition.value = null
@@ -373,16 +373,16 @@ function handleDblClick(x: number, y: number) {
     createdAt: Date.now()
   }
 
-  projectStore.addNode(node)
+  notebookStore.addNode(node)
   editingNodeId.value = node.id
   editingText.value = ''
 }
 
 function cancelTextEdit() {
   if (editingNodeId.value) {
-    const node = projectStore.currentCanvas?.nodes.find(n => n.id === editingNodeId.value)
+    const node = notebookStore.currentCanvas?.nodes.find(n => n.id === editingNodeId.value)
     if (node && !node.transcript) {
-      projectStore.removeNode(editingNodeId.value)
+      notebookStore.removeNode(editingNodeId.value)
     }
     editingNodeId.value = null
     editingText.value = ''
@@ -391,21 +391,21 @@ function cancelTextEdit() {
 
 function handleSaveEdit(nodeId: string, text: string) {
   if (text.trim()) {
-    projectStore.updateNode(nodeId, { transcript: text.trim() })
+    notebookStore.updateNode(nodeId, { transcript: text.trim() })
     if (props.aiAnswerEnabled) {
       handleAgentResponse(nodeId, text.trim())
     }
   } else {
-    projectStore.removeNode(nodeId)
+    notebookStore.removeNode(nodeId)
   }
   editingNodeId.value = null
   editingText.value = ''
 }
 
 function handleCancelEdit(nodeId: string) {
-  const node = projectStore.currentCanvas?.nodes.find(n => n.id === nodeId)
+  const node = notebookStore.currentCanvas?.nodes.find(n => n.id === nodeId)
   if (node && !node.transcript) {
-    projectStore.removeNode(nodeId)
+    notebookStore.removeNode(nodeId)
   }
   editingNodeId.value = null
   editingText.value = ''
@@ -420,15 +420,15 @@ function handleClickOutsideEditing(e: MouseEvent) {
     return
   }
 
-  const node = projectStore.currentCanvas?.nodes.find(n => n.id === editingNodeId.value)
+  const node = notebookStore.currentCanvas?.nodes.find(n => n.id === editingNodeId.value)
   if (node) {
     if (editingText.value.trim()) {
-      projectStore.updateNode(editingNodeId.value, { transcript: editingText.value.trim() })
+      notebookStore.updateNode(editingNodeId.value, { transcript: editingText.value.trim() })
       if (props.aiAnswerEnabled) {
         handleAgentResponse(editingNodeId.value, editingText.value.trim())
       }
     } else {
-      projectStore.removeNode(editingNodeId.value)
+      notebookStore.removeNode(editingNodeId.value)
     }
   }
   editingNodeId.value = null
@@ -443,7 +443,7 @@ async function handleTranscription(node: CanvasNode) {
   }
 
   if (!settings.stt.sherpaOnnx) {
-    projectStore.updateNode(node.id, {
+    notebookStore.updateNode(node.id, {
       transcript: '语音识别配置错误，请检查设置',
       transcriptStatus: 'error'
     })
@@ -451,13 +451,13 @@ async function handleTranscription(node: CanvasNode) {
   }
 
   try {
-    projectStore.updateNode(node.id, { transcriptStatus: 'processing' })
+    notebookStore.updateNode(node.id, { transcriptStatus: 'processing' })
 
     const appDataPath = await window.electronAPI.getAppPath('userData')
-    const project = projectStore.currentProject
-    if (!project || !node.audioPath) return
+    const notebook = notebookStore.currentNotebook
+    if (!notebook || !node.audioPath) return
 
-    const audioPath = `${appDataPath}/projects/${project.id}/${node.audioPath}`
+    const audioPath = `${appDataPath}/notebooks/${notebook.id}/${node.audioPath}`
     const result = await window.electronAPI.readFile(audioPath, 'arraybuffer')
 
     if (result.success && result.data) {
@@ -469,7 +469,7 @@ async function handleTranscription(node: CanvasNode) {
 
       if (transcriptResult.success && transcriptResult.text) {
         const title = transcriptResult.text.slice(0, 10)
-        projectStore.updateNode(node.id, {
+        notebookStore.updateNode(node.id, {
           transcript: transcriptResult.text,
           transcriptStatus: 'done',
           title
@@ -483,7 +483,7 @@ async function handleTranscription(node: CanvasNode) {
       }
     }
   } catch (error) {
-    projectStore.updateNode(node.id, {
+    notebookStore.updateNode(node.id, {
       transcript: String(error),
       transcriptStatus: 'error'
     })
@@ -494,12 +494,12 @@ async function handleAgentResponse(nodeId: string, transcript: string) {
   const settings = settingsStore.settings
 
   try {
-    projectStore.updateNode(nodeId, { agentStatus: 'processing' })
+    notebookStore.updateNode(nodeId, { agentStatus: 'processing' })
 
-    const node = projectStore.currentCanvas?.nodes.find(n => n.id === nodeId)
+    const node = notebookStore.currentCanvas?.nodes.find(n => n.id === nodeId)
     if (!node) return
 
-    const selectedNodes = projectStore.currentCanvas?.nodes.filter(n => n.selectedAsContext && n.id !== nodeId) || []
+    const selectedNodes = notebookStore.currentCanvas?.nodes.filter(n => n.selectedAsContext && n.id !== nodeId) || []
 
     const staticContextContent = props.staticContextFiles
       .map(f => f.content)
@@ -521,18 +521,18 @@ async function handleAgentResponse(nodeId: string, transcript: string) {
       model: settings.llm.model
     }, (chunk) => {
       accumulatedContent += chunk
-      projectStore.updateNode(nodeId, {
+      notebookStore.updateNode(nodeId, {
         agentResult: accumulatedContent,
         agentStatus: 'processing'
       }, true)
     })
 
-    projectStore.updateNode(nodeId, {
+    notebookStore.updateNode(nodeId, {
       agentResult: result,
       agentStatus: 'done'
     })
   } catch (error) {
-    projectStore.updateNode(nodeId, {
+    notebookStore.updateNode(nodeId, {
       agentResult: String(error),
       agentStatus: 'error'
     })
@@ -540,11 +540,11 @@ async function handleAgentResponse(nodeId: string, transcript: string) {
 }
 
 function handleDeleteNode(nodeId: string) {
-  projectStore.removeNode(nodeId)
+  notebookStore.removeNode(nodeId)
 }
 
 async function handlePlayNode(nodeId: string) {
-  const node = projectStore.currentCanvas?.nodes.find(n => n.id === nodeId)
+  const node = notebookStore.currentCanvas?.nodes.find(n => n.id === nodeId)
   if (!node?.audioPath) return
 
   if (playingNodeId.value === nodeId && currentAudio.value) {
@@ -561,10 +561,10 @@ async function handlePlayNode(nodeId: string) {
 
   try {
     const appDataPath = await window.electronAPI.getAppPath('userData')
-    const project = projectStore.currentProject
-    if (!project) return
+    const notebook = notebookStore.currentNotebook
+    if (!notebook) return
 
-    const audioPath = `${appDataPath}/projects/${project.id}/${node.audioPath}`
+    const audioPath = `${appDataPath}/notebooks/${notebook.id}/${node.audioPath}`
     const result = await window.electronAPI.readFile(audioPath, 'arraybuffer')
     if (!result.success || !result.data) return
 
@@ -600,39 +600,39 @@ async function handlePlayNode(nodeId: string) {
 }
 
 function handleToggleContext(nodeId: string) {
-  const node = projectStore.currentCanvas?.nodes.find(n => n.id === nodeId)
+  const node = notebookStore.currentCanvas?.nodes.find(n => n.id === nodeId)
   if (node && node.transcriptStatus === 'done') {
-    projectStore.updateNode(nodeId, {
+    notebookStore.updateNode(nodeId, {
       selectedAsContext: !node.selectedAsContext
     })
   }
 }
 
 function clearContextSelection() {
-  if (!projectStore.currentProject || !projectStore.currentCanvas) return
+  if (!notebookStore.currentNotebook || !notebookStore.currentCanvas) return
 
-  for (const node of projectStore.currentCanvas.nodes) {
+  for (const node of notebookStore.currentCanvas.nodes) {
     node.selectedAsContext = false
   }
-  projectStore.saveProject(projectStore.currentProject)
+  notebookStore.saveNotebook(notebookStore.currentNotebook)
 }
 
 function handleRetryTranscription(nodeId: string) {
-  const node = projectStore.currentCanvas?.nodes.find(n => n.id === nodeId)
+  const node = notebookStore.currentCanvas?.nodes.find(n => n.id === nodeId)
   if (node) {
     handleTranscription(node)
   }
 }
 
 function handleRetryAgent(nodeId: string) {
-  const node = projectStore.currentCanvas?.nodes.find(n => n.id === nodeId)
+  const node = notebookStore.currentCanvas?.nodes.find(n => n.id === nodeId)
   if (node && node.transcript) {
     handleAgentResponse(nodeId, node.transcript)
   }
 }
 
 function handleRegenerateAgent(nodeId: string) {
-  const node = projectStore.currentCanvas?.nodes.find(n => n.id === nodeId)
+  const node = notebookStore.currentCanvas?.nodes.find(n => n.id === nodeId)
   if (node && node.transcript) {
     handleAgentResponse(nodeId, node.transcript)
   }
@@ -643,16 +643,16 @@ function handleCopyLink(nodeId: string) {
 }
 
 function handleToggleFavorite(nodeId: string) {
-  const node = projectStore.currentCanvas?.nodes.find(n => n.id === nodeId)
+  const node = notebookStore.currentCanvas?.nodes.find(n => n.id === nodeId)
   if (node) {
-    projectStore.updateNode(nodeId, {
+    notebookStore.updateNode(nodeId, {
       isFavorite: !node.isFavorite
     })
   }
 }
 
 async function handleAutoLayout() {
-  const nodes = projectStore.currentCanvas?.nodes
+  const nodes = notebookStore.currentCanvas?.nodes
   if (!nodes || nodes.length === 0) return
 
   const layoutNodes = nodes.filter(n => n.type === 'voice-note' || n.type === 'text-note')
@@ -692,14 +692,14 @@ async function handleAutoLayout() {
     const x = START_X + minColumn * (NODE_WIDTH + COLUMN_GAP)
     const y = columnHeights[minColumn]
 
-    projectStore.updateNode(node.id, { position: { x, y } })
+    notebookStore.updateNode(node.id, { position: { x, y } })
 
     const nodeHeight = nodeHeights[node.id] || 200
     columnHeights[minColumn] = y + nodeHeight + ROW_GAP
   }
 
-  if (projectStore.currentProject) {
-    projectStore.saveProject(projectStore.currentProject)
+  if (notebookStore.currentNotebook) {
+    notebookStore.saveNotebook(notebookStore.currentNotebook)
   }
 }
 
@@ -727,7 +727,7 @@ function handleNodeDragMove(e: MouseEvent) {
   const canvasX = (e.clientX - rect.left - dragOffset.value.offsetX - viewport.value.x) / viewport.value.zoom
   const canvasY = (e.clientY - rect.top - dragOffset.value.offsetY - viewport.value.y) / viewport.value.zoom
 
-  projectStore.updateNode(draggingNodeId.value, {
+  notebookStore.updateNode(draggingNodeId.value, {
     position: { x: canvasX, y: canvasY }
   })
 }
@@ -738,7 +738,7 @@ function handleNodeDragEnd() {
 }
 
 function handleUpdateNode(nodeId: string, updates: Partial<CanvasNode>) {
-  projectStore.updateNode(nodeId, updates)
+  notebookStore.updateNode(nodeId, updates)
 }
 
 async function handleDropText(x: number, y: number, text: string) {
@@ -754,7 +754,7 @@ async function handleDropText(x: number, y: number, text: string) {
     createdAt: Date.now()
   }
 
-  projectStore.addNode(node)
+  notebookStore.addNode(node)
 
   if (props.aiAnswerEnabled) {
     await handleAgentResponse(node.id, text)
@@ -781,14 +781,14 @@ async function handleAskWithNewRecording() {
       const audioPath = `audio/${nodeId}.${extension}`
 
       const appDataPath = await window.electronAPI.getAppPath('userData')
-      const project = projectStore.currentProject
-      if (!project) return
+      const notebook = notebookStore.currentNotebook
+      if (!notebook) return
 
-      const projectDir = `${appDataPath}/projects/${project.id}`
-      await window.electronAPI.mkdir(`${projectDir}/audio`)
+      const notebookDir = `${appDataPath}/notebooks/${notebook.id}`
+      await window.electronAPI.mkdir(`${notebookDir}/audio`)
 
       const arrayBuffer = await audioBlob.arrayBuffer()
-      await window.electronAPI.saveFileBuffer(`${projectDir}/${audioPath}`, arrayBuffer)
+      await window.electronAPI.saveFileBuffer(`${notebookDir}/${audioPath}`, arrayBuffer)
 
       const node: CanvasNode = {
         id: nodeId,
@@ -804,7 +804,7 @@ async function handleAskWithNewRecording() {
         duration: recordingDuration.value
       }
 
-      projectStore.addNode(node)
+      notebookStore.addNode(node)
       isRecording.value = false
       recordingPosition.value = undefined
 

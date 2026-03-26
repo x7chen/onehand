@@ -40,7 +40,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { renderMarkdown } from '@/utils/markdownRenderer'
-import type { CanvasNode } from '@/types/project'
+import type { CanvasNode } from '@/types/notebook'
 
 const props = defineProps<{
   node: CanvasNode

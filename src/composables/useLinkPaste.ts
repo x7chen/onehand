@@ -1,5 +1,5 @@
 import { onMounted, onUnmounted } from 'vue'
-import { useProjectStore } from '@/stores/projectStore'
+import { useNotebookStore } from '@/stores/notebookStore'
 import { parseDeepLinkUrl, findNodeByDeepLink } from './useDeepLink'
 
 /**
@@ -7,7 +7,7 @@ import { parseDeepLinkUrl, findNodeByDeepLink } from './useDeepLink'
  * Converts onehand:// URLs to markdown links when pasted
  */
 export function useLinkPaste() {
-  const projectStore = useProjectStore()
+  const notebookStore = useNotebookStore()
 
   async function handlePaste(event: ClipboardEvent) {
     const clipboardData = event.clipboardData

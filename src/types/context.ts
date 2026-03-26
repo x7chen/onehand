@@ -14,8 +14,8 @@ export interface ContextFile {
   content: string
   createdAt: number
   updatedAt: number
-  // 动态上下文关联的项目 ID（可选）
-  projectId?: string
+  // 动态上下文关联的笔记本 ID（可选）
+  notebookId?: string
 }
 
 /**
@@ -35,9 +35,9 @@ export const CONTEXT_COLORS = [
 export type ContextColor = typeof CONTEXT_COLORS[number]
 
 /**
- * 项目关联的上下文
+ * 笔记本关联的上下文
  */
-export interface ProjectContext {
+export interface NotebookContext {
   // 静态上下文文件 ID 列表（支持多选）
   staticContextIds?: string[]
   // 动态上下文文件 ID

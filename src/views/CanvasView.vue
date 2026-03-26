@@ -1,7 +1,7 @@
 <template>
   <div class="canvas-view">
     <CanvasHeader
-      :project-name="projectStore.currentProject?.name || ''"
+      :notebook-name="notebookStore.currentNotebook?.name || ''"
       :static-context-files="staticContextFiles"
       :all-static-context-files="contextStore.staticContextFiles"
       :dynamic-context-file="dynamicContextFile"
@@ -60,7 +60,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { useProjectStore } from '@/stores/projectStore'
+import { useNotebookStore } from '@/stores/notebookStore'
 import { useContextStore } from '@/stores/contextStore'
 import CanvasHeader from '@/components/CanvasHeader.vue'
 import CanvasArea from '@/components/CanvasArea.vue'
@@ -68,7 +68,7 @@ import type { ContextFile } from '@/types/context'
 
 const router = useRouter()
 const route = useRoute()
-const projectStore = useProjectStore()
+const notebookStore = useNotebookStore()
 const contextStore = useContextStore()
 
 // CanvasArea 组件引用
@@ -86,13 +86,13 @@ const dynamicContextEditContent = ref('')
 
 // 静态上下文
 const staticContextFiles = computed(() => {
-  const staticContextIds = projectStore.currentProject?.context?.staticContextIds || []
+  const staticContextIds = notebookStore.currentNotebook?.context?.staticContextIds || []
   return staticContextIds.map(id => contextStore.getContextFileById(id)).filter(Boolean) as ContextFile[]
 })
 
 // 动态上下文
 const dynamicContextFile = computed(() => {
-  const dynamicContextId = projectStore.currentProject?.context?.dynamicContextId
+  const dynamicContextId = notebookStore.currentNotebook?.context?.dynamicContextId
   if (dynamicContextId) {
     return contextStore.getContextFileById(dynamicContextId)
   }
@@ -101,12 +101,12 @@ const dynamicContextFile = computed(() => {
 
 // 已选择上下文数量
 const selectedContextCount = computed(() =>
-  projectStore.currentCanvas?.nodes.filter(n => n.selectedAsContext).length || 0
+  notebookStore.currentCanvas?.nodes.filter(n => n.selectedAsContext).length || 0
 )
 
 // 已完成节点数量
 const completedNodesCount = computed(() =>
-  projectStore.currentCanvas?.nodes.filter(n => n.transcriptStatus === 'done').length || 0
+  notebookStore.currentCanvas?.nodes.filter(n => n.transcriptStatus === 'done').length || 0
 )
 
 // 是否全选
@@ -117,10 +117,10 @@ const isAllContextSelected = computed(() =>
 onMounted(async () => {
   await contextStore.loadContextFiles()
 
-  const projectId = route.params.projectId as string
-  const project = projectStore.projects.find(p => p.id === projectId)
-  if (project) {
-    projectStore.setCurrentProject(project)
+  const notebookId = route.params.notebookId as string
+  const notebook = notebookStore.notebooks.find(p => p.id === notebookId)
+  if (notebook) {
+    notebookStore.setCurrentNotebook(notebook)
   }
 
   // 添加键盘事件监听
@@ -139,7 +139,7 @@ function handleKeyDown(event: KeyboardEvent) {
     return
   }
 
-  const nodes = projectStore.currentCanvas?.nodes || []
+  const nodes = notebookStore.currentCanvas?.nodes || []
   if (!nodes || nodes.length === 0) return
 
   // 上/左：上一个节点，下/右：下一个节点
@@ -168,7 +168,7 @@ function handleKeyDown(event: KeyboardEvent) {
 }
 
 function goBack() {
-  projectStore.cleanupEmptyPages()
+  notebookStore.cleanupEmptyPages()
   canvasAreaRef.value?.cancelTextEdit()
   router.push('/')
 }
@@ -182,38 +182,38 @@ function handleAutoLayout() {
 }
 
 function handleToggleAllContext() {
-  if (!projectStore.currentProject || !projectStore.currentCanvas) return
+  if (!notebookStore.currentNotebook || !notebookStore.currentCanvas) return
 
   if (isAllContextSelected.value) {
-    for (const node of projectStore.currentCanvas.nodes) {
+    for (const node of notebookStore.currentCanvas.nodes) {
       node.selectedAsContext = false
     }
   } else {
-    for (const node of projectStore.currentCanvas.nodes) {
+    for (const node of notebookStore.currentCanvas.nodes) {
       if (node.transcriptStatus === 'done') {
         node.selectedAsContext = true
       }
     }
   }
-  projectStore.saveProject(projectStore.currentProject)
+  notebookStore.saveNotebook(notebookStore.currentNotebook)
 }
 
 function handleInvertSelection() {
-  if (!projectStore.currentProject || !projectStore.currentCanvas) return
+  if (!notebookStore.currentNotebook || !notebookStore.currentCanvas) return
 
-  for (const node of projectStore.currentCanvas.nodes) {
+  for (const node of notebookStore.currentCanvas.nodes) {
     if (node.transcriptStatus === 'done') {
       node.selectedAsContext = !node.selectedAsContext
     }
   }
-  projectStore.saveProject(projectStore.currentProject)
+  notebookStore.saveNotebook(notebookStore.currentNotebook)
 }
 
 // 复制已选中节点的内容到剪贴板
 async function handleCopySelectedContext() {
-  if (!projectStore.currentCanvas) return
+  if (!notebookStore.currentCanvas) return
 
-  const selectedNodes = projectStore.currentCanvas.nodes
+  const selectedNodes = notebookStore.currentCanvas.nodes
     .filter(n => n.selectedAsContext && n.transcript)
     .sort((a, b) => a.createdAt - b.createdAt)
 
@@ -238,27 +238,27 @@ async function handleCopySelectedContext() {
 
 // 静态上下文选择
 async function toggleStaticContext(contextId: string) {
-  if (!projectStore.currentProject) return
+  if (!notebookStore.currentNotebook) return
 
-  const currentIds = projectStore.currentProject.context?.staticContextIds || []
+  const currentIds = notebookStore.currentNotebook.context?.staticContextIds || []
   const newIds = currentIds.includes(contextId)
     ? currentIds.filter(id => id !== contextId)
     : [...currentIds, contextId]
 
-  if (!projectStore.currentProject.context) {
-    projectStore.currentProject.context = {}
+  if (!notebookStore.currentNotebook.context) {
+    notebookStore.currentNotebook.context = {}
   }
 
   if (newIds.length > 0) {
-    if (!projectStore.currentProject.context.staticContextIds) {
-      projectStore.currentProject.context.staticContextIds = []
+    if (!notebookStore.currentNotebook.context.staticContextIds) {
+      notebookStore.currentNotebook.context.staticContextIds = []
     }
-    projectStore.currentProject.context.staticContextIds.splice(0, projectStore.currentProject.context.staticContextIds.length, ...newIds)
+    notebookStore.currentNotebook.context.staticContextIds.splice(0, notebookStore.currentNotebook.context.staticContextIds.length, ...newIds)
   } else {
-    projectStore.currentProject.context.staticContextIds = undefined
+    notebookStore.currentNotebook.context.staticContextIds = undefined
   }
 
-  await projectStore.saveProject(projectStore.currentProject)
+  await notebookStore.saveNotebook(notebookStore.currentNotebook)
 }
 
 // 动态上下文编辑
@@ -280,25 +280,25 @@ function saveDynamicContextEdit() {
 
 // 动态上下文拖拽处理
 async function handleDynamicContextDrop(text: string) {
-  const project = projectStore.currentProject
-  if (!project) return
+  const notebook = notebookStore.currentNotebook
+  if (!notebook) return
 
-  if (!project.context?.dynamicContextId) {
+  if (!notebook.context?.dynamicContextId) {
     const newContext = await contextStore.createContextFile(
-      `${project.name}`,
+      `${notebook.name}`,
       'dynamic',
       text,
-      project.id
+      notebook.id
     )
 
-    project.context = {
-      ...project.context,
+    notebook.context = {
+      ...notebook.context,
       dynamicContextId: newContext.id
     }
-    await projectStore.saveProject(project)
+    await notebookStore.saveNotebook(notebook)
   } else {
     await contextStore.appendToDynamicContext(
-      project.context.dynamicContextId,
+      notebook.context.dynamicContextId,
       text
     )
   }
