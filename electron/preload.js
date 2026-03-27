@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveFile: (filePath, data) => ipcRenderer.invoke('save-file', filePath, data),
   saveFileBuffer: (filePath, data) => ipcRenderer.invoke('save-file-buffer', filePath, data),
   readFile: (filePath, encoding = 'utf-8') => ipcRenderer.invoke('read-file', filePath, encoding),
+  copyFile: (srcPath, destPath) => ipcRenderer.invoke('copy-file', srcPath, destPath),
   selectDirectory: () => ipcRenderer.invoke('select-directory'),
   showOpenDialog: (options) => ipcRenderer.invoke('show-open-dialog', options),
   getAppPath: (name) => ipcRenderer.invoke('get-app-path', name),

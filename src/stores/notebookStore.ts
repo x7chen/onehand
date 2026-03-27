@@ -173,12 +173,41 @@ export const useNotebookStore = defineStore('notebook', () => {
 
   // 创建新笔记本
   async function createNotebook(name: string, context?: NotebookContext, pdfPath?: string) {
+    let finalPdfPath = pdfPath
+
+    // 如果有PDF路径，复制PDF到用户数据目录
+    if (pdfPath) {
+      try {
+        const appDataPath = await window.electronAPI.getAppPath('userData')
+        const pdfDir = `${appDataPath}/pdf`
+
+        // 确保pdf目录存在
+        await window.electronAPI.mkdir(pdfDir)
+
+        // 生成新文件名：使用时间戳避免冲突
+        const pdfName = pdfPath.split(/[/\\]/).pop() || 'document.pdf'
+        const ext = pdfName.includes('.') ? pdfName.split('.').pop() : 'pdf'
+        const newPdfName = `${Date.now()}.${ext}`
+        const newPdfPath = `${pdfDir}/${newPdfName}`
+
+        // 复制PDF文件
+        const result = await window.electronAPI.copyFile(pdfPath, newPdfPath)
+        if (result.success) {
+          finalPdfPath = newPdfPath
+        } else {
+          console.error('Failed to copy PDF:', result.error)
+        }
+      } catch (error) {
+        console.error('Failed to copy PDF to user data directory:', error)
+      }
+    }
+
     const notebook: Notebook = {
       id: Date.now().toString(),
       name,
       createdAt: Date.now(),
       updatedAt: Date.now(),
-      canvases: [createCanvasPage('canvas-1', pdfPath ? 'pdf' : 'infinite')],
+      canvases: [createCanvasPage('canvas-1', finalPdfPath ? 'pdf' : 'infinite')],
       currentCanvasIndex: 0
     }
 
@@ -186,8 +215,8 @@ export const useNotebookStore = defineStore('notebook', () => {
       notebook.context = context
     }
 
-    if (pdfPath) {
-      notebook.pdfPath = pdfPath
+    if (finalPdfPath) {
+      notebook.pdfPath = finalPdfPath
     }
 
     // 保存到独立文件

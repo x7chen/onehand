@@ -387,6 +387,19 @@ ipcMain.handle('exists', async (event, filePath) => {
   return fs.existsSync(filePath)
 })
 
+ipcMain.handle('copy-file', async (event, srcPath, destPath) => {
+  try {
+    const dir = path.dirname(destPath)
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true })
+    }
+    fs.copyFileSync(srcPath, destPath)
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: String(error) }
+  }
+})
+
 ipcMain.handle('mkdir', async (event, dirPath) => {
   try {
     if (!fs.existsSync(dirPath)) {

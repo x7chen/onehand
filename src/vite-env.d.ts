@@ -23,6 +23,7 @@ interface ElectronAPI {
   saveFile: (filePath: string, data: string) => Promise<{ success: boolean; error?: string }>
   saveFileBuffer: (filePath: string, data: ArrayBuffer) => Promise<{ success: boolean; error?: string }>
   readFile: (filePath: string, encoding?: string) => Promise<{ success: boolean; data?: string | ArrayBuffer; error?: string }>
+  copyFile: (srcPath: string, destPath: string) => Promise<{ success: boolean; error?: string }>
   selectDirectory: () => Promise<{ canceled: boolean; filePaths: string[] }>
   showOpenDialog: (options: {
     title?: string
