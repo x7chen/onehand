@@ -1,5 +1,5 @@
 <template>
-  <div class="pdf-viewer" ref="containerRef" @mousemove="handleContainerMouseMove" @mouseleave="hideEdgeButtons">
+  <div class="pdf-viewer" ref="containerRef" @mousemove="handleContainerMouseMove" @mouseleave="hideEdgeButtons" @contextmenu.prevent="handleContextMenu">
     <div class="pdf-toolbar">
       <button @click="toggleSidebar" class="tool-btn" title="侧边栏">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
@@ -170,6 +170,26 @@
       :y="recordingPosition.y"
       :duration="recordingDuration"
     />
+
+    <!-- 右键菜单 -->
+    <div
+      v-if="contextMenuVisible"
+      class="context-menu"
+      :style="{ left: contextMenuPosition.x + 'px', top: contextMenuPosition.y + 'px' }"
+    >
+      <div v-if="selectedText" class="context-menu-item" @click="handleExplainSelection">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+          <path d="M11 17h2v-6h-2v6zm1-15C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zM11 9h2V7h-2v2z"/>
+        </svg>
+        <span>解释选中内容</span>
+      </div>
+      <div class="context-menu-item" @click="handleAnalyzePage">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+          <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+        </svg>
+        <span>分析当前页面</span>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -218,6 +238,8 @@ const emit = defineEmits<{
   'node-click': [node: CanvasNode]
   'node-position-change': [data: { nodeId: string; position: { x: number; y: number } }]
   'save': [data: Uint8Array]
+  'analyze-page': [data: { imageBase64: string; pageNumber: number; position: { x: number; y: number } }]
+  'explain-selection': [data: { imageBase64: string; selectedText: string; pageNumber: number; position: { x: number; y: number } }]
 }>()
 
 const containerRef = ref<HTMLElement | null>(null)
@@ -248,6 +270,12 @@ const outline = ref<OutlineItem[]>([])
 const outlineLoading = ref(false)
 const thumbnails = ref<ThumbnailItem[]>([])
 const thumbnailsLoading = ref(false)
+
+// 右键菜单相关状态
+const contextMenuVisible = ref(false)
+const contextMenuPosition = ref({ x: 0, y: 0 })
+const selectedText = ref('')
+const contextMenuPagePosition = ref({ x: 0, y: 0 }) // 右键点击在 PDF 页面上的位置
 
 const mainRotation = ref(0)
 
@@ -1027,8 +1055,138 @@ onUnmounted(() => {
 defineExpose({
   goToPage,
   rotateClockwise,
-  rotateCounterClockwise
+  rotateCounterClockwise,
+  exportPageAsImage
 })
+
+// ==================== 右键菜单和图片导出功能 ====================
+
+/**
+ * 获取当前选中的文字
+ */
+function getSelectedText(): string {
+  const selection = window.getSelection()
+  return selection ? selection.toString().trim() : ''
+}
+
+/**
+ * 导出当前页面为 base64 图片
+ */
+async function exportPageAsImage(maxWidth: number = 1200): Promise<string> {
+  if (!pdfDocInstance || !currentPage.value) {
+    throw new Error('PDF not loaded')
+  }
+
+  try {
+    const page = await pdfDocInstance.getPage(currentPage.value)
+    const viewport = page.getViewport({ scale: 1 })
+    const outputScale = maxWidth / viewport.width
+    const scaledViewport = page.getViewport({ scale: outputScale })
+
+    // 创建临时 canvas
+    const tempCanvas = document.createElement('canvas')
+    tempCanvas.width = scaledViewport.width
+    tempCanvas.height = scaledViewport.height
+    const context = tempCanvas.getContext('2d')
+    if (!context) {
+      throw new Error('Failed to get canvas context')
+    }
+
+    // 渲染页面到 canvas
+    await page.render({
+      canvasContext: context,
+      viewport: scaledViewport
+    }).promise
+
+    // 转换为 base64
+    const base64 = tempCanvas.toDataURL('image/png')
+    return base64
+  } catch (error) {
+    console.error('Failed to export page as image:', error)
+    throw error
+  }
+}
+
+/**
+ * 处理右键菜单
+ */
+function handleContextMenu(e: MouseEvent) {
+  // 检查是否点击在 PDF 页面区域内
+  if (!pageContainerRef.value?.contains(e.target as Node)) {
+    return
+  }
+
+  // 获取选中的文字
+  selectedText.value = getSelectedText()
+
+  // 设置菜单位置
+  const rect = containerRef.value?.getBoundingClientRect()
+  if (rect) {
+    contextMenuPosition.value = {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    }
+  }
+
+  // 计算点击位置相对于 PDF 页面的坐标
+  const pageRect = pageContainerRef.value.getBoundingClientRect()
+  contextMenuPagePosition.value = {
+    x: (e.clientX - pageRect.left) / scale.value,
+    y: (e.clientY - pageRect.top) / scale.value
+  }
+
+  contextMenuVisible.value = true
+
+  // 点击其他地方关闭菜单
+  document.addEventListener('click', closeContextMenu, { once: true })
+}
+
+/**
+ * 关闭右键菜单
+ */
+function closeContextMenu() {
+  contextMenuVisible.value = false
+}
+
+/**
+ * 处理"解释选中内容"
+ */
+async function handleExplainSelection() {
+  contextMenuVisible.value = false
+
+  if (!selectedText.value) return
+
+  try {
+    const imageBase64 = await exportPageAsImage()
+    emit('explain-selection', {
+      imageBase64,
+      selectedText: selectedText.value,
+      pageNumber: currentPage.value,
+      position: { ...contextMenuPagePosition.value }
+    })
+    selectedText.value = ''
+  } catch (error) {
+    console.error('Failed to explain selection:', error)
+  }
+}
+
+/**
+ * 处理"分析当前页面"
+ */
+async function handleAnalyzePage() {
+  contextMenuVisible.value = false
+
+  try {
+    const imageBase64 = await exportPageAsImage()
+    emit('analyze-page', {
+      imageBase64,
+      pageNumber: currentPage.value,
+      position: { ...contextMenuPagePosition.value }
+    })
+  } catch (error) {
+    console.error('Failed to analyze page:', error)
+  }
+}
 </script>
 
 <style scoped>
@@ -1369,5 +1527,37 @@ defineExpose({
 
 .edge-nav-btn.right {
   right: 20px;
+}
+
+/* 右键菜单样式 */
+.context-menu {
+  position: absolute;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  padding: 4px 0;
+  min-width: 160px;
+  z-index: 1000;
+}
+
+.context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.2s;
+  font-size: 14px;
+}
+
+.context-menu-item:hover {
+  background: var(--bg-secondary);
+}
+
+.context-menu-item svg {
+  flex-shrink: 0;
+  color: var(--text-secondary);
 }
 </style>

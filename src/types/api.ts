@@ -10,9 +10,18 @@ export interface ChatCompletionRequest {
   stream?: boolean
 }
 
+// 消息内容项类型（支持 Vision API）
+export interface MessageContentItem {
+  type: 'text' | 'image_url'
+  text?: string
+  image_url?: {
+    url: string  // base64 格式: "data:image/png;base64,..."
+  }
+}
+
 export interface Message {
   role: 'system' | 'user' | 'assistant'
-  content: string
+  content: string | MessageContentItem[]  // 支持字符串或内容数组（Vision API）
 }
 
 export interface ChatCompletionResponse {

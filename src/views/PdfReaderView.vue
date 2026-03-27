@@ -32,6 +32,8 @@
           @recording-complete="handleRecordingComplete"
           @node-click="handleNodeClick"
           @node-position-change="handleNodePositionChange"
+          @analyze-page="handleAnalyzePage"
+          @explain-selection="handleExplainSelection"
         />
         <div v-else class="no-pdf">
           <p>未找到 PDF 文件</p>
@@ -108,7 +110,7 @@ import PdfViewer from '@/components/PdfViewer.vue'
 import ChatPanel from '@/components/ChatPanel.vue'
 import ContextToolbar from '@/components/ContextToolbar.vue'
 import { transcribeWithSherpaOnnx } from '@/composables/useSherpaOnnx'
-import { chatWithLLM, buildFullContextMessages } from '@/composables/useQwenAgent'
+import { chatWithLLM, buildFullContextMessages, buildImageAnalysisMessages } from '@/composables/useQwenAgent'
 import type { CanvasNode } from '@/types/notebook'
 
 const route = useRoute()
@@ -857,6 +859,129 @@ async function handleCopySelectedContext() {
     console.log(`已复制 ${selectedNodes.length} 个笔记的内容到剪贴板`)
   } catch (error) {
     console.error('复制失败:', error)
+  }
+}
+
+// ==================== 图片分析功能 ====================
+
+/**
+ * 处理"分析当前页面"事件
+ */
+async function handleAnalyzePage(data: { imageBase64: string; pageNumber: number; position: { x: number; y: number } }) {
+  const nodeId = `node-${Date.now()}`
+  const title = `第 ${data.pageNumber} 页分析`
+
+  // 创建分析节点
+  const node: CanvasNode = {
+    id: nodeId,
+    type: 'text-note',
+    title,
+    position: { x: 0, y: 0 },
+    transcript: '分析当前页面',
+    transcriptStatus: 'done',
+    agentResult: null,
+    agentStatus: 'processing',
+    createdAt: Date.now(),
+    pdfPage: data.pageNumber,
+    pdfPosition: data.position,
+    imageBase64: data.imageBase64,
+    analysisType: 'page'
+  }
+
+  notebookStore.addNodeToPdfPage(node, data.pageNumber)
+  activeNode.value = node
+
+  // 调用 AI 进行分析
+  await callImageAnalysisAI(nodeId, data.imageBase64, '请分析这个 PDF 页面的内容，总结主要信息。', data.pageNumber)
+}
+
+/**
+ * 处理"解释选中内容"事件
+ */
+async function handleExplainSelection(data: { imageBase64: string; selectedText: string; pageNumber: number; position: { x: number; y: number } }) {
+  const nodeId = `node-${Date.now()}`
+  const title = data.selectedText.length > 10 ? data.selectedText.slice(0, 10) + '...' : data.selectedText
+
+  // 创建分析节点
+  const node: CanvasNode = {
+    id: nodeId,
+    type: 'text-note',
+    title,
+    position: { x: 0, y: 0 },
+    transcript: data.selectedText,
+    transcriptStatus: 'done',
+    agentResult: null,
+    agentStatus: 'processing',
+    createdAt: Date.now(),
+    pdfPage: data.pageNumber,
+    pdfPosition: data.position,
+    imageBase64: data.imageBase64,
+    analysisType: 'selection'
+  }
+
+  notebookStore.addNodeToPdfPage(node, data.pageNumber)
+  activeNode.value = node
+
+  // 调用 AI 进行解释
+  await callImageAnalysisAI(nodeId, data.imageBase64, `请解释以下内容：\n\n${data.selectedText}`, data.pageNumber)
+}
+
+/**
+ * 调用 AI 进行图片分析
+ */
+async function callImageAnalysisAI(
+  nodeId: string,
+  imageBase64: string,
+  prompt: string,
+  pdfPage: number
+) {
+  const settings = settingsStore.settings
+
+  try {
+    const staticContextContent = staticContextFiles.value
+      .map(f => f.content)
+      .filter(c => c && c.trim())
+      .join('\n\n')
+
+    const messages = buildImageAnalysisMessages(
+      imageBase64,
+      prompt,
+      staticContextContent,
+      dynamicContextFile.value?.content
+    )
+
+    let accumulatedContent = ''
+
+    await chatWithLLM(messages, {
+      baseUrl: settings.llm.baseUrl,
+      apiKey: settings.llm.apiKey,
+      model: settings.llm.model
+    }, (chunk) => {
+      accumulatedContent += chunk
+      notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
+        agentResult: accumulatedContent,
+        agentStatus: 'processing'
+      })
+    })
+
+    notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
+      agentResult: accumulatedContent,
+      agentStatus: 'done'
+    })
+
+    // 更新 activeNode
+    if (activeNode.value?.id === nodeId) {
+      const canvas = notebookStore.getCanvasByPdfPage(pdfPage)
+      if (canvas) {
+        activeNode.value = canvas.nodes.find(n => n.id === nodeId) || null
+      }
+    }
+  } catch (error) {
+    console.error('Image analysis failed:', error)
+    notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
+      agentResult: `分析失败: ${error}`,
+      agentStatus: 'error'
+    })
   }
 }
 </script>

@@ -1,4 +1,4 @@
-import type { Message } from '@/types/api'
+import type { Message, MessageContentItem } from '@/types/api'
 
 export async function chatWithLLM(
   messages: Message[],
@@ -124,4 +124,55 @@ export function buildContextMessages(
   currentTranscript: string
 ): Message[] {
   return buildFullContextMessages(contextNodes, currentTranscript, undefined, undefined)
+}
+
+/**
+ * 构建包含图片的消息（Vision API）
+ */
+export function buildImageMessage(text: string, imageBase64: string): Message {
+  return {
+    role: 'user',
+    content: [
+      { type: 'text', text },
+      { type: 'image_url', image_url: { url: imageBase64 } }
+    ]
+  }
+}
+
+/**
+ * 构建图片分析请求消息
+ */
+export function buildImageAnalysisMessages(
+  imageBase64: string,
+  prompt: string,
+  staticContext?: string,
+  dynamicContext?: string
+): Message[] {
+  const systemMessage: Message = {
+    role: 'system',
+    content: `You are an intelligent PDF analysis assistant. Analyze the PDF page image and provide helpful responses based on the user's request. Reply in the same language as the user's input.`
+  }
+
+  const messages: Message[] = []
+
+  // 1. 静态上下文
+  if (staticContext && staticContext.trim()) {
+    messages.push({
+      role: 'user',
+      content: staticContext
+    })
+  }
+
+  // 2. 动态上下文
+  if (dynamicContext && dynamicContext.trim()) {
+    messages.push({
+      role: 'user',
+      content: dynamicContext
+    })
+  }
+
+  // 3. 当前问题（包含图片）
+  messages.push(buildImageMessage(prompt, imageBase64))
+
+  return [systemMessage, ...messages]
 }
