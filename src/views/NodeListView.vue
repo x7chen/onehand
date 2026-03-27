@@ -105,7 +105,7 @@
           <span v-else>动态上下文</span>
         </h3>
         <div v-if="!dynamicContextFile" class="no-dynamic-context">
-          <p>当前项目未关联动态上下文文件。</p>
+          <p>当前笔记未关联动态上下文文件。</p>
           <p class="hint">拖拽文字到 Header 右侧区域可自动创建。</p>
         </div>
         <textarea

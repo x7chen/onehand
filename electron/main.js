@@ -30,13 +30,13 @@ const getConfigPath = () => {
   return path.join(userDataPath, 'config.json')
 }
 
-// 项目根目录（根据当前文件位置计算）
+// 笔记根目录（根据当前文件位置计算）
 const PROJECT_ROOT = path.join(__dirname, '..')
 
 // 获取模型路径 - 尝试多个可能的位置
 const getModelPath = () => {
   const possiblePaths = [
-    // 开发环境：从 electron 目录往上到项目根目录
+    // 开发环境：从 electron 目录往上到笔记根目录
     path.join(PROJECT_ROOT, 'build/models/sherpa-onnx-paraformer-zh-small-2024-03-09'),
     // 生产环境：resources/app/build/models
     path.join(process.resourcesPath || '', 'app/build/models/sherpa-onnx-paraformer-zh-small-2024-03-09'),
@@ -56,7 +56,7 @@ const getModelPath = () => {
     }
   }
 
-  // 返回项目根目录下的路径作为默认值
+  // 返回笔记根目录下的路径作为默认值
   console.warn('Model not found, using default path:', possiblePaths[0])
   return possiblePaths[0]
 }

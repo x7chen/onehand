@@ -48,7 +48,7 @@ export async function renderMarkdown(markdown: string): Promise<string> {
     const marked = await initMarked();
     // 防止 XSS 攻击，只允许安全的 HTML 标签
     const rawHtml = marked.parse(processedMarkdown);
-    // 简单过滤，实际项目中可以使用 DOMPurify 进行更全面的过滤
+    // 简单过滤，实际笔记中可以使用 DOMPurify 进行更全面的过滤
     const sanitized = sanitizeHtml(rawHtml);
 
     // 缓存结果（限制缓存大小）
