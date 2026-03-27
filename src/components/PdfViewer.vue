@@ -41,6 +41,11 @@
           <path d="M15.55 5.55L11 1v3.07C7.06 4.56 4 7.92 4 12s3.05 7.44 7 7.93v-2.02c-2.84-.48-5-2.94-5-5.91s2.16-5.43 5-5.91V10l4.55-4.45zM19.93 11c-.17-1.39-.72-2.73-1.62-3.89l-1.42 1.42c.54.75.88 1.6 1.02 2.47h2.02zM13 17.9v2.02c1.39-.17 2.74-.71 3.9-1.61l-1.44-1.44c-.75.54-1.59.89-2.46 1.03zm3.89-2.42l1.42 1.41c.9-1.16 1.45-2.5 1.62-3.89h-2.02c-.14.87-.48 1.72-1.02 2.48z"/>
         </svg>
       </button>
+      <div class="toolbar-divider"></div>
+      <label class="include-page-checkbox" title="勾选后，创建笔记时将附带当前页面图片">
+        <input type="checkbox" v-model="includePageAsContext" @change="handleIncludePageChange" />
+        <span>附图</span>
+      </label>
     </div>
 
     <div class="pdf-main">
@@ -240,6 +245,7 @@ const emit = defineEmits<{
   'save': [data: Uint8Array]
   'analyze-page': [data: { imageBase64: string; pageNumber: number; position: { x: number; y: number } }]
   'explain-selection': [data: { imageBase64: string; selectedText: string; pageNumber: number; position: { x: number; y: number } }]
+  'include-page-change': [data: { include: boolean; imageBase64?: string; pageNumber: number }]
 }>()
 
 const containerRef = ref<HTMLElement | null>(null)
@@ -276,6 +282,9 @@ const contextMenuVisible = ref(false)
 const contextMenuPosition = ref({ x: 0, y: 0 })
 const selectedText = ref('')
 const contextMenuPagePosition = ref({ x: 0, y: 0 }) // 右键点击在 PDF 页面上的位置
+
+// 附图功能状态
+const includePageAsContext = ref(false)
 
 const mainRotation = ref(0)
 
@@ -1187,6 +1196,30 @@ async function handleAnalyzePage() {
     console.error('Failed to analyze page:', error)
   }
 }
+
+/**
+ * 处理"附图"勾选框变化
+ */
+async function handleIncludePageChange() {
+  if (includePageAsContext.value) {
+    try {
+      const imageBase64 = await exportPageAsImage()
+      emit('include-page-change', {
+        include: true,
+        imageBase64,
+        pageNumber: currentPage.value
+      })
+    } catch (error) {
+      console.error('Failed to export page as image:', error)
+      includePageAsContext.value = false
+    }
+  } else {
+    emit('include-page-change', {
+      include: false,
+      pageNumber: currentPage.value
+    })
+  }
+}
 </script>
 
 <style scoped>
@@ -1559,5 +1592,27 @@ async function handleAnalyzePage() {
 .context-menu-item svg {
   flex-shrink: 0;
   color: var(--text-secondary);
+}
+
+/* 附图勾选框样式 */
+.include-page-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-secondary);
+  user-select: none;
+}
+
+.include-page-checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--primary-color);
+}
+
+.include-page-checkbox:hover {
+  color: var(--text-primary);
 }
 </style>

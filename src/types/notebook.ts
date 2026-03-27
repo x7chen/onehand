@@ -48,7 +48,4 @@ export interface CanvasNode {
   pdfPage?: number
   pdfPosition?: { x: number; y: number }
   highlightRect?: { x: number; y: number; width: number; height: number }
-  // 图片分析相关字段
-  imageBase64?: string
-  analysisType?: 'page' | 'selection'
 }

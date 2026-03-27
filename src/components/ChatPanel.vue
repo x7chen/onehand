@@ -22,7 +22,7 @@
           @play="$emit('play', $event)"
           @toggle-context="$emit('toggle-context', $event)"
           @retry-transcription="$emit('retry-transcription', $event)"
-          @retry-agent="$emit('retry-agent', $event)"
+          @retry-agent="handleRetryAgent"
           @regenerate-agent="handleRegenerateAgent"
           @toggle-favorite="$emit('toggle-favorite', $event)"
           @update-node="(nodeId, updates) => $emit('update-node', nodeId, updates)"
@@ -70,7 +70,7 @@ import { useNotebookStore } from '@/stores/notebookStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import VoiceNote from '@/components/VoiceNote.vue'
 import RecordingIndicator from '@/components/RecordingIndicator.vue'
-import { chatWithLLM, buildFullContextMessages } from '@/composables/useQwenAgent'
+import { chatWithLLM, buildFullContextMessages, buildImageAnalysisMessages } from '@/composables/useQwenAgent'
 import { createAudioWorkletRecorder } from '@/utils/audioWorkletRecorder'
 import { transcribeWithSherpaOnnx } from '@/composables/useSherpaOnnx'
 import type { CanvasNode } from '@/types/notebook'
@@ -84,6 +84,7 @@ const props = defineProps<{
   editingNodeId?: string | null
   editingText?: string
   currentPage?: number
+  includedPageImage?: { imageBase64: string; pageNumber: number } | null
 }>()
 
 const emit = defineEmits<{
@@ -91,8 +92,6 @@ const emit = defineEmits<{
   'play': [nodeId: string]
   'toggle-context': [nodeId: string]
   'retry-transcription': [nodeId: string]
-  'retry-agent': [nodeId: string]
-  'regenerate-agent': [nodeId: string]
   'toggle-favorite': [nodeId: string]
   'update-node': [nodeId: string, updates: Partial<CanvasNode>]
   'node-created': [node: CanvasNode]
@@ -204,6 +203,7 @@ function handleCancelEdit(nodeId: string) {
 // MagicPad - 双击创建文本节点
 function handleMagicPadDblClick(e: MouseEvent) {
   const newNodeId = `node-${Date.now()}`
+
   const newNode: CanvasNode = {
     id: newNodeId,
     type: 'text-note',
@@ -306,6 +306,7 @@ async function handleMagicPadDrop(e: DragEvent) {
   const y = e.clientY - rect.top
 
   const newNodeId = `node-${Date.now()}`
+
   const newNode: CanvasNode = {
     id: newNodeId,
     type: 'text-note',
@@ -328,7 +329,14 @@ async function handleMagicPadDrop(e: DragEvent) {
   emit('node-created', newNode)
 
   if (props.aiAnswerEnabled) {
-    await handleAgentResponseForText(newNodeId, text)
+    // 检查是否有当前勾选的附图且是同一页面
+    const hasIncludedImage = props.includedPageImage && props.includedPageImage.pageNumber === props.currentPage
+
+    if (hasIncludedImage) {
+      await handleImageAnalysisResponse(newNodeId, props.includedPageImage!.imageBase64, text)
+    } else {
+      await handleAgentResponseForText(newNodeId, text)
+    }
   }
 }
 
@@ -354,6 +362,77 @@ async function handleAgentResponseForText(nodeId: string, transcript: string) {
     const messages = buildFullContextMessages(
       selectedNodes.map(n => ({ transcript: n.transcript || '', agentResult: n.agentResult || '' })),
       transcript,
+      staticContextContent,
+      props.dynamicContextFile?.content
+    )
+
+    let accumulatedContent = ''
+
+    const result = await chatWithLLM(messages, {
+      baseUrl: settings.llm.baseUrl,
+      apiKey: settings.llm.apiKey,
+      model: settings.llm.model
+    }, (chunk) => {
+      accumulatedContent += chunk
+      if (pdfPage) {
+        notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
+          agentResult: accumulatedContent,
+          agentStatus: 'processing'
+        })
+      } else {
+        notebookStore.updateNode(nodeId, {
+          agentResult: accumulatedContent,
+          agentStatus: 'processing'
+        })
+      }
+    })
+
+    if (pdfPage) {
+      notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
+        agentResult: result,
+        agentStatus: 'done'
+      })
+    } else {
+      notebookStore.updateNode(nodeId, {
+        agentResult: result,
+        agentStatus: 'done'
+      })
+    }
+  } catch (error) {
+    if (pdfPage) {
+      notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
+        agentResult: String(error),
+        agentStatus: 'error'
+      })
+    } else {
+      notebookStore.updateNode(nodeId, {
+        agentResult: String(error),
+        agentStatus: 'error'
+      })
+    }
+  }
+}
+
+// 处理图片分析响应
+async function handleImageAnalysisResponse(nodeId: string, imageBase64: string, prompt: string) {
+  const settings = settingsStore.settings
+  const pdfPage = props.currentPage
+
+  try {
+    if (pdfPage) {
+      notebookStore.updateNodeInPdfPage(nodeId, pdfPage, { agentStatus: 'processing' })
+    } else {
+      notebookStore.updateNode(nodeId, { agentStatus: 'processing' })
+    }
+
+    const staticContextContent = props.staticContextFiles
+      .map(f => f.content)
+      .filter(c => c && c.trim())
+      .join('\n\n')
+
+    const messages = buildImageAnalysisMessages(
+      imageBase64,
+      prompt,
       staticContextContent,
       props.dynamicContextFile?.content
     )
@@ -521,7 +600,14 @@ async function handleTranscription(node: CanvasNode) {
         })
 
         if (props.aiAnswerEnabled) {
-          await handleAgentResponseForVoice(node.id, transcriptResult.text, node.pdfPage)
+          // 检查是否有当前勾选的附图且是同一页面
+          const hasIncludedImage = props.includedPageImage && props.includedPageImage.pageNumber === node.pdfPage
+
+          if (hasIncludedImage) {
+            await handleImageAnalysisResponse(node.id, props.includedPageImage!.imageBase64, transcriptResult.text)
+          } else {
+            await handleAgentResponseForVoice(node.id, transcriptResult.text, node.pdfPage)
+          }
         }
       } else {
         throw new Error(transcriptResult.error || '转写失败')
@@ -557,7 +643,46 @@ function findNodeById(nodeId: string): CanvasNode | undefined {
 function handleRegenerateAgent(nodeId: string) {
   const node = findNodeById(nodeId)
   if (node && node.transcript) {
-    handleAgentResponseForVoice(nodeId, node.transcript, node.pdfPage)
+    // 检查是否有当前勾选的附图且是同一页面
+    const hasIncludedImage = props.includedPageImage && props.includedPageImage.pageNumber === node.pdfPage
+
+    if (hasIncludedImage) {
+      // 使用当前勾选的附图
+      handleImageAnalysisResponse(nodeId, props.includedPageImage!.imageBase64, node.transcript)
+    } else {
+      // 普通文本响应
+      handleAgentResponseForVoice(nodeId, node.transcript, node.pdfPage)
+    }
+  }
+}
+
+// 处理 retry-agent 事件
+function handleRetryAgent(nodeId: string) {
+  const node = findNodeById(nodeId)
+  if (node && node.transcript) {
+    // 重置状态
+    if (node.pdfPage !== undefined && node.pdfPage !== null) {
+      notebookStore.updateNodeInPdfPage(nodeId, node.pdfPage, {
+        agentResult: null,
+        agentStatus: 'processing'
+      })
+    } else {
+      notebookStore.updateNode(nodeId, {
+        agentResult: null,
+        agentStatus: 'processing'
+      })
+    }
+
+    // 检查是否有当前勾选的附图且是同一页面
+    const hasIncludedImage = props.includedPageImage && props.includedPageImage.pageNumber === node.pdfPage
+
+    if (hasIncludedImage) {
+      // 使用当前勾选的附图
+      handleImageAnalysisResponse(nodeId, props.includedPageImage!.imageBase64, node.transcript)
+    } else {
+      // 普通文本响应
+      handleAgentResponseForVoice(nodeId, node.transcript, node.pdfPage)
+    }
   }
 }
 

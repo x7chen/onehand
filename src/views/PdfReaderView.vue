@@ -34,6 +34,7 @@
           @node-position-change="handleNodePositionChange"
           @analyze-page="handleAnalyzePage"
           @explain-selection="handleExplainSelection"
+          @include-page-change="handleIncludePageChange"
         />
         <div v-else class="no-pdf">
           <p>未找到 PDF 文件</p>
@@ -52,11 +53,11 @@
         :editing-node-id="editingNodeId"
         :editing-text="editingText"
         :current-page="currentPageNumber"
+        :included-page-image="includedPageImage"
         @delete="handleDeleteNode"
         @play="handlePlayNode"
         @toggle-context="handleToggleContext"
         @retry-transcription="handleRetryTranscription"
-        @retry-agent="handleRetryAgent"
         @toggle-favorite="handleToggleFavorite"
         @update-node="handleUpdateNode"
         @node-created="handleNodeCreated"
@@ -136,6 +137,9 @@ const aiAnswerEnabled = ref(true)
 
 const showDynamicContextEditor = ref(false)
 const dynamicContextEditContent = ref('')
+
+// 附图功能状态
+const includedPageImage = ref<{ imageBase64: string; pageNumber: number } | null>(null)
 
 const staticContextFiles = computed(() => {
   const ids = notebookStore.currentNotebook?.context?.staticContextIds || []
@@ -317,12 +321,25 @@ function goBack() {
   router.push('/')
 }
 
-function handlePageChange(page: number) {
+async function handlePageChange(page: number) {
   currentPageNumber.value = page
   // 切换到对应 PDF 页面的画布（如果存在）
   notebookStore.switchToPdfPage(page)
   // 切换页面后选中第一个节点
   selectFirstNode()
+
+  // 如果附图勾选框是勾选状态，需要重新导出当前页面的图片
+  if (includedPageImage.value && pdfViewerRef.value) {
+    try {
+      const imageBase64 = await pdfViewerRef.value.exportPageAsImage()
+      includedPageImage.value = {
+        imageBase64,
+        pageNumber: page
+      }
+    } catch (error) {
+      console.error('Failed to export page image on page change:', error)
+    }
+  }
 }
 
 // 选中当前 PDF 页面的第一个节点
@@ -470,7 +487,15 @@ async function handleRecordingComplete(data: { audioBlob: Blob; duration: number
       })
 
       if (aiAnswerEnabled.value) {
-        handleAgentResponse(nodeId, transcriptResult.text, data.page)
+        // 检查是否有勾选的附图且是同一页面
+        const hasIncludedImage = includedPageImage.value && includedPageImage.value.pageNumber === data.page
+
+        if (hasIncludedImage) {
+          // 使用图片分析功能
+          callImageAnalysisAI(nodeId, includedPageImage.value!.imageBase64, transcriptResult.text, data.page)
+        } else {
+          handleAgentResponse(nodeId, transcriptResult.text, data.page)
+        }
       }
     } else {
       notebookStore.updateNodeInPdfPage(nodeId, data.page, {
@@ -514,13 +539,24 @@ function handleSaveEdit(nodeId: string, text: string) {
   if (text.trim()) {
     const pdfPage = notebookStore.findNodePdfPage(nodeId)
     const title = text.trim().slice(0, 10)
+
     notebookStore.updateNodeAuto(nodeId, { transcript: text.trim(), title })
+
     if (activeNode.value?.id === nodeId) {
       const canvas = pdfPage !== null ? notebookStore.getCanvasByPdfPage(pdfPage) : null
       activeNode.value = canvas?.nodes.find(n => n.id === nodeId) || null
     }
+
     if (aiAnswerEnabled.value && pdfPage !== null) {
-      handleAgentResponse(nodeId, text.trim(), pdfPage)
+      // 检查是否有勾选的附图且是同一页面
+      const hasIncludedImage = includedPageImage.value && includedPageImage.value.pageNumber === pdfPage
+
+      if (hasIncludedImage) {
+        // 使用图片分析功能
+        callImageAnalysisAI(nodeId, includedPageImage.value!.imageBase64, text.trim(), pdfPage)
+      } else {
+        handleAgentResponse(nodeId, text.trim(), pdfPage)
+      }
     }
   } else {
     // 删除空节点后选中第一个节点
@@ -721,10 +757,6 @@ async function handleRetryTranscription(nodeId: string) {
   }
 }
 
-function handleRetryAgent(nodeId: string) {
-  console.log('Retry agent:', nodeId)
-}
-
 function handleToggleFavorite(nodeId: string) {
   const pdfPage = notebookStore.findNodePdfPage(nodeId)
   const canvas = pdfPage !== null ? notebookStore.getCanvasByPdfPage(pdfPage) : null
@@ -883,9 +915,7 @@ async function handleAnalyzePage(data: { imageBase64: string; pageNumber: number
     agentStatus: 'processing',
     createdAt: Date.now(),
     pdfPage: data.pageNumber,
-    pdfPosition: data.position,
-    imageBase64: data.imageBase64,
-    analysisType: 'page'
+    pdfPosition: data.position
   }
 
   notebookStore.addNodeToPdfPage(node, data.pageNumber)
@@ -914,9 +944,7 @@ async function handleExplainSelection(data: { imageBase64: string; selectedText:
     agentStatus: 'processing',
     createdAt: Date.now(),
     pdfPage: data.pageNumber,
-    pdfPosition: data.position,
-    imageBase64: data.imageBase64,
-    analysisType: 'selection'
+    pdfPosition: data.position
   }
 
   notebookStore.addNodeToPdfPage(node, data.pageNumber)
@@ -982,6 +1010,20 @@ async function callImageAnalysisAI(
       agentResult: `分析失败: ${error}`,
       agentStatus: 'error'
     })
+  }
+}
+
+/**
+ * 处理"附图"勾选框变化
+ */
+function handleIncludePageChange(data: { include: boolean; imageBase64?: string; pageNumber: number }) {
+  if (data.include && data.imageBase64) {
+    includedPageImage.value = {
+      imageBase64: data.imageBase64,
+      pageNumber: data.pageNumber
+    }
+  } else {
+    includedPageImage.value = null
   }
 }
 </script>
