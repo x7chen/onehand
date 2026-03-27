@@ -524,7 +524,10 @@ async function handlePlayNode(nodeId: string) {
 
   try {
     const appDataPath = await window.electronAPI.getAppPath('userData')
-    const audioPath = `${appDataPath}/${node.audioPath}`
+    const notebook = notebookStore.currentNotebook
+    if (!notebook || !node.audioPath) return
+    
+    const audioPath = `${appDataPath}/notebooks/${notebook.id}/${node.audioPath}`
 
     currentAudio.value = new Audio(`file://${audioPath}`)
     await currentAudio.value.play()
