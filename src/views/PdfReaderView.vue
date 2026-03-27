@@ -432,7 +432,6 @@ function handleCreateNode(data: { type: 'text-note' | 'voice-note'; page: number
 
   editingNodeId.value = nodeId
   editingText.value = ''
-  // 使用新的 PDF 页面画布管理方法
   notebookStore.addNodeToPdfPage(node, data.page)
   activeNode.value = node
 }
@@ -487,15 +486,7 @@ async function handleRecordingComplete(data: { audioBlob: Blob; duration: number
       })
 
       if (aiAnswerEnabled.value) {
-        // 检查是否有勾选的附图且是同一页面
-        const hasIncludedImage = includedPageImage.value && includedPageImage.value.pageNumber === data.page
-
-        if (hasIncludedImage) {
-          // 使用图片分析功能
-          callImageAnalysisAI(nodeId, includedPageImage.value!.imageBase64, transcriptResult.text, data.page)
-        } else {
-          handleAgentResponse(nodeId, transcriptResult.text, data.page)
-        }
+        callAIWithOptionalImage(nodeId, transcriptResult.text, data.page)
       }
     } else {
       notebookStore.updateNodeInPdfPage(nodeId, data.page, {
@@ -548,15 +539,7 @@ function handleSaveEdit(nodeId: string, text: string) {
     }
 
     if (aiAnswerEnabled.value && pdfPage !== null) {
-      // 检查是否有勾选的附图且是同一页面
-      const hasIncludedImage = includedPageImage.value && includedPageImage.value.pageNumber === pdfPage
-
-      if (hasIncludedImage) {
-        // 使用图片分析功能
-        callImageAnalysisAI(nodeId, includedPageImage.value!.imageBase64, text.trim(), pdfPage)
-      } else {
-        handleAgentResponse(nodeId, text.trim(), pdfPage)
-      }
+      callAIWithOptionalImage(nodeId, text.trim(), pdfPage)
     }
   } else {
     // 删除空节点后选中第一个节点
@@ -600,7 +583,7 @@ function handleClickOutsideEditing(e: MouseEvent) {
         activeNode.value = canvas?.nodes.find(n => n.id === editingNodeId.value) || null
       }
       if (aiAnswerEnabled.value && pdfPage !== null) {
-        handleAgentResponse(editingNodeId.value, editingText.value.trim(), pdfPage)
+        callAIWithOptionalImage(editingNodeId.value, editingText.value.trim(), pdfPage)
       }
     } else {
       // 删除空节点后选中第一个节点
@@ -610,6 +593,21 @@ function handleClickOutsideEditing(e: MouseEvent) {
   }
   editingNodeId.value = null
   editingText.value = ''
+}
+
+/**
+ * 调用 AI 处理节点内容，自动判断是否使用附图
+ */
+function callAIWithOptionalImage(nodeId: string, transcript: string, pdfPage: number) {
+  if (!aiAnswerEnabled.value) return
+
+  const hasIncludedImage = includedPageImage.value && includedPageImage.value.pageNumber === pdfPage
+
+  if (hasIncludedImage) {
+    callImageAnalysisAI(nodeId, includedPageImage.value!.imageBase64, transcript, pdfPage)
+  } else {
+    handleAgentResponse(nodeId, transcript, pdfPage)
+  }
 }
 
 function handleAgentResponse(nodeId: string, transcript: string, pdfPage: number) {

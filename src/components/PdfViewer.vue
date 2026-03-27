@@ -42,9 +42,8 @@
         </svg>
       </button>
       <div class="toolbar-divider"></div>
-      <label class="include-page-checkbox" title="勾选后，创建笔记时将附带当前页面图片">
+      <label class="include-page-checkbox" title="勾选后，上下文将附带当前页面图片，需要支持视觉的AI模型">
         <input type="checkbox" v-model="includePageAsContext" @change="handleIncludePageChange" />
-        <span>附图</span>
       </label>
     </div>
 
@@ -127,7 +126,11 @@
                 v-for="node in pageNodes"
                 :key="node.id"
                 class="node-marker"
-                :class="{ selected: activeNodeId === node.id, dragging: draggingNodeId === node.id }"
+                :class="{
+                  selected: activeNodeId === node.id,
+                  dragging: draggingNodeId === node.id,
+                  'context-selected': node.selectedAsContext
+                }"
                 :style="getNodeMarkerStyle(node)"
                 @click.stop="$emit('node-click', node)"
                 @mousedown.stop="startDragNode($event, node)"
@@ -1521,6 +1524,10 @@ async function handleIncludePageChange() {
   cursor: grabbing;
   z-index: 100;
   transform: scale(1.15);
+}
+
+.node-marker.context-selected {
+  box-shadow: 0 0 0 2px #48bb78, 0 2px 6px rgba(0, 0, 0, 0.3);
 }
 
 .node-marker.voice-note {
