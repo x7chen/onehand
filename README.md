@@ -2,52 +2,46 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-0.7.0-blue.svg)
+![Version](https://img.shields.io/badge/version-0.7.5-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Electron](https://img.shields.io/badge/Electron-28.0.0-47848F?logo=electron)
 ![Vue](https://img.shields.io/badge/Vue-3.5.29-4FC08D?logo=vue.js)
 
 **一款支持离线语音识别的智能笔记应用**
 
-[功能特性](#功能特性) • [快速开始](#快速开始) • [使用说明](#使用说明) • [技术架构](#技术架构)
+[功能特性](#功能特性) • [快速开始](#快速开始) • [使用指南](#使用指南) • [技术架构](#技术架构)
 
 </div>
 
 ---
 
-## 📖 项目简介
+## 项目简介
 
 OneHand 是一款基于 Electron + Vue 3 开发的桌面语音笔记应用，支持**离线语音转写**和**AI 智能回答**功能。用户可以通过录音快速记录想法，应用会自动将语音转换为文字，并结合上下文提供 AI 回答。所有语音识别均在本地完成，无需联网，保护隐私。
 
-### 核心功能
+### 核心能力
 
-- 🎤 **离线语音识别** - 基于 Sherpa-ONNX 的 Paraformer 中文语音识别模型
-- 🤖 **AI 智能回答** - 结合静态/动态上下文，为语音笔记生成智能回答
-- 📝 **无限画布** - 自由拖拽、排版笔记节点，支持多页面管理
-- 📄 **PDF 阅读器** - 支持 PDF 文件阅读与批注，与笔记联动
-- 📋 **列表视图** - 笔记列表展示，快速浏览和搜索
+- 🎤 **离线语音识别** - 基于 Sherpa-ONNX Paraformer 中文语音识别模型
+- 🤖 **AI 智能回答** - 结合静态/动态上下文，生成智能回答
+- 📝 **无限画布** - 自由拖拽、排版笔记节点
+- 📄 **PDF 阅读器** - 支持 PDF 文件阅读与批注
 - 🔍 **全局搜索** - 快速检索所有笔记本内容
 - 🏷️ **上下文管理** - 静态背景知识与动态积累内容管理
-- ⭐ **收藏功能** - 标记重要笔记，方便快速查找
-- 🎨 **深色/浅色主题** - 自适应系统主题，支持手动切换
 
 ---
 
-## ✨ 功能特性
+## 功能特性
 
 ### 语音笔记
 - 一键录音，实时语音转文字
 - 支持录音播放、时长显示
 - 转写内容支持 Markdown 格式渲染
-- 双击可编辑转写内容和 AI 回答
-- 支持文本笔记直接创建
+- 支持编辑转写内容和 AI 回答
 
 ### AI 回答
-- 流式输出 AI 回答，实时查看生成进度
+- 流式输出，实时查看生成进度
 - 支持折叠/展开长内容
-- 可隐藏/显示 AI 回答区域
-- 支持重新生成 AI 回答
-- 支持编辑 AI 回答内容
+- 可重新生成或编辑 AI 回答
 
 ### 画布管理
 - 无限画布，自由拖拽笔记节点
@@ -60,17 +54,11 @@ OneHand 是一款基于 Electron + Vue 3 开发的桌面语音笔记应用，支
 - 支持 PDF 文件导入和阅读
 - PDF 页面导航，支持跳转指定页面
 - PDF 与笔记关联，支持 PDF 相关笔记管理
-- PDF 列表视图与画布视图切换
 
 ### 列表视图
 - 笔记列表展示，快速浏览所有笔记
 - 支持按收藏状态筛选
 - 点击笔记可快速定位到画布位置
-
-### 全局搜索
-- 快速检索所有笔记本内容
-- 支持笔记标题和内容搜索
-- 搜索结果快速跳转
 
 ### 上下文系统
 - **静态上下文**：固定背景知识、术语表、项目说明等
@@ -78,16 +66,9 @@ OneHand 是一款基于 Electron + Vue 3 开发的桌面语音笔记应用，支
 - 创建笔记本时可选择关联上下文
 - 支持标签颜色分类，快速识别
 
-### 笔记本管理
-- 创建/删除笔记本
-- 笔记本卡片展示，显示笔记数量和更新时间
-- 支持拖拽笔记本到垃圾桶删除
-- 相对时间显示（刚刚、X 分钟前、X 小时前等）
-- 点击卡片进入列表视图或 PDF 阅读器，按钮进入画布视图
-
 ---
 
-## 🚀 快速开始
+## 快速开始
 
 ### 环境要求
 
@@ -105,9 +86,9 @@ npm install
 
 ```bash
 # 开发模式：编译并启动 Electron（自动下载模型）
-npm run electron:dev
-# 或简写为
 npm run dev
+# 或
+npm run electron:dev
 ```
 
 > **注意**：开发模式会先执行完整构建（TypeScript 检查 + Vite 构建），然后启动 Electron 应用。
@@ -135,55 +116,13 @@ npm run build:dir
 | 命令 | 说明 |
 |------|------|
 | `npm run dev` | 开发模式运行 Electron 应用 |
-| `npm run electron:dev` | 同上 |
 | `npm run build` | 构建并打包应用 |
 | `npm run preview` | 预览构建产物 |
 | `npm run download-model` | 手动下载语音识别模型 |
 
 ---
 
-## 📁 项目结构
-
-```
-oneday_v2/
-├── electron/                 # Electron 主进程
-│   ├── main.js              # 主进程入口，IPC 处理
-│   └── preload.js           # 预加载脚本
-├── src/                      # Vue 前端源码
-│   ├── components/          # 可复用组件
-│   │   ├── VoiceNote.vue    # 语音笔记节点组件
-│   │   ├── InfiniteCanvas.vue # 无限画布组件
-│   │   ├── ContextToolbar.vue # 上下文工具栏
-│   │   ├── RecordingIndicator.vue # 录音指示器
-│   │   └── SearchDialog.vue # 全局搜索对话框
-│   ├── views/               # 页面视图
-│   │   ├── HomeView.vue     # 主页（笔记本/上下文管理）
-│   │   ├── CanvasView.vue   # 画布视图
-│   │   ├── NodeListView.vue # 列表视图
-│   │   ├── PdfReaderView.vue # PDF 阅读器
-│   │   └── SettingsView.vue # 设置页面
-│   ├── stores/              # Pinia 状态管理
-│   │   ├── notebookStore.ts # 笔记本管理
-│   │   ├── contextStore.ts  # 上下文管理
-│   │   └── settingsStore.ts # 设置管理
-│   ├── types/               # TypeScript 类型定义
-│   ├── composables/         # 组合式函数
-│   ├── utils/               # 工具函数
-│   ├── router/              # 路由配置
-│   ├── App.vue              # 根组件
-│   └── main.ts              # 入口文件
-├── build/                    # 构建资源
-│   └── models/              # 语音识别模型（自动下载）
-├── scripts/                  # 构建脚本
-│   └── download-model.js    # 模型下载脚本
-├── release/                  # 构建输出目录
-├── doc/                      # 项目文档
-└── package.json             # 项目配置
-```
-
----
-
-## 💡 使用说明
+## 使用指南
 
 ### 创建笔记本
 
@@ -201,14 +140,14 @@ oneday_v2/
 
 ### 录音笔记
 
-1. 在画布视图中，按空格键开始录音
-2. 再次按空格键停止录音
+1. 在画布视图中，长按鼠标左键开始录音
+2. 松开鼠标左键停止录音
 3. 录音会自动转写为文字，并生成 AI 回答
 
 ### 文本笔记
 
-1. 按 `T` 键创建文本笔记
-2. 输入内容后按 `Enter` 保存
+1. 双击鼠标左创建文本笔记
+2. 输入内容后按 `Ctrl+Enter` 保存
 
 ### 上下文管理
 
@@ -230,11 +169,6 @@ oneday_v2/
 
 | 操作 | 快捷键/方式 |
 |------|------------|
-| 开始/停止录音 | 空格键 |
-| 创建文本笔记 | T 键 |
-| 全选节点 | A 键 |
-| 反选节点 | R 键 |
-| 清空选择 | Q 键 |
 | 删除选中节点 | Delete / Backspace |
 | 播放录音 | 点击麦克风图标 |
 | 编辑内容 | 双击文本区域 |
@@ -248,11 +182,10 @@ oneday_v2/
 1. 展开所有折叠的文本框，统计每个节点的实际尺寸
 2. 按每排 5 个节点、水平间隔 20px 进行布局
 3. 以每排最高节点为基准，竖直间隔 20px
-4. 自动折叠超过高度限制的文本框（转写>300px，AI 回答>800px）
 
 ---
 
-## 🛠️ 技术架构
+## 技术架构
 
 ### 技术栈
 
@@ -271,7 +204,19 @@ oneday_v2/
 | Mermaid | 11.6.0 | 流程图/图表渲染 |
 | Highlight.js | 11.11.1 | 代码高亮 |
 
-**开发模式说明**：运行 `npm run dev` 时会先执行完整构建（TypeScript 检查 + Vite 构建），然后启动 Electron 应用加载构建后的静态文件。
+### 项目结构
+
+```
+src/
+├── components/     # Vue 组件
+├── composables/    # 组合式函数
+├── stores/         # Pinia 状态管理
+├── types/          # TypeScript 类型定义
+├── utils/          # 工具函数
+├── views/          # 路由级组件
+├── router/         # Vue Router 配置
+└── main.ts         # 应用入口
+```
 
 ### 语音识别流程
 
@@ -296,21 +241,21 @@ Sherpa-ONNX Paraformer 模型
 
 ---
 
-## 📦 构建产物
+## 构建产物
 
 ### Windows
 
-- `OneHand-0.7.0-Windows-x64.zip` - 绿色版
-- `OneHand-0.7.0-Windows-Setup-x64.exe` - 安装版
+- `OneHand-0.7.5-Windows-x64.zip` - 绿色版
+- `OneHand-0.7.5-Windows-Setup-x64.exe` - 安装版
 
 ### macOS
 
-- `OneHand-0.7.0-macOS-x64.dmg` - Intel 芯片
-- `OneHand-0.7.0-macOS-arm64.dmg` - Apple Silicon
+- `OneHand-0.7.5-macOS-x64.dmg` - Intel 芯片
+- `OneHand-0.7.5-macOS-arm64.dmg` - Apple Silicon
 
 ---
 
-## 🔧 开发指南
+## 开发指南
 
 ### 添加新功能
 
@@ -318,20 +263,6 @@ Sherpa-ONNX Paraformer 模型
 2. 在 `src/stores/` 添加状态管理（如需要）
 3. 在 `src/types/` 添加 TypeScript 类型定义
 4. 在 `electron/main.js` 添加 IPC 处理（如需要）
-
-### IPC 通信
-
-前端通过 `window.electronAPI` 与 Electron 主进程通信：
-
-```typescript
-// 前端调用
-const result = await window.electronAPI.saveFile(filePath, data)
-
-// 主进程处理
-ipcMain.handle('save-file', async (event, filePath, data) => {
-  // 处理逻辑
-})
-```
 
 ### 模型下载
 
@@ -345,7 +276,7 @@ npm run download-model
 
 ---
 
-## 📝 常见问题
+## 常见问题
 
 ### Q: 语音识别不准确怎么办？
 
@@ -372,13 +303,13 @@ A: 当前支持 PDF 文件阅读、页面导航、与笔记关联。后续版本
 
 ---
 
-## 📄 许可证
+## 许可证
 
 MIT License
 
 ---
 
-## 🙏 致谢
+## 致谢
 
 - [Sherpa-ONNX](https://github.com/k2-fsa/sherpa-onnx) - 离线语音识别引擎
 - [Paraformer](https://www.modelscope.cn/models/damo/speech_paraformer-large-vad-punc_asr_nat-zh-cn) - 中文语音识别模型

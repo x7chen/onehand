@@ -79,7 +79,7 @@ export function buildFullContextMessages(
 ): Message[] {
   const systemMessage: Message = {
     role: 'system',
-    content: `You are an intelligent notebook assistant. Based on the user's voice note content and context, provide useful responses, summaries, or expanded information. Reply in the same language as the user's input.`
+    content: `YYou are an intelligent assistant. Based on the user's note content and context, provide useful responses, summaries, or expanded information. Reply in the same language as the user's input.`
   }
 
   const messages: Message[] = []
