@@ -375,35 +375,40 @@ watch(currentPageNumber, (newPage) => {
 
 function handleKeyDown(e: KeyboardEvent) {
   if (editingNodeId.value) return
-  
-  const nodes = currentPageNodes.value
-  if (nodes.length === 0) return
-  
-  const currentIndex = activeNode.value 
-    ? nodes.findIndex(n => n.id === activeNode.value!.id)
-    : -1
-  
-  let newIndex = currentIndex
-  
-  if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+
+  // 左右键：PDF 页面翻页
+  if (e.key === 'ArrowLeft') {
     e.preventDefault()
-    if (currentIndex <= 0) {
-      newIndex = nodes.length - 1
-    } else {
-      newIndex = currentIndex - 1
-    }
-  } else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
-    e.preventDefault()
-    if (currentIndex >= nodes.length - 1) {
-      newIndex = 0
-    } else {
-      newIndex = currentIndex + 1
-    }
-  } else {
+    pdfViewerRef.value?.prevPage()
     return
   }
-  
-  activeNode.value = nodes[newIndex]
+
+  if (e.key === 'ArrowRight') {
+    e.preventDefault()
+    pdfViewerRef.value?.nextPage()
+    return
+  }
+
+  // 上下键：节点导航
+  if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+    const nodes = currentPageNodes.value
+    if (nodes.length === 0) return
+
+    e.preventDefault()
+
+    const currentIndex = activeNode.value
+      ? nodes.findIndex(n => n.id === activeNode.value!.id)
+      : -1
+
+    let newIndex = currentIndex
+    if (e.key === 'ArrowUp') {
+      newIndex = currentIndex <= 0 ? nodes.length - 1 : currentIndex - 1
+    } else {
+      newIndex = currentIndex >= nodes.length - 1 ? 0 : currentIndex + 1
+    }
+
+    activeNode.value = nodes[newIndex]
+  }
 }
 
 function handleNodePositionChange(data: { nodeId: string; position: { x: number; y: number } }) {

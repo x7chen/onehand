@@ -34,6 +34,7 @@ The main process handles:
 - IPC handlers for file system operations (save, read, mkdir, etc.)
 - Sherpa-ONNX speech recognition (initialized asynchronously)
 - Config persistence in `userData/config.json`
+- Deep link protocol handling (`onehand://`)
 
 ### Renderer Process (Vue 3 Application)
 
@@ -41,13 +42,13 @@ The main process handles:
 
 **Router** (`src/router/index.ts`):
 - `/` - Home view (project list)
-- `/canvas/:projectId` - Infinite canvas for voice notes
-- `/node-list/:projectId` - List view of all notes
-- `/pdf/:projectId` - PDF reader with annotations
+- `/canvas/:notebookId` - Infinite canvas for voice notes
+- `/node-list/:notebookId` - List view of all notes
+- `/pdf/:notebookId` - PDF reader with annotations
 - `/settings` - Application settings
 
 **State Management** (Pinia stores):
-- `projectStore` - Projects, canvases, nodes, PDF page management
+- `notebookStore` - Projects, canvases, nodes, PDF page management
 - `settingsStore` - User preferences (LLM config, theme, etc.)
 - `contextStore` - Static/dynamic context files for AI
 
@@ -60,7 +61,7 @@ The main process handles:
 ### Data Model
 
 ```
-Project
+Notebook
 ├── id, name, createdAt, updatedAt
 ├── canvases: CanvasPage[]  (multi-page support)
 │   ├── id, type ('infinite' | 'pdf')
@@ -85,6 +86,7 @@ The preload script (`electron/preload.js`) exposes `window.electronAPI`:
 - Dialog: `selectDirectory`, `showOpenDialog`
 - App: `getAppPath`, `setTheme`, `readConfig`, `saveConfig`
 - Transcription: `transcribeAudio(audioData, mimeType, config)`
+- Deep links: `getDeepLink`, `onDeepLink`, `removeDeepLinkListener`
 
 ## Key Implementation Notes
 

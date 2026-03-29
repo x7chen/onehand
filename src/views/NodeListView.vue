@@ -384,10 +384,34 @@ function handleKeyDown(event: KeyboardEvent) {
   }
 
   const nodes = notebookStore.currentCanvas?.nodes || []
-  if (!nodes || nodes.length === 0) return
 
-  if (event.key === 'ArrowLeft' || event.key === 'ArrowRight' ||
-      event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+  // 左右键：画布翻页
+  if (event.key === 'ArrowLeft') {
+    event.preventDefault()
+    if (notebookStore.hasPrevPage) {
+      notebookStore.goToPrevPage()
+      nextTick(() => {
+        selectFirstNode()
+      })
+    }
+    return
+  }
+
+  if (event.key === 'ArrowRight') {
+    event.preventDefault()
+    if (notebookStore.hasNextPage) {
+      notebookStore.goToNextPage()
+      nextTick(() => {
+        selectFirstNode()
+      })
+    }
+    return
+  }
+
+  // 上下键：节点导航
+  if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+    if (!nodes || nodes.length === 0) return
+
     event.preventDefault()
 
     const sortedNodes = [...nodes].sort((a, b) => a.createdAt - b.createdAt)
@@ -396,7 +420,7 @@ function handleKeyDown(event: KeyboardEvent) {
       : -1
 
     let newIndex: number
-    if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+    if (event.key === 'ArrowUp') {
       newIndex = currentIndex <= 0 ? sortedNodes.length - 1 : currentIndex - 1
     } else {
       newIndex = currentIndex >= sortedNodes.length - 1 ? 0 : currentIndex + 1

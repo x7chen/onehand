@@ -1066,6 +1066,8 @@ onUnmounted(() => {
 
 defineExpose({
   goToPage,
+  prevPage,
+  nextPage,
   rotateClockwise,
   rotateCounterClockwise,
   exportPageAsImage

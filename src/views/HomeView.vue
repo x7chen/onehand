@@ -462,7 +462,15 @@ async function deleteContextFile() {
 
 // Notebook management
 async function createNotebook() {
-  if (!newNotebookName.value.trim()) return
+  // 确定笔记本名称：如果名称为空但有 PDF 文件，则使用 PDF 文件名
+  let notebookName = newNotebookName.value.trim()
+  if (!notebookName && newNotebookPdfPath.value) {
+    // 从 PDF 路径提取文件名（不带扩展名）
+    const fileName = newNotebookPdfPath.value.split(/[/\\]/).pop() || ''
+    notebookName = fileName.replace(/\.pdf$/i, '') || 'PDF 笔记本'
+  }
+
+  if (!notebookName) return
 
   const context = {
     staticContextIds: newNotebookStaticContexts.value.length > 0 ? newNotebookStaticContexts.value : undefined,
@@ -473,7 +481,7 @@ async function createNotebook() {
   const pdfPath = newNotebookPdfPath.value || undefined
 
   const notebook = await notebookStore.createNotebook(
-    newNotebookName.value,
+    notebookName,
     (context.staticContextIds || context.dynamicContextId) ? context : undefined,
     pdfPath
   )

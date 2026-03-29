@@ -58,7 +58,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useNotebookStore } from '@/stores/notebookStore'
 import { useContextStore } from '@/stores/contextStore'
@@ -131,7 +131,7 @@ onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyDown)
 })
 
-// 键盘事件处理 - 方向键选择节点
+// 键盘事件处理 - 上下键选择节点，左右键翻页
 function handleKeyDown(event: KeyboardEvent) {
   // 如果正在输入框中输入，不处理
   const target = event.target as HTMLElement
@@ -139,12 +139,34 @@ function handleKeyDown(event: KeyboardEvent) {
     return
   }
 
-  const nodes = notebookStore.currentCanvas?.nodes || []
-  if (!nodes || nodes.length === 0) return
+  // 左右键：画布翻页
+  if (event.key === 'ArrowLeft') {
+    event.preventDefault()
+    if (notebookStore.hasPrevPage) {
+      notebookStore.goToPrevPage()
+      nextTick(() => {
+        selectFirstNode()
+      })
+    }
+    return
+  }
 
-  // 上/左：上一个节点，下/右：下一个节点
-  if (event.key === 'ArrowLeft' || event.key === 'ArrowRight' ||
-      event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+  if (event.key === 'ArrowRight') {
+    event.preventDefault()
+    if (notebookStore.hasNextPage) {
+      notebookStore.goToNextPage()
+      nextTick(() => {
+        selectFirstNode()
+      })
+    }
+    return
+  }
+
+  // 上下键：节点导航
+  if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+    const nodes = notebookStore.currentCanvas?.nodes || []
+    if (!nodes || nodes.length === 0) return
+
     event.preventDefault()
 
     // 按创建时间排序
@@ -156,7 +178,7 @@ function handleKeyDown(event: KeyboardEvent) {
       : -1
 
     let newIndex: number
-    if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+    if (event.key === 'ArrowUp') {
       newIndex = currentIndex <= 0 ? sortedNodes.length - 1 : currentIndex - 1
     } else {
       newIndex = currentIndex >= sortedNodes.length - 1 ? 0 : currentIndex + 1
@@ -164,6 +186,15 @@ function handleKeyDown(event: KeyboardEvent) {
 
     const newActiveNode = sortedNodes[newIndex]
     canvasAreaRef.value?.setActiveNodeId(newActiveNode.id)
+  }
+}
+
+// 选中当前画布的第一个节点
+function selectFirstNode() {
+  const nodes = notebookStore.currentCanvas?.nodes || []
+  if (nodes.length > 0) {
+    const sortedNodes = [...nodes].sort((a, b) => a.createdAt - b.createdAt)
+    canvasAreaRef.value?.setActiveNodeId(sortedNodes[0].id)
   }
 }
 
