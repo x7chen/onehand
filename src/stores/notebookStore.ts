@@ -227,8 +227,8 @@ export const useNotebookStore = defineStore('notebook', () => {
   }
 
   // 清理节点中的运行时状态字段（不保存到文件）
-  function cleanNodeForSave(node: CanvasNode): Omit<CanvasNode, 'transcriptStatus' | 'agentStatus'> {
-    const { transcriptStatus, agentStatus, ...rest } = node
+  function cleanNodeForSave(node: CanvasNode): Omit<CanvasNode, 'transcriptStatus' | 'agentStatus' | 'selectedAsContext'> {
+    const { transcriptStatus, agentStatus, selectedAsContext, ...rest } = node
     return rest
   }
 

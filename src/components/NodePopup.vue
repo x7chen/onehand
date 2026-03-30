@@ -47,7 +47,7 @@
           :notebook-id="nodeData.notebook.id"
           :canvas-id="nodeData.canvas.id"
           :show-header="true"
-          :is-active="true"
+          :is-active="false"
           @toggle-context="handleToggleContext"
           @toggle-favorite="handleToggleFavorite"
           @play="handlePlay"
