@@ -645,6 +645,53 @@ export const useNotebookStore = defineStore('notebook', () => {
     }
   }
 
+  // 获取所有画布中已选中作为上下文的节点（跨画布）
+  function getAllSelectedContextNodes(excludeNodeId?: string): CanvasNode[] {
+    if (!currentNotebook.value?.canvases) return []
+    const selectedNodes: CanvasNode[] = []
+    for (const canvas of currentNotebook.value.canvases) {
+      for (const node of canvas.nodes) {
+        if (node.selectedAsContext && node.transcriptStatus === 'done') {
+          if (!excludeNodeId || node.id !== excludeNodeId) {
+            selectedNodes.push(node)
+          }
+        }
+      }
+    }
+    return selectedNodes.sort((a, b) => a.createdAt - b.createdAt)
+  }
+
+  // 获取所有画布中的所有节点（跨画布）
+  function getAllNodes(): CanvasNode[] {
+    if (!currentNotebook.value?.canvases) return []
+    const allNodes: CanvasNode[] = []
+    for (const canvas of currentNotebook.value.canvases) {
+      for (const node of canvas.nodes) {
+        allNodes.push(node)
+      }
+    }
+    return allNodes
+  }
+
+  // 统计所有画布中已选中作为上下文的节点数量（跨画布）
+  function countAllSelectedContext(): number {
+    return getAllSelectedContextNodes().length
+  }
+
+  // 统计所有画布中可被选择作为上下文的节点数量（跨画布）
+  function countAllSelectableNodes(): number {
+    if (!currentNotebook.value?.canvases) return 0
+    let count = 0
+    for (const canvas of currentNotebook.value.canvases) {
+      for (const node of canvas.nodes) {
+        if (node.transcriptStatus === 'done') {
+          count++
+        }
+      }
+    }
+    return count
+  }
+
   return {
     notebooks,
     currentNotebook,
@@ -682,6 +729,11 @@ export const useNotebookStore = defineStore('notebook', () => {
     getAllPdfPageCanvases,
     findNodePdfPage,
     updateNodeAuto,
-    removeNodeAuto
+    removeNodeAuto,
+    // 跨画布操作
+    getAllSelectedContextNodes,
+    getAllNodes,
+    countAllSelectedContext,
+    countAllSelectableNodes
   }
 })

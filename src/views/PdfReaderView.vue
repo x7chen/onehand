@@ -152,15 +152,13 @@ const dynamicContextFile = computed(() => {
 })
 
 const selectedContextCount = computed(() => {
-  // 使用当前 PDF 页面的节点
-  const nodes = notebookStore.getNodesByPdfPage(currentPageNumber.value)
-  return nodes.filter(n => n.selectedAsContext && n.transcriptStatus === 'done').length
+  // 统计所有画布的已选中节点
+  return notebookStore.countAllSelectedContext()
 })
 
 const completedNodesCount = computed(() => {
-  // 使用当前 PDF 页面的节点
-  const nodes = notebookStore.getNodesByPdfPage(currentPageNumber.value)
-  return nodes.filter(n => n.transcriptStatus === 'done').length
+  // 统计所有画布的可选择节点
+  return notebookStore.countAllSelectableNodes()
 })
 
 const isAllContextSelected = computed(() => {
@@ -624,7 +622,8 @@ function handleAgentResponse(nodeId: string, transcript: string, pdfPage: number
     const node = notebookStore.getCanvasByPdfPage(pdfPage)?.nodes.find(n => n.id === nodeId)
     if (!node) return
 
-    const selectedNodes = notebookStore.getCanvasByPdfPage(pdfPage)?.nodes.filter(n => n.selectedAsContext && n.id !== nodeId) || []
+    // 使用跨画布的已选中节点作为上下文
+    const selectedNodes = notebookStore.getAllSelectedContextNodes(nodeId)
 
     const staticContextContent = staticContextFiles.value
       .map(f => f.content)
@@ -838,16 +837,16 @@ async function handleDynamicContextDrop(text: string) {
 }
 
 function handleToggleAllContext() {
-  // 获取当前 PDF 页面的节点
-  const nodes = notebookStore.getNodesByPdfPage(currentPageNumber.value)
+  // 获取所有画布的节点
+  const allNodes = notebookStore.getAllNodes()
   if (isAllContextSelected.value) {
-    nodes.forEach(node => {
+    allNodes.forEach(node => {
       if (node.selectedAsContext) {
         notebookStore.updateNodeAuto(node.id, { selectedAsContext: false })
       }
     })
   } else {
-    nodes.forEach(node => {
+    allNodes.forEach(node => {
       if (node.transcriptStatus === 'done') {
         notebookStore.updateNodeAuto(node.id, { selectedAsContext: true })
       }
@@ -856,9 +855,9 @@ function handleToggleAllContext() {
 }
 
 function handleInvertSelection() {
-  // 获取当前 PDF 页面的节点
-  const nodes = notebookStore.getNodesByPdfPage(currentPageNumber.value)
-  nodes.forEach(node => {
+  // 获取所有画布的节点
+  const allNodes = notebookStore.getAllNodes()
+  allNodes.forEach(node => {
     if (node.transcriptStatus === 'done') {
       notebookStore.updateNodeAuto(node.id, { selectedAsContext: !node.selectedAsContext })
     }
@@ -866,9 +865,9 @@ function handleInvertSelection() {
 }
 
 function clearContextSelection() {
-  // 获取当前 PDF 页面的节点
-  const nodes = notebookStore.getNodesByPdfPage(currentPageNumber.value)
-  nodes.forEach(node => {
+  // 获取所有画布的节点
+  const allNodes = notebookStore.getAllNodes()
+  allNodes.forEach(node => {
     if (node.selectedAsContext) {
       notebookStore.updateNodeAuto(node.id, { selectedAsContext: false })
     }
@@ -877,9 +876,8 @@ function clearContextSelection() {
 
 // 复制已选中节点的内容到剪贴板
 async function handleCopySelectedContext() {
-  const nodes = notebookStore.getNodesByPdfPage(currentPageNumber.value)
-  const selectedNodes = nodes
-    .filter(n => n.selectedAsContext && n.transcript)
+  const selectedNodes = notebookStore.getAllSelectedContextNodes()
+    .filter(n => n.transcript)
     .sort((a, b) => a.createdAt - b.createdAt)
 
   if (selectedNodes.length === 0) return
