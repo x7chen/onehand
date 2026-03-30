@@ -3,6 +3,12 @@
     <div class="header">
       <h1>onehand - 智能语音笔记</h1>
       <div class="header-actions">
+        <button @click="showFavoritesDialog = true" class="favorites-btn">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+            <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
+          </svg>
+          收藏夹
+        </button>
         <button @click="showSearchDialog = true" class="search-btn">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
             <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
@@ -317,6 +323,12 @@
       :visible="showSearchDialog"
       @close="showSearchDialog = false"
     />
+
+    <!-- 收藏夹对话框 -->
+    <FavoritesDialog
+      :visible="showFavoritesDialog"
+      @close="showFavoritesDialog = false"
+    />
   </div>
 </template>
 
@@ -326,6 +338,7 @@ import { useRouter } from 'vue-router'
 import { useNotebookStore } from '@/stores/notebookStore'
 import { useContextStore } from '@/stores/contextStore'
 import SearchDialog from '@/components/SearchDialog.vue'
+import FavoritesDialog from '@/components/FavoritesDialog.vue'
 import type { ContextFile, ContextType } from '@/types/context'
 import { CONTEXT_COLORS } from '@/types/context'
 import type { Notebook } from '@/types/notebook'
@@ -363,6 +376,9 @@ const notebookToDelete = ref<Notebook | null>(null)
 
 // 搜索对话框
 const showSearchDialog = ref(false)
+
+// 收藏夹对话框
+const showFavoritesDialog = ref(false)
 
 onMounted(() => {
   notebookStore.loadNotebooks()
@@ -648,6 +664,24 @@ async function confirmDeleteNotebook() {
 .search-btn:hover {
   background: var(--border-color);
   color: #4299e1;
+}
+
+.favorites-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--bg-secondary);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: background 0.2s;
+}
+
+.favorites-btn:hover {
+  background: var(--border-color);
+  color: #fbbf24;
 }
 
 .settings-btn {
