@@ -611,10 +611,14 @@ async function renderPage() {
     const renderViewport = page.getViewport({ scale: renderScale, rotation })
     const cssViewport = page.getViewport({ scale: outputScale, rotation })
     
+    // Set canvas dimensions first (these get truncated to integers)
     canvas.width = renderViewport.width
     canvas.height = renderViewport.height
-    canvasWidth.value = cssViewport.width
-    canvasHeight.value = cssViewport.height
+
+    // Derive CSS dimensions from actual canvas dimensions to ensure exact dpr ratio
+    // This prevents blur caused by fractional pixel mismatch
+    canvasWidth.value = canvas.width / devicePixelRatio.value
+    canvasHeight.value = canvas.height / devicePixelRatio.value
     
     await nextTick()
     
