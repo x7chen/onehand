@@ -1,127 +1,99 @@
 <template>
   <div class="home-view">
-    <div class="header">
-      <h1>onehand - 智能语音笔记</h1>
-      <div class="header-actions">
-        <button @click="showFavoritesDialog = true" class="favorites-btn">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-            <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
-          </svg>
-          收藏夹
-        </button>
-        <button @click="showSearchDialog = true" class="search-btn">
+    <!-- 左侧侧边栏 -->
+    <aside class="sidebar" @dragover="handleSidebarDragOver" @drop="handleSidebarDrop">
+      <div class="sidebar-header">
+        <h1 class="logo">onehand</h1>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button
+          class="nav-item"
+          :class="{ active: activeTab === 'search' }"
+          @click="handleSearchClick"
+        >
           <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
             <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
           </svg>
-          搜索
+          <span>搜索</span>
         </button>
-        <button @click="openSettings" class="settings-btn">
+
+        <button
+          class="nav-item"
+          :class="{ active: activeTab === 'notebooks' }"
+          @click="activeTab = 'notebooks'"
+        >
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+            <path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/>
+          </svg>
+          <span>笔记本</span>
+        </button>
+
+        <button
+          class="nav-item"
+          :class="{ active: activeTab === 'contexts' }"
+          @click="activeTab = 'contexts'"
+        >
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+            <path d="M17.63 5.84C17.27 5.33 16.67 5 16 5L5 5.01C3.9 5.01 3 5.9 3 7v10c0 1.1.9 1.99 2 1.99L16 19c.67 0 1.27-.33 1.63-.84L22 12l-4.37-6.16z"/>
+          </svg>
+          <span>上下文</span>
+        </button>
+
+        <button
+          class="nav-item"
+          :class="{ active: activeTab === 'favorites' }"
+          @click="activeTab = 'favorites'"
+        >
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+            <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
+          </svg>
+          <span>收藏夹</span>
+        </button>
+
+        <button
+          class="nav-item"
+          :class="{ active: activeTab === 'settings' }"
+          @click="activeTab = 'settings'"
+        >
           <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
             <path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
           </svg>
-          设置
+          <span>设置</span>
         </button>
+      </nav>
+
+      <!-- 回收站 -->
+      <div
+        class="sidebar-trash"
+        :class="{ 'drag-over': isDragOverTrash }"
+        @dragover="handleTrashDragOver"
+        @dragleave="handleTrashDragLeave"
+        @drop="handleTrashDrop"
+      >
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+          <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+        </svg>
+        <span>回收站</span>
       </div>
-    </div>
+    </aside>
 
-    <div class="content">
-      <!-- 上下文文件管理区域 -->
-      <div class="contexts-section">
-        <div class="section-header">
-          <h2>上下文标签</h2>
-          <div class="header-actions">
-            <button @click="showNewContextDialog = true" class="new-context-btn">
-              + 新建标签
-            </button>
-          </div>
-        </div>
-
-        <div v-if="contextStore.contextFiles.length === 0" class="empty-state">
-          <p>暂无上下文标签，创建一个作为笔记本背景知识或动态积累内容吧！</p>
-        </div>
-
-        <div v-else class="contexts-container">
-          <!-- 静态上下文标签 -->
-          <div v-if="contextStore.staticContextFiles.length > 0" class="context-category">
-            <h3>静态上下文</h3>
-            <div class="tags-wrapper">
-              <div
-                v-for="file in contextStore.staticContextFiles"
-                :key="file.id"
-                class="context-tag"
-                :style="{ backgroundColor: file.color + '20', borderColor: file.color }"
-                @dblclick="editContextFile(file)"
-              >
-                <span class="tag-name" :style="{ color: file.color }">{{ file.name }}</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- 动态上下文标签 -->
-          <div v-if="contextStore.dynamicContextFiles.length > 0" class="context-category">
-            <h3>动态上下文</h3>
-            <div class="tags-wrapper">
-              <div
-                v-for="file in contextStore.dynamicContextFiles"
-                :key="file.id"
-                class="context-tag"
-                :style="{ backgroundColor: file.color + '20', borderColor: file.color }"
-                @dblclick="editContextFile(file)"
-              >
-                <span class="tag-name" :style="{ color: file.color }">{{ file.name }}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 笔记本列表区域 -->
-      <div class="notebooks-section">
-        <div class="section-header">
-          <h2>我的笔记本</h2>
-          <button @click="showNewNotebookDialog = true" class="new-notebook-btn">
-            + 新建笔记本
-          </button>
-        </div>
-
-        <div v-if="notebookStore.notebooks.length === 0" class="empty-state">
-          <p>暂无笔记本，创建一个新笔记本开始记录吧！</p>
-        </div>
-
-        <div v-else class="notebooks-grid">
-          <div
-            v-for="notebook in notebookStore.notebooks"
-            :key="notebook.id"
-            class="notebook-card"
-            draggable="true"
-            @dragstart="handleNotebookDragStart($event, notebook)"
-            @dragend="handleNotebookDragEnd"
-          >
-            <div class="notebook-card-content" @click="openNotebook(notebook.id)">
-              <h3>{{ notebook.name }}</h3>
-              <p class="notebook-info">
-                <span v-if="notebook.pdfPath" class="pdf-badge">PDF</span>
-                {{ getCanvasesCount(notebook) }} 页 · {{ getTotalNodesCount(notebook) }} 个笔记 · {{ formatDate(notebook.updatedAt) }}
-                <span v-if="notebook.context?.staticContextIds?.length || notebook.context?.dynamicContextId" class="context-indicator">
-                  ·
-                  <span v-if="notebook.context.staticContextIds?.length" :title="`静态上下文 (${notebook.context.staticContextIds.length}个)`">
-                    📄{{ notebook.context.staticContextIds.length > 1 ? `(${notebook.context.staticContextIds.length})` : '' }}
-                  </span>
-                  <span v-if="notebook.context.dynamicContextId" title="动态上下文">📝</span>
-                </span>
-              </p>
-            </div>
-            <div class="notebook-card-actions">
-              <button class="action-btn canvas-btn" @click.stop="openCanvas(notebook.id)" title="画布视图">
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                  <path d="M4 8h4V4H4v4zm6 12h4v-4h-4v4zm-6 0h4v-4H4v4zm0-6h4v-4H4v4zm6 0h4v-4h-4v4zm6-10v4h4V4h-4zm-6 4h4V4h-4v4zm6 6h4v-4h-4v4zm0 6h4v-4h-4v4z"/>
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <!-- 右侧内容区域 -->
+    <main class="main-content">
+      <NotebooksPanel
+        v-if="activeTab === 'notebooks'"
+        @newNotebook="showNewNotebookDialog = true"
+        @dragStart="handleNotebookDragStart"
+        @dragEnd="handleNotebookDragEnd"
+      />
+      <ContextsPanel
+        v-if="activeTab === 'contexts'"
+        @newContext="showNewContextDialog = true"
+        @editContext="editContextFile"
+      />
+      <FavoritesPanel v-if="activeTab === 'favorites'" />
+      <SettingsPanel v-if="activeTab === 'settings'" />
+    </main>
 
     <!-- New Context Dialog -->
     <div v-if="showNewContextDialog" class="dialog-overlay" @click="showNewContextDialog = false">
@@ -158,7 +130,7 @@
             </svg>
           </button>
         </div>
-        
+
         <div class="edit-form">
           <div class="form-group">
             <label>标签名称：</label>
@@ -169,7 +141,7 @@
               class="name-input"
             />
           </div>
-          
+
           <div class="form-group">
             <label>标签颜色：</label>
             <div class="color-picker">
@@ -184,7 +156,7 @@
               />
             </div>
           </div>
-          
+
           <div class="form-group">
             <label>标签内容：</label>
             <textarea
@@ -194,7 +166,7 @@
             ></textarea>
           </div>
         </div>
-        
+
         <div class="dialog-actions">
           <button @click="confirmDeleteContext(editingContext.id, true)" class="delete-btn">删除</button>
           <div class="dialog-actions-right">
@@ -292,20 +264,6 @@
       </div>
     </div>
 
-    <!-- 垃圾桶区域 -->
-    <div
-      class="trash-zone"
-      :class="{ 'drag-over': isDragOverTrash }"
-      @dragover="handleTrashDragOver"
-      @dragleave="handleTrashDragLeave"
-      @drop="handleTrashDrop"
-    >
-      <svg viewBox="0 0 24 24" width="32" height="32" fill="currentColor" class="trash-icon">
-        <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-      </svg>
-      <span class="trash-text">拖拽到此处删除</span>
-    </div>
-
     <!-- 笔记本删除确认对话框 -->
     <div v-if="showNotebookDeleteConfirm" class="dialog-overlay" @click="showNotebookDeleteConfirm = false">
       <div class="dialog confirm-dialog" @click.stop>
@@ -323,32 +281,31 @@
       :visible="showSearchDialog"
       @close="showSearchDialog = false"
     />
-
-    <!-- 收藏夹对话框 -->
-    <FavoritesDialog
-      :visible="showFavoritesDialog"
-      @close="showFavoritesDialog = false"
-    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
 import { useNotebookStore } from '@/stores/notebookStore'
 import { useContextStore } from '@/stores/contextStore'
 import SearchDialog from '@/components/SearchDialog.vue'
-import FavoritesDialog from '@/components/FavoritesDialog.vue'
+import NotebooksPanel from '@/components/NotebooksPanel.vue'
+import ContextsPanel from '@/components/ContextsPanel.vue'
+import FavoritesPanel from '@/components/FavoritesPanel.vue'
+import SettingsPanel from '@/components/SettingsPanel.vue'
 import type { ContextFile, ContextType } from '@/types/context'
 import { CONTEXT_COLORS } from '@/types/context'
 import type { Notebook } from '@/types/notebook'
 
-const router = useRouter()
 const notebookStore = useNotebookStore()
 const contextStore = useContextStore()
 
 const contextColors = computed(() => CONTEXT_COLORS)
 
+// 当前激活的 tab
+const activeTab = ref<'notebooks' | 'contexts' | 'favorites' | 'settings' | 'search'>('notebooks')
+
+// 对话框状态
 const showNewContextDialog = ref(false)
 const newContextName = ref('')
 const newContextType = ref<ContextType>('static')
@@ -377,43 +334,14 @@ const notebookToDelete = ref<Notebook | null>(null)
 // 搜索对话框
 const showSearchDialog = ref(false)
 
-// 收藏夹对话框
-const showFavoritesDialog = ref(false)
-
 onMounted(() => {
   notebookStore.loadNotebooks()
   contextStore.loadContextFiles()
 })
 
-// 计算笔记本所有画布的节点总数
-function getTotalNodesCount(notebook: Notebook): number {
-  if (notebook.canvases && notebook.canvases.length > 0) {
-    return notebook.canvases.reduce((total, canvas) => total + (canvas.nodes?.length || 0), 0)
-  }
-  // 兼容旧数据格式
-  return notebook.canvas?.nodes?.length || 0
-}
-
-// 计算笔记本画布页数
-function getCanvasesCount(notebook: Notebook): number {
-  if (notebook.canvases && notebook.canvases.length > 0) {
-    return notebook.canvases.length
-  }
-  // 兼容旧数据格式
-  return notebook.canvas ? 1 : 0
-}
-
-function formatDate(timestamp: number): string {
-  const date = new Date(timestamp)
-  const now = new Date()
-  const diff = now.getTime() - date.getTime()
-
-  if (diff < 60000) return '刚刚'
-  if (diff < 3600000) return `${Math.floor(diff / 60000)}分钟前`
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)}小时前`
-  if (diff < 604800000) return `${Math.floor(diff / 86400000)}天前`
-
-  return date.toLocaleDateString('zh-CN')
+// 搜索点击处理
+function handleSearchClick() {
+  showSearchDialog.value = true
 }
 
 // Context file management
@@ -428,7 +356,7 @@ async function createContextFile() {
   showNewContextDialog.value = false
   newContextName.value = ''
   newContextType.value = 'static'
-  
+
   // 新建后自动进入编辑对话框
   editingContext.value = { ...newFile }
   showEditContextDialog.value = true
@@ -468,8 +396,7 @@ async function deleteContextFile() {
   await contextStore.deleteContextFile(contextToDelete.value)
   showDeleteConfirm.value = false
   contextToDelete.value = null
-  
-  // 如果是从编辑对话框删除的，关闭编辑对话框
+
   if (shouldCloseEditDialogAfterDelete.value) {
     shouldCloseEditDialogAfterDelete.value = false
     closeEditDialog()
@@ -478,10 +405,8 @@ async function deleteContextFile() {
 
 // Notebook management
 async function createNotebook() {
-  // 确定笔记本名称：如果名称为空但有 PDF 文件，则使用 PDF 文件名
   let notebookName = newNotebookName.value.trim()
   if (!notebookName && newNotebookPdfPath.value) {
-    // 从 PDF 路径提取文件名（不带扩展名）
     const fileName = newNotebookPdfPath.value.split(/[/\\]/).pop() || ''
     notebookName = fileName.replace(/\.pdf$/i, '') || 'PDF 笔记本'
   }
@@ -493,7 +418,6 @@ async function createNotebook() {
     dynamicContextId: newNotebookDynamicContext.value || undefined
   }
 
-  // 根据 PDF 路径判断笔记本类型
   const pdfPath = newNotebookPdfPath.value || undefined
 
   const notebook = await notebookStore.createNotebook(
@@ -509,11 +433,10 @@ async function createNotebook() {
   newNotebookStaticContexts.value = []
   newNotebookDynamicContext.value = ''
 
-  // 创建后默认打开 NodeListView 或 PdfReaderView
-  openNotebook(notebook.id)
+  // 切换到笔记本 tab
+  activeTab.value = 'notebooks'
 }
 
-// 切换静态上下文选择
 function toggleStaticContextSelection(contextId: string) {
   const index = newNotebookStaticContexts.value.indexOf(contextId)
   if (index === -1) {
@@ -523,7 +446,6 @@ function toggleStaticContextSelection(contextId: string) {
   }
 }
 
-// 清除 PDF 文件选择
 function clearPdfFile() {
   newNotebookPdfPath.value = ''
   newNotebookPdfName.value = ''
@@ -545,38 +467,12 @@ async function selectPdfFile() {
   }
 }
 
-function openNotebook(notebookId: string) {
-  const notebook = notebookStore.notebooks.find(p => p.id === notebookId)
-  if (notebook) {
-    notebookStore.setCurrentNotebook(notebook)
-    // 根据是否有PDF，默认打开不同视图
-    if (notebook.pdfPath) {
-      router.push(`/pdf/${notebookId}`)
-    } else {
-      router.push(`/node-list/${notebookId}`)
-    }
-  }
-}
-
-function openCanvas(notebookId: string) {
-  const notebook = notebookStore.notebooks.find(p => p.id === notebookId)
-  if (notebook) {
-    notebookStore.setCurrentNotebook(notebook)
-    router.push(`/canvas/${notebookId}`)
-  }
-}
-
-function openSettings() {
-  router.push('/settings')
-}
-
-// 笔记本拖拽删除功能
+// 拖拽删除功能
 function handleNotebookDragStart(e: DragEvent, notebook: Notebook) {
   draggedNotebook.value = notebook
   if (e.dataTransfer) {
     e.dataTransfer.effectAllowed = 'move'
     e.dataTransfer.setData('text/plain', notebook.id)
-    // 设置拖拽时的半透明效果
     const target = e.target as HTMLElement
     target.style.opacity = '0.5'
   }
@@ -589,8 +485,18 @@ function handleNotebookDragEnd(e: DragEvent) {
   isDragOverTrash.value = false
 }
 
+function handleSidebarDragOver(e: DragEvent) {
+  // Allow drag over sidebar
+}
+
+function handleSidebarDrop(e: DragEvent) {
+  // Reset state
+  isDragOverTrash.value = false
+}
+
 function handleTrashDragOver(e: DragEvent) {
   e.preventDefault()
+  e.stopPropagation()
   if (e.dataTransfer) {
     e.dataTransfer.dropEffect = 'move'
   }
@@ -603,6 +509,7 @@ function handleTrashDragLeave() {
 
 function handleTrashDrop(e: DragEvent) {
   e.preventDefault()
+  e.stopPropagation()
   isDragOverTrash.value = false
 
   const notebookId = e.dataTransfer?.getData('text/plain')
@@ -625,272 +532,105 @@ async function confirmDeleteNotebook() {
 .home-view {
   height: 100vh;
   display: flex;
-  flex-direction: column;
   background: var(--bg-secondary);
 }
 
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 12px;
+/* 侧边栏样式 */
+.sidebar {
+  width: 180px;
   background: var(--bg-primary);
-  box-shadow: 0 2px 4px var(--shadow-color);
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border-color);
+  flex-shrink: 0;
 }
 
-.header h1 {
-  font-size: 24px;
+.sidebar-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.logo {
+  font-size: 20px;
+  font-weight: 600;
   color: var(--text-primary);
+  margin: 0;
 }
 
-.header-actions {
-  display: flex;
-  gap: 12px;
-}
-
-.search-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  background: var(--bg-secondary);
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  color: var(--text-secondary);
-  transition: background 0.2s;
-}
-
-.search-btn:hover {
-  background: var(--border-color);
-  color: #4299e1;
-}
-
-.favorites-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  background: var(--bg-secondary);
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  color: var(--text-secondary);
-  transition: background 0.2s;
-}
-
-.favorites-btn:hover {
-  background: var(--border-color);
-  color: #fbbf24;
-}
-
-.settings-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  background: var(--bg-secondary);
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  color: var(--text-secondary);
-  transition: background 0.2s;
-}
-
-.settings-btn:hover {
-  background: var(--border-color);
-}
-
-.content {
+.sidebar-nav {
   flex: 1;
-  padding: 40px;
-  overflow-y: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.contexts-section,
-.notebooks-section {
-  max-width: 1200px;
-  margin: 0 auto 40px;
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 14px;
+  transition: all 0.2s;
+  text-align: left;
   width: 100%;
 }
 
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-}
-
-.section-header h2 {
-  font-size: 20px;
-  color: var(--text-primary);
-}
-
-.header-actions {
-  display: flex;
-  gap: 12px;
-}
-
-.new-context-btn {
-  padding: 10px 20px;
-  background: #66bb6a;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  color: white;
-  font-weight: 500;
-  transition: background 0.2s;
-}
-
-.new-context-btn:hover {
-  background: #4caf50;
-}
-
-.new-notebook-btn {
-  padding: 10px 20px;
-  background: #4299e1;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  color: white;
-  font-weight: 500;
-  transition: background 0.2s;
-}
-
-.new-notebook-btn:hover {
-  background: #3182ce;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 60px 20px;
-  color: var(--text-secondary);
-}
-
-.contexts-container {
-  display: flex;
-  flex-direction: column;
-  gap: 32px;
-}
-
-.context-category h3 {
-  font-size: 16px;
-  color: var(--text-secondary);
-  margin-bottom: 16px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.tags-wrapper {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.context-tag {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-radius: 20px;
-  border: 2px solid;
-  cursor: pointer;
-  transition: all 0.2s;
-  user-select: none;
-}
-
-.context-tag:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-}
-
-.tag-name {
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.notebooks-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 20px;
-}
-
-.notebook-card {
-  background: var(--bg-primary);
-  padding: 20px;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px var(--shadow-color);
-  cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.notebook-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px var(--shadow-color);
-}
-
-.notebook-card-content {
-  flex: 1;
-  min-width: 0;
-}
-
-.notebook-card-actions {
-  flex-shrink: 0;
-  display: flex;
-  gap: 8px;
-}
-
-.action-btn {
-  width: 36px;
-  height: 36px;
-  border: none;
-  border-radius: 8px;
+.nav-item:hover {
   background: var(--bg-secondary);
-  color: var(--text-secondary);
-  cursor: pointer;
+  color: var(--text-primary);
+}
+
+.nav-item.active {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.nav-item svg {
+  flex-shrink: 0;
+}
+
+.sidebar-trash {
   display: flex;
   align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-}
-
-.action-btn:hover {
-  color: white;
-}
-
-.canvas-btn:hover {
-  background: #9c27b0;
-}
-
-.pdf-badge {
-  display: inline-block;
-  padding: 2px 6px;
-  background: #e53e3e;
-  color: white;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 600;
-  margin-right: 6px;
-}
-
-.notebook-card h3 {
-  font-size: 18px;
-  color: var(--text-primary);
-  margin-bottom: 8px;
-}
-
-.notebook-info {
-  font-size: 14px;
+  gap: 12px;
+  padding: 12px 16px;
+  margin: 8px;
+  border-radius: 8px;
   color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 2px dashed transparent;
 }
 
-.context-indicator {
-  margin-left: 4px;
+.sidebar-trash:hover {
+  background: rgba(255, 68, 68, 0.1);
+  color: #f44;
 }
 
+.sidebar-trash.drag-over {
+  background: rgba(255, 68, 68, 0.15);
+  border-color: #f44;
+  color: #f44;
+}
+
+.sidebar-trash svg {
+  flex-shrink: 0;
+}
+
+/* 主内容区域样式 */
+.main-content {
+  flex: 1;
+  overflow: hidden;
+  background: var(--bg-secondary);
+}
+
+/* 对话框样式 */
 .dialog-overlay {
   position: fixed;
   top: 0;
@@ -1020,7 +760,6 @@ async function confirmDeleteNotebook() {
   cursor: pointer;
 }
 
-
 .pdf-file-selector {
   display: flex;
   gap: 8px;
@@ -1100,7 +839,6 @@ async function confirmDeleteNotebook() {
   margin-bottom: 12px !important;
 }
 
-/* 静态上下文标签选择器 */
 .context-tags-selector {
   display: flex;
   flex-wrap: wrap;
@@ -1194,67 +932,5 @@ async function confirmDeleteNotebook() {
 
 .confirm-delete:hover {
   background: #d32f2f;
-}
-
-/* 垃圾桶区域样式 */
-.trash-zone {
-  position: fixed;
-  left: 24px;
-  bottom: 24px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 16px 24px;
-  background: var(--bg-primary);
-  border: 2px dashed var(--border-color);
-  border-radius: 12px;
-  color: var(--text-secondary);
-  transition: all 0.3s ease;
-  z-index: 100;
-  cursor: pointer;
-  box-shadow: 0 2px 8px var(--shadow-color);
-}
-
-.trash-zone:hover {
-  border-color: #f44;
-  color: #f44;
-  transform: scale(1.05);
-}
-
-.trash-zone.drag-over {
-  border-color: #f44;
-  background: rgba(255, 68, 68, 0.1);
-  color: #f44;
-  transform: scale(1.1);
-}
-
-.trash-icon {
-  transition: transform 0.3s ease;
-}
-
-.trash-zone.drag-over .trash-icon {
-  transform: rotate(-15deg) scale(1.1);
-}
-
-.trash-text {
-  font-size: 12px;
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-/* 拖拽时的笔记本卡片样式 */
-.notebook-card {
-  cursor: grab;
-  user-select: none;
-}
-
-.notebook-card:active {
-  cursor: grabbing;
-}
-
-.notebook-card[draggable="true"] {
-  -webkit-user-drag: element;
 }
 </style>

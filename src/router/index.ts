@@ -23,11 +23,6 @@ const router = createRouter({
       path: '/pdf/:notebookId',
       name: 'pdf',
       component: () => import('../views/PdfReaderView.vue')
-    },
-    {
-      path: '/settings',
-      name: 'settings',
-      component: () => import('../views/SettingsView.vue')
     }
   ]
 })
