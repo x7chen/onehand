@@ -822,7 +822,8 @@ async function saveDynamicContextEdit() {
 async function handleDynamicContextDrop(text: string) {
   let file = dynamicContextFile.value
   if (!file) {
-    file = await contextStore.createContextFile('动态上下文', 'dynamic')
+    const notebookName = notebookStore.currentNotebook?.name || '动态上下文'
+    file = await contextStore.createContextFile(notebookName, 'dynamic')
     if (notebookStore.currentNotebook) {
       notebookStore.currentNotebook.context = {
         ...notebookStore.currentNotebook.context,
