@@ -598,10 +598,14 @@ function scrollToNode(nodeId: string) {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: var(--bg-primary);
+  background: #f5f5f5;
   min-width: 298px;
   flex-shrink: 0;
   position: relative;
+}
+
+:root.dark .node-list-panel {
+  background: var(--bg-primary);
 }
 
 .node-container {

@@ -95,11 +95,15 @@ function handleClick() {
   box-sizing: border-box;
   border-radius: 4px;
   overflow: hidden;
-  background: rgba(66, 153, 225, 0.15);
+  background: white;
   border-left: 3px solid #4299e1;
   box-shadow: 0 1px 4px var(--shadow-color);
   transition: box-shadow 0.2s;
   cursor: pointer;
+}
+
+:root.dark .voice-note-small {
+  background: #2d2d2d;
 }
 
 .voice-note-small.active {
@@ -112,9 +116,14 @@ function handleClick() {
   gap: 6px;
   height: 20px;
   padding: 0 6px;
+  background: rgba(0, 0, 0, 0.03);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  position: relative;
+}
+
+:root.dark .small-header {
   background: rgba(255, 255, 255, 0.05);
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  position: relative;
 }
 
 .small-checkbox {
@@ -179,6 +188,10 @@ function handleClick() {
 
 .small-favorite-btn.active {
   color: #ffc107;
+}
+
+:root.dark .small-favorite-btn.active {
+  color: #ffc107 !important;
 }
 
 .small-transcript-box {

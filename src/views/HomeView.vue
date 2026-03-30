@@ -63,6 +63,23 @@
         </button>
       </nav>
 
+      <!-- 主题切换按钮 -->
+      <button class="theme-toggle-btn" @click="cycleTheme" :title="'当前: ' + getThemeLabel() + ' (点击切换)'">
+        <!-- 月亮图标 (深色模式) -->
+        <svg v-if="getThemeIcon() === 'moon'" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+          <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-3.03 0-5.5-2.47-5.5-5.5 0-1.82.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/>
+        </svg>
+        <!-- 太阳图标 (浅色模式) -->
+        <svg v-else-if="getThemeIcon() === 'sun'" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+          <path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0 .39-.39.39-1.03 0-1.41l-1.06-1.06zm1.06-10.96c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41.39.39 1.03.39 1.41 0l1.06-1.06zM7.05 18.36c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41.39.39 1.03.39 1.41 0l1.06-1.06z"/>
+        </svg>
+        <!-- 自动图标 (跟随系统) -->
+        <svg v-else viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+          <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zm-7-2h2v-4h4v-2h-4V7h-2v4H8v2h4v4z"/>
+        </svg>
+        <span>{{ getThemeLabel() }}</span>
+      </button>
+
       <!-- 回收站 -->
       <div
         class="sidebar-trash"
@@ -288,6 +305,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useNotebookStore } from '@/stores/notebookStore'
 import { useContextStore } from '@/stores/contextStore'
+import { useSettingsStore } from '@/stores/settingsStore'
 import SearchDialog from '@/components/SearchDialog.vue'
 import NotebooksPanel from '@/components/NotebooksPanel.vue'
 import ContextsPanel from '@/components/ContextsPanel.vue'
@@ -299,6 +317,7 @@ import type { Notebook } from '@/types/notebook'
 
 const notebookStore = useNotebookStore()
 const contextStore = useContextStore()
+const settingsStore = useSettingsStore()
 
 const contextColors = computed(() => CONTEXT_COLORS)
 
@@ -333,6 +352,49 @@ const notebookToDelete = ref<Notebook | null>(null)
 
 // 搜索对话框
 const showSearchDialog = ref(false)
+
+// 主题切换
+const currentTheme = computed(() => settingsStore.settings.general.theme)
+const themeOrder: ('dark' | 'light' | 'system')[] = ['dark', 'light', 'system']
+
+function cycleTheme() {
+  const currentIndex = themeOrder.indexOf(currentTheme.value)
+  const nextIndex = (currentIndex + 1) % themeOrder.length
+  const nextTheme = themeOrder[nextIndex]
+
+  settingsStore.updateSettings({
+    general: {
+      ...settingsStore.settings.general,
+      theme: nextTheme
+    }
+  })
+}
+
+function getThemeIcon() {
+  switch (currentTheme.value) {
+    case 'dark':
+      return 'moon'
+    case 'light':
+      return 'sun'
+    case 'system':
+      return 'auto'
+    default:
+      return 'auto'
+  }
+}
+
+function getThemeLabel() {
+  switch (currentTheme.value) {
+    case 'dark':
+      return '深色'
+    case 'light':
+      return '浅色'
+    case 'system':
+      return '自动'
+    default:
+      return '自动'
+  }
+}
 
 onMounted(() => {
   notebookStore.loadNotebooks()
@@ -592,6 +654,33 @@ async function confirmDeleteNotebook() {
 }
 
 .nav-item svg {
+  flex-shrink: 0;
+}
+
+/* 主题切换按钮 */
+.theme-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 14px;
+  transition: all 0.2s;
+  text-align: left;
+  width: calc(100% - 16px);
+  margin: 4px 8px;
+}
+
+.theme-toggle-btn:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.theme-toggle-btn svg {
   flex-shrink: 0;
 }
 

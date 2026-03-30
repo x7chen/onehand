@@ -719,7 +719,7 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
 <style scoped>
 .voice-note {
   position: absolute;
-  background: var(--bg-primary);
+  background: #f5f5f5;
   border-radius: 8px;
   box-shadow: 0 2px 8px var(--shadow-color);
   padding: 4px;
@@ -727,6 +727,10 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
   box-sizing: border-box;
   contain: layout style paint;
   transition: box-shadow 0.2s;
+}
+
+:root.dark .voice-note {
+  background: var(--bg-primary);
 }
 
 .voice-note.active {
@@ -962,12 +966,16 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
 }
 
 .transcript-box {
-  background: rgba(66, 153, 225, 0.15);
+  background: white;
   border-left: 3px solid #4299e1;
   padding: 10px;
   border-radius: 4px;
   margin-bottom: 3px;
   position: relative;
+}
+
+:root.dark .transcript-box {
+  background: #2d2d2d;
 }
 
 .transcript-content-wrapper {
@@ -1089,11 +1097,15 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
 }
 
 .agent-result-box {
-  background: rgba(102, 187, 106, 0.15);
+  background: white;
   border-left: 3px solid #66bb6a;
   padding: 10px;
   border-radius: 4px;
   position: relative;
+}
+
+:root.dark .agent-result-box {
+  background: #2d2d2d;
 }
 
 .agent-header {
