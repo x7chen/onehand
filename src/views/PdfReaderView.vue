@@ -1018,6 +1018,9 @@ async function callImageAnalysisAI(
   const settings = settingsStore.settings
 
   try {
+    // 获取已选中的节点作为上下文（跨画布）
+    const selectedNodes = notebookStore.getAllSelectedContextNodes(nodeId)
+
     const staticContextContent = staticContextFiles.value
       .map(f => f.content)
       .filter(c => c && c.trim())
@@ -1027,7 +1030,8 @@ async function callImageAnalysisAI(
       imageBase64,
       prompt,
       staticContextContent,
-      dynamicContextFile.value?.content
+      dynamicContextFile.value?.content,
+      selectedNodes.map(n => ({ transcript: n.transcript || '', agentResult: n.agentResult || '' }))
     )
 
     let accumulatedContent = ''

@@ -148,7 +148,8 @@ export function buildImageAnalysisMessages(
   imageBase64: string,
   prompt: string,
   staticContext?: string,
-  dynamicContext?: string
+  dynamicContext?: string,
+  contextNodes?: Array<{ transcript: string; agentResult: string }>
 ): Message[] {
   const systemMessage: Message = {
     role: 'system',
@@ -173,7 +174,19 @@ export function buildImageAnalysisMessages(
     })
   }
 
-  // 3. 当前问题（包含图片）
+  // 3. 已选择的上下文记录
+  if (contextNodes) {
+    for (const node of contextNodes) {
+      if (node.transcript && node.agentResult) {
+        messages.push(
+          { role: 'user', content: node.transcript },
+          { role: 'assistant', content: node.agentResult }
+        )
+      }
+    }
+  }
+
+  // 4. 当前问题（包含图片）
   messages.push(buildImageMessage(prompt, imageBase64))
 
   return [systemMessage, ...messages]

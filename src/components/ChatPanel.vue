@@ -109,6 +109,12 @@ const settingsStore = useSettingsStore()
 const notebookId = computed(() => notebookStore.currentNotebook?.id)
 const canvasId = computed(() => notebookStore.currentCanvas?.id)
 
+// 获取当前笔记本使用的模型配置
+const currentModelConfig = computed(() => {
+  const modelId = notebookStore.currentNotebook?.modelId || settingsStore.settings.llm.activeProfileId
+  return settingsStore.settings.llm.profiles.find(p => p.id === modelId)
+})
+
 // MagicPad 相关
 const magicPadRef = ref<HTMLElement | null>(null)
 let longPressTimer: number | null = null
@@ -369,9 +375,9 @@ async function handleAgentResponseForText(nodeId: string, transcript: string) {
     let accumulatedContent = ''
 
     const result = await chatWithLLM(messages, {
-      baseUrl: settingsStore.activeProfile?.baseUrl || '',
-      apiKey: settingsStore.activeProfile?.apiKey || '',
-      model: settingsStore.activeProfile?.model || ''
+      baseUrl: currentModelConfig.value?.baseUrl || '',
+      apiKey: currentModelConfig.value?.apiKey || '',
+      model: currentModelConfig.value?.model || ''
     }, (chunk) => {
       accumulatedContent += chunk
       if (pdfPage) {
@@ -414,9 +420,9 @@ async function handleAgentResponseForText(nodeId: string, transcript: string) {
 }
 
 // 处理图片分析响应
-async function handleImageAnalysisResponse(nodeId: string, imageBase64: string, prompt: string) {
-  const settings = settingsStore.settings
-  const pdfPage = props.currentPage
+async function handleImageAnalysisResponse(nodeId: string, imageBase64: string, prompt: string, nodePdfPage?: number) {
+  // 使用传入的节点页面，否则使用当前页面
+  const pdfPage = nodePdfPage ?? props.currentPage
 
   try {
     if (pdfPage) {
@@ -424,6 +430,9 @@ async function handleImageAnalysisResponse(nodeId: string, imageBase64: string, 
     } else {
       notebookStore.updateNode(nodeId, { agentStatus: 'processing' })
     }
+
+    // 获取已选中的节点作为上下文（跨画布）
+    const selectedNodes = notebookStore.getAllSelectedContextNodes(nodeId)
 
     const staticContextContent = props.staticContextFiles
       .map(f => f.content)
@@ -434,15 +443,16 @@ async function handleImageAnalysisResponse(nodeId: string, imageBase64: string, 
       imageBase64,
       prompt,
       staticContextContent,
-      props.dynamicContextFile?.content
+      props.dynamicContextFile?.content,
+      selectedNodes.map(n => ({ transcript: n.transcript || '', agentResult: n.agentResult || '' }))
     )
 
     let accumulatedContent = ''
 
     const result = await chatWithLLM(messages, {
-      baseUrl: settingsStore.activeProfile?.baseUrl || '',
-      apiKey: settingsStore.activeProfile?.apiKey || '',
-      model: settingsStore.activeProfile?.model || ''
+      baseUrl: currentModelConfig.value?.baseUrl || '',
+      apiKey: currentModelConfig.value?.apiKey || '',
+      model: currentModelConfig.value?.model || ''
     }, (chunk) => {
       accumulatedContent += chunk
       if (pdfPage) {
@@ -604,7 +614,7 @@ async function handleTranscription(node: CanvasNode) {
           const hasIncludedImage = props.includedPageImage && props.includedPageImage.pageNumber === node.pdfPage
 
           if (hasIncludedImage) {
-            await handleImageAnalysisResponse(node.id, props.includedPageImage!.imageBase64, transcriptResult.text)
+            await handleImageAnalysisResponse(node.id, props.includedPageImage!.imageBase64, transcriptResult.text, node.pdfPage)
           } else {
             await handleAgentResponseForVoice(node.id, transcriptResult.text, node.pdfPage)
           }
@@ -643,12 +653,9 @@ function findNodeById(nodeId: string): CanvasNode | undefined {
 function handleRegenerateAgent(nodeId: string) {
   const node = findNodeById(nodeId)
   if (node && node.transcript) {
-    // 检查是否有当前勾选的附图且是同一页面
-    const hasIncludedImage = props.includedPageImage && props.includedPageImage.pageNumber === node.pdfPage
-
-    if (hasIncludedImage) {
-      // 使用当前勾选的附图
-      handleImageAnalysisResponse(nodeId, props.includedPageImage!.imageBase64, node.transcript)
+    // 如果有勾选附图，就使用附图
+    if (props.includedPageImage) {
+      handleImageAnalysisResponse(nodeId, props.includedPageImage.imageBase64, node.transcript, node.pdfPage)
     } else {
       // 普通文本响应
       handleAgentResponseForVoice(nodeId, node.transcript, node.pdfPage)
@@ -673,12 +680,9 @@ function handleRetryAgent(nodeId: string) {
       })
     }
 
-    // 检查是否有当前勾选的附图且是同一页面
-    const hasIncludedImage = props.includedPageImage && props.includedPageImage.pageNumber === node.pdfPage
-
-    if (hasIncludedImage) {
-      // 使用当前勾选的附图
-      handleImageAnalysisResponse(nodeId, props.includedPageImage!.imageBase64, node.transcript)
+    // 如果有勾选附图，就使用附图
+    if (props.includedPageImage) {
+      handleImageAnalysisResponse(nodeId, props.includedPageImage.imageBase64, node.transcript, node.pdfPage)
     } else {
       // 普通文本响应
       handleAgentResponseForVoice(nodeId, node.transcript, node.pdfPage)
@@ -722,9 +726,9 @@ async function handleAgentResponseForVoice(nodeId: string, transcript: string, p
     let accumulatedContent = ''
 
     const result = await chatWithLLM(messages, {
-      baseUrl: settingsStore.activeProfile?.baseUrl || '',
-      apiKey: settingsStore.activeProfile?.apiKey || '',
-      model: settingsStore.activeProfile?.model || ''
+      baseUrl: currentModelConfig.value?.baseUrl || '',
+      apiKey: currentModelConfig.value?.apiKey || '',
+      model: currentModelConfig.value?.model || ''
     }, (chunk) => {
       accumulatedContent += chunk
       if (pdfPage !== undefined && pdfPage !== null) {

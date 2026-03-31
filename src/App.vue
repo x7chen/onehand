@@ -99,28 +99,28 @@ watchEffect(() => {
 
   // 找到 highlight.js 主题的 style 元素（最后导入的两个）
   // github.css 和 github-dark.css 的 CSS 内容有特征可以识别
-  let lightThemeStyle: HTMLStyleElement | null = null
-  let darkThemeStyle: HTMLStyleElement | null = null
+  const lightThemeStyle: HTMLStyleElement[] = []
+  const darkThemeStyle: HTMLStyleElement[] = []
 
   styles.forEach((style) => {
     const cssText = style.textContent || ''
     if (cssText.includes('.hljs-comment') && cssText.includes('#6a737d')) {
       // GitHub light theme 特征色
-      lightThemeStyle = style as HTMLStyleElement
+      lightThemeStyle.push(style)
     } else if (cssText.includes('.hljs-comment') && cssText.includes('#8b949e')) {
       // GitHub dark theme 特征色
-      darkThemeStyle = style as HTMLStyleElement
+      darkThemeStyle.push(style)
     }
   })
 
   if (isDark) {
     // 深色模式：启用深色主题，禁用浅色主题
-    if (lightThemeStyle) lightThemeStyle.disabled = true
-    if (darkThemeStyle) darkThemeStyle.disabled = false
+    lightThemeStyle.forEach(s => { s.disabled = true })
+    darkThemeStyle.forEach(s => { s.disabled = false })
   } else {
     // 浅色模式：启用浅色主题，禁用深色主题
-    if (lightThemeStyle) lightThemeStyle.disabled = false
-    if (darkThemeStyle) darkThemeStyle.disabled = true
+    lightThemeStyle.forEach(s => { s.disabled = false })
+    darkThemeStyle.forEach(s => { s.disabled = true })
   }
 })
 </script>
