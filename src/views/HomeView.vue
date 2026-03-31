@@ -107,6 +107,8 @@
         v-if="activeTab === 'contexts'"
         @newContext="showNewContextDialog = true"
         @editContext="editContextFile"
+        @dragStart="handleContextDragStart"
+        @dragEnd="handleContextDragEnd"
       />
       <FavoritesPanel v-if="activeTab === 'favorites'" />
       <SettingsPanel v-if="activeTab === 'settings'" />
@@ -347,6 +349,7 @@ const shouldCloseEditDialogAfterDelete = ref(false)
 // 拖拽删除相关
 const isDragOverTrash = ref(false)
 const draggedNotebook = ref<Notebook | null>(null)
+const draggedContext = ref<ContextFile | null>(null)
 const showNotebookDeleteConfirm = ref(false)
 const notebookToDelete = ref<Notebook | null>(null)
 
@@ -547,6 +550,22 @@ function handleNotebookDragEnd(e: DragEvent) {
   isDragOverTrash.value = false
 }
 
+function handleContextDragStart(e: DragEvent, context: ContextFile) {
+  draggedContext.value = context
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = 'move'
+    const target = e.target as HTMLElement
+    target.style.opacity = '0.5'
+  }
+}
+
+function handleContextDragEnd(e: DragEvent) {
+  const target = e.target as HTMLElement
+  target.style.opacity = '1'
+  draggedContext.value = null
+  isDragOverTrash.value = false
+}
+
 function handleSidebarDragOver(e: DragEvent) {
   // Allow drag over sidebar
 }
@@ -578,6 +597,9 @@ function handleTrashDrop(e: DragEvent) {
   if (notebookId && draggedNotebook.value) {
     notebookToDelete.value = draggedNotebook.value
     showNotebookDeleteConfirm.value = true
+  } else if (draggedContext.value) {
+    contextToDelete.value = draggedContext.value.id
+    showDeleteConfirm.value = true
   }
 }
 
@@ -1017,6 +1039,7 @@ async function confirmDeleteNotebook() {
 .confirm-delete {
   background: #f44;
   border: none;
+  color: white;
 }
 
 .confirm-delete:hover {

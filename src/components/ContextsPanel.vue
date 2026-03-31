@@ -20,8 +20,11 @@
             v-for="file in contextStore.staticContextFiles"
             :key="file.id"
             class="context-tag"
+            draggable="true"
             :style="{ backgroundColor: file.color + '20', borderColor: file.color }"
             @dblclick="$emit('editContext', file)"
+            @dragstart="$emit('dragStart', $event, file)"
+            @dragend="$emit('dragEnd', $event)"
           >
             <span class="tag-name" :style="{ color: file.color }">{{ file.name }}</span>
           </div>
@@ -36,8 +39,11 @@
             v-for="file in contextStore.dynamicContextFiles"
             :key="file.id"
             class="context-tag"
+            draggable="true"
             :style="{ backgroundColor: file.color + '20', borderColor: file.color }"
             @dblclick="$emit('editContext', file)"
+            @dragstart="$emit('dragStart', $event, file)"
+            @dragend="$emit('dragEnd', $event)"
           >
             <span class="tag-name" :style="{ color: file.color }">{{ file.name }}</span>
           </div>
@@ -54,6 +60,8 @@ import type { ContextFile } from '@/types/context'
 const emit = defineEmits<{
   (e: 'newContext'): void
   (e: 'editContext', file: ContextFile): void
+  (e: 'dragStart', event: DragEvent, file: ContextFile): void
+  (e: 'dragEnd', event: DragEvent): void
 }>()
 
 const contextStore = useContextStore()
