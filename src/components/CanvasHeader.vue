@@ -126,22 +126,60 @@
       </div>
 
       <div
+        ref="dynamicContextDisplayRef"
         class="dynamic-context-display"
-        :class="{ 'has-content': dynamicContextFile && dynamicContextFile.content }"
-        @dblclick="$emit('open-dynamic-context-editor')"
+        :class="{ 'active': showDynamicContextSelector, 'has-content': dynamicContextFile && dynamicContextFile.content }"
         @dragover="handleDynamicContextDragOver"
         @dragleave="handleDynamicContextDragLeave"
         @drop="handleDynamicContextDrop"
-        :title="dynamicContextFile ? '双击编辑动态上下文' : '拖拽文字到此处加入动态上下文'"
       >
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" class="context-icon">
+        <svg
+          viewBox="0 0 24 24"
+          width="16"
+          height="16"
+          fill="currentColor"
+          class="context-icon"
+          @click.stop="toggleDynamicContextSelector"
+          :title="showDynamicContextSelector ? '关闭选择器' : '点击选择动态上下文'"
+        >
           <path d="M3 18h12v-2H3v2zM3 6v2h18V6H3zm0 7h18v-2H3v2z"/>
         </svg>
-        <span v-if="dynamicContextFile" class="context-name">
-          {{ dynamicContextFile.name }}
+        <div v-if="showDynamicContextSelector" class="dynamic-context-tags">
+          <span
+            v-for="file in allDynamicContextFiles"
+            :key="file.id"
+            class="context-tag-mini"
+            :class="{ selected: dynamicContextFile?.id === file.id }"
+            :style="{
+              backgroundColor: dynamicContextFile?.id === file.id ? file.color + '40' : 'var(--bg-secondary)',
+              borderColor: dynamicContextFile?.id === file.id ? file.color : 'var(--border-color)',
+              color: dynamicContextFile?.id === file.id ? file.color : 'var(--text-secondary)'
+            }"
+            @click.stop="selectDynamicContext(file.id)"
+          >
+            {{ file.name }}
+          </span>
+          <span v-if="allDynamicContextFiles.length === 0" class="no-contexts-hint">暂无动态上下文</span>
+        </div>
+        <div
+          v-else-if="dynamicContextFile"
+          class="dynamic-context-info"
+          @dblclick.stop="$emit('open-dynamic-context-editor')"
+          :title="'双击编辑动态上下文'"
+        >
+          <span class="context-name" :style="{ color: dynamicContextFile.color }">
+            {{ dynamicContextFile.name }}
+          </span>
           <span class="word-count" v-if="dynamicContextFile.content">{{ dynamicContextFile.content.length }}字</span>
+        </div>
+        <span
+          v-else
+          class="context-placeholder"
+          @click.stop="toggleDynamicContextSelector"
+          :title="'点击选择动态上下文'"
+        >
+          选择动态上下文
         </span>
-        <span v-else class="context-placeholder">拖拽文字到此处</span>
       </div>
     </template>
   </div>
@@ -155,6 +193,7 @@ const props = withDefaults(defineProps<{
   notebookName: string
   staticContextFiles: ContextFile[]
   allStaticContextFiles: ContextFile[]
+  allDynamicContextFiles: ContextFile[]
   dynamicContextFile?: ContextFile
   globalHideAiResult: boolean
   aiAnswerEnabled: boolean
@@ -177,12 +216,17 @@ const emit = defineEmits<{
   'copy-selected-context': []
   'open-dynamic-context-editor': []
   'toggle-static-context': [contextId: string]
+  'select-dynamic-context': [contextId: string]
   'dynamic-context-drop': [text: string]
 }>()
 
 // 静态上下文选择器状态
 const showStaticContextSelector = ref(false)
 const staticContextDisplayRef = ref<HTMLElement | null>(null)
+
+// 动态上下文选择器状态
+const showDynamicContextSelector = ref(false)
+const dynamicContextDisplayRef = ref<HTMLElement | null>(null)
 
 // Header 宽度检测
 const headerRef = ref<HTMLElement | null>(null)
@@ -199,6 +243,18 @@ function checkCompactMode() {
 
 function toggleStaticContextSelector() {
   showStaticContextSelector.value = !showStaticContextSelector.value
+  // 关闭另一个选择器
+  if (showStaticContextSelector.value) {
+    showDynamicContextSelector.value = false
+  }
+}
+
+function toggleDynamicContextSelector() {
+  showDynamicContextSelector.value = !showDynamicContextSelector.value
+  // 关闭另一个选择器
+  if (showDynamicContextSelector.value) {
+    showStaticContextSelector.value = false
+  }
 }
 
 function handleClickOutside(e: MouseEvent) {
@@ -207,10 +263,20 @@ function handleClickOutside(e: MouseEvent) {
       !staticContextDisplayRef.value.contains(e.target as Node)) {
     showStaticContextSelector.value = false
   }
+  if (showDynamicContextSelector.value &&
+      dynamicContextDisplayRef.value &&
+      !dynamicContextDisplayRef.value.contains(e.target as Node)) {
+    showDynamicContextSelector.value = false
+  }
 }
 
 function toggleStaticContext(contextId: string) {
   emit('toggle-static-context', contextId)
+}
+
+function selectDynamicContext(contextId: string) {
+  emit('select-dynamic-context', contextId)
+  showDynamicContextSelector.value = false
 }
 
 // 动态上下文拖拽处理
@@ -551,6 +617,10 @@ onUnmounted(() => {
   background: var(--border-color);
 }
 
+.dynamic-context-display.active {
+  background: var(--border-color);
+}
+
 .dynamic-context-display.has-content {
   border-color: #4299e1;
 }
@@ -558,6 +628,44 @@ onUnmounted(() => {
 .dynamic-context-display .context-icon {
   flex-shrink: 0;
   color: #4299e1;
+  cursor: pointer;
+  transition: color 0.2s, transform 0.2s;
+}
+
+.dynamic-context-display .context-icon:hover {
+  color: #3182ce;
+  transform: scale(1.1);
+}
+
+.dynamic-context-tags {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.dynamic-context-info {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.dynamic-context-info:hover {
+  background: rgba(66, 153, 225, 0.1);
+}
+
+.no-contexts-hint {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-style: italic;
 }
 
 .word-count {

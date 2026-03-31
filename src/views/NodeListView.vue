@@ -5,6 +5,7 @@
       :notebook-name="notebookStore.currentNotebook?.name || ''"
       :static-context-files="staticContextFiles"
       :all-static-context-files="contextStore.staticContextFiles"
+      :all-dynamic-context-files="contextStore.dynamicContextFiles"
       :dynamic-context-file="dynamicContextFile || undefined"
       v-model:global-hide-ai-result="globalHideAiResult"
       v-model:ai-answer-enabled="aiAnswerEnabled"
@@ -16,6 +17,7 @@
       @invert-selection="handleInvertSelection"
       @open-dynamic-context-editor="openDynamicContextEditor"
       @toggle-static-context="toggleStaticContext"
+      @select-dynamic-context="selectDynamicContext"
       @dynamic-context-drop="handleDynamicContextDrop"
       @copy-selected-context="handleCopySelectedContext"
     />
@@ -676,6 +678,24 @@ async function toggleStaticContext(contextId: string) {
     notebookStore.currentNotebook.context.staticContextIds.splice(0, notebookStore.currentNotebook.context.staticContextIds.length, ...newIds)
   } else {
     notebookStore.currentNotebook.context.staticContextIds = undefined
+  }
+
+  await notebookStore.saveNotebook(notebookStore.currentNotebook)
+}
+
+// 动态上下文选择（单选）
+async function selectDynamicContext(contextId: string) {
+  if (!notebookStore.currentNotebook) return
+
+  if (!notebookStore.currentNotebook.context) {
+    notebookStore.currentNotebook.context = {}
+  }
+
+  // 如果点击的是当前已选的，则取消选择；否则选择新的
+  if (notebookStore.currentNotebook.context.dynamicContextId === contextId) {
+    notebookStore.currentNotebook.context.dynamicContextId = undefined
+  } else {
+    notebookStore.currentNotebook.context.dynamicContextId = contextId
   }
 
   await notebookStore.saveNotebook(notebookStore.currentNotebook)
