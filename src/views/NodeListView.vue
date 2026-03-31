@@ -12,6 +12,9 @@
       :is-all-context-selected="isAllContextSelected"
       :show-viewport-controls="false"
       :selected-context-count="selectedContextCount"
+      :notebook-model-id="notebookStore.currentNotebook?.modelId"
+      :all-profiles="settingsStore.settings.llm.profiles"
+      :active-profile-id="settingsStore.settings.llm.activeProfileId"
       @back="goBack"
       @toggle-all-context="handleToggleAllContext"
       @invert-selection="handleInvertSelection"
@@ -20,6 +23,7 @@
       @select-dynamic-context="selectDynamicContext"
       @dynamic-context-drop="handleDynamicContextDrop"
       @copy-selected-context="handleCopySelectedContext"
+      @select-model="handleSelectModel"
     />
 
     <!-- 主内容区域 -->
@@ -223,6 +227,12 @@ function initPanelWidth() {
 
   leftPanelWidth.value = Math.max(minWidth, Math.min(maxWidth, containerRect.width * ratio))
 }
+
+// 获取当前笔记本使用的模型配置
+const currentModelConfig = computed(() => {
+  const modelId = notebookStore.currentNotebook?.modelId || settingsStore.settings.llm.activeProfileId
+  return settingsStore.settings.llm.profiles.find(p => p.id === modelId)
+})
 
 // 当前激活的节点 ID
 const activeNodeId = ref<string | null>(null)
@@ -616,10 +626,19 @@ async function handleAgentResponse(nodeId: string, transcript: string) {
 
     let accumulatedContent = ''
 
+    const modelConfig = currentModelConfig.value
+    if (!modelConfig) {
+      notebookStore.updateNode(nodeId, {
+        agentResult: '模型配置错误，请检查设置',
+        agentStatus: 'error'
+      })
+      return
+    }
+
     const result = await chatWithLLM(messages, {
-      baseUrl: settingsStore.activeProfile?.baseUrl || '',
-      apiKey: settingsStore.activeProfile?.apiKey || '',
-      model: settingsStore.activeProfile?.model || ''
+      baseUrl: modelConfig.baseUrl,
+      apiKey: modelConfig.apiKey,
+      model: modelConfig.model
     }, (chunk) => {
       accumulatedContent += chunk
       notebookStore.updateNode(nodeId, {
@@ -735,6 +754,14 @@ async function handleDynamicContextDrop(text: string) {
 
   const newContent = file.content ? `${file.content}\n\n${text}` : text
   await contextStore.updateContextFile(file.id, { content: newContent })
+}
+
+// 模型选择
+async function handleSelectModel(modelId: string) {
+  if (!notebookStore.currentNotebook) return
+
+  notebookStore.currentNotebook.modelId = modelId
+  await notebookStore.saveNotebook(notebookStore.currentNotebook)
 }
 
 // 上下文选择操作

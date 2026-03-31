@@ -44,6 +44,32 @@
       <span v-else class="context-placeholder">选择静态上下文</span>
     </div>
 
+    <!-- 模型选择器 -->
+    <div
+      ref="modelSelectorRef"
+      class="model-selector"
+      @click="toggleModelSelector"
+      :class="{ 'active': showModelSelector }"
+      :title="currentModel ? `当前模型: ${currentModel.name}` : '选择模型'"
+    >
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" class="model-icon">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.1c-.26.81-1.05 1.38-1.9 1.38h-1v-1c0-1.1-.9-2-2-2h-2v-2c0-.55-.45-1-1-1H7v-2h2c1.1 0 2-.9 2-2h2v2c0 .55.45 1 1 1h3v1h-1v2h2l.3 1.62zM21 12c0 .34-.03.67-.07 1H18v-2h2.93c.04.33.07.66.07 1z"/>
+      </svg>
+      <div v-if="showModelSelector" class="model-dropdown">
+        <span
+          v-for="profile in allProfiles"
+          :key="profile.id"
+          class="model-option"
+          :class="{ selected: currentModel?.id === profile.id }"
+          @click.stop="selectModel(profile.id)"
+        >
+          {{ profile.name }}
+        </span>
+        <span v-if="allProfiles.length === 0" class="no-models-hint">暂无模型配置</span>
+      </div>
+      <span v-else class="model-name">{{ currentModel?.name || '选择模型' }}</span>
+    </div>
+
     <!-- 以下元素在宽度不足时隐藏 -->
     <template v-if="!isCompactMode">
       <h2>{{ notebookName }}</h2>
@@ -188,6 +214,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import type { ContextFile } from '@/types/context'
+import type { LLMProfile } from '@/types/settings'
 
 const props = withDefaults(defineProps<{
   notebookName: string
@@ -200,9 +227,15 @@ const props = withDefaults(defineProps<{
   isAllContextSelected: boolean
   showViewportControls?: boolean
   selectedContextCount?: number
+  notebookModelId?: string
+  allProfiles: LLMProfile[]
+  activeProfileId: string
 }>(), {
   showViewportControls: true,
-  selectedContextCount: 0
+  selectedContextCount: 0,
+  notebookModelId: undefined,
+  allProfiles: () => [],
+  activeProfileId: ''
 })
 
 const emit = defineEmits<{
@@ -218,6 +251,7 @@ const emit = defineEmits<{
   'toggle-static-context': [contextId: string]
   'select-dynamic-context': [contextId: string]
   'dynamic-context-drop': [text: string]
+  'select-model': [modelId: string]
 }>()
 
 // 静态上下文选择器状态
@@ -227,6 +261,16 @@ const staticContextDisplayRef = ref<HTMLElement | null>(null)
 // 动态上下文选择器状态
 const showDynamicContextSelector = ref(false)
 const dynamicContextDisplayRef = ref<HTMLElement | null>(null)
+
+// 模型选择器状态
+const showModelSelector = ref(false)
+const modelSelectorRef = ref<HTMLElement | null>(null)
+
+// 获取当前笔记本使用的模型（如果没有指定则使用全局默认）
+const currentModel = computed(() => {
+  const modelId = props.notebookModelId || props.activeProfileId
+  return props.allProfiles.find(p => p.id === modelId)
+})
 
 // Header 宽度检测
 const headerRef = ref<HTMLElement | null>(null)
@@ -254,7 +298,22 @@ function toggleDynamicContextSelector() {
   // 关闭另一个选择器
   if (showDynamicContextSelector.value) {
     showStaticContextSelector.value = false
+    showModelSelector.value = false
   }
+}
+
+function toggleModelSelector() {
+  showModelSelector.value = !showModelSelector.value
+  // 关闭其他选择器
+  if (showModelSelector.value) {
+    showStaticContextSelector.value = false
+    showDynamicContextSelector.value = false
+  }
+}
+
+function selectModel(profileId: string) {
+  emit('select-model', profileId)
+  showModelSelector.value = false
 }
 
 function handleClickOutside(e: MouseEvent) {
@@ -267,6 +326,11 @@ function handleClickOutside(e: MouseEvent) {
       dynamicContextDisplayRef.value &&
       !dynamicContextDisplayRef.value.contains(e.target as Node)) {
     showDynamicContextSelector.value = false
+  }
+  if (showModelSelector.value &&
+      modelSelectorRef.value &&
+      !modelSelectorRef.value.contains(e.target as Node)) {
+    showModelSelector.value = false
   }
 }
 
@@ -672,5 +736,85 @@ onUnmounted(() => {
   font-size: 11px;
   color: var(--text-secondary);
   margin-left: 4px;
+}
+
+/* 模型选择器 */
+.model-selector {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--bg-secondary);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+  min-width: 80px;
+  max-width: 150px;
+}
+
+.model-selector:hover {
+  background: var(--border-color);
+}
+
+.model-selector.active {
+  background: var(--border-color);
+}
+
+.model-icon {
+  flex-shrink: 0;
+  color: #9f7aea;
+}
+
+.model-name {
+  font-size: 13px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100px;
+}
+
+.model-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 4px;
+  min-width: 120px;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.model-option {
+  display: block;
+  padding: 6px 12px;
+  font-size: 13px;
+  color: var(--text-primary);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.model-option:hover {
+  background: var(--bg-secondary);
+}
+
+.model-option.selected {
+  background: #9f7aea20;
+  color: #9f7aea;
+  font-weight: 500;
+}
+
+.no-models-hint {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-style: italic;
+  padding: 6px 12px;
 }
 </style>

@@ -79,6 +79,7 @@ const props = defineProps<{
   aiAnswerEnabled: boolean
   staticContextFiles: ContextFile[]
   dynamicContextFile?: ContextFile
+  notebookModelId?: string
 }>()
 
 const emit = defineEmits<{
@@ -100,6 +101,12 @@ const recordingPosition = ref<{ x: number; y: number } | undefined>(undefined)
 const recordingDuration = ref(0)
 const recordingStartPosition = ref<{ x: number; y: number } | null>(null)
 let recordingTimer: number | null = null
+
+// 获取当前笔记本使用的模型配置
+const currentModelConfig = computed(() => {
+  const modelId = props.notebookModelId || settingsStore.settings.llm.activeProfileId
+  return settingsStore.settings.llm.profiles.find(p => p.id === modelId)
+})
 
 // 节点拖动相关
 const isDraggingNode = ref(false)
@@ -515,10 +522,19 @@ async function handleAgentResponse(nodeId: string, transcript: string) {
 
     let accumulatedContent = ''
 
+    const modelConfig = currentModelConfig.value
+    if (!modelConfig) {
+      notebookStore.updateNode(nodeId, {
+        agentResult: '模型配置错误，请检查设置',
+        agentStatus: 'error'
+      })
+      return
+    }
+
     const result = await chatWithLLM(messages, {
-      baseUrl: settingsStore.activeProfile?.baseUrl || '',
-      apiKey: settingsStore.activeProfile?.apiKey || '',
-      model: settingsStore.activeProfile?.model || ''
+      baseUrl: modelConfig.baseUrl,
+      apiKey: modelConfig.apiKey,
+      model: modelConfig.model
     }, (chunk) => {
       accumulatedContent += chunk
       notebookStore.updateNode(nodeId, {

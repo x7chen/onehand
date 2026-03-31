@@ -11,6 +11,9 @@
       :is-all-context-selected="isAllContextSelected"
       :show-viewport-controls="false"
       :selected-context-count="selectedContextCount"
+      :notebook-model-id="notebookStore.currentNotebook?.modelId"
+      :all-profiles="settingsStore.settings.llm.profiles"
+      :active-profile-id="settingsStore.settings.llm.activeProfileId"
       @back="goBack"
       @toggle-all-context="handleToggleAllContext"
       @invert-selection="handleInvertSelection"
@@ -19,6 +22,7 @@
       @select-dynamic-context="selectDynamicContext"
       @dynamic-context-drop="handleDynamicContextDrop"
       @copy-selected-context="handleCopySelectedContext"
+      @select-model="handleSelectModel"
     />
 
     <div class="panel-container">
@@ -165,6 +169,12 @@ const completedNodesCount = computed(() => {
 
 const isAllContextSelected = computed(() => {
   return completedNodesCount.value > 0 && selectedContextCount.value === completedNodesCount.value
+})
+
+// 获取当前笔记本使用的模型配置
+const currentModelConfig = computed(() => {
+  const modelId = notebookStore.currentNotebook?.modelId || settingsStore.settings.llm.activeProfileId
+  return settingsStore.settings.llm.profiles.find(p => p.id === modelId)
 })
 
 const currentPageNumber = ref(1)
@@ -641,10 +651,19 @@ function handleAgentResponse(nodeId: string, transcript: string, pdfPage: number
 
     let accumulatedContent = ''
 
+    const modelConfig = currentModelConfig.value
+    if (!modelConfig) {
+      notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
+        agentResult: '模型配置错误，请检查设置',
+        agentStatus: 'error'
+      })
+      return
+    }
+
     chatWithLLM(messages, {
-      baseUrl: settingsStore.activeProfile?.baseUrl || '',
-      apiKey: settingsStore.activeProfile?.apiKey || '',
-      model: settingsStore.activeProfile?.model || ''
+      baseUrl: modelConfig.baseUrl,
+      apiKey: modelConfig.apiKey,
+      model: modelConfig.model
     }, (chunk) => {
       accumulatedContent += chunk
       notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
@@ -856,6 +875,14 @@ async function handleDynamicContextDrop(text: string) {
   await contextStore.updateContextFile(file.id, { content: newContent })
 }
 
+// 模型选择
+async function handleSelectModel(modelId: string) {
+  if (!notebookStore.currentNotebook) return
+
+  notebookStore.currentNotebook.modelId = modelId
+  await notebookStore.saveNotebook(notebookStore.currentNotebook)
+}
+
 function handleToggleAllContext() {
   // 获取所有画布的节点
   const allNodes = notebookStore.getAllNodes()
@@ -1005,10 +1032,19 @@ async function callImageAnalysisAI(
 
     let accumulatedContent = ''
 
+    const modelConfig = currentModelConfig.value
+    if (!modelConfig) {
+      notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
+        agentResult: '模型配置错误，请检查设置',
+        agentStatus: 'error'
+      })
+      return
+    }
+
     await chatWithLLM(messages, {
-      baseUrl: settingsStore.activeProfile?.baseUrl || '',
-      apiKey: settingsStore.activeProfile?.apiKey || '',
-      model: settingsStore.activeProfile?.model || ''
+      baseUrl: modelConfig.baseUrl,
+      apiKey: modelConfig.apiKey,
+      model: modelConfig.model
     }, (chunk) => {
       accumulatedContent += chunk
       notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {

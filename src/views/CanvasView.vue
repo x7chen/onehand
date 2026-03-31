@@ -10,6 +10,9 @@
       v-model:ai-answer-enabled="aiAnswerEnabled"
       :is-all-context-selected="isAllContextSelected"
       :selected-context-count="selectedContextCount"
+      :notebook-model-id="notebookStore.currentNotebook?.modelId"
+      :all-profiles="settingsStore.settings.llm.profiles"
+      :active-profile-id="settingsStore.settings.llm.activeProfileId"
       @back="goBack"
       @reset-viewport="handleResetViewport"
       @auto-layout="handleAutoLayout"
@@ -20,6 +23,7 @@
       @select-dynamic-context="selectDynamicContext"
       @dynamic-context-drop="handleDynamicContextDrop"
       @copy-selected-context="handleCopySelectedContext"
+      @select-model="handleSelectModel"
     />
 
     <CanvasArea
@@ -28,6 +32,7 @@
       :ai-answer-enabled="aiAnswerEnabled"
       :static-context-files="staticContextFiles"
       :dynamic-context-file="dynamicContextFile"
+      :notebook-model-id="notebookStore.currentNotebook?.modelId"
     />
 
     <!-- 动态上下文编辑器 -->
@@ -64,6 +69,7 @@ import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useNotebookStore } from '@/stores/notebookStore'
 import { useContextStore } from '@/stores/contextStore'
+import { useSettingsStore } from '@/stores/settingsStore'
 import CanvasHeader from '@/components/CanvasHeader.vue'
 import CanvasArea from '@/components/CanvasArea.vue'
 import type { ContextFile } from '@/types/context'
@@ -72,6 +78,7 @@ const router = useRouter()
 const route = useRoute()
 const notebookStore = useNotebookStore()
 const contextStore = useContextStore()
+const settingsStore = useSettingsStore()
 
 // CanvasArea 组件引用
 const canvasAreaRef = ref<InstanceType<typeof CanvasArea> | null>(null)
@@ -353,6 +360,14 @@ async function handleDynamicContextDrop(text: string) {
       text
     )
   }
+}
+
+// 模型选择
+async function handleSelectModel(modelId: string) {
+  if (!notebookStore.currentNotebook) return
+
+  notebookStore.currentNotebook.modelId = modelId
+  await notebookStore.saveNotebook(notebookStore.currentNotebook)
 }
 </script>
 
