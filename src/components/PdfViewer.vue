@@ -204,8 +204,9 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import * as pdfjsLib from 'pdfjs-dist'
-import { 
-  TextLayerBuilder, 
+import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url'
+import {
+  TextLayerBuilder,
   PDFLinkService,
   EventBus
 } from 'pdfjs-dist/web/pdf_viewer.mjs'
@@ -216,7 +217,7 @@ import RecordingIndicator from '@/components/RecordingIndicator.vue'
 import { createAudioWorkletRecorder } from '@/utils/audioWorkletRecorder'
 import OutlineTree from './OutlineTree.vue'
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.7.76/pdf.worker.min.mjs`
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker
 
 interface OutlineItem {
   title: string

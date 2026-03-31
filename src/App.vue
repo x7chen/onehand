@@ -20,6 +20,11 @@ import { useLinkPaste } from '@/composables/useLinkPaste'
 import NodePopup from '@/components/NodePopup.vue'
 import type { DeepLinkData } from '@/composables/useDeepLink'
 
+// 导入本地 CSS
+import 'katex/dist/katex.min.css'
+import 'highlight.js/styles/github.css'
+import 'highlight.js/styles/github-dark.css'
+
 const settingsStore = useSettingsStore()
 const notebookStore = useNotebookStore()
 const router = useRouter()
@@ -90,19 +95,32 @@ onUnmounted(() => {
 // 监听主题变化，切换 highlight.js 和 Mermaid 主题
 watchEffect(() => {
   const isDark = document.documentElement.classList.contains('dark')
-  const lightTheme = document.querySelector('.hljs-theme-light') as HTMLLinkElement
-  const darkTheme = document.querySelector('.hljs-theme-dark') as HTMLLinkElement
-  
+  const styles = document.querySelectorAll('style')
+
+  // 找到 highlight.js 主题的 style 元素（最后导入的两个）
+  // github.css 和 github-dark.css 的 CSS 内容有特征可以识别
+  let lightThemeStyle: HTMLStyleElement | null = null
+  let darkThemeStyle: HTMLStyleElement | null = null
+
+  styles.forEach((style) => {
+    const cssText = style.textContent || ''
+    if (cssText.includes('.hljs-comment') && cssText.includes('#6a737d')) {
+      // GitHub light theme 特征色
+      lightThemeStyle = style as HTMLStyleElement
+    } else if (cssText.includes('.hljs-comment') && cssText.includes('#8b949e')) {
+      // GitHub dark theme 特征色
+      darkThemeStyle = style as HTMLStyleElement
+    }
+  })
+
   if (isDark) {
     // 深色模式：启用深色主题，禁用浅色主题
-    if (lightTheme) lightTheme.disabled = true
-    if (darkTheme) darkTheme.disabled = false
-    console.log('[App] Switched to dark theme for highlight.js')
+    if (lightThemeStyle) lightThemeStyle.disabled = true
+    if (darkThemeStyle) darkThemeStyle.disabled = false
   } else {
     // 浅色模式：启用浅色主题，禁用深色主题
-    if (lightTheme) lightTheme.disabled = false
-    if (darkTheme) darkTheme.disabled = true
-    console.log('[App] Switched to light theme for highlight.js')
+    if (lightThemeStyle) lightThemeStyle.disabled = false
+    if (darkThemeStyle) darkThemeStyle.disabled = true
   }
 })
 </script>
