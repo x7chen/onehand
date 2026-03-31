@@ -640,9 +640,9 @@ function handleAgentResponse(nodeId: string, transcript: string, pdfPage: number
     let accumulatedContent = ''
 
     chatWithLLM(messages, {
-      baseUrl: settings.llm.baseUrl,
-      apiKey: settings.llm.apiKey,
-      model: settings.llm.model
+      baseUrl: settingsStore.activeProfile?.baseUrl || '',
+      apiKey: settingsStore.activeProfile?.apiKey || '',
+      model: settingsStore.activeProfile?.model || ''
     }, (chunk) => {
       accumulatedContent += chunk
       notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
@@ -986,9 +986,9 @@ async function callImageAnalysisAI(
     let accumulatedContent = ''
 
     await chatWithLLM(messages, {
-      baseUrl: settings.llm.baseUrl,
-      apiKey: settings.llm.apiKey,
-      model: settings.llm.model
+      baseUrl: settingsStore.activeProfile?.baseUrl || '',
+      apiKey: settingsStore.activeProfile?.apiKey || '',
+      model: settingsStore.activeProfile?.model || ''
     }, (chunk) => {
       accumulatedContent += chunk
       notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {

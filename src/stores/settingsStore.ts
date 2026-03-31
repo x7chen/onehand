@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
-import type { Settings } from '@/types/settings'
-import { defaultSettings } from '@/types/settings'
+import { ref, computed } from 'vue'
+import type { Settings, LLMProfile } from '@/types/settings'
+import { defaultSettings, generateProfileId, getActiveProfile } from '@/types/settings'
 
 /**
  * 深度合并对象
@@ -24,9 +24,56 @@ function deepMerge<T extends Record<string, any>>(target: T, source: Partial<T>)
   return result
 }
 
+/**
+ * 迁移旧格式配置到新的多配置格式
+ */
+function migrateToProfiles(oldSettings: any): Settings {
+  // 如果已经是新格式，直接返回
+  if (oldSettings.llm?.profiles && Array.isArray(oldSettings.llm.profiles)) {
+    return oldSettings as Settings
+  }
+
+  // 旧格式迁移：将单个配置转换为配置列表
+  const profileId = generateProfileId()
+  const migratedSettings: Settings = {
+    ...defaultSettings,
+    llm: {
+      provider: 'custom',
+      profiles: [
+        {
+          id: profileId,
+          name: '模型1',
+          apiKey: oldSettings.llm?.apiKey || '',
+          baseUrl: oldSettings.llm?.baseUrl || defaultSettings.llm.profiles[0].baseUrl,
+          model: oldSettings.llm?.model || defaultSettings.llm.profiles[0].model
+        }
+      ],
+      activeProfileId: profileId,
+      enabledProviders: oldSettings.llm?.enabledProviders || ['custom'],
+      enabledModels: oldSettings.llm?.enabledModels || []
+    }
+  }
+
+  // 合并其他设置
+  if (oldSettings.stt) {
+    migratedSettings.stt = deepMerge(defaultSettings.stt, oldSettings.stt)
+  }
+  if (oldSettings.general) {
+    migratedSettings.general = deepMerge(defaultSettings.general, oldSettings.general)
+  }
+  if (oldSettings.view) {
+    migratedSettings.view = deepMerge(defaultSettings.view, oldSettings.view)
+  }
+
+  return migratedSettings
+}
+
 export const useSettingsStore = defineStore('settings', () => {
   const settings = ref<Settings>({ ...defaultSettings })
   const isLoaded = ref(false)
+
+  // 当前激活的配置
+  const activeProfile = computed(() => getActiveProfile(settings.value))
 
   async function loadSettings() {
     if (isLoaded.value) return // 避免重复加载
@@ -35,8 +82,8 @@ export const useSettingsStore = defineStore('settings', () => {
       const configResult = await window.electronAPI.readConfig()
       if (configResult.success && configResult.data) {
         const configSettings = JSON.parse(configResult.data)
-        // 使用深度合并确保嵌套对象正确合并
-        settings.value = deepMerge(defaultSettings, configSettings)
+        // 迁移旧格式配置
+        settings.value = migrateToProfiles(configSettings)
       } else {
         // 配置文件不存在或加载失败，使用默认设置
         settings.value = { ...defaultSettings }
@@ -69,11 +116,75 @@ export const useSettingsStore = defineStore('settings', () => {
     saveSettings()
   }
 
+  // 添加新配置
+  function addProfile(): LLMProfile {
+    const newProfile: LLMProfile = {
+      id: generateProfileId(),
+      name: `模型${settings.value.llm.profiles.length + 1}`,
+      apiKey: '',
+      baseUrl: 'https://api-inference.modelscope.cn/v1',
+      model: 'Qwen/Qwen3-235B-A22B-Instruct-2507'
+    }
+    settings.value.llm.profiles.push(newProfile)
+    settings.value.llm.activeProfileId = newProfile.id
+    saveSettings()
+    return newProfile
+  }
+
+  // 删除配置（至少保留一个）
+  function removeProfile(profileId: string) {
+    if (settings.value.llm.profiles.length <= 1) return
+
+    const index = settings.value.llm.profiles.findIndex(p => p.id === profileId)
+    if (index === -1) return
+
+    settings.value.llm.profiles.splice(index, 1)
+
+    // 如果删除的是当前激活的配置，切换到第一个
+    if (settings.value.llm.activeProfileId === profileId) {
+      settings.value.llm.activeProfileId = settings.value.llm.profiles[0].id
+    }
+    saveSettings()
+  }
+
+  // 切换配置
+  function switchProfile(profileId: string) {
+    const profile = settings.value.llm.profiles.find(p => p.id === profileId)
+    if (profile) {
+      settings.value.llm.activeProfileId = profileId
+      saveSettings()
+    }
+  }
+
+  // 更新配置名称
+  function updateProfileName(profileId: string, name: string) {
+    const profile = settings.value.llm.profiles.find(p => p.id === profileId)
+    if (profile) {
+      profile.name = name
+      saveSettings()
+    }
+  }
+
+  // 更新当前激活配置的字段
+  function updateActiveProfileField(field: keyof LLMProfile, value: string) {
+    const profile = activeProfile.value
+    if (profile) {
+      profile[field] = value
+      saveSettings()
+    }
+  }
+
   return {
     settings,
     isLoaded,
+    activeProfile,
     loadSettings,
     saveSettings,
-    updateSettings
+    updateSettings,
+    addProfile,
+    removeProfile,
+    switchProfile,
+    updateProfileName,
+    updateActiveProfileField
   }
 })
