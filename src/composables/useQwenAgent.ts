@@ -10,7 +10,9 @@ export async function chatWithLLM(
   onChunk?: (chunk: string) => void
 ): Promise<string> {
   try {
-    const response = await fetch(`${config.baseUrl}/chat/completions`, {
+    // 移除 baseUrl 末尾的斜杠，避免双斜杠问题
+    const baseUrl = config.baseUrl.replace(/\/+$/, '')
+    const response = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
