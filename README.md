@@ -2,14 +2,14 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-0.7.5-blue.svg)
+![Version](https://img.shields.io/badge/version-0.8.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Electron](https://img.shields.io/badge/Electron-28.0.0-47848F?logo=electron)
 ![Vue](https://img.shields.io/badge/Vue-3.5.29-4FC08D?logo=vue.js)
 
 **一款支持离线语音识别的智能笔记应用**
 
-[功能特性](#功能特性) • [快速开始](#快速开始) • [使用指南](#使用指南) • [技术架构](#技术架构)
+[功能特性](#功能特性) • [快速开始](#快速开始) • [使用指南](#使用指南) • [用户配置指南](doc/用户配置指南.md) • [技术架构](#技术架构)
 
 </div>
 
@@ -123,6 +123,8 @@ npm run build:dir
 ---
 
 ## 使用指南
+
+> 📖 **详细配置教程**：如果您需要配置 AI 服务，请参阅 [用户配置指南](doc/用户配置指南.md)，包含 AI 大模型配置、界面设置和常见问题解答。
 
 ### 创建笔记本
 
