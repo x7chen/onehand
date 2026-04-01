@@ -206,6 +206,22 @@ function handleClick() {
   overflow-wrap: break-word;
 }
 
+.small-transcript-content :deep(img) {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 8px 0;
+  border-radius: 4px;
+}
+
+.small-transcript-content :deep(video) {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 8px 0;
+  border-radius: 4px;
+}
+
 .status-text {
   font-size: 11px;
   color: var(--text-secondary);
