@@ -109,7 +109,11 @@
         @dragEnd="handleContextDragEnd"
       />
       <FavoritesPanel v-if="activeTab === 'favorites'" />
-      <SettingsPanel v-if="activeTab === 'settings'" />
+      <SettingsPanel
+        v-if="activeTab === 'settings'"
+        @dragStart="handleProfileDragStart"
+        @dragEnd="handleProfileDragEnd"
+      />
     </main>
 
     <!-- New Context Dialog -->
@@ -348,6 +352,7 @@ const shouldCloseEditDialogAfterDelete = ref(false)
 const isDragOverTrash = ref(false)
 const draggedNotebook = ref<Notebook | null>(null)
 const draggedContext = ref<ContextFile | null>(null)
+const draggedProfileId = ref<string | null>(null)
 const showNotebookDeleteConfirm = ref(false)
 const notebookToDelete = ref<Notebook | null>(null)
 
@@ -564,6 +569,16 @@ function handleContextDragEnd(e: DragEvent) {
   isDragOverTrash.value = false
 }
 
+function handleProfileDragStart(e: DragEvent, profileId: string) {
+  draggedProfileId.value = profileId
+  isDragOverTrash.value = false
+}
+
+function handleProfileDragEnd(e: DragEvent) {
+  draggedProfileId.value = null
+  isDragOverTrash.value = false
+}
+
 function handleSidebarDragOver(e: DragEvent) {
   // Allow drag over sidebar
 }
@@ -590,6 +605,14 @@ function handleTrashDrop(e: DragEvent) {
   e.preventDefault()
   e.stopPropagation()
   isDragOverTrash.value = false
+
+  const profileId = e.dataTransfer?.getData('application/profile')
+  if (profileId && draggedProfileId.value && settingsStore.settings.llm.profiles.length > 1) {
+    // 删除模型配置，无需确认对话框
+    settingsStore.removeProfile(profileId)
+    draggedProfileId.value = null
+    return
+  }
 
   const notebookId = e.dataTransfer?.getData('text/plain')
   if (notebookId && draggedNotebook.value) {

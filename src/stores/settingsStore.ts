@@ -116,14 +116,26 @@ export const useSettingsStore = defineStore('settings', () => {
     saveSettings()
   }
 
-  // 添加新配置
+  // 添加新配置（复制已激活的配置，若无激活则复制最后一个）
   function addProfile(): LLMProfile {
+    // 查找要复制的源配置
+    let sourceProfile = settings.value.llm.profiles.find(
+      p => p.id === settings.value.llm.activeProfileId
+    )
+
+    // 如果没有激活配置，使用最后一个配置
+    if (!sourceProfile && settings.value.llm.profiles.length > 0) {
+      sourceProfile = settings.value.llm.profiles[settings.value.llm.profiles.length - 1]
+    }
+
     const newProfile: LLMProfile = {
       id: generateProfileId(),
-      name: `模型${settings.value.llm.profiles.length + 1}`,
-      apiKey: '',
-      baseUrl: 'https://api-inference.modelscope.cn/v1',
-      model: 'Qwen/Qwen3-235B-A22B-Instruct-2507'
+      name: sourceProfile
+        ? `${sourceProfile.name} (副本)`
+        : `模型${settings.value.llm.profiles.length + 1}`,
+      apiKey: sourceProfile?.apiKey || '',
+      baseUrl: sourceProfile?.baseUrl || 'https://api-inference.modelscope.cn/v1',
+      model: sourceProfile?.model || 'Qwen/Qwen3-235B-A22B-Instruct-2507'
     }
     settings.value.llm.profiles.push(newProfile)
     settings.value.llm.activeProfileId = newProfile.id

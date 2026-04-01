@@ -15,8 +15,11 @@
             v-for="profile in settingsStore.settings.llm.profiles"
             :key="profile.id"
             class="profile-tab"
-            :class="{ active: profile.id === settingsStore.settings.llm.activeProfileId }"
+            :class="{ active: profile.id === settingsStore.settings.llm.activeProfileId, dragging: draggedProfileId === profile.id }"
+            :draggable="renamingProfileId !== profile.id"
             @click="settingsStore.switchProfile(profile.id)"
+            @dragstart="handleDragStart($event, profile.id)"
+            @dragend="handleDragEnd($event)"
           >
             <span
               class="tab-name"
@@ -33,14 +36,6 @@
               @keyup.enter="finishRename"
               @keyup.escape="cancelRename"
             />
-            <button
-              v-if="settingsStore.settings.llm.profiles.length > 1"
-              class="tab-close"
-              @click.stop="settingsStore.removeProfile(profile.id)"
-              title="删除配置"
-            >
-              ×
-            </button>
           </div>
           <button
             class="profile-tab add-tab"
@@ -166,12 +161,18 @@
 import { ref, nextTick, watch, onMounted } from 'vue'
 import { useSettingsStore } from '@/stores/settingsStore'
 
+const emit = defineEmits<{
+  (e: 'dragStart', event: DragEvent, profileId: string): void
+  (e: 'dragEnd', event: DragEvent): void
+}>()
+
 const settingsStore = useSettingsStore()
 
 const renamingProfileId = ref<string | null>(null)
 const renameValue = ref('')
 const renameInput = ref<HTMLInputElement | null>(null)
 const showApiKey = ref(false)
+const draggedProfileId = ref<string | null>(null)
 
 onMounted(async () => {
   if (!settingsStore.isLoaded) {
@@ -212,6 +213,26 @@ function finishRename() {
 function cancelRename() {
   renamingProfileId.value = null
   renameValue.value = ''
+}
+
+// 拖拽删除功能
+function handleDragStart(event: DragEvent, profileId: string) {
+  draggedProfileId.value = profileId
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', profileId)
+    event.dataTransfer.setData('application/profile', profileId)
+    const target = event.target as HTMLElement
+    target.style.opacity = '0.5'
+  }
+  emit('dragStart', event, profileId)
+}
+
+function handleDragEnd(event: DragEvent) {
+  const target = event.target as HTMLElement
+  target.style.opacity = '1'
+  draggedProfileId.value = null
+  emit('dragEnd', event)
 }
 
 // 选择自定义主题文件
@@ -301,6 +322,11 @@ async function selectCustomThemeFile() {
   color: white;
 }
 
+.profile-tab.dragging {
+  opacity: 0.5;
+  transform: scale(0.95);
+}
+
 .tab-name {
   font-size: 14px;
   max-width: 120px;
@@ -323,29 +349,6 @@ async function selectCustomThemeFile() {
   font-size: 14px;
   box-sizing: border-box;
   z-index: 1;
-}
-
-.tab-close {
-  margin-left: 8px;
-  width: 16px;
-  height: 16px;
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-size: 14px;
-  line-height: 1;
-  padding: 0;
-  border-radius: 50%;
-}
-
-.tab-close:hover {
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
-}
-
-.profile-tab.active .tab-close:hover {
-  background: rgba(255, 255, 255, 0.3);
 }
 
 .add-tab {
