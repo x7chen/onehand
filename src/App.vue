@@ -1,5 +1,8 @@
 <template>
-  <router-view />
+  <TitleBar v-if="isWindows" />
+  <div class="app-content" :class="{ 'with-title-bar': isWindows }">
+    <router-view />
+  </div>
   <!-- Node popup for in-app deep link clicks -->
   <NodePopup
     :visible="showNodePopup"
@@ -18,12 +21,16 @@ import { useTheme } from '@/composables/useTheme'
 import { useDeepLink } from '@/composables/useDeepLink'
 import { useLinkPaste } from '@/composables/useLinkPaste'
 import NodePopup from '@/components/NodePopup.vue'
+import TitleBar from '@/components/TitleBar.vue'
 import type { DeepLinkData } from '@/composables/useDeepLink'
 
 // 导入本地 CSS
 import 'katex/dist/katex.min.css'
 import 'highlight.js/styles/github.css'
 import 'highlight.js/styles/github-dark.css'
+
+// 平台检测 - 是否为Windows
+const isWindows = navigator.userAgent.toLowerCase().includes('windows')
 
 const settingsStore = useSettingsStore()
 const notebookStore = useNotebookStore()
@@ -222,6 +229,16 @@ body {
 #app {
   width: 100vw;
   height: 100vh;
+}
+
+.app-content {
+  width: 100%;
+  height: 100%;
+}
+
+.app-content.with-title-bar {
+  height: calc(100vh - 32px);
+  margin-top: 32px;
 }
 
 /* Dark mode global overrides */

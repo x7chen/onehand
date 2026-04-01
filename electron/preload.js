@@ -23,5 +23,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   removeDeepLinkListener: () => {
     ipcRenderer.removeAllListeners('deep-link')
-  }
+  },
+  // 窗口控制（用于Windows自定义标题栏）
+  windowMinimize: () => ipcRenderer.invoke('window-minimize'),
+  windowMaximize: () => ipcRenderer.invoke('window-maximize'),
+  windowClose: () => ipcRenderer.invoke('window-close'),
+  windowIsMaximized: () => ipcRenderer.invoke('window-is-maximized')
 })

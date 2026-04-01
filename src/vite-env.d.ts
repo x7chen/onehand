@@ -45,6 +45,11 @@ interface ElectronAPI {
   getDeepLink: () => Promise<string | null>
   onDeepLink: (callback: (url: string) => void) => void
   removeDeepLinkListener: () => void
+  // 窗口控制（用于Windows自定义标题栏）
+  windowMinimize: () => Promise<void>
+  windowMaximize: () => Promise<void>
+  windowClose: () => Promise<void>
+  windowIsMaximized: () => Promise<boolean>
 }
 
 interface Window {

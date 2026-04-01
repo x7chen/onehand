@@ -3,7 +3,7 @@
     <!-- 左侧侧边栏 -->
     <aside class="sidebar" @dragover="handleSidebarDragOver" @drop="handleSidebarDrop">
       <div class="sidebar-header">
-        <h1 class="logo">onehand</h1>
+        <h1 class="logo">OneHand</h1>
       </div>
 
       <nav class="sidebar-nav">

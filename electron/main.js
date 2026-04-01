@@ -139,7 +139,7 @@ function createWindow() {
       contextIsolation: true,
       webSecurity: true
     },
-    frame: true,
+    frame: process.platform !== 'win32', // Windows无边框，macOS保持原生frame
     backgroundColor: backgroundColor,
     show: false, // Don't show until ready
     paintWhenInitiallyHidden: true
@@ -543,9 +543,9 @@ ipcMain.handle('transcribe-audio', async (event, audioData, mimeType, config) =>
         console.warn('Cannot read non-WAV file directly, need ffmpeg conversion:', readError)
         // TODO: 集成 ffmpeg 进行格式转换
         fs.unlinkSync(tempInputPath)
-        return { 
-          success: false, 
-          error: '不支持的音频格式。请使用 WAV 格式录音，或安装 ffmpeg 进行格式转换。' 
+        return {
+          success: false,
+          error: '不支持的音频格式。请使用 WAV 格式录音，或安装 ffmpeg 进行格式转换。'
         }
       }
     }
@@ -582,4 +582,27 @@ ipcMain.handle('transcribe-audio', async (event, audioData, mimeType, config) =>
       error: error instanceof Error ? error.message : String(error)
     }
   }
+})
+
+// 窗口控制 IPC 处理（用于Windows自定义标题栏）
+ipcMain.handle('window-minimize', () => {
+  if (mainWindow) mainWindow.minimize()
+})
+
+ipcMain.handle('window-maximize', () => {
+  if (mainWindow) {
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize()
+    } else {
+      mainWindow.maximize()
+    }
+  }
+})
+
+ipcMain.handle('window-close', () => {
+  if (mainWindow) mainWindow.close()
+})
+
+ipcMain.handle('window-is-maximized', () => {
+  return mainWindow ? mainWindow.isMaximized() : false
 })
