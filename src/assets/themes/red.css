@@ -1,0 +1,23 @@
+/* 红色主题 */
+:root {
+  --color-primary: #e53e3e;
+  --color-primary-hover: #c53030;
+  --color-primary-light: rgba(229, 62, 62, 0.1);
+  --color-primary-dark: #9b2c2c;
+  --color-success: #68d391;
+  --color-success-hover: #4caf50;
+  --color-success-light: rgba(104, 211, 145, 0.1);
+  --color-warning: #ecc94b;
+  --color-warning-light: rgba(236, 201, 75, 0.1);
+  --color-error: #e53e3e;
+  --color-error-hover: #c53030;
+  --color-error-light: rgba(229, 62, 62, 0.1);
+  --color-info: #ff9800;
+  --color-info-light: rgba(255, 152, 0, 0.15);
+  --color-favorite: #fbbf24;
+  --color-recording: #fc8181;
+}
+
+:root.dark {
+  /* 深色模式下保持相同的主题色 */
+}

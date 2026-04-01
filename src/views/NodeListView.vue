@@ -904,7 +904,7 @@ async function handleCopySelectedContext() {
 }
 
 .panel-resizer:hover .resizer-line {
-  background: #4299e1;
+  background: var(--color-primary);
 }
 
 /* 对话框 */
@@ -966,7 +966,7 @@ async function handleCopySelectedContext() {
 }
 
 .content-input:focus {
-  border-color: #4299e1;
+  border-color: var(--color-primary);
 }
 
 .dialog-actions {
@@ -994,13 +994,13 @@ async function handleCopySelectedContext() {
   padding: 8px 16px;
   border: none;
   border-radius: 6px;
-  background: #4299e1;
+  background: var(--color-primary);
   color: white;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .confirm-btn:hover {
-  background: #3182ce;
+  background: var(--color-primary-hover);
 }
 </style>

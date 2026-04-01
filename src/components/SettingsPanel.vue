@@ -118,12 +118,44 @@
         </div>
 
         <div class="form-group">
-          <label>主题</label>
+          <label>深浅色模式</label>
           <select v-model="settingsStore.settings.general.theme">
             <option value="system">跟随系统</option>
             <option value="light">浅色</option>
             <option value="dark">深色</option>
           </select>
+        </div>
+
+        <div class="form-group">
+          <label>颜色主题</label>
+          <div class="theme-selector">
+            <select v-model="settingsStore.settings.general.colorTheme" class="theme-select">
+              <option value="default">默认（蓝色）</option>
+              <option value="green">绿色</option>
+              <option value="purple">紫色</option>
+              <option value="orange">橙色</option>
+              <option value="red">红色</option>
+              <option value="custom">自定义...</option>
+            </select>
+            <div class="theme-preview" :style="{ backgroundColor: 'var(--color-primary)' }"></div>
+          </div>
+        </div>
+
+        <div v-if="settingsStore.settings.general.colorTheme === 'custom'" class="form-group">
+          <label>自定义主题文件</label>
+          <div class="custom-theme-row">
+            <input
+              :value="settingsStore.settings.general.customThemePath || ''"
+              type="text"
+              placeholder="选择CSS文件..."
+              readonly
+              class="custom-theme-path"
+            />
+            <button class="select-theme-btn" @click="selectCustomThemeFile">
+              选择文件
+            </button>
+          </div>
+          <p class="theme-hint">CSS文件应定义 :root 变量，如 --color-primary、--color-success 等</p>
         </div>
       </section>
     </div>
@@ -180,6 +212,23 @@ function finishRename() {
 function cancelRename() {
   renamingProfileId.value = null
   renameValue.value = ''
+}
+
+// 选择自定义主题文件
+async function selectCustomThemeFile() {
+  const result = await window.electronAPI.showOpenDialog({
+    filters: [{ name: 'CSS文件', extensions: ['css'] }],
+    properties: ['openFile']
+  })
+
+  if (!result.canceled && result.filePaths && result.filePaths.length > 0) {
+    settingsStore.updateSettings({
+      general: {
+        ...settingsStore.settings.general,
+        customThemePath: result.filePaths[0]
+      }
+    })
+  }
 }
 </script>
 
@@ -340,7 +389,56 @@ function cancelRename() {
 .form-group input:focus,
 .form-group select:focus {
   outline: none;
-  border-color: #4299e1;
+  border-color: var(--color-primary);
+}
+
+/* 主题选择样式 */
+.theme-selector {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.theme-select {
+  flex: 1;
+}
+
+.theme-preview {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 2px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.custom-theme-row {
+  display: flex;
+  gap: 8px;
+}
+
+.custom-theme-path {
+  flex: 1;
+  background: var(--bg-secondary);
+}
+
+.select-theme-btn {
+  padding: 10px 16px;
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.select-theme-btn:hover {
+  background: var(--color-primary-hover);
+}
+
+.theme-hint {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
 }
 
 .password-input-wrapper {

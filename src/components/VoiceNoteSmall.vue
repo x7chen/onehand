@@ -96,18 +96,18 @@ function handleClick() {
   border-radius: 4px;
   overflow: hidden;
   background: white;
-  border-left: 3px solid #4299e1;
+  border-left: 3px solid var(--color-primary);
   box-shadow: 0 1px 4px var(--shadow-color);
   transition: box-shadow 0.2s;
   cursor: pointer;
 }
 
 :root.dark .voice-note-small {
-  background: #2d2d2d;
+  background: var(--bg-node-transcript);
 }
 
 .voice-note-small.active {
-  box-shadow: 0 2px 12px rgba(66, 153, 225, 0.4), 0 0 0 2px #4299e1;
+  box-shadow: 0 2px 12px rgba(66, 153, 225, 0.4), 0 0 0 2px var(--color-primary);
 }
 
 .small-header {
@@ -163,7 +163,7 @@ function handleClick() {
 }
 
 .small-indicator.has-ai {
-  background: #66bb6a;
+  background: var(--color-success);
 }
 
 .small-favorite-btn {
@@ -187,11 +187,11 @@ function handleClick() {
 }
 
 .small-favorite-btn.active {
-  color: #ffc107;
+  color: var(--color-favorite);
 }
 
 :root.dark .small-favorite-btn.active {
-  color: #ffc107 !important;
+  color: var(--color-favorite) !important;
 }
 
 .small-transcript-box {
@@ -214,6 +214,6 @@ function handleClick() {
 
 .error-text {
   font-size: 11px;
-  color: #f44;
+  color: var(--color-error);
 }
 </style>

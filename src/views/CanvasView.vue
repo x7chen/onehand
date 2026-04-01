@@ -458,7 +458,7 @@ async function handleSelectModel(modelId: string) {
 
 .confirm-btn {
   padding: 8px 16px;
-  background: #4299e1;
+  background: var(--color-primary);
   border: none;
   border-radius: 6px;
   cursor: pointer;

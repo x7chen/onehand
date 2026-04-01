@@ -563,7 +563,7 @@ defineExpose({
 
 .drag-hint {
   position: fixed;
-  background: #4299e1;
+  background: var(--color-primary);
   color: white;
   padding: 8px 12px;
   border-radius: 6px;

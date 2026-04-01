@@ -88,7 +88,7 @@ const contextStore = useContextStore()
 
 .new-context-btn {
   padding: 10px 20px;
-  background: #66bb6a;
+  background: var(--color-primary);
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -98,7 +98,7 @@ const contextStore = useContextStore()
 }
 
 .new-context-btn:hover {
-  background: #4caf50;
+  background: var(--color-primary-hover);
 }
 
 .empty-state {

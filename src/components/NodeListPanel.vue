@@ -598,7 +598,7 @@ function scrollToNode(nodeId: string) {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: #f5f5f5;
+  background: var(--bg-secondary);
   min-width: 298px;
   flex-shrink: 0;
   position: relative;
@@ -670,7 +670,7 @@ function scrollToNode(nodeId: string) {
 }
 
 .page-nav-btn:hover {
-  background: var(--accent-color, #4a9eff);
+  background: var(--accent-color, var(--color-primary));
   color: white;
   transform: scale(1.1);
 }
@@ -678,12 +678,12 @@ function scrollToNode(nodeId: string) {
 /* 新增页面按钮样式 */
 .page-nav-btn.add-new-page {
   background: var(--bg-primary);
-  border: 2px dashed var(--accent-color, #4a9eff);
-  color: var(--accent-color, #4a9eff);
+  border: 2px dashed var(--accent-color, var(--color-primary));
+  color: var(--accent-color, var(--color-primary));
 }
 
 .page-nav-btn.add-new-page:hover {
-  background: var(--accent-color, #4a9eff);
+  background: var(--accent-color, var(--color-primary));
   color: white;
   border-style: solid;
 }

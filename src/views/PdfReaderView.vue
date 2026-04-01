@@ -1149,7 +1149,7 @@ function handleIncludePageChange(data: { include: boolean; imageBase64?: string;
 }
 
 .panel-resizer:hover .resizer-line {
-  background: #4299e1;
+  background: var(--color-primary);
 }
 
 .dialog-overlay {
@@ -1210,7 +1210,7 @@ function handleIncludePageChange(data: { include: boolean; imageBase64?: string;
 }
 
 .content-input:focus {
-  border-color: #4299e1;
+  border-color: var(--color-primary);
 }
 
 .dialog-actions {
@@ -1238,13 +1238,13 @@ function handleIncludePageChange(data: { include: boolean; imageBase64?: string;
   padding: 8px 16px;
   border: none;
   border-radius: 6px;
-  background: #4299e1;
+  background: var(--color-primary);
   color: white;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .confirm-btn:hover {
-  background: #3182ce;
+  background: var(--color-primary-hover);
 }
 </style>

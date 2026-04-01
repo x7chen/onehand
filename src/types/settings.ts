@@ -31,10 +31,15 @@ export interface STTSettings {
   }
 }
 
+// 内置主题名称
+export type BuiltinTheme = 'default' | 'green' | 'purple' | 'orange' | 'red'
+
 export interface GeneralSettings {
   audioFormat: 'webm' | 'wav'
   language: 'zh' | 'en' | 'system'
-  theme: 'dark' | 'light' | 'system'
+  theme: 'dark' | 'light' | 'system'  // 深浅色模式
+  colorTheme: BuiltinTheme | 'custom'  // 颜色主题
+  customThemePath?: string  // 自定义CSS文件路径（仅当colorTheme为custom时有效）
 }
 
 export interface ViewSettings {
@@ -87,7 +92,9 @@ export const defaultSettings: Settings = {
   general: {
     audioFormat: 'wav', // 默认使用 WAV 格式，避免 decodeAudioData 问题
     language: 'system',
-    theme: 'system'
+    theme: 'system',
+    colorTheme: 'default',
+    customThemePath: undefined
   },
   view: {
     chatViewLeftPanelRatio: 0.6,

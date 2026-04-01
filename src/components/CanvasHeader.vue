@@ -479,8 +479,8 @@ onUnmounted(() => {
 }
 
 .global-hide-ai-btn.active {
-  background: rgba(255, 152, 0, 0.15);
-  color: #ff9800;
+  background: var(--color-info-light);
+  color: var(--color-info);
 }
 
 /* AI 回答开关按钮 */
@@ -509,7 +509,7 @@ onUnmounted(() => {
 }
 
 .ai-answer-toggle-btn.active {
-  background: #4299e1;
+  background: var(--color-primary);
 }
 
 .ai-answer-toggle-btn.active .ai-icon-text {
@@ -686,18 +686,18 @@ onUnmounted(() => {
 }
 
 .dynamic-context-display.has-content {
-  border-color: #4299e1;
+  border-color: var(--color-primary);
 }
 
 .dynamic-context-display .context-icon {
   flex-shrink: 0;
-  color: #4299e1;
+  color: var(--color-primary);
   cursor: pointer;
   transition: color 0.2s, transform 0.2s;
 }
 
 .dynamic-context-display .context-icon:hover {
-  color: #3182ce;
+  color: var(--color-primary-hover);
   transform: scale(1.1);
 }
 
@@ -763,7 +763,7 @@ onUnmounted(() => {
 
 .model-icon {
   flex-shrink: 0;
-  color: #9f7aea;
+  color: var(--color-primary);
 }
 
 .model-name {
@@ -806,8 +806,8 @@ onUnmounted(() => {
 }
 
 .model-option.selected {
-  background: #9f7aea20;
-  color: #9f7aea;
+  background: var(--color-primary)20;
+  color: var(--color-primary);
   font-weight: 500;
 }
 

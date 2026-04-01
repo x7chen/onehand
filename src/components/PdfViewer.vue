@@ -1453,7 +1453,7 @@ async function handleIncludePageChange() {
 }
 
 .pdf-error {
-  color: #e53e3e;
+  color: var(--color-error);
 }
 
 .pdf-page-outer {
@@ -1498,7 +1498,7 @@ async function handleIncludePageChange() {
   position: absolute;
   padding: 4px 8px;
   border-radius: 12px;
-  background: #4299e1;
+  background: var(--color-primary);
   color: white;
   display: flex;
   align-items: center;
@@ -1522,7 +1522,7 @@ async function handleIncludePageChange() {
 }
 
 .node-marker.selected {
-  background: #2b6cb0;
+  background: var(--color-primary-dark);
   box-shadow: 0 0 0 0.2em rgba(66, 153, 225, 0.4);
 }
 
@@ -1534,15 +1534,15 @@ async function handleIncludePageChange() {
 }
 
 .node-marker.context-selected {
-  box-shadow: 0 0 0 2px #48bb78, 0 2px 6px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 0 2px var(--color-success), 0 2px 6px rgba(0, 0, 0, 0.3);
 }
 
 .node-marker.voice-note {
-  background: #e53e3e;
+  background: var(--color-error);
 }
 
 .node-marker.voice-note.selected {
-  background: #c53030;
+  background: var(--color-error-hover);
 }
 
 .edge-nav-btn {

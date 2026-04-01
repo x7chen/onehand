@@ -496,7 +496,7 @@ function handleTextDragStart(e: DragEvent) {
 
       // Set drag image/visual feedback
       const dragGhost = document.createElement('div')
-      dragGhost.style.background = '#4299e1'
+      dragGhost.style.background = 'var(--color-primary)'
       dragGhost.style.color = 'white'
       dragGhost.style.padding = '8px 12px'
       dragGhost.style.borderRadius = '4px'
@@ -719,7 +719,7 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
 <style scoped>
 .voice-note {
   position: absolute;
-  background: #f5f5f5;
+  background: var(--bg-secondary);
   border-radius: 8px;
   box-shadow: 0 2px 8px var(--shadow-color);
   padding: 4px;
@@ -734,8 +734,8 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
 }
 
 .voice-note.active {
-  box-shadow: 0 4px 20px rgba(66, 153, 225, 0.4), 0 0 0 3px #4299e1;
-  border: 1px solid #4299e1;
+  box-shadow: 0 4px 20px rgba(66, 153, 225, 0.4), 0 0 0 3px var(--color-primary);
+  border: 1px solid var(--color-primary);
 }
 
 .node-header {
@@ -774,7 +774,7 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #4299e1;
+  color: var(--color-primary);
   flex-shrink: 0;
 }
 
@@ -801,7 +801,7 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  border: 2px solid #4299e1;
+  border: 2px solid var(--color-primary);
   animation: ripple 1s infinite;
 }
 
@@ -857,7 +857,7 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
   font-weight: 500;
   color: var(--text-primary);
   background: var(--bg-secondary);
-  border: 1px solid #4299e1;
+  border: 1px solid var(--color-primary);
   border-radius: 4px;
   padding: 2px 4px;
   max-width: 200px;
@@ -891,7 +891,7 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
 
 .delete-btn:hover {
   background: rgba(255, 68, 68, 0.1);
-  color: #f44;
+  color: var(--color-error);
 }
 
 /* 功能按钮组 */
@@ -939,7 +939,7 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
 
 .favorite-btn.active,
 .favorite-btn:active {
-  color: #ffc107 !important;
+  color: var(--color-favorite) !important;
 }
 
 /* 隐藏 AI 按钮 */
@@ -953,7 +953,7 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
 }
 
 .regenerate-btn:not(:disabled):hover {
-  color: #4299e1;
+  color: var(--color-primary);
 }
 
 /* 复制链接按钮 */
@@ -962,12 +962,12 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
 }
 
 .copy-link-btn:hover {
-  color: #4299e1;
+  color: var(--color-primary);
 }
 
 .transcript-box {
   background: white;
-  border-left: 3px solid #4299e1;
+  border-left: 3px solid var(--color-primary);
   padding: 10px;
   border-radius: 4px;
   margin-bottom: 3px;
@@ -975,7 +975,7 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
 }
 
 :root.dark .transcript-box {
-  background: #2d2d2d;
+  background: var(--bg-node-transcript);
 }
 
 .transcript-content-wrapper {
@@ -1011,7 +1011,7 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
 }
 
 .copy-btn:hover {
-  background: var(--accent-color, #4299e1);
+  background: var(--accent-color, var(--color-primary));
   color: white;
 }
 
@@ -1079,10 +1079,10 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
   width: 100%;
   min-height: 60px;
   padding: 0;
-  border: 2px solid #4299e1;
+  border: 2px solid var(--color-primary);
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.98);
-  color: #1a1a1a;
+  color: var(--text-primary);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   font-size: 14px;
   line-height: 1.6;
@@ -1098,14 +1098,14 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
 
 .agent-result-box {
   background: white;
-  border-left: 3px solid #66bb6a;
+  border-left: 3px solid var(--color-success);
   padding: 10px;
   border-radius: 4px;
   position: relative;
 }
 
 :root.dark .agent-result-box {
-  background: #2d2d2d;
+  background: var(--bg-node-transcript);
 }
 
 .agent-header {
@@ -1117,7 +1117,7 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
 
 .agent-label {
   font-size: 12px;
-  color: #66bb6a;
+  color: var(--color-success);
   font-weight: 500;
 }
 
@@ -1131,7 +1131,7 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: #66bb6a;
+  background: var(--color-success);
   animation: bounce 1.4s infinite ease-in-out both;
 }
 
@@ -1224,10 +1224,10 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
   width: 100%;
   min-height: 60px;
   padding: 0;
-  border: 2px solid #66bb6a;
+  border: 2px solid var(--color-success);
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.98);
-  color: #1a1a1a;
+  color: var(--text-primary);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   font-size: 14px;
   line-height: 1.6;
@@ -1249,7 +1249,7 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
 
 .error-text {
   font-size: 14px;
-  color: #f44;
+  color: var(--color-error);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1257,8 +1257,8 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
 
 .error-text button {
   background: rgba(255, 68, 68, 0.1);
-  border: 1px solid #f44;
-  color: #f44;
+  border: 1px solid var(--color-error);
+  color: var(--color-error);
   padding: 2px 8px;
   border-radius: 4px;
   cursor: pointer;
@@ -1280,7 +1280,7 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
   width: 100%;
   min-height: 80px;
   padding: 12px;
-  border: 2px solid #4299e1;
+  border: 2px solid var(--color-primary);
   border-radius: 6px;
   background: var(--bg-primary);
   color: var(--text-primary);
@@ -1417,18 +1417,18 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
 /* 引用 */
 .transcript-content :deep(blockquote),
 .agent-content :deep(blockquote) {
-  border-left: 3px solid #ccc;
+  border-left: 3px solid var(--blockquote-border);
   padding-left: 0.8em;
   margin: 0.5em 0;
   padding: 0.3em 0 0.3em 0.5em;
   font-style: italic;
-  color: #666;
+  color: var(--blockquote-text);
 }
 
 /* 链接 */
 .transcript-content :deep(a),
 .agent-content :deep(a) {
-  color: #4299e1;
+  color: var(--color-primary);
   text-decoration: underline;
 }
 
@@ -1458,14 +1458,14 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
 /* 浅色主题下代码块背景色 */
 .transcript-content :deep(pre.hljs),
 .agent-content :deep(pre.hljs) {
-  background-color: #f6f8fa !important;
+  background-color: var(--code-bg-light) !important;
 }
 
 /* 深色主题下代码块颜色和背景由 highlight.js 主题控制 */
 :root.dark .transcript-content :deep(pre.hljs),
 :root.dark .agent-content :deep(pre.hljs) {
   color: unset;
-  background-color: #0d1117 !important;
+  background-color: var(--code-bg-dark) !important;
 }
 
 :root.dark .transcript-content :deep(pre.hljs code),
@@ -1551,7 +1551,7 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
   display: inline-block;
   background: rgba(255, 68, 68, 0.1);
   border: 1px solid rgba(255, 68, 68, 0.3);
-  color: #f44;
+  color: var(--color-error);
   padding: 0.5em 0.8em;
   border-radius: 3px;
   font-size: 0.85em;
@@ -1619,7 +1619,7 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
   display: inline-block;
   background: rgba(255, 68, 68, 0.1);
   border: 1px solid rgba(255, 68, 68, 0.3);
-  color: #f44;
+  color: var(--color-error);
   padding: 0.5em 1em;
   border-radius: 4px;
   font-size: 0.85em;

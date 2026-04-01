@@ -40,7 +40,7 @@ const formattedTime = computed(() => formatDuration(props.duration || 0))
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: #ff4444;
+  background: var(--color-recording);
   animation: pulse 1s infinite;
 }
 

@@ -137,7 +137,7 @@ function handleNotebookDragEnd(e: DragEvent) {
 
 .new-notebook-btn {
   padding: 10px 20px;
-  background: #4299e1;
+  background: var(--color-primary);
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -147,7 +147,7 @@ function handleNotebookDragEnd(e: DragEvent) {
 }
 
 .new-notebook-btn:hover {
-  background: #3182ce;
+  background: var(--color-primary-hover);
 }
 
 .empty-state {
@@ -163,7 +163,7 @@ function handleNotebookDragEnd(e: DragEvent) {
 }
 
 .notebook-card {
-  background: var(--bg-primary);
+  background: var(--bg-secondary);
   padding: 20px;
   border-radius: 12px;
   box-shadow: 0 2px 8px var(--shadow-color);
@@ -209,13 +209,13 @@ function handleNotebookDragEnd(e: DragEvent) {
 }
 
 .canvas-btn:hover {
-  background: #9c27b0;
+  background: var(--color-primary);
 }
 
 .pdf-badge {
   display: inline-block;
   padding: 2px 6px;
-  background: #e53e3e;
+  background: var(--color-error);
   color: white;
   border-radius: 4px;
   font-size: 11px;

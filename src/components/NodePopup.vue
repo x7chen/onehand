@@ -276,8 +276,8 @@ function handleDelete(nodeId: string) {
 }
 
 .navigate-btn:hover {
-  background: #4299e1;
-  border-color: #4299e1;
+  background: var(--color-primary);
+  border-color: var(--color-primary);
   color: white;
 }
 
@@ -333,7 +333,7 @@ function handleDelete(nodeId: string) {
 }
 
 .error-icon {
-  color: #f44;
+  color: var(--color-error);
   margin-bottom: 16px;
 }
 
@@ -368,7 +368,7 @@ function handleDelete(nodeId: string) {
   width: 32px;
   height: 32px;
   border: 3px solid var(--border-color);
-  border-top-color: #4299e1;
+  border-top-color: var(--color-primary);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-bottom: 16px;

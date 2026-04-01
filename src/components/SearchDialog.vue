@@ -463,7 +463,7 @@ function handleNavigate(data: DeepLinkData) {
   width: 32px;
   height: 32px;
   border: 3px solid var(--border-color);
-  border-top-color: #4299e1;
+  border-top-color: var(--color-primary);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-bottom: 16px;
@@ -531,7 +531,7 @@ function handleNavigate(data: DeepLinkData) {
 }
 
 .notebook-name {
-  color: #4299e1;
+  color: var(--color-primary);
   font-weight: 500;
 }
 
@@ -581,7 +581,7 @@ function handleNavigate(data: DeepLinkData) {
 }
 
 .detail-btn:hover {
-  background: #4299e1;
+  background: var(--color-primary);
   color: white;
 }
 </style>
