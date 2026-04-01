@@ -100,6 +100,7 @@
 
       <!-- 总隐藏 AI 回答开关 -->
       <button
+        v-if="showViewportControls"
         @click="$emit('update:globalHideAiResult', !globalHideAiResult)"
         class="global-hide-ai-btn"
         :class="{ active: globalHideAiResult }"
