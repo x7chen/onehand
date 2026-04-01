@@ -799,6 +799,7 @@ async function handleAgentResponseForVoice(nodeId: string, transcript: string, p
   flex: 1;
   overflow-y: auto;
   padding: 16px;
+  box-sizing: border-box;
 }
 
 .node-detail {

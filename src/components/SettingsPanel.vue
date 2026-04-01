@@ -275,6 +275,7 @@ async function selectCustomThemeFile() {
   flex: 1;
   padding: 24px;
   overflow-y: auto;
+  box-sizing: border-box;
 }
 
 .settings-section {

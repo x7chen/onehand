@@ -72,6 +72,7 @@ const contextStore = useContextStore()
   height: 100%;
   padding: 24px;
   overflow-y: auto;
+  box-sizing: border-box;
 }
 
 .panel-header {
