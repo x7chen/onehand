@@ -123,16 +123,30 @@
 
         <div class="form-group">
           <label>颜色主题</label>
-          <div class="theme-selector">
-            <select v-model="settingsStore.settings.general.colorTheme" class="theme-select">
-              <option value="default">默认（蓝色）</option>
-              <option value="green">绿色</option>
-              <option value="purple">紫色</option>
-              <option value="orange">橙色</option>
-              <option value="red">红色</option>
-              <option value="custom">自定义...</option>
-            </select>
-            <div class="theme-preview" :style="{ backgroundColor: 'var(--color-primary)' }"></div>
+          <div class="theme-colors">
+            <button
+              v-for="theme in predefinedThemes"
+              :key="theme.value"
+              class="theme-color-btn"
+              :class="{ active: settingsStore.settings.general.colorTheme === theme.value }"
+              :style="{ backgroundColor: theme.color }"
+              :title="theme.label"
+              @click="selectTheme(theme.value)"
+            >
+              <svg v-if="settingsStore.settings.general.colorTheme === theme.value" viewBox="0 0 24 24" width="16" height="16" fill="white">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              </svg>
+            </button>
+            <button
+              class="theme-color-btn custom-theme-btn"
+              :class="{ active: settingsStore.settings.general.colorTheme === 'custom' }"
+              title="自定义"
+              @click="selectTheme('custom')"
+            >
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.04-.23-.26-.38-.61-.38-.96 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
+              </svg>
+            </button>
           </div>
         </div>
 
@@ -160,6 +174,7 @@
 <script setup lang="ts">
 import { ref, nextTick, watch, onMounted } from 'vue'
 import { useSettingsStore } from '@/stores/settingsStore'
+import type { BuiltinTheme } from '@/types/settings'
 
 const emit = defineEmits<{
   (e: 'dragStart', event: DragEvent, profileId: string): void
@@ -173,6 +188,24 @@ const renameValue = ref('')
 const renameInput = ref<HTMLInputElement | null>(null)
 const showApiKey = ref(false)
 const draggedProfileId = ref<string | null>(null)
+
+// 预定义主题颜色
+const predefinedThemes: { value: BuiltinTheme; label: string; color: string }[] = [
+  { value: 'default', label: '默认（蓝色）', color: '#4299e1' },
+  { value: 'green', label: '绿色', color: '#48bb78' },
+  { value: 'purple', label: '紫色', color: '#9f7aea' },
+  { value: 'orange', label: '橙色', color: '#ed8936' },
+  { value: 'red', label: '红色', color: '#e53e3e' }
+]
+
+function selectTheme(theme: BuiltinTheme | 'custom') {
+  settingsStore.updateSettings({
+    general: {
+      ...settingsStore.settings.general,
+      colorTheme: theme
+    }
+  })
+}
 
 onMounted(async () => {
   if (!settingsStore.isLoaded) {
@@ -397,22 +430,50 @@ async function selectCustomThemeFile() {
 }
 
 /* 主题选择样式 */
-.theme-selector {
+.theme-colors {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.theme-color-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 12px;
-}
-
-.theme-select {
-  flex: 1;
-}
-
-.theme-preview {
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  border: 2px solid var(--border-color);
+  justify-content: center;
+  transition: all 0.2s;
   flex-shrink: 0;
+}
+
+.theme-color-btn:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.theme-color-btn.active {
+  border-color: var(--text-primary);
+  box-shadow: 0 0 0 2px var(--bg-secondary), 0 0 0 4px var(--border-color);
+}
+
+.custom-theme-btn {
+  background: var(--bg-secondary);
+  border: 2px dashed var(--border-color);
+  color: var(--text-secondary);
+}
+
+.custom-theme-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.custom-theme-btn.active {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  border-style: solid;
 }
 
 .custom-theme-row {
