@@ -36,16 +36,18 @@ const isMaximized = ref(false)
 // 图标路径 - 使用Electron原生图标或打包后的图标
 const iconPath = ref('')
 
-// 初始化图标路径和最大化状态
+// 初始化图标和最大化状态
 onMounted(async () => {
-  // 尝试获取图标路径
+  // 获取图标 DataURL
   try {
-    const appPath = await window.electronAPI.getAppPath('app')
-    // 在开发和生产环境中使用不同路径
-    iconPath.value = `${appPath}/build/icon.ico`
+    if (window.electronAPI.getIconDataUrl) {
+      const dataUrl = await window.electronAPI.getIconDataUrl()
+      if (dataUrl) {
+        iconPath.value = dataUrl
+      }
+    }
   } catch {
-    // 使用默认路径
-    iconPath.value = '../build/icon.ico'
+    // 忽略错误
   }
 
   // 获取初始最大化状态

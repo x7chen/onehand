@@ -50,6 +50,8 @@ interface ElectronAPI {
   windowMaximize: () => Promise<void>
   windowClose: () => Promise<void>
   windowIsMaximized: () => Promise<boolean>
+  // 获取应用图标 DataURL
+  getIconDataUrl: () => Promise<string | null>
 }
 
 interface Window {

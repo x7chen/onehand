@@ -12,6 +12,7 @@ files:
   - dist/**/*
   - dist-electron/**/*
   - build/models/**/*
+  - build/icon.ico
   - package.json
 win:
   target:

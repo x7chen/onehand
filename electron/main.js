@@ -606,3 +606,24 @@ ipcMain.handle('window-close', () => {
 ipcMain.handle('window-is-maximized', () => {
   return mainWindow ? mainWindow.isMaximized() : false
 })
+
+// 获取应用图标 DataURL (base64)
+ipcMain.handle('get-icon-data-url', () => {
+  const isDev = process.argv.includes('--dev') || !fs.existsSync(path.join(__dirname, '../dist/index.html'))
+
+  let iconPath
+  if (isDev) {
+    iconPath = path.join(PROJECT_ROOT, 'build/icon.ico')
+  } else {
+    iconPath = path.join(__dirname, '../build/icon.ico')
+  }
+
+  if (!fs.existsSync(iconPath)) {
+    console.error('Icon file not found:', iconPath)
+    return null
+  }
+
+  const iconBuffer = fs.readFileSync(iconPath)
+  const base64 = iconBuffer.toString('base64')
+  return `data:image/x-icon;base64,${base64}`
+})

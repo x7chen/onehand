@@ -28,5 +28,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   windowMinimize: () => ipcRenderer.invoke('window-minimize'),
   windowMaximize: () => ipcRenderer.invoke('window-maximize'),
   windowClose: () => ipcRenderer.invoke('window-close'),
-  windowIsMaximized: () => ipcRenderer.invoke('window-is-maximized')
+  windowIsMaximized: () => ipcRenderer.invoke('window-is-maximized'),
+  // 获取应用图标 DataURL
+  getIconDataUrl: () => ipcRenderer.invoke('get-icon-data-url')
 })
