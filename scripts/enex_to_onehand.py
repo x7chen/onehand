@@ -311,7 +311,7 @@ def extract_text_content(content: str) -> str:
     return markdown
 
 
-def process_images_in_content(content: str, resources: List[Dict], images_dir: str, notebook_id: str) -> Tuple[str, List[Dict]]:
+def process_images_in_content(content: str, resources: List[Dict], images_dir: str, notebook_id: str, image_counter: List[int] = None) -> Tuple[str, List[Dict]]:
     """
     处理内容中的图片，保存到指定目录，并替换为markdown图片引用
 
@@ -320,12 +320,17 @@ def process_images_in_content(content: str, resources: List[Dict], images_dir: s
         resources: 资源列表
         images_dir: 图片保存目录
         notebook_id: 笔记本ID
+        image_counter: 全局图片计数器 [count]，用于生成唯一文件名
 
     Returns:
         Tuple[处理后的内容, 保存的图片信息列表]
     """
     if not content:
         return content, []
+
+    # 初始化计数器
+    if image_counter is None:
+        image_counter = [0]
 
     saved_images = []
 
@@ -376,8 +381,9 @@ def process_images_in_content(content: str, resources: List[Dict], images_dir: s
             if ext == 'jpeg':
                 ext = 'jpg'
 
-            # 生成唯一文件名
-            image_id = f"img-{int(datetime.now().timestamp() * 1000)}-{len(saved_images)}"
+            # 使用全局计数器生成唯一文件名
+            image_counter[0] += 1
+            image_id = f"img-{image_counter[0]}"
             filename = f"{image_id}.{ext}"
             image_path = os.path.join(images_dir, filename)
 
@@ -422,8 +428,9 @@ def process_images_in_content(content: str, resources: List[Dict], images_dir: s
         base64_data = src_match.group(2)
 
         try:
-            # 生成唯一文件名
-            image_id = f"img-{int(datetime.now().timestamp() * 1000)}-{len(saved_images)}"
+            # 使用全局计数器生成唯一文件名
+            image_counter[0] += 1
+            image_id = f"img-{image_counter[0]}"
             filename = f"{image_id}.{ext}"
             image_path = os.path.join(images_dir, filename)
 
@@ -584,14 +591,17 @@ def create_onehand_notebook(notes: List[Dict], notebook_name: str, by_month: boo
         images_dir = os.path.join(output_dir, notebook_id, 'images')
         os.makedirs(images_dir, exist_ok=True)
 
+    # 全局图片计数器，确保所有笔记的图片名唯一
+    image_counter = [0]
+
     if by_month:
-        return create_onehand_notebook_by_month(notes, notebook_name, notebook_id, extract_images=extract_images, images_dir=images_dir)
+        return create_onehand_notebook_by_month(notes, notebook_name, notebook_id, extract_images=extract_images, images_dir=images_dir, image_counter=image_counter)
 
     if by_week:
-        return create_onehand_notebook_by_week(notes, notebook_name, notebook_id, extract_images=extract_images, images_dir=images_dir)
+        return create_onehand_notebook_by_week(notes, notebook_name, notebook_id, extract_images=extract_images, images_dir=images_dir, image_counter=image_counter)
 
     if by_day:
-        return create_onehand_notebook_by_day(notes, notebook_name, notebook_id, extract_images=extract_images, images_dir=images_dir)
+        return create_onehand_notebook_by_day(notes, notebook_name, notebook_id, extract_images=extract_images, images_dir=images_dir, image_counter=image_counter)
 
     # 创建节点
     nodes = []
@@ -608,7 +618,8 @@ def create_onehand_notebook(notes: List[Dict], notebook_name: str, by_month: boo
                 note['raw_content'],
                 note['resources'],
                 images_dir,
-                notebook_id
+                notebook_id,
+                image_counter
             )
             if saved_images:
                 print(f"  笔记 '{note['title'][:30]}...' 提取了 {len(saved_images)} 张图片")
@@ -653,11 +664,15 @@ def create_onehand_notebook(notes: List[Dict], notebook_name: str, by_month: boo
     return notebook
 
 
-def create_onehand_notebook_by_month(notes: List[Dict], notebook_name: str, notebook_id: str, extract_images: bool = False, images_dir: str = None) -> Dict:
+def create_onehand_notebook_by_month(notes: List[Dict], notebook_name: str, notebook_id: str, extract_images: bool = False, images_dir: str = None, image_counter: List[int] = None) -> Dict:
     """
     按创建时间的月份创建 OneHand 笔记本，每个月份一个画布页
     """
     now = int(datetime.now().timestamp() * 1000)
+
+    # 初始化图片计数器
+    if image_counter is None:
+        image_counter = [0]
 
     # 按月份分组笔记
     notes_by_month = defaultdict(list)
@@ -688,7 +703,8 @@ def create_onehand_notebook_by_month(notes: List[Dict], notebook_name: str, note
                     note['raw_content'],
                     note['resources'],
                     images_dir,
-                    notebook_id
+                    notebook_id,
+                    image_counter
                 )
                 if saved_images:
                     print(f"  笔记 '{note['title'][:30]}...' 提取了 {len(saved_images)} 张图片")
@@ -752,11 +768,15 @@ def get_week_key(dt: datetime) -> Tuple[str, str]:
     return week_key, week_name
 
 
-def create_onehand_notebook_by_week(notes: List[Dict], notebook_name: str, notebook_id: str, extract_images: bool = False, images_dir: str = None) -> Dict:
+def create_onehand_notebook_by_week(notes: List[Dict], notebook_name: str, notebook_id: str, extract_images: bool = False, images_dir: str = None, image_counter: List[int] = None) -> Dict:
     """
     按创建时间的星期（周一开始）创建 OneHand 笔记本，每星期一个画布页
     """
     now = int(datetime.now().timestamp() * 1000)
+
+    # 初始化图片计数器
+    if image_counter is None:
+        image_counter = [0]
 
     # 按星期分组笔记
     notes_by_week = defaultdict(list)
@@ -788,7 +808,8 @@ def create_onehand_notebook_by_week(notes: List[Dict], notebook_name: str, noteb
                     note['raw_content'],
                     note['resources'],
                     images_dir,
-                    notebook_id
+                    notebook_id,
+                    image_counter
                 )
                 if saved_images:
                     print(f"  笔记 '{note['title'][:30]}...' 提取了 {len(saved_images)} 张图片")
@@ -834,11 +855,15 @@ def create_onehand_notebook_by_week(notes: List[Dict], notebook_name: str, noteb
     return notebook
 
 
-def create_onehand_notebook_by_day(notes: List[Dict], notebook_name: str, notebook_id: str, extract_images: bool = False, images_dir: str = None) -> Dict:
+def create_onehand_notebook_by_day(notes: List[Dict], notebook_name: str, notebook_id: str, extract_images: bool = False, images_dir: str = None, image_counter: List[int] = None) -> Dict:
     """
     按创建时间的天创建 OneHand 笔记本，每天一个画布页
     """
     now = int(datetime.now().timestamp() * 1000)
+
+    # 初始化图片计数器
+    if image_counter is None:
+        image_counter = [0]
 
     # 按天分组笔记
     notes_by_day = defaultdict(list)
@@ -868,7 +893,8 @@ def create_onehand_notebook_by_day(notes: List[Dict], notebook_name: str, notebo
                     note['raw_content'],
                     note['resources'],
                     images_dir,
-                    notebook_id
+                    notebook_id,
+                    image_counter
                 )
                 if saved_images:
                     print(f"  笔记 '{note['title'][:30]}...' 提取了 {len(saved_images)} 张图片")
