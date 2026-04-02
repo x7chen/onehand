@@ -44,7 +44,7 @@ function migrateToProfiles(oldSettings: any): Settings {
       profiles: [
         {
           id: profileId,
-          name: i18n.global.t('settings.modelN', { n: 1 }),
+          name: '',
           apiKey: oldSettings.llm?.apiKey || '',
           baseUrl: oldSettings.llm?.baseUrl || defaultSettings.llm.profiles[0].baseUrl,
           model: oldSettings.llm?.model || defaultSettings.llm.profiles[0].model

@@ -85,6 +85,7 @@ export default {
     hide: 'Hide',
     profileCopy: 'Copy',
     modelN: 'Model {n}',
+    defaultModel: 'Default',
   },
   notebook: {
     newNotebook: 'New Notebook',

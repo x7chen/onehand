@@ -25,7 +25,7 @@
               class="tab-name"
               @dblclick="startRename(profile.id)"
             >
-              {{ profile.name }}
+              {{ profile.name || t('settings.defaultModel') }}
             </span>
             <input
               v-if="renamingProfileId === profile.id"

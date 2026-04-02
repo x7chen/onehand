@@ -63,11 +63,11 @@
           :class="{ selected: currentModel?.id === profile.id }"
           @click.stop="selectModel(profile.id)"
         >
-          {{ profile.name }}
+          {{ profile.name || t('settings.defaultModel') }}
         </span>
         <span v-if="allProfiles.length === 0" class="no-models-hint">{{ t('canvas.noModelConfig') }}</span>
       </div>
-      <span v-else class="model-name">{{ currentModel?.name || t('canvas.selectModel') }}</span>
+      <span v-else class="model-name">{{ currentModel ? (currentModel.name || t('settings.defaultModel')) : t('canvas.selectModel') }}</span>
     </div>
 
     <!-- 以下元素在宽度不足时隐藏 -->

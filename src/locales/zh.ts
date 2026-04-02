@@ -85,6 +85,7 @@ export default {
     hide: '隐藏',
     profileCopy: '副本',
     modelN: '模型 {n}',
+    defaultModel: '默认',
   },
   notebook: {
     newNotebook: '新建笔记本',

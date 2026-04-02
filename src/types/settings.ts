@@ -70,7 +70,7 @@ export const defaultSettings: Settings = {
     profiles: [
       {
         id: defaultProfileId,
-        name: '模型1',
+        name: '',
         apiKey: '',
         baseUrl: 'https://api-inference.modelscope.cn/v1',
         model: 'Qwen/Qwen3-235B-A22B-Instruct-2507'
