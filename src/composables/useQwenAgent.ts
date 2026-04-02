@@ -74,7 +74,7 @@ export async function chatWithLLM(
  * 构建包含静态上下文和动态上下文的完整消息
  */
 export function buildFullContextMessages(
-  contextNodes: Array<{ transcript: string; agentResult: string }>,
+  contextNodes: Array<{ transcript: string; agentResult: string; imageBase64?: string }>,
   currentTranscript: string,
   staticContext?: string,
   dynamicContext?: string
@@ -104,11 +104,28 @@ export function buildFullContextMessages(
 
   // 3. 已选择的上下文记录
   for (const node of contextNodes) {
-    if (node.transcript && node.agentResult) {
-      messages.push(
-        { role: 'user', content: node.transcript },
-        { role: 'assistant', content: node.agentResult }
-      )
+    if (node.imageBase64) {
+      // 图片节点：使用Vision API格式
+      const content: MessageContentItem[] = [
+        { type: 'text', text: node.transcript || '[图片]' }
+      ]
+      content.push({ type: 'image_url', image_url: { url: node.imageBase64 } })
+
+      messages.push({ role: 'user', content })
+
+      if (node.agentResult) {
+        messages.push({ role: 'assistant', content: node.agentResult })
+      }
+    } else if (node.transcript) {
+      // 文本节点
+      if (node.agentResult) {
+        messages.push(
+          { role: 'user', content: node.transcript },
+          { role: 'assistant', content: node.agentResult }
+        )
+      } else {
+        messages.push({ role: 'user', content: node.transcript })
+      }
     }
   }
 
@@ -149,7 +166,7 @@ export function buildImageAnalysisMessages(
   prompt: string,
   staticContext?: string,
   dynamicContext?: string,
-  contextNodes?: Array<{ transcript: string; agentResult: string }>
+  contextNodes?: Array<{ transcript: string; agentResult: string; imageBase64?: string }>
 ): Message[] {
   const systemMessage: Message = {
     role: 'system',
@@ -177,11 +194,28 @@ export function buildImageAnalysisMessages(
   // 3. 已选择的上下文记录
   if (contextNodes) {
     for (const node of contextNodes) {
-      if (node.transcript && node.agentResult) {
-        messages.push(
-          { role: 'user', content: node.transcript },
-          { role: 'assistant', content: node.agentResult }
-        )
+      if (node.imageBase64) {
+        // 图片节点：使用Vision API格式
+        const content: MessageContentItem[] = [
+          { type: 'text', text: node.transcript || '[图片]' }
+        ]
+        content.push({ type: 'image_url', image_url: { url: node.imageBase64 } })
+
+        messages.push({ role: 'user', content })
+
+        if (node.agentResult) {
+          messages.push({ role: 'assistant', content: node.agentResult })
+        }
+      } else if (node.transcript) {
+        // 文本节点
+        if (node.agentResult) {
+          messages.push(
+            { role: 'user', content: node.transcript },
+            { role: 'assistant', content: node.agentResult }
+          )
+        } else {
+          messages.push({ role: 'user', content: node.transcript })
+        }
       }
     }
   }

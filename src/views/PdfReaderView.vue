@@ -645,7 +645,7 @@ function handleAgentResponse(nodeId: string, transcript: string, pdfPage: number
       .join('\n\n')
 
     const messages = buildFullContextMessages(
-      selectedNodes.map(n => ({ transcript: n.transcript || '', agentResult: n.agentResult || '' })),
+      selectedNodes.map(n => ({ transcript: n.transcript || '', agentResult: n.agentResult || '', imageBase64: n.imageBase64 })),
       transcript,
       staticContextContent,
       dynamicContextFile.value?.content
@@ -742,7 +742,55 @@ function handleToggleContext(nodeId: string) {
   const canvas = pdfPage !== null ? notebookStore.getCanvasByPdfPage(pdfPage) : null
   const node = canvas?.nodes.find(n => n.id === nodeId)
   if (node) {
-    notebookStore.updateNodeAuto(nodeId, { selectedAsContext: !node.selectedAsContext })
+    const newSelectedState = !node.selectedAsContext
+    notebookStore.updateNodeAuto(nodeId, { selectedAsContext: newSelectedState })
+
+    // 如果是图片节点且被勾选，加载base64
+    if (newSelectedState && node.type === 'image-note' && node.imagePath && !node.imageBase64) {
+      loadImageBase64(nodeId, node.imagePath, pdfPage)
+    }
+  }
+}
+
+// 加载图片的base64编码
+async function loadImageBase64(nodeId: string, imagePath: string, pdfPage: number | null) {
+  const appDataPath = await window.electronAPI.getAppPath('userData')
+  const notebook = notebookStore.currentNotebook
+  if (!notebook) return
+
+  const fullPath = `${appDataPath}/notebooks/${notebook.id}/${imagePath}`
+  const result = await window.electronAPI.readFile(fullPath, 'arraybuffer')
+
+  if (result.success && result.data) {
+    const buffer = result.data as ArrayBuffer
+    const bytes = new Uint8Array(buffer)
+    let binary = ''
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i])
+    }
+    const base64 = btoa(binary)
+
+    // 获取图片的MIME类型
+    const ext = imagePath.split('.').pop()?.toLowerCase() || 'png'
+    const mimeTypes: Record<string, string> = {
+      'png': 'image/png',
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'gif': 'image/gif',
+      'webp': 'image/webp',
+      'bmp': 'image/bmp'
+    }
+    const mimeType = mimeTypes[ext] || 'image/png'
+
+    if (pdfPage !== null) {
+      notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
+        imageBase64: `data:${mimeType};base64,${base64}`
+      })
+    } else {
+      notebookStore.updateNode(nodeId, {
+        imageBase64: `data:${mimeType};base64,${base64}`
+      })
+    }
   }
 }
 
@@ -1033,7 +1081,7 @@ async function callImageAnalysisAI(
       prompt,
       staticContextContent,
       dynamicContextFile.value?.content,
-      selectedNodes.map(n => ({ transcript: n.transcript || '', agentResult: n.agentResult || '' }))
+      selectedNodes.map(n => ({ transcript: n.transcript || '', agentResult: n.agentResult || '', imageBase64: n.imageBase64 }))
     )
 
     let accumulatedContent = ''
