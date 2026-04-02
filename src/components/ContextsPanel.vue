@@ -1,20 +1,20 @@
 <template>
   <div class="contexts-panel">
     <div class="panel-header">
-      <h2>上下文标签</h2>
+      <h2>{{ t('context.contextTags') }}</h2>
       <button @click="$emit('newContext')" class="new-context-btn">
-        + 新建标签
+        + {{ t('context.newTag') }}
       </button>
     </div>
 
     <div v-if="contextStore.contextFiles.length === 0" class="empty-state">
-      <p>暂无上下文标签，创建一个作为笔记本背景知识或动态积累内容吧！</p>
+      <p>{{ t('context.noContexts') }}</p>
     </div>
 
     <div v-else class="contexts-container">
       <!-- 静态上下文标签 -->
       <div v-if="contextStore.staticContextFiles.length > 0" class="context-category">
-        <h3>静态上下文</h3>
+        <h3>{{ t('context.static') }}</h3>
         <div class="tags-wrapper">
           <div
             v-for="file in contextStore.staticContextFiles"
@@ -33,7 +33,7 @@
 
       <!-- 动态上下文标签 -->
       <div v-if="contextStore.dynamicContextFiles.length > 0" class="context-category">
-        <h3>动态上下文</h3>
+        <h3>{{ t('context.dynamic') }}</h3>
         <div class="tags-wrapper">
           <div
             v-for="file in contextStore.dynamicContextFiles"
@@ -54,8 +54,11 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { useContextStore } from '@/stores/contextStore'
 import type { ContextFile } from '@/types/context'
+
+const { t } = useI18n()
 
 const emit = defineEmits<{
   (e: 'newContext'): void

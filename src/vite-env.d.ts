@@ -52,6 +52,8 @@ interface ElectronAPI {
   windowIsMaximized: () => Promise<boolean>
   // 获取应用图标 DataURL
   getIconDataUrl: () => Promise<string | null>
+  // 获取系统语言
+  getSystemLocale: () => Promise<string>
 }
 
 interface Window {

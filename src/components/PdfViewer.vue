@@ -1,42 +1,42 @@
 <template>
   <div class="pdf-viewer" ref="containerRef" @mousemove="handleContainerMouseMove" @mouseleave="hideEdgeButtons" @contextmenu.prevent="handleContextMenu">
     <div class="pdf-toolbar">
-      <button @click="toggleSidebar" class="tool-btn" title="侧边栏">
+      <button @click="toggleSidebar" class="tool-btn" :title="t('pdf.sidebar')">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
           <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
         </svg>
       </button>
       <div class="toolbar-divider"></div>
-      <button @click="prevPage" class="tool-btn" :disabled="currentPage <= 1" title="上一页">
+      <button @click="prevPage" class="tool-btn" :disabled="currentPage <= 1" :title="t('pdf.prevPage')">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
           <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
         </svg>
       </button>
       <span class="page-info">{{ currentPage }} / {{ totalPages }}</span>
-      <button @click="nextPage" class="tool-btn" :disabled="currentPage >= totalPages" title="下一页">
+      <button @click="nextPage" class="tool-btn" :disabled="currentPage >= totalPages" :title="t('pdf.nextPage')">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
           <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
         </svg>
       </button>
       <div class="toolbar-divider"></div>
-      <button @click="zoomOut" class="tool-btn" title="缩小">
+      <button @click="zoomOut" class="tool-btn" :title="t('pdf.zoomOut')">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
           <path d="M19 13H5v-2h14v2z"/>
         </svg>
       </button>
       <span class="zoom-level">{{ Math.round(scale * 100) }}%</span>
-      <button @click="zoomIn" class="tool-btn" title="放大">
+      <button @click="zoomIn" class="tool-btn" :title="t('pdf.zoomIn')">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
           <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
         </svg>
       </button>
       <div class="toolbar-divider"></div>
-      <button @click="rotateCounterClockwise" class="tool-btn" title="逆时针旋转90°">
+      <button @click="rotateCounterClockwise" class="tool-btn" :title="t('pdf.rotateCounterClockwise')">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
           <path d="M7.11 8.53L5.7 7.11C4.8 8.27 4.24 9.61 4.07 11h2.02c.14-.87.49-1.72 1.02-2.47zM6.09 13H4.07c.17 1.39.72 2.73 1.62 3.89l1.41-1.42c-.52-.75-.87-1.59-1.01-2.47zm1.01 5.32c1.16.9 2.51 1.44 3.9 1.61V17.9c-.87-.15-1.71-.49-2.46-1.03L7.1 18.32zM13 4.07V1L8.45 5.55 13 10V6.09c2.84.48 5 2.94 5 5.91s-2.16 5.43-5 5.91v2.02c3.95-.49 7-3.85 7-7.93s-3.05-7.44-7-7.93z"/>
         </svg>
       </button>
-      <button @click="rotateClockwise" class="tool-btn" title="顺时针旋转90°">
+      <button @click="rotateClockwise" class="tool-btn" :title="t('pdf.rotateClockwise')">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
           <path d="M15.55 5.55L11 1v3.07C7.06 4.56 4 7.92 4 12s3.05 7.44 7 7.93v-2.02c-2.84-.48-5-2.94-5-5.91s2.16-5.43 5-5.91V10l4.55-4.45zM19.93 11c-.17-1.39-.72-2.73-1.62-3.89l-1.42 1.42c.54.75.88 1.6 1.02 2.47h2.02zM13 17.9v2.02c1.39-.17 2.74-.71 3.9-1.61l-1.44-1.44c-.75.54-1.59.89-2.46 1.03zm3.89-2.42l1.42 1.41c.9-1.16 1.45-2.5 1.62-3.89h-2.02c-.14.87-.48 1.72-1.02 2.48z"/>
         </svg>
@@ -50,21 +50,21 @@
     <div class="pdf-main">
       <div class="pdf-sidebar" :class="{ collapsed: !sidebarVisible }">
         <div class="sidebar-tabs">
-          <button 
-            class="sidebar-tab" 
-            :class="{ active: sidebarTab === 'outline' }" 
+          <button
+            class="sidebar-tab"
+            :class="{ active: sidebarTab === 'outline' }"
             @click="sidebarTab = 'outline'; sidebarVisible = true"
-            title="目录"
+            :title="t('pdf.outline')"
           >
             <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
               <path d="M3 18h6v-2H3v2zM3 6v2h18V6H3zm0 7h12v-2H3v2z"/>
             </svg>
           </button>
-          <button 
-            class="sidebar-tab" 
-            :class="{ active: sidebarTab === 'thumbnails' }" 
+          <button
+            class="sidebar-tab"
+            :class="{ active: sidebarTab === 'thumbnails' }"
             @click="sidebarTab = 'thumbnails'; sidebarVisible = true"
-            title="缩略图"
+            :title="t('pdf.thumbnails')"
           >
             <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
               <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
@@ -74,8 +74,8 @@
         
         <div class="sidebar-content" v-show="sidebarVisible">
           <div v-if="sidebarTab === 'outline'" class="outline-container">
-            <div v-if="outlineLoading" class="sidebar-loading">加载目录...</div>
-            <div v-else-if="outline.length === 0" class="sidebar-empty">无目录</div>
+            <div v-if="outlineLoading" class="sidebar-loading">{{ t('common.loadingOutline') }}</div>
+            <div v-else-if="outline.length === 0" class="sidebar-empty">{{ t('common.noOutline') }}</div>
             <OutlineTree 
               v-else 
               :items="outline" 
@@ -100,7 +100,7 @@
                 <span class="thumbnail-label">{{ thumb.pageNumber }}</span>
               </div>
             </div>
-            <div v-if="thumbnailsLoading" class="sidebar-loading-overlay">加载缩略图...</div>
+            <div v-if="thumbnailsLoading" class="sidebar-loading-overlay">{{ t('common.loadingThumbnails') }}</div>
           </div>
         </div>
       </div>
@@ -112,7 +112,7 @@
         @mousedown="handleMouseDown"
       >
         <div v-if="isLoading" class="pdf-loading">
-          <span>加载中...</span>
+          <span>{{ t('common.loading') }}</span>
         </div>
         <div v-else-if="loadError" class="pdf-error">
           <span>{{ loadError }}</span>
@@ -189,13 +189,13 @@
         <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
           <path d="M11 17h2v-6h-2v6zm1-15C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zM11 9h2V7h-2v2z"/>
         </svg>
-        <span>解释选中内容</span>
+        <span>{{ t('common.explainSelection') }}</span>
       </div>
       <div class="context-menu-item" @click="handleAnalyzePage">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
           <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
         </svg>
-        <span>分析当前页面</span>
+        <span>{{ t('common.analyzePage') }}</span>
       </div>
     </div>
   </div>
@@ -203,6 +203,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { useI18n } from 'vue-i18n'
 import * as pdfjsLib from 'pdfjs-dist'
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url'
 import {
@@ -251,6 +252,8 @@ const emit = defineEmits<{
   'explain-selection': [data: { imageBase64: string; selectedText: string; pageNumber: number; position: { x: number; y: number } }]
   'include-page-change': [data: { include: boolean; imageBase64?: string; pageNumber: number }]
 }>()
+
+const { t } = useI18n()
 
 const containerRef = ref<HTMLElement | null>(null)
 const contentRef = ref<HTMLElement | null>(null)

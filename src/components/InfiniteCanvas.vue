@@ -25,7 +25,7 @@
       @click.stop
     >
       <div class="edge-button-container" v-if="showLeftButton" @mousedown.stop @mouseup.stop @click.stop>
-        <div class="page-indicator">第 {{ currentPageNumber || 1 }} 页 / 共 {{ totalPages || 1 }} 页</div>
+        <div class="page-indicator">{{ t('common.page', { current: currentPageNumber || 1, total: totalPages || 1 }) }}</div>
         <button
           class="edge-button"
           :class="{ 'disabled': !hasPrevPage }"
@@ -37,7 +37,7 @@
           <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
             <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
           </svg>
-          <span>{{ hasPrevPage ? '上一页' : '当前为第一页' }}</span>
+          <span>{{ hasPrevPage ? t('common.prevPage') : t('common.firstPage') }}</span>
         </button>
       </div>
     </div>
@@ -53,7 +53,7 @@
       @click.stop
     >
       <div class="edge-button-container" v-if="showRightButton" @mousedown.stop @mouseup.stop @click.stop>
-        <div class="page-indicator">第 {{ currentPageNumber || 1 }} 页 / 共 {{ totalPages || 1 }} 页</div>
+        <div class="page-indicator">{{ t('common.page', { current: currentPageNumber || 1, total: totalPages || 1 }) }}</div>
         <button
           class="edge-button"
           :class="{ 'disabled': !hasNextPage && isCurrentCanvasEmpty }"
@@ -62,7 +62,7 @@
           @mousedown.stop
           @mouseup.stop
         >
-          <span>{{ hasNextPage ? '下一页' : '新增一页' }}</span>
+          <span>{{ hasNextPage ? t('common.nextPage') : t('common.newPage') }}</span>
           <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
             <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
           </svg>
@@ -93,14 +93,17 @@
       class="drag-hint"
       :style="dragHintStyle"
     >
-      拖拽提问 ({{ draggedTextLength }}字)
+      {{ t('canvas.dragToAsk', { count: draggedTextLength }) }}
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import RecordingIndicator from './RecordingIndicator.vue'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   viewport: { x: number; y: number; zoom: number }

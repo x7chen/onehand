@@ -38,13 +38,13 @@
       <!-- 功能按钮组 -->
       <div class="action-buttons">
         <!-- 收藏按钮 -->
-        <button class="action-btn favorite-btn" :class="{ active: isFavorite }" @click.stop="toggleFavorite" :title="isFavorite ? '取消收藏' : '收藏'">
+        <button class="action-btn favorite-btn" :class="{ active: isFavorite }" @click.stop="toggleFavorite" :title="isFavorite ? t('voiceNote.unfavorite') : t('voiceNote.favorite')">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
             <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
           </svg>
         </button>
         <!-- 隐藏 AI 回答按钮 -->
-        <button class="action-btn hide-ai-btn" @click.stop="toggleHideAiResult" :title="isAiResultHidden ? '显示 AI 回答' : '隐藏 AI 回答'">
+        <button class="action-btn hide-ai-btn" @click.stop="toggleHideAiResult" :title="isAiResultHidden ? t('voiceNote.showAiAnswer') : t('voiceNote.hideAiAnswer')">
           <svg v-if="!isAiResultHidden" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
             <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
           </svg>
@@ -53,13 +53,13 @@
           </svg>
         </button>
         <!-- 重新生成按钮 -->
-        <button class="action-btn regenerate-btn" @click.stop="handleRegenerate" :disabled="!canRegenerate" :title="canRegenerate ? '重新生成' : '无法重新生成'">
+        <button class="action-btn regenerate-btn" @click.stop="handleRegenerate" :disabled="!canRegenerate" :title="canRegenerate ? t('voiceNote.regenerate') : t('voiceNote.cannotRegenerate')">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
             <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
           </svg>
         </button>
         <!-- 复制链接按钮 -->
-        <button v-if="notebookId && canvasId" class="action-btn copy-link-btn" @click.stop="handleCopyLink" title="复制链接">
+        <button v-if="notebookId && canvasId" class="action-btn copy-link-btn" @click.stop="handleCopyLink" :title="t('voiceNote.copyLink')">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
             <path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/>
           </svg>
@@ -92,7 +92,7 @@
         v-model="localEditingText"
         ref="editingTextarea"
         class="content-edit"
-        placeholder="输入内容..."
+        :placeholder="t('common.inputContent')"
         @keydown.ctrl.enter.exact.prevent="saveEdit"
         @keydown.meta.enter.exact.prevent="saveEdit"
         @keydown.escape="cancelEdit"
@@ -101,11 +101,11 @@
 
     <div v-else-if="node.transcript" class="transcript-box" @dblclick.stop>
       <div v-if="node.transcriptStatus === 'processing'" class="status-text">
-        转换中...
+        {{ t('common.converting') }}
       </div>
       <div v-else-if="node.transcriptStatus === 'error'" class="error-text">
         {{ node.transcript }}
-        <button @click.stop="retryTranscription">重试</button>
+        <button @click.stop="retryTranscription">{{ t('common.retry') }}</button>
       </div>
       <div v-else class="transcript-content-wrapper">
         <textarea
@@ -130,7 +130,7 @@
           v-if="!isEditingTranscript && node.transcript"
           class="copy-btn transcript-copy-btn"
           @click.stop="copyTranscript"
-          title="复制转写内容"
+          :title="t('voiceNote.copyTranscript')"
         >
           <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
             <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
@@ -141,7 +141,7 @@
 
     <div v-if="(node.agentResult || node.agentStatus === 'processing') && !isAiResultHidden" class="agent-result-box" @dblclick.stop>
       <div class="agent-header">
-        <span class="agent-label">AI 回答</span>
+        <span class="agent-label">{{ t('common.aiAnswer') }}</span>
         <span v-if="node.agentStatus === 'processing'" class="streaming-indicator">
           <span class="dot"></span>
           <span class="dot"></span>
@@ -150,7 +150,7 @@
       </div>
       <div v-if="node.agentStatus === 'error'" class="error-text">
         {{ node.agentResult }}
-        <button @click.stop="retryAgent">重试</button>
+        <button @click.stop="retryAgent">{{ t('common.retry') }}</button>
       </div>
       <div v-else class="agent-content-wrapper">
         <textarea
@@ -175,7 +175,7 @@
           v-if="!isEditingAgent && node.agentResult"
           class="copy-btn agent-copy-btn"
           @click.stop="copyAgentResult"
-          title="复制 AI 回答"
+          :title="t('voiceNote.copyAiAnswer')"
         >
           <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
             <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
@@ -188,6 +188,7 @@
 
 <script setup lang="ts">
 import { ref, nextTick, watch, computed, onMounted, onUnmounted, watchEffect } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { formatDuration } from '@/utils/helpers'
 import { renderMarkdown, renderMermaidCharts } from '@/utils/markdownRenderer'
 import type { CanvasNode } from '@/types/notebook'
@@ -221,6 +222,8 @@ const emit = defineEmits<{
   (e: 'activate', nodeId: string): void
   (e: 'copy-link', nodeId: string): void
 }>()
+
+const { t } = useI18n()
 
 // 使用外部传入的 isPlaying 或本地状态
 const localIsPlaying = ref(false)
@@ -503,7 +506,7 @@ function handleTextDragStart(e: DragEvent) {
       dragGhost.style.fontSize = '12px'
       dragGhost.style.position = 'absolute'
       dragGhost.style.top = '-9999px'
-      dragGhost.textContent = `拖拽提问 (${selectedText.length}字)`
+      dragGhost.textContent = t('canvas.dragToAsk', { count: selectedText.length })
       document.body.appendChild(dragGhost)
       e.dataTransfer.setDragImage(dragGhost, 0, 0)
       setTimeout(() => document.body.removeChild(dragGhost), 0)

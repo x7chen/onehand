@@ -15,7 +15,7 @@
           <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
             <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
           </svg>
-          <span>搜索</span>
+          <span>{{ t('common.search') }}</span>
         </button>
 
         <button
@@ -26,7 +26,7 @@
           <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
             <path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/>
           </svg>
-          <span>笔记本</span>
+          <span>{{ t('nav.notebooks') }}</span>
         </button>
 
         <button
@@ -37,7 +37,7 @@
           <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
             <path d="M17.63 5.84C17.27 5.33 16.67 5 16 5L5 5.01C3.9 5.01 3 5.9 3 7v10c0 1.1.9 1.99 2 1.99L16 19c.67 0 1.27-.33 1.63-.84L22 12l-4.37-6.16z"/>
           </svg>
-          <span>上下文</span>
+          <span>{{ t('nav.contexts') }}</span>
         </button>
 
         <button
@@ -48,7 +48,7 @@
           <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
             <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
           </svg>
-          <span>收藏夹</span>
+          <span>{{ t('nav.favorites') }}</span>
         </button>
 
         <button
@@ -59,10 +59,10 @@
           <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
             <path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
           </svg>
-          <span>设置</span>
+          <span>{{ t('nav.settings') }}</span>
         </button>
         <!-- 主题切换按钮 -->
-        <button class="nav-item" @click="cycleTheme" :title="'当前: ' + getThemeLabel() + ' (点击切换)'">
+        <button class="nav-item" @click="cycleTheme" :title="t('theme.currentTheme', { name: getThemeLabel() })">
           <!-- 月亮图标 (深色模式) -->
           <svg v-if="getThemeIcon() === 'moon'" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
             <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-3.03 0-5.5-2.47-5.5-5.5 0-1.82.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/>
@@ -89,7 +89,7 @@
         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
           <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
         </svg>
-        <span>回收站</span>
+        <span>{{ t('nav.trash') }}</span>
       </div>
     </aside>
 
@@ -119,23 +119,23 @@
     <!-- New Context Dialog -->
     <div v-if="showNewContextDialog" class="dialog-overlay" @click="showNewContextDialog = false">
       <div class="dialog" @click.stop>
-        <h3>新建上下文文件</h3>
+        <h3>{{ t('context.newContext') }}</h3>
         <input
           v-model="newContextName"
           type="text"
-          placeholder="上下文文件名"
+          :placeholder="t('context.contextNamePlaceholder')"
           @keyup.enter="createContextFile"
         />
         <div class="form-group">
-          <label>类型：</label>
+          <label>{{ t('context.contextType') }}：</label>
           <select v-model="newContextType">
-            <option value="static">静态上下文（固定背景知识、术语表、笔记本说明等）</option>
-            <option value="dynamic">动态上下文（使用过程中动态积累的内容）</option>
+            <option value="static">{{ t('context.staticDesc') }}</option>
+            <option value="dynamic">{{ t('context.dynamicDesc') }}</option>
           </select>
         </div>
         <div class="dialog-actions">
-          <button @click="showNewContextDialog = false" class="cancel-btn">取消</button>
-          <button @click="createContextFile" class="confirm-btn">创建</button>
+          <button @click="showNewContextDialog = false" class="cancel-btn">{{ t('common.cancel') }}</button>
+          <button @click="createContextFile" class="confirm-btn">{{ t('common.create') }}</button>
         </div>
       </div>
     </div>
@@ -144,8 +144,8 @@
     <div v-if="showEditContextDialog && editingContext" class="dialog-overlay" @click="closeEditDialog">
       <div class="dialog edit-dialog" @click.stop>
         <div class="edit-dialog-header">
-          <h3>编辑上下文标签</h3>
-          <button @click="closeEditDialog" class="close-btn" title="关闭">
+          <h3>{{ t('context.editTag') }}</h3>
+          <button @click="closeEditDialog" class="close-btn" :title="t('common.close')">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
               <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
             </svg>
@@ -154,17 +154,17 @@
 
         <div class="edit-form">
           <div class="form-group">
-            <label>标签名称：</label>
+            <label>{{ t('context.tagName') }}：</label>
             <input
               v-model="editingContext.name"
               type="text"
-              placeholder="标签名称"
+              :placeholder="t('context.tagName')"
               class="name-input"
             />
           </div>
 
           <div class="form-group">
-            <label>标签颜色：</label>
+            <label>{{ t('context.tagColor') }}：</label>
             <div class="color-picker">
               <button
                 v-for="color in contextColors"
@@ -179,20 +179,20 @@
           </div>
 
           <div class="form-group">
-            <label>标签内容：</label>
+            <label>{{ t('context.tagContent') }}：</label>
             <textarea
               v-model="editingContext.content"
-              placeholder="上下文内容（Markdown 格式）"
+              :placeholder="t('context.tagContentPlaceholder')"
               class="content-input"
             ></textarea>
           </div>
         </div>
 
         <div class="dialog-actions">
-          <button @click="confirmDeleteContext(editingContext.id, true)" class="delete-btn">删除</button>
+          <button @click="confirmDeleteContext(editingContext.id, true)" class="delete-btn">{{ t('common.delete') }}</button>
           <div class="dialog-actions-right">
-            <button @click="closeEditDialog" class="cancel-btn">取消</button>
-            <button @click="saveContextEdit" class="confirm-btn">保存</button>
+            <button @click="closeEditDialog" class="cancel-btn">{{ t('common.cancel') }}</button>
+            <button @click="saveContextEdit" class="confirm-btn">{{ t('common.save') }}</button>
           </div>
         </div>
       </div>
@@ -201,39 +201,39 @@
     <!-- New Notebook Dialog -->
     <div v-if="showNewNotebookDialog" class="dialog-overlay" @click="showNewNotebookDialog = false">
       <div class="dialog" @click.stop>
-        <h3>新建笔记本</h3>
+        <h3>{{ t('notebook.newNotebook') }}</h3>
         <input
           v-model="newNotebookName"
           type="text"
-          placeholder="笔记本名称"
+          :placeholder="t('notebook.notebookNamePlaceholder')"
           @keyup.enter="createNotebook"
           ref="notebookNameInput"
         />
 
         <!-- PDF 文件选择（可选） -->
         <div class="form-group">
-          <label>PDF 文件（可选，添加后为 PDF 阅读笔记本）：</label>
+          <label>{{ t('notebook.pdfFile') }}：</label>
           <div class="pdf-file-selector">
             <input
               v-model="newNotebookPdfName"
               type="text"
-              placeholder="留空则为常规笔记本"
+              :placeholder="t('notebook.pdfFilePlaceholder')"
               readonly
               @click="selectPdfFile"
               class="pdf-input"
             />
-            <button v-if="newNotebookPdfPath" @click="clearPdfFile" class="clear-pdf-btn" title="清除">
+            <button v-if="newNotebookPdfPath" @click="clearPdfFile" class="clear-pdf-btn" :title="t('common.clear')">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
                 <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
               </svg>
             </button>
-            <button @click="selectPdfFile" class="browse-btn">浏览</button>
+            <button @click="selectPdfFile" class="browse-btn">{{ t('common.browse') }}</button>
           </div>
         </div>
 
         <!-- 选择静态上下文（标签方式） -->
         <div class="form-group">
-          <label>静态上下文（可选，可多选）：</label>
+          <label>{{ t('notebook.staticContext') }}：</label>
           <div v-if="contextStore.staticContextFiles.length > 0" class="context-tags-selector">
             <span
               v-for="file in contextStore.staticContextFiles"
@@ -251,15 +251,15 @@
             </span>
           </div>
           <div v-else class="no-context-hint">
-            <span>暂无静态上下文，请先创建</span>
+            <span>{{ t('notebook.noStaticContext') }}</span>
           </div>
         </div>
 
         <!-- 选择动态上下文 -->
         <div class="form-group">
-          <label>动态上下文（可选）：</label>
+          <label>{{ t('notebook.dynamicContext') }}：</label>
           <select v-model="newNotebookDynamicContext">
-            <option value="">无</option>
+            <option value="">{{ t('notebook.noDynamicContext') }}</option>
             <option v-for="file in contextStore.dynamicContextFiles" :key="file.id" :value="file.id">
               {{ file.name }}
             </option>
@@ -267,8 +267,8 @@
         </div>
 
         <div class="dialog-actions">
-          <button @click="showNewNotebookDialog = false" class="cancel-btn">取消</button>
-          <button @click="createNotebook" class="confirm-btn">创建</button>
+          <button @click="showNewNotebookDialog = false" class="cancel-btn">{{ t('common.cancel') }}</button>
+          <button @click="createNotebook" class="confirm-btn">{{ t('common.create') }}</button>
         </div>
       </div>
     </div>
@@ -276,11 +276,11 @@
     <!-- Delete Confirmation Dialog -->
     <div v-if="showDeleteConfirm" class="dialog-overlay" @click="showDeleteConfirm = false">
       <div class="dialog confirm-dialog" @click.stop>
-        <h3>确认删除</h3>
-        <p>确定要删除这个上下文文件吗？此操作不可恢复。</p>
+        <h3>{{ t('context.deleteConfirmTitle') }}</h3>
+        <p>{{ t('context.deleteConfirmMessage') }}</p>
         <div class="dialog-actions">
-          <button @click="showDeleteConfirm = false" class="cancel-btn">取消</button>
-          <button @click="deleteContextFile" class="delete-btn confirm-delete">删除</button>
+          <button @click="showDeleteConfirm = false" class="cancel-btn">{{ t('common.cancel') }}</button>
+          <button @click="deleteContextFile" class="delete-btn confirm-delete">{{ t('common.delete') }}</button>
         </div>
       </div>
     </div>
@@ -288,11 +288,11 @@
     <!-- 笔记本删除确认对话框 -->
     <div v-if="showNotebookDeleteConfirm" class="dialog-overlay" @click="showNotebookDeleteConfirm = false">
       <div class="dialog confirm-dialog" @click.stop>
-        <h3>确认删除笔记本</h3>
-        <p>确定要删除笔记本 "{{ notebookToDelete?.name }}" 吗？此操作不可恢复。</p>
+        <h3>{{ t('notebook.deleteConfirmTitle') }}</h3>
+        <p>{{ t('notebook.deleteConfirmMessage', { name: notebookToDelete?.name }) }}</p>
         <div class="dialog-actions">
-          <button @click="showNotebookDeleteConfirm = false" class="cancel-btn">取消</button>
-          <button @click="confirmDeleteNotebook" class="delete-btn confirm-delete">删除</button>
+          <button @click="showNotebookDeleteConfirm = false" class="cancel-btn">{{ t('common.cancel') }}</button>
+          <button @click="confirmDeleteNotebook" class="delete-btn confirm-delete">{{ t('common.delete') }}</button>
         </div>
       </div>
     </div>
@@ -307,6 +307,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useNotebookStore } from '@/stores/notebookStore'
 import { useContextStore } from '@/stores/contextStore'
 import { useSettingsStore } from '@/stores/settingsStore'
@@ -322,6 +323,7 @@ import type { Notebook } from '@/types/notebook'
 const notebookStore = useNotebookStore()
 const contextStore = useContextStore()
 const settingsStore = useSettingsStore()
+const { t } = useI18n()
 
 const contextColors = computed(() => CONTEXT_COLORS)
 
@@ -392,13 +394,13 @@ function getThemeIcon() {
 function getThemeLabel() {
   switch (currentTheme.value) {
     case 'dark':
-      return '深色'
+      return t('settings.themeDark')
     case 'light':
-      return '浅色'
+      return t('settings.themeLight')
     case 'system':
-      return '自动'
+      return t('settings.themeSystem')
     default:
-      return '自动'
+      return t('settings.themeSystem')
   }
 }
 

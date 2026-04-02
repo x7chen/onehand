@@ -3,21 +3,21 @@
     <div class="dialog node-popup-dialog" @click.stop>
       <div class="popup-header">
         <h3 v-if="nodeData">{{ nodeData.notebook.name }}</h3>
-        <h3 v-else>笔记详情</h3>
+        <h3 v-else>{{ t('common.noteDetails') }}</h3>
         <div class="header-actions">
           <button
             v-if="nodeData"
             class="navigate-btn"
             @click="handleNavigate"
-            title="跳转到笔记位置"
+            :title="t('voiceNote.jumpToNote')"
           >
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M15 3l2.3 2.3-2.89 2.87-1.42-1.42L15 3zm-6 6l2.3 2.3-2.89 2.87-1.42-1.42L9 9zm3 3l2.3 2.3-2.89 2.87-1.42-1.42L12 12z"/>
               <path d="M9 21l-2.3-2.3 2.89-2.87 1.42 1.42L9 21zm6-6l-2.3-2.3 2.89-2.87 1.42 1.42L15 15z"/>
             </svg>
-            <span>跳转</span>
+            <span>{{ t('common.jump') }}</span>
           </button>
-          <button class="close-btn" @click="close" title="关闭">
+          <button class="close-btn" @click="close" :title="t('common.close')">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
               <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
             </svg>
@@ -31,13 +31,13 @@
           <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
         </svg>
         <p>{{ error }}</p>
-        <button class="close-error-btn" @click="close">关闭</button>
+        <button class="close-error-btn" @click="close">{{ t('common.close') }}</button>
       </div>
 
       <!-- Loading state -->
       <div v-else-if="loading" class="loading-state">
         <div class="loading-spinner"></div>
-        <p>加载中...</p>
+        <p>{{ t('common.loading') }}</p>
       </div>
 
       <!-- Node content -->
@@ -60,6 +60,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import VoiceNote from '@/components/VoiceNote.vue'
 import { parseDeepLinkUrl, findNodeByDeepLink, type NodePopupData } from '@/composables/useDeepLink'
 import { useNotebookStore } from '@/stores/notebookStore'
@@ -76,6 +77,7 @@ const emit = defineEmits<{
 }>()
 
 const notebookStore = useNotebookStore()
+const { t } = useI18n()
 
 const loading = ref(false)
 const error = ref<string | null>(null)

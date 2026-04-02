@@ -10,7 +10,7 @@
             ref="searchInput"
             v-model="searchQuery"
             type="text"
-            placeholder="搜索所有笔记内容..."
+            :placeholder="t('common.searchAllNotes')"
             @input="handleSearch"
             @keyup.escape="close"
           />
@@ -20,7 +20,7 @@
             </svg>
           </button>
         </div>
-        <button class="close-btn" @click="close" title="关闭">
+        <button class="close-btn" @click="close" :title="t('common.close')">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
             <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
           </svg>
@@ -30,19 +30,19 @@
       <div class="search-results" ref="resultsContainer">
         <div v-if="isSearching" class="searching-state">
           <div class="loading-spinner"></div>
-          <p>搜索中...</p>
+          <p>{{ t('common.searching') }}</p>
         </div>
 
         <div v-else-if="searchQuery && searchResults.length === 0" class="no-results">
           <svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor" class="empty-icon">
             <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
           </svg>
-          <p>未找到匹配的内容</p>
+          <p>{{ t('common.noResults') }}</p>
         </div>
 
         <div v-else-if="searchResults.length > 0" class="results-list">
           <div class="results-count">
-            找到 {{ searchResults.length }} 个结果
+            {{ t('common.resultsFound', { count: searchResults.length }) }}
           </div>
           <div
             v-for="result in searchResults"
@@ -59,7 +59,7 @@
                 <span class="text-line" v-html="result.highlightedText"></span>
               </div>
             </div>
-            <button class="detail-btn" @click="openNodeDetail(result)" title="查看详情">
+            <button class="detail-btn" @click="openNodeDetail(result)" :title="t('voiceNote.viewDetails')">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
                 <path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/>
               </svg>
@@ -71,7 +71,7 @@
           <svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor" class="placeholder-icon">
             <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
           </svg>
-          <p>输入关键词搜索所有笔记内容</p>
+          <p>{{ t('common.searchPlaceholder') }}</p>
         </div>
       </div>
     </div>
@@ -89,6 +89,7 @@
 <script setup lang="ts">
 import { ref, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import NodePopup from '@/components/NodePopup.vue'
 import { useNotebookStore } from '@/stores/notebookStore'
 import { generateDeepLinkUrl } from '@/composables/useDeepLink'
@@ -117,6 +118,7 @@ interface SearchResult {
 
 const notebookStore = useNotebookStore()
 const router = useRouter()
+const { t } = useI18n()
 const searchInput = ref<HTMLInputElement | null>(null)
 const resultsContainer = ref<HTMLElement | null>(null)
 const searchQuery = ref('')
@@ -296,15 +298,15 @@ function escapeHtml(text: string): string {
 
 function getCanvasName(canvas: CanvasPage, notebook: Notebook): string {
   if (canvas.pdfPage !== undefined) {
-    return `第 ${canvas.pdfPage} 页`
+    return t('common.pageN', { n: canvas.pdfPage })
   }
 
   // Find canvas index for non-PDF notebooks
   const index = notebook.canvases?.findIndex(c => c.id === canvas.id) ?? 0
   if (notebook.canvases && notebook.canvases.length > 1) {
-    return `画布 ${index + 1}`
+    return t('common.canvasN', { n: index + 1 })
   }
-  return '画布'
+  return t('common.canvas')
 }
 
 function openNodeDetail(result: SearchResult) {

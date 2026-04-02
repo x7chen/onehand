@@ -1,14 +1,14 @@
 <template>
   <div class="notebooks-panel">
     <div class="panel-header">
-      <h2>我的笔记本</h2>
+      <h2>{{ t('notebook.myNotebooks') }}</h2>
       <button @click="$emit('newNotebook')" class="new-notebook-btn">
-        + 新建笔记本
+        + {{ t('notebook.newNotebook') }}
       </button>
     </div>
 
     <div v-if="notebookStore.notebooks.length === 0" class="empty-state">
-      <p>暂无笔记本，创建一个新笔记本开始记录吧！</p>
+      <p>{{ t('notebook.noNotebooks') }}</p>
     </div>
 
     <div v-else class="notebooks-grid">
@@ -24,18 +24,18 @@
           <h3>{{ notebook.name }}</h3>
           <p class="notebook-info">
             <span v-if="notebook.pdfPath" class="pdf-badge">PDF</span>
-            {{ getCanvasesCount(notebook) }} 页 · {{ getTotalNodesCount(notebook) }} 个笔记 · {{ formatDate(notebook.updatedAt) }}
+            {{ getCanvasesCount(notebook) }} {{ t('notebook.pages') }} · {{ getTotalNodesCount(notebook) }} {{ t('notebook.notes') }} · {{ formatDate(notebook.updatedAt) }}
             <span v-if="notebook.context?.staticContextIds?.length || notebook.context?.dynamicContextId" class="context-indicator">
               ·
-              <span v-if="notebook.context.staticContextIds?.length" :title="`静态上下文 (${notebook.context.staticContextIds.length}个)`">
+              <span v-if="notebook.context.staticContextIds?.length" :title="t('canvas.staticContextCount', { count: notebook.context.staticContextIds.length })">
                 📄{{ notebook.context.staticContextIds.length > 1 ? `(${notebook.context.staticContextIds.length})` : '' }}
               </span>
-              <span v-if="notebook.context.dynamicContextId" title="动态上下文">📝</span>
+              <span v-if="notebook.context.dynamicContextId" :title="t('context.dynamic')">📝</span>
             </span>
           </p>
         </div>
         <div class="notebook-card-actions">
-          <button class="action-btn canvas-btn" @click.stop="openCanvas(notebook.id)" title="画布视图">
+          <button class="action-btn canvas-btn" @click.stop="openCanvas(notebook.id)" :title="t('canvas.expandList')">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
               <path d="M4 8h4V4H4v4zm6 12h4v-4h-4v4zm-6 0h4v-4H4v4zm0-6h4v-4H4v4zm6 0h4v-4h-4v4zm6-10v4h4V4h-4zm-6 4h4V4h-4v4zm6 6h4v-4h-4v4zm0 6h4v-4h-4v4z"/>
             </svg>
@@ -48,6 +48,7 @@
 
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useNotebookStore } from '@/stores/notebookStore'
 import type { Notebook } from '@/types/notebook'
 
@@ -59,6 +60,7 @@ const emit = defineEmits<{
 
 const router = useRouter()
 const notebookStore = useNotebookStore()
+const { t } = useI18n()
 
 function getTotalNodesCount(notebook: Notebook): number {
   if (notebook.canvases && notebook.canvases.length > 0) {
@@ -79,10 +81,10 @@ function formatDate(timestamp: number): string {
   const now = new Date()
   const diff = now.getTime() - date.getTime()
 
-  if (diff < 60000) return '刚刚'
-  if (diff < 3600000) return `${Math.floor(diff / 60000)}分钟前`
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)}小时前`
-  if (diff < 604800000) return `${Math.floor(diff / 86400000)}天前`
+  if (diff < 60000) return t('notebook.justNow')
+  if (diff < 3600000) return t('notebook.minutesAgo', { count: Math.floor(diff / 60000) })
+  if (diff < 86400000) return t('notebook.hoursAgo', { count: Math.floor(diff / 3600000) })
+  if (diff < 604800000) return t('notebook.daysAgo', { count: Math.floor(diff / 86400000) })
 
   return date.toLocaleDateString('zh-CN')
 }

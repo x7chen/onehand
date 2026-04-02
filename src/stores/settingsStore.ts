@@ -1,7 +1,9 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import type { Settings, LLMProfile } from '@/types/settings'
 import { defaultSettings, generateProfileId, getActiveProfile } from '@/types/settings'
+import { switchLocale } from '@/i18n'
+import i18n from '@/i18n'
 
 /**
  * 深度合并对象
@@ -42,7 +44,7 @@ function migrateToProfiles(oldSettings: any): Settings {
       profiles: [
         {
           id: profileId,
-          name: '模型1',
+          name: i18n.global.t('settings.modelN', { n: 1 }),
           apiKey: oldSettings.llm?.apiKey || '',
           baseUrl: oldSettings.llm?.baseUrl || defaultSettings.llm.profiles[0].baseUrl,
           model: oldSettings.llm?.model || defaultSettings.llm.profiles[0].model
@@ -96,6 +98,13 @@ export const useSettingsStore = defineStore('settings', () => {
     isLoaded.value = true
   }
 
+  // 设置语言并立即切换 i18n
+  function setLanguage(language: 'zh' | 'en' | 'system') {
+    settings.value.general.language = language
+    switchLocale(language)
+    saveSettings()
+  }
+
   async function saveSettings() {
     if (!isLoaded.value) return // 配置加载完成前不保存
 
@@ -128,11 +137,12 @@ export const useSettingsStore = defineStore('settings', () => {
       sourceProfile = settings.value.llm.profiles[settings.value.llm.profiles.length - 1]
     }
 
+    const t = i18n.global.t.bind(i18n.global)
     const newProfile: LLMProfile = {
       id: generateProfileId(),
       name: sourceProfile
-        ? `${sourceProfile.name} (副本)`
-        : `模型${settings.value.llm.profiles.length + 1}`,
+        ? `${sourceProfile.name} (${t('settings.profileCopy')})`
+        : t('settings.modelN', { n: settings.value.llm.profiles.length + 1 }),
       apiKey: sourceProfile?.apiKey || '',
       baseUrl: sourceProfile?.baseUrl || 'https://api-inference.modelscope.cn/v1',
       model: sourceProfile?.model || 'Qwen/Qwen3-235B-A22B-Instruct-2507'
@@ -193,6 +203,7 @@ export const useSettingsStore = defineStore('settings', () => {
     loadSettings,
     saveSettings,
     updateSettings,
+    setLanguage,
     addProfile,
     removeProfile,
     switchProfile,

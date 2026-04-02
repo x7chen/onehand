@@ -30,5 +30,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   windowClose: () => ipcRenderer.invoke('window-close'),
   windowIsMaximized: () => ipcRenderer.invoke('window-is-maximized'),
   // 获取应用图标 DataURL
-  getIconDataUrl: () => ipcRenderer.invoke('get-icon-data-url')
+  getIconDataUrl: () => ipcRenderer.invoke('get-icon-data-url'),
+  // 获取系统语言
+  getSystemLocale: () => ipcRenderer.invoke('get-system-locale')
 })

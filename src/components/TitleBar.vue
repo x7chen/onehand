@@ -4,12 +4,12 @@
       <img :src="iconPath" class="app-icon" alt="OneHand" />
     </div>
     <div class="window-controls">
-      <button class="control-btn minimize" @click="minimize" title="最小化">
+      <button class="control-btn minimize" @click="minimize" :title="t('common.minimize')">
         <svg viewBox="0 0 12 12" width="12" height="12">
           <path d="M1 6h10" stroke="currentColor" stroke-width="1.5" fill="none"/>
         </svg>
       </button>
-      <button class="control-btn maximize" @click="maximize" :title="isMaximized ? '恢复' : '最大化'">
+      <button class="control-btn maximize" @click="maximize" :title="isMaximized ? t('common.restore') : t('common.maximize')">
         <svg v-if="isMaximized" viewBox="0 0 14 14" width="14" height="14">
           <!-- 恢复图标：两个窗口叠加 -->
           <polyline points="4.5,1 13,1 13,9.5" stroke="currentColor" stroke-width="1.5" fill="none"/>
@@ -19,7 +19,7 @@
           <rect x="1.5" y="1.5" width="11" height="11" stroke="currentColor" stroke-width="1.5" fill="none"/>
         </svg>
       </button>
-      <button class="control-btn close" @click="close" title="关闭">
+      <button class="control-btn close" @click="close" :title="t('common.close')">
         <svg viewBox="0 0 12 12" width="12" height="12">
           <path d="M1 1l10 10M11 1l-10 10" stroke="currentColor" stroke-width="1.5" fill="none"/>
         </svg>
@@ -30,6 +30,9 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const isMaximized = ref(false)
 

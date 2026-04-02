@@ -5,26 +5,26 @@
         <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" class="favorite-icon">
           <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
         </svg>
-        <h2>收藏夹</h2>
+        <h2>{{ t('nav.favorites') }}</h2>
       </div>
     </div>
 
     <div class="favorites-content">
       <div v-if="loading" class="loading-state">
         <div class="loading-spinner"></div>
-        <p>加载中...</p>
+        <p>{{ t('common.loading') }}</p>
       </div>
 
       <div v-else-if="favoriteNodes.length === 0" class="no-results">
         <svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor" class="empty-icon">
           <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
         </svg>
-        <p>暂无收藏的笔记</p>
+        <p>{{ t('nav.noFavorites') }}</p>
       </div>
 
       <div v-else class="results-list">
         <div class="results-count">
-          共 {{ favoriteNodes.length }} 个收藏
+          {{ t('common.totalFavorites', { count: favoriteNodes.length }) }}
         </div>
         <div
           v-for="item in favoriteNodes"
@@ -41,7 +41,7 @@
               {{ item.previewText }}
             </div>
           </div>
-          <button class="detail-btn" @click="openNodeDetail(item)" title="查看详情">
+          <button class="detail-btn" @click="openNodeDetail(item)" :title="t('voiceNote.viewDetails')">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
               <path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/>
             </svg>
@@ -63,6 +63,7 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import NodePopup from '@/components/NodePopup.vue'
 import { useNotebookStore } from '@/stores/notebookStore'
 import { generateDeepLinkUrl } from '@/composables/useDeepLink'
@@ -71,6 +72,7 @@ import type { Notebook, CanvasPage } from '@/types/notebook'
 
 const router = useRouter()
 const notebookStore = useNotebookStore()
+const { t } = useI18n()
 const loading = ref(false)
 const favoriteNodes = ref<FavoriteNodeItem[]>([])
 const showNodePopup = ref(false)
@@ -137,13 +139,13 @@ async function loadFavorites() {
 
 function getCanvasName(canvas: CanvasPage, notebook: Notebook): string {
   if (canvas.pdfPage !== undefined) {
-    return `第 ${canvas.pdfPage} 页`
+    return t('common.pageN', { n: canvas.pdfPage })
   }
   const index = notebook.canvases?.findIndex(c => c.id === canvas.id) ?? 0
   if (notebook.canvases && notebook.canvases.length > 1) {
-    return `画布 ${index + 1}`
+    return t('common.canvasN', { n: index + 1 })
   }
-  return '画布'
+  return t('common.canvas')
 }
 
 function openNodeDetail(item: FavoriteNodeItem) {

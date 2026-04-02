@@ -43,7 +43,7 @@
           @include-page-change="handleIncludePageChange"
         />
         <div v-else class="no-pdf">
-          <p>未找到 PDF 文件</p>
+          <p>{{ t('canvas.pdfNotFound') }}</p>
         </div>
       </div>
 
@@ -79,11 +79,11 @@
       <div class="dialog dynamic-context-editor-dialog" @click.stop>
         <h3>
           <span v-if="dynamicContextFile">{{ dynamicContextFile.name }}</span>
-          <span v-else>动态上下文</span>
+          <span v-else>{{ t('context.dynamic') }}</span>
         </h3>
         <div v-if="!dynamicContextFile" class="no-dynamic-context">
-          <p>当前笔记未关联动态上下文文件。</p>
-          <p class="hint">拖拽文字到 Header 右侧区域可自动创建。</p>
+          <p>{{ t('context.noDynamicContext') }}</p>
+          <p class="hint">{{ t('context.createHint') }}</p>
         </div>
         <textarea
           v-else
@@ -92,8 +92,8 @@
           class="content-input"
         ></textarea>
         <div class="dialog-actions" v-if="dynamicContextFile">
-          <button @click="showDynamicContextEditor = false" class="cancel-btn">取消</button>
-          <button @click="saveDynamicContextEdit" class="confirm-btn">保存</button>
+          <button @click="showDynamicContextEditor = false" class="cancel-btn">{{ t('common.cancel') }}</button>
+          <button @click="saveDynamicContextEdit" class="confirm-btn">{{ t('common.save') }}</button>
         </div>
       </div>
     </div>
@@ -109,6 +109,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useNotebookStore } from '@/stores/notebookStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useContextStore } from '@/stores/contextStore'
@@ -122,6 +123,7 @@ import type { CanvasNode } from '@/types/notebook'
 
 const route = useRoute()
 const router = useRouter()
+const { t } = useI18n()
 const notebookStore = useNotebookStore()
 const settingsStore = useSettingsStore()
 const contextStore = useContextStore()

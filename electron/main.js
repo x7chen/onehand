@@ -627,3 +627,8 @@ ipcMain.handle('get-icon-data-url', () => {
   const base64 = iconBuffer.toString('base64')
   return `data:image/x-icon;base64,${base64}`
 })
+
+// 获取系统语言
+ipcMain.handle('get-system-locale', () => {
+  return app.getLocale()
+})

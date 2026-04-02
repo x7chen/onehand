@@ -63,6 +63,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useNotebookStore } from '@/stores/notebookStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import InfiniteCanvas from '@/components/InfiniteCanvas.vue'
@@ -91,6 +92,7 @@ const emit = defineEmits<{
 
 const notebookStore = useNotebookStore()
 const settingsStore = useSettingsStore()
+const { t } = useI18n()
 
 // 录音实例
 const simpleRecorder = createAudioWorkletRecorder()
@@ -451,7 +453,7 @@ async function handleTranscription(node: CanvasNode) {
 
   if (!settings.stt.sherpaOnnx) {
     notebookStore.updateNode(node.id, {
-      transcript: '语音识别配置错误，请检查设置',
+      transcript: t('canvas.sttConfigError'),
       transcriptStatus: 'error'
     })
     return
@@ -486,7 +488,7 @@ async function handleTranscription(node: CanvasNode) {
           handleAgentResponse(node.id, transcriptResult.text)
         }
       } else {
-        throw new Error(transcriptResult.error || '转写失败')
+        throw new Error(transcriptResult.error || t('canvas.transcribeFailed'))
       }
     }
   } catch (error) {
@@ -525,7 +527,7 @@ async function handleAgentResponse(nodeId: string, transcript: string) {
     const modelConfig = currentModelConfig.value
     if (!modelConfig) {
       notebookStore.updateNode(nodeId, {
-        agentResult: '模型配置错误，请检查设置',
+        agentResult: t('canvas.llmConfigError'),
         agentStatus: 'error'
       })
       return

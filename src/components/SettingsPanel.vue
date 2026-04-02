@@ -1,13 +1,13 @@
 <template>
   <div class="settings-panel">
     <div class="panel-header">
-      <h2>设置</h2>
+      <h2>{{ t('settings.title') }}</h2>
     </div>
 
     <div class="settings-content">
       <!-- LLM Settings -->
       <section class="settings-section">
-        <h3>大模型配置</h3>
+        <h3>{{ t('settings.llmConfig') }}</h3>
 
         <!-- Profile Tabs -->
         <div class="profile-tabs">
@@ -40,33 +40,33 @@
           <button
             class="profile-tab add-tab"
             @click="settingsStore.addProfile()"
-            title="添加配置"
+            :title="t('settings.addProfile')"
           >
             +
           </button>
         </div>
 
         <div class="form-group">
-          <label>服务提供商</label>
+          <label>{{ t('settings.provider') }}</label>
           <select v-model="settingsStore.settings.llm.provider">
-            <option value="custom">OpenAI兼容API</option>
+            <option value="custom">{{ t('settings.openaiCompatible') }}</option>
           </select>
         </div>
 
         <div class="form-group">
-          <label>API Key</label>
+          <label>{{ t('settings.apiKey') }}</label>
           <div class="password-input-wrapper">
             <input
               :value="settingsStore.activeProfile?.apiKey || ''"
               @input="settingsStore.updateActiveProfileField('apiKey', ($event.target as HTMLInputElement).value)"
               :type="showApiKey ? 'text' : 'password'"
-              placeholder="输入 API Key"
+              :placeholder="t('settings.apiKeyPlaceholder')"
             />
             <button
               type="button"
               class="password-toggle-btn"
               @click="showApiKey = !showApiKey"
-              :title="showApiKey ? '隐藏' : '显示'"
+              :title="showApiKey ? t('settings.hide') : t('settings.show')"
             >
               <svg v-if="showApiKey" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
                 <path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"/>
@@ -79,50 +79,53 @@
         </div>
 
         <div class="form-group">
-          <label>Base URL</label>
+          <label>{{ t('settings.baseUrl') }}</label>
           <input
             :value="settingsStore.activeProfile?.baseUrl || ''"
             @input="settingsStore.updateActiveProfileField('baseUrl', ($event.target as HTMLInputElement).value)"
             type="text"
-            placeholder="API 基础地址"
+            :placeholder="t('settings.baseUrlPlaceholder')"
           />
         </div>
 
         <div class="form-group">
-          <label>模型</label>
+          <label>{{ t('settings.model') }}</label>
           <input
             :value="settingsStore.activeProfile?.model || ''"
             @input="settingsStore.updateActiveProfileField('model', ($event.target as HTMLInputElement).value)"
             type="text"
-            placeholder="模型名称"
+            :placeholder="t('settings.modelPlaceholder')"
           />
         </div>
       </section>
 
       <!-- General Settings -->
       <section class="settings-section">
-        <h3>其他设置</h3>
+        <h3>{{ t('settings.generalSettings') }}</h3>
 
         <div class="form-group">
-          <label>界面语言</label>
-          <select v-model="settingsStore.settings.general.language">
-            <option value="system">跟随系统</option>
-            <option value="zh">中文</option>
-            <option value="en">English</option>
+          <label>{{ t('settings.language') }}</label>
+          <select
+            :value="settingsStore.settings.general.language"
+            @change="settingsStore.setLanguage(($event.target as HTMLSelectElement).value as 'zh' | 'en' | 'system')"
+          >
+            <option value="system">{{ t('settings.languageSystem') }}</option>
+            <option value="zh">{{ t('settings.languageZh') }}</option>
+            <option value="en">{{ t('settings.languageEn') }}</option>
           </select>
         </div>
 
         <div class="form-group">
-          <label>深浅色模式</label>
+          <label>{{ t('settings.theme') }}</label>
           <select v-model="settingsStore.settings.general.theme">
-            <option value="system">跟随系统</option>
-            <option value="light">浅色</option>
-            <option value="dark">深色</option>
+            <option value="system">{{ t('settings.themeSystem') }}</option>
+            <option value="light">{{ t('settings.themeLight') }}</option>
+            <option value="dark">{{ t('settings.themeDark') }}</option>
           </select>
         </div>
 
         <div class="form-group">
-          <label>颜色主题</label>
+          <label>{{ t('settings.colorTheme') }}</label>
           <div class="theme-colors">
             <button
               v-for="theme in predefinedThemes"
@@ -140,7 +143,7 @@
             <button
               class="theme-color-btn custom-theme-btn"
               :class="{ active: settingsStore.settings.general.colorTheme === 'custom' }"
-              title="自定义"
+              :title="t('settings.colorThemeCustom')"
               @click="selectTheme('custom')"
             >
               <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
@@ -151,20 +154,20 @@
         </div>
 
         <div v-if="settingsStore.settings.general.colorTheme === 'custom'" class="form-group">
-          <label>自定义主题文件</label>
+          <label>{{ t('settings.customThemeFile') }}</label>
           <div class="custom-theme-row">
             <input
               :value="settingsStore.settings.general.customThemePath || ''"
               type="text"
-              placeholder="选择CSS文件..."
+              :placeholder="t('settings.customThemePlaceholder')"
               readonly
               class="custom-theme-path"
             />
             <button class="select-theme-btn" @click="selectCustomThemeFile">
-              选择文件
+              {{ t('settings.selectFile') }}
             </button>
           </div>
-          <p class="theme-hint">CSS文件应定义 :root 变量，如 --color-primary、--color-success 等</p>
+          <p class="theme-hint">{{ t('settings.customThemeHint') }}</p>
         </div>
       </section>
     </div>
@@ -172,9 +175,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick, watch, onMounted } from 'vue'
+import { ref, nextTick, watch, onMounted, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '@/stores/settingsStore'
 import type { BuiltinTheme } from '@/types/settings'
+
+const { t } = useI18n()
 
 const emit = defineEmits<{
   (e: 'dragStart', event: DragEvent, profileId: string): void
@@ -190,13 +196,13 @@ const showApiKey = ref(false)
 const draggedProfileId = ref<string | null>(null)
 
 // 预定义主题颜色
-const predefinedThemes: { value: BuiltinTheme; label: string; color: string }[] = [
-  { value: 'default', label: '默认（蓝色）', color: '#4299e1' },
-  { value: 'green', label: '绿色', color: '#48bb78' },
-  { value: 'purple', label: '紫色', color: '#9f7aea' },
-  { value: 'orange', label: '橙色', color: '#ed8936' },
-  { value: 'red', label: '红色', color: '#e53e3e' }
-]
+const predefinedThemes = computed(() => [
+  { value: 'default' as BuiltinTheme, label: t('settings.colorThemeDefault'), color: '#4299e1' },
+  { value: 'green' as BuiltinTheme, label: t('settings.colorThemeGreen'), color: '#48bb78' },
+  { value: 'purple' as BuiltinTheme, label: t('settings.colorThemePurple'), color: '#9f7aea' },
+  { value: 'orange' as BuiltinTheme, label: t('settings.colorThemeOrange'), color: '#ed8936' },
+  { value: 'red' as BuiltinTheme, label: t('settings.colorThemeRed'), color: '#e53e3e' }
+])
 
 function selectTheme(theme: BuiltinTheme | 'custom') {
   settingsStore.updateSettings({

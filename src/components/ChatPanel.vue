@@ -37,7 +37,7 @@
         <svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor" class="empty-icon">
           <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/>
         </svg>
-        <p>点击左侧笔记查看详情</p>
+        <p>{{ t('canvas.clickToView') }}</p>
       </div>
     </div>
 
@@ -66,6 +66,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useNotebookStore } from '@/stores/notebookStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import VoiceNote from '@/components/VoiceNote.vue'
@@ -104,6 +105,7 @@ const emit = defineEmits<{
 
 const notebookStore = useNotebookStore()
 const settingsStore = useSettingsStore()
+const { t } = useI18n()
 
 // Get notebookId and canvasId from notebookStore
 const notebookId = computed(() => notebookStore.currentNotebook?.id)

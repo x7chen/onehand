@@ -46,7 +46,7 @@
           v-if="isLeftZoneHovered && hasPrevPage"
           class="page-nav-btn"
           @click="handlePrevPage"
-          title="上一页"
+          :title="t('pdf.prevPage')"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="15 18 9 12 15 6"></polyline>
@@ -67,7 +67,7 @@
           class="page-nav-btn"
           :class="{ 'add-new-page': !hasNextPage }"
           @click="handleNextOrAddPage"
-          :title="hasNextPage ? '下一页' : '新增页面'"
+          :title="hasNextPage ? t('pdf.nextPage') : t('notebook.newNotebook')"
         >
           <svg v-if="hasNextPage" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="9 18 15 12 9 6"></polyline>
@@ -91,6 +91,7 @@
 
 <script setup lang="ts">
 import { ref, shallowRef, computed, watch, nextTick, onMounted, onUnmounted, triggerRef } from 'vue'
+import { useI18n } from 'vue-i18n'
 import VoiceNoteSmall from '@/components/VoiceNoteSmall.vue'
 import { useNotebookStore } from '@/stores/notebookStore'
 import type { CanvasNode } from '@/types/notebook'
@@ -113,6 +114,7 @@ const props = withDefaults(defineProps<{
 })
 
 const notebookStore = useNotebookStore()
+const { t } = useI18n()
 
 const emit = defineEmits<{
   'toggle-context': [nodeId: string]

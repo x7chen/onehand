@@ -12,7 +12,7 @@
       class="static-context-display"
       @click="toggleStaticContextSelector"
       :class="{ 'active': showStaticContextSelector }"
-      :title="staticContextFiles.length > 0 ? '点击管理静态上下文' : '点击选择静态上下文'"
+      :title="staticContextFiles.length > 0 ? t('canvas.clickToManageStaticContext') : t('canvas.clickToSelectStaticContext')"
     >
       <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" class="context-icon">
         <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
@@ -41,7 +41,7 @@
         </template>
         <span v-if="staticContextFiles.length > 4" class="context-count">+{{ staticContextFiles.length - 4 }}</span>
       </div>
-      <span v-else class="context-placeholder">选择静态上下文</span>
+      <span v-else class="context-placeholder">{{ t('context.selectStaticContext') }}</span>
     </div>
 
     <!-- 模型选择器 -->
@@ -50,7 +50,7 @@
       class="model-selector"
       @click="toggleModelSelector"
       :class="{ 'active': showModelSelector }"
-      :title="currentModel ? `当前模型: ${currentModel.name}` : '选择模型'"
+      :title="currentModel ? t('canvas.currentModel', { name: currentModel.name }) : t('canvas.selectModel')"
     >
       <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" class="model-icon">
         <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.1c-.26.81-1.05 1.38-1.9 1.38h-1v-1c0-1.1-.9-2-2-2h-2v-2c0-.55-.45-1-1-1H7v-2h2c1.1 0 2-.9 2-2h2v2c0 .55.45 1 1 1h3v1h-1v2h2l.3 1.62zM21 12c0 .34-.03.67-.07 1H18v-2h2.93c.04.33.07.66.07 1z"/>
@@ -65,9 +65,9 @@
         >
           {{ profile.name }}
         </span>
-        <span v-if="allProfiles.length === 0" class="no-models-hint">暂无模型配置</span>
+        <span v-if="allProfiles.length === 0" class="no-models-hint">{{ t('canvas.noModelConfig') }}</span>
       </div>
-      <span v-else class="model-name">{{ currentModel?.name || '选择模型' }}</span>
+      <span v-else class="model-name">{{ currentModel?.name || t('canvas.selectModel') }}</span>
     </div>
 
     <!-- 以下元素在宽度不足时隐藏 -->
@@ -79,7 +79,7 @@
         v-if="showViewportControls"
         @click="$emit('reset-viewport')"
         class="reset-viewport-btn"
-        title="回到原点"
+        :title="t('canvas.backToOrigin')"
       >
         <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
           <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm-5-9h10v2H7l3.5 3.5-1.42 1.42L4.16 13l4.92-4.92L10.5 9.5 7 13z"/>
@@ -91,7 +91,7 @@
         v-if="showViewportControls"
         @click="$emit('auto-layout')"
         class="auto-layout-btn"
-        title="自动排版"
+        :title="t('canvas.autoLayout')"
       >
         <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
           <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
@@ -104,7 +104,7 @@
         @click="$emit('update:globalHideAiResult', !globalHideAiResult)"
         class="global-hide-ai-btn"
         :class="{ active: globalHideAiResult }"
-        :title="globalHideAiResult ? '显示所有 AI 回答' : '隐藏所有 AI 回答'"
+        :title="globalHideAiResult ? t('canvas.showAllAiAnswers') : t('canvas.hideAllAiAnswers')"
       >
         <svg v-if="!globalHideAiResult" viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
           <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
@@ -119,7 +119,7 @@
         @click="$emit('update:aiAnswerEnabled', !aiAnswerEnabled)"
         class="ai-answer-toggle-btn"
         :class="{ active: aiAnswerEnabled }"
-        :title="aiAnswerEnabled ? '关闭 AI 回答' : '开启 AI 回答'"
+        :title="aiAnswerEnabled ? t('canvas.disableAiAnswer') : t('canvas.enableAiAnswer')"
       >
         <span class="ai-icon-text">AI</span>
       </button>
@@ -130,14 +130,14 @@
           @click="$emit('copy-selected-context')"
           class="context-action-btn copy-btn"
           :class="{ disabled: selectedContextCount === 0 }"
-          :title="selectedContextCount > 0 ? `复制已选 ${selectedContextCount} 个笔记内容` : '未选中笔记'"
+          :title="selectedContextCount > 0 ? t('canvas.copySelectedNotes', { count: selectedContextCount }) : t('canvas.noNotesSelected')"
           :disabled="selectedContextCount === 0"
         >
           <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
             <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
           </svg>
         </button>
-        <button @click="$emit('toggle-all-context')" class="context-action-btn" :title="isAllContextSelected ? '清空选择' : '全选所有已完成笔记'">
+        <button @click="$emit('toggle-all-context')" class="context-action-btn" :title="isAllContextSelected ? t('canvas.clearSelection') : t('canvas.selectAllCompleted')">
           <svg v-if="!isAllContextSelected" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
             <path d="M19 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.11 0 2-.9 2-2V5c0-1.1-.89-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
           </svg>
@@ -145,7 +145,7 @@
             <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
           </svg>
         </button>
-        <button @click="$emit('invert-selection')" class="context-action-btn" title="反选所有已完成笔记">
+        <button @click="$emit('invert-selection')" class="context-action-btn" :title="t('canvas.invertSelection')">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
             <path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z"/>
           </svg>
@@ -167,7 +167,7 @@
           fill="currentColor"
           class="context-icon"
           @click.stop="toggleDynamicContextSelector"
-          :title="showDynamicContextSelector ? '关闭选择器' : '点击选择动态上下文'"
+          :title="showDynamicContextSelector ? t('canvas.clickToToggleSelector') : t('canvas.clickToSelectDynamicContext')"
         >
           <path d="M3 18h12v-2H3v2zM3 6v2h18V6H3zm0 7h18v-2H3v2z"/>
         </svg>
@@ -186,26 +186,26 @@
           >
             {{ file.name }}
           </span>
-          <span v-if="allDynamicContextFiles.length === 0" class="no-contexts-hint">暂无动态上下文</span>
+          <span v-if="allDynamicContextFiles.length === 0" class="no-contexts-hint">{{ t('context.noDynamicContexts') }}</span>
         </div>
         <div
           v-else-if="dynamicContextFile"
           class="dynamic-context-info"
           @dblclick.stop="$emit('open-dynamic-context-editor')"
-          :title="'双击编辑动态上下文'"
+          :title="t('canvas.doubleClickToEdit')"
         >
           <span class="context-name" :style="{ color: dynamicContextFile.color }">
             {{ dynamicContextFile.name }}
           </span>
-          <span class="word-count" v-if="dynamicContextFile.content">{{ dynamicContextFile.content.length }}字</span>
+          <span class="word-count" v-if="dynamicContextFile.content">{{ t('context.wordCount', { count: dynamicContextFile.content.length }) }}</span>
         </div>
         <span
           v-else
           class="context-placeholder"
           @click.stop="toggleDynamicContextSelector"
-          :title="'点击选择动态上下文'"
+          :title="t('canvas.clickToSelectDynamicContext')"
         >
-          选择动态上下文
+          {{ t('context.selectDynamicContext') }}
         </span>
       </div>
     </template>
@@ -214,8 +214,11 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { ContextFile } from '@/types/context'
 import type { LLMProfile } from '@/types/settings'
+
+const { t } = useI18n()
 
 const props = withDefaults(defineProps<{
   notebookName: string
