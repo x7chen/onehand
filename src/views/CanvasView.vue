@@ -375,7 +375,7 @@ async function handleSelectModel(modelId: string) {
 
 <style scoped>
 .canvas-view {
-  height: 100vh;
+  height: 100%;
   display: flex;
   flex-direction: column;
   background: var(--bg-secondary);

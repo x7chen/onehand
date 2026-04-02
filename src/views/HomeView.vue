@@ -637,7 +637,7 @@ async function confirmDeleteNotebook() {
 
 <style scoped>
 .home-view {
-  height: 100vh;
+  height: 100%;
   display: flex;
   background: var(--bg-secondary);
 }
