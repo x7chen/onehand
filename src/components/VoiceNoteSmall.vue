@@ -24,8 +24,14 @@
       <div class="small-indicator" :class="{ 'has-ai': hasAiResult }"></div>
     </div>
 
+    <!-- 图片预览 -->
+    <div v-if="node.type === 'image-note' && node.imagePath" class="small-image-box">
+      <img v-if="imageBlobUrl" :src="imageBlobUrl" class="small-image-preview" />
+      <div v-else class="small-image-loading">加载中...</div>
+    </div>
+
     <!-- 转录内容 -->
-    <div v-if="node.transcript" class="small-transcript-box">
+    <div v-else-if="node.transcript" class="small-transcript-box">
       <div v-if="node.transcriptStatus === 'processing'" class="status-text">
         转换中...
       </div>
@@ -38,9 +44,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useNotebookStore } from '@/stores/notebookStore'
 import { renderMarkdown } from '@/utils/markdownRenderer'
 import type { CanvasNode } from '@/types/notebook'
+
+const notebookStore = useNotebookStore()
 
 const props = defineProps<{
   node: CanvasNode
@@ -64,6 +73,26 @@ const hasAiResult = computed(() => {
 // 渲染后的转录内容
 const sanitizedTranscript = ref('')
 
+// 图片blob URL
+const imageBlobUrl = ref<string | null>(null)
+
+// 加载图片
+async function loadImage() {
+  if (props.node.type !== 'image-note' || !props.node.imagePath) return
+
+  const appDataPath = await window.electronAPI.getAppPath('userData')
+  const notebook = notebookStore.currentNotebook
+  if (!notebook) return
+
+  const fullPath = `${appDataPath}/notebooks/${notebook.id}/${props.node.imagePath}`
+  const result = await window.electronAPI.readFile(fullPath, 'arraybuffer')
+
+  if (result.success && result.data) {
+    const blob = new Blob([result.data])
+    imageBlobUrl.value = URL.createObjectURL(blob)
+  }
+}
+
 // 渲染 Markdown
 async function renderTranscript() {
   if (props.node.transcript) {
@@ -71,7 +100,16 @@ async function renderTranscript() {
   }
 }
 
-onMounted(renderTranscript)
+onMounted(() => {
+  renderTranscript()
+  loadImage()
+})
+
+onUnmounted(() => {
+  if (imageBlobUrl.value) {
+    URL.revokeObjectURL(imageBlobUrl.value)
+  }
+})
 
 watch(() => props.node.transcript, renderTranscript)
 
@@ -231,5 +269,25 @@ function handleClick() {
 .error-text {
   font-size: 11px;
   color: var(--color-error);
+}
+
+/* 图片预览样式 */
+.small-image-box {
+  padding: 6px 8px;
+}
+
+.small-image-preview {
+  max-width: 100%;
+  max-height: 200px;
+  border-radius: 4px;
+  display: block;
+  margin: 0 auto;
+}
+
+.small-image-loading {
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-align: center;
+  padding: 20px 0;
 }
 </style>

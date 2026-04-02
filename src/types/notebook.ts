@@ -35,10 +35,11 @@ export interface Viewport {
 
 export interface CanvasNode {
   id: string
-  type: 'voice-note' | 'text-note'
+  type: 'voice-note' | 'text-note' | 'image-note'
   title?: string
   position: { x: number; y: number }
   audioPath?: string
+  imagePath?: string
   transcript: string | null
   transcriptStatus: 'pending' | 'processing' | 'done' | 'error'
   agentResult: string | null

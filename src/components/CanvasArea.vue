@@ -17,6 +17,7 @@
       @click="handleCanvasClick"
       @dbl-click="handleDblClick"
       @drop-text="handleDropText"
+      @drop-image="handleDropImage"
       @prev-page="handlePrevPage"
       @next-page="handleNextPage"
     >
@@ -776,6 +777,41 @@ async function handleDropText(x: number, y: number, text: string) {
 
   if (props.aiAnswerEnabled) {
     await handleAgentResponse(node.id, text)
+  }
+}
+
+async function handleDropImage(x: number, y: number, files: File[]) {
+  const appDataPath = await window.electronAPI.getAppPath('userData')
+  const notebook = notebookStore.currentNotebook
+  if (!notebook) return
+
+  const notebookDir = `${appDataPath}/notebooks/${notebook.id}`
+  await window.electronAPI.mkdir(`${notebookDir}/images`)
+
+  for (const file of files) {
+    const nodeId = `node-${Date.now()}`
+    const ext = file.name.split('.').pop() || 'png'
+    const imagePath = `images/${nodeId}.${ext}`
+
+    // 保存图片到笔记本目录
+    const arrayBuffer = await file.arrayBuffer()
+    await window.electronAPI.saveFileBuffer(`${notebookDir}/${imagePath}`, arrayBuffer)
+
+    // 创建图片节点
+    const node: CanvasNode = {
+      id: nodeId,
+      type: 'image-note',
+      position: { x, y },
+      imagePath,
+      transcript: `![${file.name}](${imagePath})`,
+      transcriptStatus: 'done',
+      agentResult: null,
+      agentStatus: 'pending',
+      selectedAsContext: false,
+      createdAt: Date.now()
+    }
+
+    notebookStore.addNode(node)
   }
 }
 

@@ -30,9 +30,15 @@
         <span v-if="node.duration" class="recording-duration">{{ formatDuration(node.duration) }}</span>
       </div>
       <!-- Text note type indicator -->
-      <div v-else class="text-note-indicator">
+      <div v-else-if="node.type === 'text-note'" class="text-note-indicator">
         <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
           <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
+        </svg>
+      </div>
+      <!-- Image note type indicator -->
+      <div v-else-if="node.type === 'image-note'" class="image-note-indicator">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+          <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
         </svg>
       </div>
       <!-- 功能按钮组 -->
@@ -86,8 +92,16 @@
       </button>
     </div>
 
+    <!-- 图片预览模式 -->
+    <div v-if="node.type === 'image-note' && node.imagePath" class="image-box" @dblclick.stop>
+      <img v-if="imageBlobUrl" :src="imageBlobUrl" class="image-preview" @load="handleImageLoad" />
+      <div v-else class="image-loading">
+        <span>{{ t('common.loading') }}</span>
+      </div>
+    </div>
+
     <!-- 编辑模式 -->
-    <div v-if="isEditing" class="editing-box" @click.stop @mousedown.stop>
+    <div v-else-if="isEditing" class="editing-box" @click.stop @mousedown.stop>
       <textarea
         v-model="localEditingText"
         ref="editingTextarea"
@@ -99,7 +113,7 @@
       ></textarea>
     </div>
 
-    <div v-else-if="node.transcript" class="transcript-box" @dblclick.stop>
+    <div v-else-if="node.transcript && node.type !== 'image-note'" class="transcript-box" @dblclick.stop>
       <div v-if="node.transcriptStatus === 'processing'" class="status-text">
         {{ t('common.converting') }}
       </div>
@@ -189,9 +203,12 @@
 <script setup lang="ts">
 import { ref, nextTick, watch, computed, onMounted, onUnmounted, watchEffect } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useNotebookStore } from '@/stores/notebookStore'
 import { formatDuration } from '@/utils/helpers'
 import { renderMarkdown, renderMermaidCharts } from '@/utils/markdownRenderer'
 import type { CanvasNode } from '@/types/notebook'
+
+const notebookStore = useNotebookStore()
 
 const props = defineProps<{
   node: CanvasNode
@@ -224,6 +241,49 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+
+// 图片节点相关
+const imageBlobUrl = ref<string | null>(null)
+
+// 加载图片
+async function loadImage() {
+  if (props.node.type !== 'image-note' || !props.node.imagePath) {
+    // 清理旧的blob URL
+    if (imageBlobUrl.value) {
+      URL.revokeObjectURL(imageBlobUrl.value)
+      imageBlobUrl.value = null
+    }
+    return
+  }
+
+  // 清理旧的blob URL
+  if (imageBlobUrl.value) {
+    URL.revokeObjectURL(imageBlobUrl.value)
+    imageBlobUrl.value = null
+  }
+
+  const appDataPath = await window.electronAPI.getAppPath('userData')
+  const notebook = notebookStore.currentNotebook
+  if (!notebook) return
+
+  const fullPath = `${appDataPath}/notebooks/${notebook.id}/${props.node.imagePath}`
+  const result = await window.electronAPI.readFile(fullPath, 'arraybuffer')
+
+  if (result.success && result.data) {
+    const blob = new Blob([result.data])
+    imageBlobUrl.value = URL.createObjectURL(blob)
+  }
+}
+
+// 图片加载完成处理
+function handleImageLoad() {
+  // 图片加载完成，可以做一些处理
+}
+
+// 监听节点ID变化，重新加载图片
+watch(() => props.node.id, () => {
+  loadImage()
+})
 
 // 使用外部传入的 isPlaying 或本地状态
 const localIsPlaying = ref(false)
@@ -622,6 +682,10 @@ onUnmounted(() => {
   if (renderDebounceTimer) {
     clearTimeout(renderDebounceTimer)
   }
+  // 清理图片 blob URL
+  if (imageBlobUrl.value) {
+    URL.revokeObjectURL(imageBlobUrl.value)
+  }
 })
 
 // 组件引用
@@ -649,6 +713,11 @@ async function renderMermaid() {
 // 当组件挂载时渲染 Markdown 和 Mermaid
 onMounted(async () => {
   console.log('[VoiceNote] onMounted, rendering markdown...')
+
+  // 加载图片节点的图片
+  if (props.node.type === 'image-note') {
+    await loadImage()
+  }
 
   if (props.node.transcript) {
     console.log('[VoiceNote] Rendering transcript...')
@@ -778,6 +847,18 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
   align-items: center;
   justify-content: center;
   color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.image-note-indicator {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--bg-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-success);
   flex-shrink: 0;
 }
 
@@ -966,6 +1047,37 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
 
 .copy-link-btn:hover {
   color: var(--color-primary);
+}
+
+/* 图片预览区域 */
+.image-box {
+  background: white;
+  border-left: 3px solid var(--color-success);
+  padding: 10px;
+  border-radius: 4px;
+  margin-bottom: 3px;
+  position: relative;
+}
+
+:root.dark .image-box {
+  background: var(--bg-node-transcript);
+}
+
+.image-preview {
+  max-width: 100%;
+  max-height: 400px;
+  border-radius: 4px;
+  display: block;
+  margin: 0 auto;
+}
+
+.image-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100px;
+  color: var(--text-secondary);
+  font-size: 14px;
 }
 
 .transcript-box {

@@ -306,6 +306,20 @@ function handleMagicPadMouseLeave() {
 
 // MagicPad - 拖拽文本创建节点
 async function handleMagicPadDrop(e: DragEvent) {
+  e.preventDefault()
+  e.stopPropagation()
+
+  // 检测是否有图片文件
+  if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+    const imageFiles = Array.from(e.dataTransfer.files).filter(
+      file => file.type.startsWith('image/')
+    )
+    if (imageFiles.length > 0) {
+      await handleMagicPadImageDrop(imageFiles)
+      return
+    }
+  }
+
   const text = e.dataTransfer?.getData('text/plain')
   if (!text) return
 
@@ -345,6 +359,49 @@ async function handleMagicPadDrop(e: DragEvent) {
     } else {
       await handleAgentResponseForText(newNodeId, text)
     }
+  }
+}
+
+// MagicPad - 拖拽图片创建节点
+async function handleMagicPadImageDrop(files: File[]) {
+  const appDataPath = await window.electronAPI.getAppPath('userData')
+  const notebook = notebookStore.currentNotebook
+  if (!notebook) return
+
+  const notebookDir = `${appDataPath}/notebooks/${notebook.id}`
+  await window.electronAPI.mkdir(`${notebookDir}/images`)
+
+  for (const file of files) {
+    const nodeId = `node-${Date.now()}`
+    const ext = file.name.split('.').pop() || 'png'
+    const imagePath = `images/${nodeId}.${ext}`
+
+    // 保存图片到笔记本目录
+    const arrayBuffer = await file.arrayBuffer()
+    await window.electronAPI.saveFileBuffer(`${notebookDir}/${imagePath}`, arrayBuffer)
+
+    // 创建图片节点
+    const newNode: CanvasNode = {
+      id: nodeId,
+      type: 'image-note',
+      position: { x: 100, y: 100 },
+      imagePath,
+      transcript: `![${file.name}](${imagePath})`,
+      transcriptStatus: 'done',
+      agentResult: null,
+      agentStatus: 'pending',
+      selectedAsContext: false,
+      createdAt: Date.now(),
+      pdfPage: props.currentPage,
+      pdfPosition: { x: 100, y: 100 }
+    }
+
+    if (props.currentPage) {
+      notebookStore.addNodeToPdfPage(newNode, props.currentPage)
+    } else {
+      notebookStore.addNode(newNode)
+    }
+    emit('node-created', newNode)
   }
 }
 

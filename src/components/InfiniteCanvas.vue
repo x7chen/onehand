@@ -124,6 +124,7 @@ const emit = defineEmits<{
   'click': [x: number, y: number]
   'dbl-click': [x: number, y: number]
   'drop-text': [x: number, y: number, text: string]
+  'drop-image': [x: number, y: number, files: File[]]
   'prev-page': []
   'next-page': []
 }>()
@@ -406,9 +407,27 @@ function handleDragOver(e: DragEvent) {
     const target = e.target as HTMLElement
     isOverNodeLocal = !!target.closest('.voice-note')
 
+    // 检测是否有图片文件
+    const items = e.dataTransfer.items
+    let hasImageFile = false
+    if (items) {
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i]
+        if (item.kind === 'file' && item.type.startsWith('image/')) {
+          hasImageFile = true
+          break
+        }
+      }
+    }
+
     // 根据是否在节点上来设置不同的 dropEffect
-    // 在节点上方时设置为 none（通常会显示禁止符号），在空白区域时设置为 copy
-    e.dataTransfer.dropEffect = isOverNodeLocal ? 'none' : 'copy'
+    if (isOverNodeLocal) {
+      e.dataTransfer.dropEffect = 'none'
+    } else if (hasImageFile) {
+      e.dataTransfer.dropEffect = 'copy'
+    } else {
+      e.dataTransfer.dropEffect = 'copy'
+    }
   }
 
   const text = e.dataTransfer?.getData('text/plain')
@@ -446,9 +465,6 @@ function handleDrop(e: DragEvent) {
   e.preventDefault()
   isDraggingText.value = false
 
-  const text = e.dataTransfer?.getData('text/plain')
-  if (!text || !text.trim()) return
-
   // 检查是否在画布空白区域释放，而不是在节点上
   const target = e.target as HTMLElement
   // 如果释放目标或其祖先元素包含 voice-note 类，则不在空白区域，直接返回
@@ -462,6 +478,21 @@ function handleDrop(e: DragEvent) {
   // 计算画布坐标（考虑 viewport 和 zoom）
   const canvasX = (e.clientX - rect.left - props.viewport.x) / props.viewport.zoom
   const canvasY = (e.clientY - rect.top - props.viewport.y) / props.viewport.zoom
+
+  // 检测是否有图片文件
+  if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+    const imageFiles = Array.from(e.dataTransfer.files).filter(
+      file => file.type.startsWith('image/')
+    )
+    if (imageFiles.length > 0) {
+      emit('drop-image', canvasX, canvasY, imageFiles)
+      return
+    }
+  }
+
+  // 处理文本拖拽
+  const text = e.dataTransfer?.getData('text/plain')
+  if (!text || !text.trim()) return
 
   emit('drop-text', canvasX, canvasY, text.trim())
 }
