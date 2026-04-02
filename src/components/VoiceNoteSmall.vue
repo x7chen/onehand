@@ -46,7 +46,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useNotebookStore } from '@/stores/notebookStore'
-import { renderMarkdown } from '@/utils/markdownRenderer'
+import { renderMarkdown, processImagePaths } from '@/utils/markdownRenderer'
 import type { CanvasNode } from '@/types/notebook'
 
 const notebookStore = useNotebookStore()
@@ -96,7 +96,13 @@ async function loadImage() {
 // 渲染 Markdown
 async function renderTranscript() {
   if (props.node.transcript) {
-    sanitizedTranscript.value = await renderMarkdown(props.node.transcript)
+    let html = await renderMarkdown(props.node.transcript)
+    // 处理相对路径图片
+    const notebookId = notebookStore.currentNotebook?.id
+    if (notebookId) {
+      html = await processImagePaths(html, notebookId)
+    }
+    sanitizedTranscript.value = html
   }
 }
 

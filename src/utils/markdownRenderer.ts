@@ -399,3 +399,93 @@ export function setMarkdownCacheEnabled(enabled: boolean) {
   disableCache = !enabled
   console.log('[MarkdownRenderer] Cache', enabled ? 'enabled' : 'disabled')
 }
+
+// 图片路径缓存
+const imageBlobCache = new Map<string, string>()
+
+/**
+ * 处理 HTML 中的相对路径图片，转换为 blob URL
+ * @param html 原始 HTML
+ * @param notebookId 笔记本 ID
+ * @returns 处理后的 HTML
+ */
+export async function processImagePaths(html: string, notebookId: string): Promise<string> {
+  if (!html || !notebookId) return html
+
+  // 匹配 <img src="images/..."> 或 <img src="audio/..."> 等相对路径
+  const imgRegex = /<img([^>]*?)src=["'](images\/[^"']+)["']([^>]*)>/gi
+  const audioRegex = /<img([^>]*?)src=["'](audio\/[^"']+)["']([^>]*)>/gi
+
+  let result = html
+
+  // 处理 images 目录下的图片
+  const imgMatches = html.matchAll(imgRegex)
+  for (const match of imgMatches) {
+    const [fullMatch, before, relativePath, after] = match
+    const blobUrl = await loadImageAsBlobUrl(relativePath, notebookId)
+    if (blobUrl) {
+      result = result.replace(fullMatch, `<img${before}src="${blobUrl}"${after}>`)
+    }
+  }
+
+  return result
+}
+
+/**
+ * 加载图片并返回 blob URL
+ */
+async function loadImageAsBlobUrl(relativePath: string, notebookId: string): Promise<string | null> {
+  const cacheKey = `${notebookId}/${relativePath}`
+
+  // 检查缓存
+  if (imageBlobCache.has(cacheKey)) {
+    return imageBlobCache.get(cacheKey)!
+  }
+
+  try {
+    const appDataPath = await window.electronAPI.getAppPath('userData')
+    const fullPath = `${appDataPath}/notebooks/${notebookId}/${relativePath}`
+    const result = await window.electronAPI.readFile(fullPath, 'arraybuffer')
+
+    if (result.success && result.data) {
+      const buffer = result.data as ArrayBuffer
+      const bytes = new Uint8Array(buffer)
+      let binary = ''
+      for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i])
+      }
+
+      // 获取 MIME 类型
+      const ext = relativePath.split('.').pop()?.toLowerCase() || 'png'
+      const mimeTypes: Record<string, string> = {
+        'png': 'image/png',
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'gif': 'image/gif',
+        'webp': 'image/webp',
+        'bmp': 'image/bmp',
+        'svg': 'image/svg+xml'
+      }
+      const mimeType = mimeTypes[ext] || 'image/png'
+
+      const base64 = btoa(binary)
+      const blobUrl = `data:${mimeType};base64,${base64}`
+
+      // 缓存结果
+      imageBlobCache.set(cacheKey, blobUrl)
+      return blobUrl
+    }
+  } catch (e) {
+    console.warn('[MarkdownRenderer] Failed to load image:', relativePath, e)
+  }
+
+  return null
+}
+
+/**
+ * 清除图片缓存
+ */
+export function clearImageCache() {
+  imageBlobCache.clear()
+  console.log('[MarkdownRenderer] Image cache cleared')
+}

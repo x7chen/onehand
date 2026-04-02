@@ -15,6 +15,7 @@
     -m, --by-month  按创建时间的月份分到不同画布页
     -w, --by-week   按创建时间的星期（周一开始）分到不同画布页
     -d, --by-day    按创建时间的天分到不同画布页
+    -i, --images    提取图片到单独的images文件夹，并转换为markdown图片引用
 
 示例:
     python enex_to_onehand.py my_notes.enex
@@ -22,6 +23,7 @@
     python enex_to_onehand.py my_notes.enex ./output -m
     python enex_to_onehand.py my_notes.enex ./output -w
     python enex_to_onehand.py my_notes.enex ./output -d
+    python enex_to_onehand.py my_notes.enex ./output -i
 """
 
 import xml.etree.ElementTree as ET
@@ -309,75 +311,256 @@ def extract_text_content(content: str) -> str:
     return markdown
 
 
+def process_images_in_content(content: str, resources: List[Dict], images_dir: str, notebook_id: str) -> Tuple[str, List[Dict]]:
+    """
+    处理内容中的图片，保存到指定目录，并替换为markdown图片引用
+
+    Args:
+        content: 原始HTML内容
+        resources: 资源列表
+        images_dir: 图片保存目录
+        notebook_id: 笔记本ID
+
+    Returns:
+        Tuple[处理后的内容, 保存的图片信息列表]
+    """
+    if not content:
+        return content, []
+
+    saved_images = []
+
+    # 移除 CDATA 标记
+    content = re.sub(r'<!\[CDATA\[|\]\]>', '', content)
+
+    # 处理 <en-media> 标签（印象笔记的图片嵌入方式）
+    # 格式: <en-media type="image/png" hash="xxxxx" />
+    def replace_en_media(match):
+        nonlocal saved_images
+
+        tag = match.group(0)
+        # 提取属性
+        type_match = re.search(r'type="([^"]+)"', tag)
+        hash_match = re.search(r'hash="([^"]+)"', tag)
+
+        if not type_match or not hash_match:
+            return tag
+
+        mime_type = type_match.group(1)
+        content_hash = hash_match.group(1)
+
+        # 只处理图片类型
+        if not mime_type.startswith('image/'):
+            return tag
+
+        # 查找匹配的资源
+        matched_resource = None
+        for resource in resources:
+            if resource.get('hash') == content_hash or resource.get('mime') == mime_type:
+                matched_resource = resource
+                break
+
+        if not matched_resource and resources:
+            # 如果没找到精确匹配，尝试用同类型的第一个图片资源
+            for resource in resources:
+                if resource.get('mime', '').startswith('image/'):
+                    matched_resource = resource
+                    break
+
+        if not matched_resource or 'data' not in matched_resource:
+            return '[图片]'
+
+        # 保存图片
+        try:
+            # 确定文件扩展名
+            ext = mime_type.split('/')[-1]
+            if ext == 'jpeg':
+                ext = 'jpg'
+
+            # 生成唯一文件名
+            image_id = f"img-{int(datetime.now().timestamp() * 1000)}-{len(saved_images)}"
+            filename = f"{image_id}.{ext}"
+            image_path = os.path.join(images_dir, filename)
+
+            # 解码并保存图片
+            binary_data = base64.b64decode(matched_resource['data'].strip())
+            with open(image_path, 'wb') as f:
+                f.write(binary_data)
+
+            # 记录保存的图片
+            relative_path = f"images/{filename}"
+            saved_images.append({
+                'path': image_path,
+                'relative_path': relative_path,
+                'filename': filename
+            })
+
+            # 返回 markdown 图片语法
+            alt = matched_resource.get('filename', 'image')
+            return f"\n![{alt}]({relative_path})\n"
+
+        except Exception as e:
+            print(f"  警告: 保存图片失败: {e}")
+            return '[图片]'
+
+    # 替换 en-media 标签
+    content = re.sub(r'<en-media[^>]*/>', replace_en_media, content)
+
+    # 处理普通 img 标签中的 data URL
+    def replace_img_data_url(match):
+        nonlocal saved_images
+
+        full_tag = match.group(0)
+
+        # 提取 src 属性
+        src_match = re.search(r'src="data:image/([^;]+);base64,([^"]+)"', full_tag)
+        if not src_match:
+            return full_tag
+
+        ext = src_match.group(1)
+        if ext == 'jpeg':
+            ext = 'jpg'
+        base64_data = src_match.group(2)
+
+        try:
+            # 生成唯一文件名
+            image_id = f"img-{int(datetime.now().timestamp() * 1000)}-{len(saved_images)}"
+            filename = f"{image_id}.{ext}"
+            image_path = os.path.join(images_dir, filename)
+
+            # 解码并保存图片
+            binary_data = base64.b64decode(base64_data)
+            with open(image_path, 'wb') as f:
+                f.write(binary_data)
+
+            relative_path = f"images/{filename}"
+            saved_images.append({
+                'path': image_path,
+                'relative_path': relative_path,
+                'filename': filename
+            })
+
+            # 提取 alt 属性
+            alt_match = re.search(r'alt="([^"]*)"', full_tag)
+            alt = alt_match.group(1) if alt_match else 'image'
+
+            return f"![{alt}]({relative_path})"
+
+        except Exception as e:
+            print(f"  警告: 保存图片失败: {e}")
+            return '[图片]'
+
+    content = re.sub(r'<img[^>]*src="data:image[^"]*"[^>]*/?>', replace_img_data_url, content)
+
+    # 处理普通 img 标签（非 data URL）
+    def replace_img_tag(match):
+        full_tag = match.group(0)
+
+        # 提取 src 和 alt
+        src_match = re.search(r'src="([^"]+)"', full_tag)
+        alt_match = re.search(r'alt="([^"]*)"', full_tag)
+
+        if src_match:
+            src = src_match.group(1)
+            alt = alt_match.group(1) if alt_match else ''
+            return f"![{alt}]({src})"
+
+        return full_tag
+
+    content = re.sub(r'<img[^>]*src="(?!data:)[^"]*"[^>]*/?>', replace_img_tag, content)
+
+    # 转换剩余的 HTML 为 Markdown
+    content = html_to_markdown(content)
+
+    return content, saved_images
+
+
 def parse_enex(enex_path: str) -> List[Dict]:
     """
     解析 ENEX 文件，返回笔记列表
     """
     tree = ET.parse(enex_path)
     root = tree.getroot()
-    
+
     notes = []
-    
+
     for note in root.findall('.//note'):
         note_data = {}
-        
+
         # 标题
         title_elem = note.find('title')
         note_data['title'] = title_elem.text if title_elem is not None else '无标题'
-        
+
         # 创建时间
         created_elem = note.find('created')
         note_data['created'] = parse_evernote_time(created_elem.text if created_elem is not None else None)
-        
+
         # 更新时间
         updated_elem = note.find('updated')
         note_data['updated'] = parse_evernote_time(updated_elem.text if updated_elem is not None else None)
-        
+
         # 内容
         content_elem = note.find('content')
         if content_elem is not None and content_elem.text:
             note_data['content'] = extract_text_content(content_elem.text)
         else:
             note_data['content'] = ''
-            
+
+        # 原始内容（用于图片处理）
+        note_data['raw_content'] = content_elem.text if content_elem is not None else None
+
         # 标签
         tags = []
         for tag_elem in note.findall('tag'):
             if tag_elem.text:
                 tags.append(tag_elem.text)
         note_data['tags'] = tags
-        
-        # 资源（附件）
+
+        # 资源（附件/图片）
         resources = []
         for resource in note.findall('resource'):
             resource_data = {}
-            
+
             # MIME 类型
             mime_elem = resource.find('mime')
             if mime_elem is not None:
                 resource_data['mime'] = mime_elem.text
-                
+
             # 文件名
             filename_elem = resource.find('resource-attributes/file-name')
             if filename_elem is not None:
                 resource_data['filename'] = filename_elem.text
-                
+
             # 数据
             data_elem = resource.find('data')
             if data_elem is not None and data_elem.text:
                 resource_data['data'] = data_elem.text
-                
+
+            # 资源ID（用于在内容中引用）
+            resource_id_elem = resource.find('resource-attributes/source-url')
+            if resource_id_elem is not None and resource_id_elem.text:
+                # 提取 hash，格式如 "evernote://view/xxxx/xxxx/xxxx/"
+                resource_data['source_url'] = resource_id_elem.text
+
+            # 计算 hash（印象笔记用 hash 来匹配内容和资源）
+            if data_elem is not None and data_elem.text:
+                # 计算 base64 数据的 MD5
+                try:
+                    binary_data = base64.b64decode(data_elem.text.strip())
+                    resource_data['hash'] = hashlib.md5(binary_data).hexdigest()
+                except:
+                    pass
+
             if resource_data:
                 resources.append(resource_data)
-                
+
         note_data['resources'] = resources
-        
+
         notes.append(note_data)
-        
+
     return notes
 
 
-def create_onehand_notebook(notes: List[Dict], notebook_name: str, by_month: bool = False, by_week: bool = False, by_day: bool = False) -> Dict:
+def create_onehand_notebook(notes: List[Dict], notebook_name: str, by_month: bool = False, by_week: bool = False, by_day: bool = False, extract_images: bool = False, output_dir: str = None, notebook_id: str = None) -> Dict:
     """
     创建 OneHand 笔记本格式
 
@@ -387,18 +570,28 @@ def create_onehand_notebook(notes: List[Dict], notebook_name: str, by_month: boo
         by_month: 是否按月份分到不同画布
         by_week: 是否按星期（周一开始）分到不同画布
         by_day: 是否按天分到不同画布
+        extract_images: 是否提取图片到单独文件夹
+        output_dir: 输出目录（用于创建图片文件夹）
+        notebook_id: 笔记本ID（用于创建图片文件夹名称）
     """
     now = int(datetime.now().timestamp() * 1000)
-    notebook_id = str(now)
+    if notebook_id is None:
+        notebook_id = str(now)
+
+    # 如果需要提取图片，创建 images 目录（使用笔记本ID作为文件夹名）
+    images_dir = None
+    if extract_images and output_dir and notebook_id:
+        images_dir = os.path.join(output_dir, notebook_id, 'images')
+        os.makedirs(images_dir, exist_ok=True)
 
     if by_month:
-        return create_onehand_notebook_by_month(notes, notebook_name, now)
+        return create_onehand_notebook_by_month(notes, notebook_name, notebook_id, extract_images=extract_images, images_dir=images_dir)
 
     if by_week:
-        return create_onehand_notebook_by_week(notes, notebook_name, now)
+        return create_onehand_notebook_by_week(notes, notebook_name, notebook_id, extract_images=extract_images, images_dir=images_dir)
 
     if by_day:
-        return create_onehand_notebook_by_day(notes, notebook_name, now)
+        return create_onehand_notebook_by_day(notes, notebook_name, notebook_id, extract_images=extract_images, images_dir=images_dir)
 
     # 创建节点
     nodes = []
@@ -407,12 +600,25 @@ def create_onehand_notebook(notes: List[Dict], notebook_name: str, by_month: boo
         node_id = str(note['created']) + str(i)
         position = calculate_node_position(i, len(notes))
 
+        # 处理内容
+        content = note['content']
+        if extract_images and note.get('raw_content') and note.get('resources'):
+            # 重新处理内容，提取图片
+            content, saved_images = process_images_in_content(
+                note['raw_content'],
+                note['resources'],
+                images_dir,
+                notebook_id
+            )
+            if saved_images:
+                print(f"  笔记 '{note['title'][:30]}...' 提取了 {len(saved_images)} 张图片")
+
         node = {
             'id': node_id,
             'type': 'text-note',
             'title': note['title'][:100] if len(note['title']) > 100 else note['title'],
             'position': position,
-            'transcript': note['content'],
+            'transcript': content,
             'selectedAsContext': False,
             'isFavorite': False,
             'createdAt': note['created']
@@ -447,11 +653,11 @@ def create_onehand_notebook(notes: List[Dict], notebook_name: str, by_month: boo
     return notebook
 
 
-def create_onehand_notebook_by_month(notes: List[Dict], notebook_name: str, now: int) -> Dict:
+def create_onehand_notebook_by_month(notes: List[Dict], notebook_name: str, notebook_id: str, extract_images: bool = False, images_dir: str = None) -> Dict:
     """
     按创建时间的月份创建 OneHand 笔记本，每个月份一个画布页
     """
-    notebook_id = str(now)
+    now = int(datetime.now().timestamp() * 1000)
 
     # 按月份分组笔记
     notes_by_month = defaultdict(list)
@@ -475,12 +681,24 @@ def create_onehand_notebook_by_month(notes: List[Dict], notebook_name: str, now:
             node_id = str(note['created']) + str(i)
             position = calculate_node_position(i, len(month_notes))
 
+            # 处理内容
+            content = note['content']
+            if extract_images and note.get('raw_content') and note.get('resources'):
+                content, saved_images = process_images_in_content(
+                    note['raw_content'],
+                    note['resources'],
+                    images_dir,
+                    notebook_id
+                )
+                if saved_images:
+                    print(f"  笔记 '{note['title'][:30]}...' 提取了 {len(saved_images)} 张图片")
+
             node = {
                 'id': node_id,
                 'type': 'text-note',
                 'title': note['title'][:100] if len(note['title']) > 100 else note['title'],
                 'position': position,
-                'transcript': note['content'],
+                'transcript': content,
                 'selectedAsContext': False,
                 'isFavorite': False,
                 'createdAt': note['created']
@@ -534,11 +752,11 @@ def get_week_key(dt: datetime) -> Tuple[str, str]:
     return week_key, week_name
 
 
-def create_onehand_notebook_by_week(notes: List[Dict], notebook_name: str, now: int) -> Dict:
+def create_onehand_notebook_by_week(notes: List[Dict], notebook_name: str, notebook_id: str, extract_images: bool = False, images_dir: str = None) -> Dict:
     """
     按创建时间的星期（周一开始）创建 OneHand 笔记本，每星期一个画布页
     """
-    notebook_id = str(now)
+    now = int(datetime.now().timestamp() * 1000)
 
     # 按星期分组笔记
     notes_by_week = defaultdict(list)
@@ -563,12 +781,24 @@ def create_onehand_notebook_by_week(notes: List[Dict], notebook_name: str, now: 
             node_id = str(note['created']) + str(i)
             position = calculate_node_position(i, len(week_notes))
 
+            # 处理内容
+            content = note['content']
+            if extract_images and note.get('raw_content') and note.get('resources'):
+                content, saved_images = process_images_in_content(
+                    note['raw_content'],
+                    note['resources'],
+                    images_dir,
+                    notebook_id
+                )
+                if saved_images:
+                    print(f"  笔记 '{note['title'][:30]}...' 提取了 {len(saved_images)} 张图片")
+
             node = {
                 'id': node_id,
                 'type': 'text-note',
                 'title': note['title'][:100] if len(note['title']) > 100 else note['title'],
                 'position': position,
-                'transcript': note['content'],
+                'transcript': content,
                 'selectedAsContext': False,
                 'isFavorite': False,
                 'createdAt': note['created']
@@ -604,11 +834,11 @@ def create_onehand_notebook_by_week(notes: List[Dict], notebook_name: str, now: 
     return notebook
 
 
-def create_onehand_notebook_by_day(notes: List[Dict], notebook_name: str, now: int) -> Dict:
+def create_onehand_notebook_by_day(notes: List[Dict], notebook_name: str, notebook_id: str, extract_images: bool = False, images_dir: str = None) -> Dict:
     """
     按创建时间的天创建 OneHand 笔记本，每天一个画布页
     """
-    notebook_id = str(now)
+    now = int(datetime.now().timestamp() * 1000)
 
     # 按天分组笔记
     notes_by_day = defaultdict(list)
@@ -631,12 +861,24 @@ def create_onehand_notebook_by_day(notes: List[Dict], notebook_name: str, now: i
             node_id = str(note['created']) + str(i)
             position = calculate_node_position(i, len(day_notes))
 
+            # 处理内容
+            content = note['content']
+            if extract_images and note.get('raw_content') and note.get('resources'):
+                content, saved_images = process_images_in_content(
+                    note['raw_content'],
+                    note['resources'],
+                    images_dir,
+                    notebook_id
+                )
+                if saved_images:
+                    print(f"  笔记 '{note['title'][:30]}...' 提取了 {len(saved_images)} 张图片")
+
             node = {
                 'id': node_id,
                 'type': 'text-note',
                 'title': note['title'][:100] if len(note['title']) > 100 else note['title'],
                 'position': position,
-                'transcript': note['content'],
+                'transcript': content,
                 'selectedAsContext': False,
                 'isFavorite': False,
                 'createdAt': note['created']
@@ -672,7 +914,7 @@ def create_onehand_notebook_by_day(notes: List[Dict], notebook_name: str, now: i
     return notebook
 
 
-def convert_enex_to_onehand(enex_path: str, output_dir: str, by_month: bool = False, by_week: bool = False, by_day: bool = False) -> str:
+def convert_enex_to_onehand(enex_path: str, output_dir: str, by_month: bool = False, by_week: bool = False, by_day: bool = False, extract_images: bool = False) -> str:
     """
     将 ENEX 文件转换为 OneHand 格式
     返回输出的笔记本文件路径
@@ -686,12 +928,19 @@ def convert_enex_to_onehand(enex_path: str, output_dir: str, by_month: bool = Fa
         print("没有找到任何笔记")
         return None
 
-    # 生成笔记本名称
+    # 生成笔记本名称和ID
     enex_name = Path(enex_path).stem
     notebook_name = f"印象笔记_{enex_name}"
+    notebook_id = str(int(datetime.now().timestamp() * 1000))
 
     # 创建 OneHand 笔记本
-    notebook = create_onehand_notebook(notes, notebook_name, by_month=by_month, by_week=by_week, by_day=by_day)
+    notebook = create_onehand_notebook(
+        notes, notebook_name,
+        by_month=by_month, by_week=by_week, by_day=by_day,
+        extract_images=extract_images,
+        output_dir=output_dir,
+        notebook_id=notebook_id
+    )
 
     # 确保输出目录存在
     os.makedirs(output_dir, exist_ok=True)
@@ -710,6 +959,12 @@ def convert_enex_to_onehand(enex_path: str, output_dir: str, by_month: bool = Fa
         print(f"按星期分为 {len(notebook['canvases'])} 个画布页")
     if by_day:
         print(f"按天分为 {len(notebook['canvases'])} 个画布页")
+    if extract_images:
+        # 检查是否有图片目录
+        images_dir = os.path.join(output_dir, notebook['id'], 'images')
+        if os.path.exists(images_dir):
+            image_count = len([f for f in os.listdir(images_dir) if os.path.isfile(os.path.join(images_dir, f))])
+            print(f"提取了 {image_count} 张图片到: {images_dir}")
 
     return output_path
 
@@ -725,6 +980,8 @@ def main():
     python enex_to_onehand.py my_notes.enex ./output -m
     python enex_to_onehand.py my_notes.enex ./output -w
     python enex_to_onehand.py my_notes.enex ./output -d
+    python enex_to_onehand.py my_notes.enex ./output -i
+    python enex_to_onehand.py my_notes.enex ./output -m -i
         """
     )
     parser.add_argument('input', help='印象笔记导出的 enex 文件路径')
@@ -736,6 +993,8 @@ def main():
                         help='按创建时间的星期（周一开始）分到不同画布页')
     parser.add_argument('-d', '--by-day', action='store_true',
                         help='按创建时间的天分到不同画布页')
+    parser.add_argument('-i', '--images', action='store_true',
+                        help='提取图片到单独的images文件夹，并转换为markdown图片引用')
 
     args = parser.parse_args()
 
@@ -745,12 +1004,24 @@ def main():
 
     # 执行转换
     try:
-        output_path = convert_enex_to_onehand(args.input, args.output, by_month=args.by_month, by_week=args.by_week, by_day=args.by_day)
+        output_path = convert_enex_to_onehand(
+            args.input, args.output,
+            by_month=args.by_month,
+            by_week=args.by_week,
+            by_day=args.by_day,
+            extract_images=args.images
+        )
         if output_path:
             print(f"\n转换完成!")
             print(f"请将生成的笔记本文件复制到 OneHand 用户数据目录:")
             print(f"  Windows: %APPDATA%\\OneHand\\notebooks\\")
             print(f"  macOS: ~/Library/Application Support/OneHand/notebooks/")
+            if args.images:
+                # 获取笔记本ID（文件名不含扩展名）
+                notebook_id = os.path.basename(output_path).replace('.json', '')
+                print(f"\n注意: 如果使用了 -i 参数提取图片，请将笔记本JSON文件和同名的图片文件夹一起复制:")
+                print(f"  笔记本文件: {os.path.basename(output_path)}")
+                print(f"  图片文件夹: {notebook_id}/")
     except Exception as e:
         print(f"转换失败: {e}")
         import traceback

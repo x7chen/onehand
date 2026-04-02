@@ -205,7 +205,7 @@ import { ref, nextTick, watch, computed, onMounted, onUnmounted, watchEffect } f
 import { useI18n } from 'vue-i18n'
 import { useNotebookStore } from '@/stores/notebookStore'
 import { formatDuration } from '@/utils/helpers'
-import { renderMarkdown, renderMermaidCharts } from '@/utils/markdownRenderer'
+import { renderMarkdown, renderMermaidCharts, processImagePaths } from '@/utils/markdownRenderer'
 import type { CanvasNode } from '@/types/notebook'
 
 const notebookStore = useNotebookStore()
@@ -626,17 +626,23 @@ async function saveTranscriptEdit() {
   }
   const newTranscript = editTranscript.value.trim()
   isEditingTranscript.value = false
-  
+
   console.log('[VoiceNote] New transcript:', newTranscript.substring(0, 50))
-  
+
   // 重新渲染
   console.log('[VoiceNote] Rendering transcript...')
-  sanitizedTranscript.value = await renderMarkdown(newTranscript)
+  let html = await renderMarkdown(newTranscript)
+  // 处理相对路径图片
+  const notebookId = notebookStore.currentNotebook?.id
+  if (notebookId) {
+    html = await processImagePaths(html, notebookId)
+  }
+  sanitizedTranscript.value = html
   await nextTick()
   console.log('[VoiceNote] Rendering mermaid...')
   await renderMermaid()
   console.log('[VoiceNote] Transcript edit saved and rendered')
-  
+
   // 通知父组件保存
   emit('update-node', props.node.id, { transcript: newTranscript })
 }
@@ -654,17 +660,23 @@ async function saveAgentEdit() {
   }
   const newAgentResult = editAgent.value.trim()
   isEditingAgent.value = false
-  
+
   console.log('[VoiceNote] New agent result:', newAgentResult.substring(0, 50))
-  
+
   // 重新渲染
   console.log('[VoiceNote] Rendering agent result...')
-  sanitizedAgentResult.value = await renderMarkdown(newAgentResult)
+  let html = await renderMarkdown(newAgentResult)
+  // 处理相对路径图片
+  const notebookId = notebookStore.currentNotebook?.id
+  if (notebookId) {
+    html = await processImagePaths(html, notebookId)
+  }
+  sanitizedAgentResult.value = html
   await nextTick()
   console.log('[VoiceNote] Rendering mermaid...')
   await renderMermaid()
   console.log('[VoiceNote] Agent edit saved and rendered')
-  
+
   // 通知父组件保存
   emit('update-node', props.node.id, { agentResult: newAgentResult })
 }
@@ -719,14 +731,26 @@ onMounted(async () => {
     await loadImage()
   }
 
+  const notebookId = notebookStore.currentNotebook?.id
+
   if (props.node.transcript) {
     console.log('[VoiceNote] Rendering transcript...')
-    sanitizedTranscript.value = await renderMarkdown(props.node.transcript)
+    let html = await renderMarkdown(props.node.transcript)
+    // 处理相对路径图片
+    if (notebookId) {
+      html = await processImagePaths(html, notebookId)
+    }
+    sanitizedTranscript.value = html
   }
 
   if (props.node.agentResult) {
     console.log('[VoiceNote] Rendering agent result...')
-    sanitizedAgentResult.value = await renderMarkdown(props.node.agentResult)
+    let html = await renderMarkdown(props.node.agentResult)
+    // 处理相对路径图片
+    if (notebookId) {
+      html = await processImagePaths(html, notebookId)
+    }
+    sanitizedAgentResult.value = html
   }
 
   // 渲染 Mermaid 图表 - 等待 DOM 更新
@@ -746,7 +770,13 @@ watch(() => props.node.transcript, async (newTranscript) => {
 
   if (!isEditingTranscript.value) {
     transcriptDebounceTimer = window.setTimeout(async () => {
-      sanitizedTranscript.value = newTranscript ? await renderMarkdown(newTranscript) : ''
+      let html = newTranscript ? await renderMarkdown(newTranscript) : ''
+      // 处理相对路径图片
+      const notebookId = notebookStore.currentNotebook?.id
+      if (notebookId && html) {
+        html = await processImagePaths(html, notebookId)
+      }
+      sanitizedTranscript.value = html
       transcriptDebounceTimer = null
       // 渲染 Mermaid
       await nextTick()
@@ -775,7 +805,15 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
     // 在 processing 状态下使用更短的延迟（50ms）以实现流畅的流式效果
     const delay = props.node.agentStatus === 'processing' ? 50 : 100
     renderDebounceTimer = window.setTimeout(async () => {
-      sanitizedAgentResult.value = await renderMarkdown(newAgentResult)
+      let html = await renderMarkdown(newAgentResult)
+      // 处理相对路径图片（仅在非流式模式下，避免频繁处理）
+      if (props.node.agentStatus !== 'processing') {
+        const notebookId = notebookStore.currentNotebook?.id
+        if (notebookId) {
+          html = await processImagePaths(html, notebookId)
+        }
+      }
+      sanitizedAgentResult.value = html
       renderDebounceTimer = null
       // 渲染 Mermaid
       await nextTick()
