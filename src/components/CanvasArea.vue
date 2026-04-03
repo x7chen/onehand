@@ -509,6 +509,15 @@ async function handleAgentResponse(nodeId: string, transcript: string) {
     const node = notebookStore.currentCanvas?.nodes.find(n => n.id === nodeId)
     if (!node) return
 
+    // 加载当前节点的内嵌图片（如果尚未加载）
+    let currentEmbeddedImages = node.embeddedImages
+    if (!currentEmbeddedImages && transcript) {
+      currentEmbeddedImages = await loadEmbeddedImagesForTranscript(transcript)
+      if (currentEmbeddedImages && currentEmbeddedImages.length > 0) {
+        notebookStore.updateNode(nodeId, { embeddedImages: currentEmbeddedImages })
+      }
+    }
+
     const selectedNodes = notebookStore.currentCanvas?.nodes.filter(n => n.selectedAsContext && n.id !== nodeId) || []
 
     const staticContextContent = props.staticContextFiles
@@ -520,7 +529,8 @@ async function handleAgentResponse(nodeId: string, transcript: string) {
       selectedNodes.map(n => ({ transcript: n.transcript || '', agentResult: n.agentResult || '', imageBase64: n.imageBase64, embeddedImages: n.embeddedImages })),
       transcript,
       staticContextContent,
-      props.dynamicContextFile?.content
+      props.dynamicContextFile?.content,
+      currentEmbeddedImages
     )
 
     let accumulatedContent = ''
@@ -694,6 +704,48 @@ async function loadEmbeddedImages(nodeId: string, transcript: string) {
       embeddedImages: base64Images
     })
   }
+}
+
+// 加载 transcript 中的内嵌图片并返回 base64 数组
+async function loadEmbeddedImagesForTranscript(transcript: string): Promise<string[] | undefined> {
+  const imagePaths = extractImagePaths(transcript)
+  if (imagePaths.length === 0) return undefined
+
+  const appDataPath = await window.electronAPI.getAppPath('userData')
+  const notebook = notebookStore.currentNotebook
+  if (!notebook) return undefined
+
+  const base64Images: string[] = []
+
+  for (const imagePath of imagePaths) {
+    const fullPath = `${appDataPath}/notebooks/${notebook.id}/${imagePath}`
+    const result = await window.electronAPI.readFile(fullPath, 'arraybuffer')
+
+    if (result.success && result.data) {
+      const buffer = result.data as ArrayBuffer
+      const bytes = new Uint8Array(buffer)
+      let binary = ''
+      for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i])
+      }
+      const base64 = btoa(binary)
+
+      const ext = imagePath.split('.').pop()?.toLowerCase() || 'png'
+      const mimeTypes: Record<string, string> = {
+        'png': 'image/png',
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'gif': 'image/gif',
+        'webp': 'image/webp',
+        'bmp': 'image/bmp'
+      }
+      const mimeType = mimeTypes[ext] || 'image/png'
+
+      base64Images.push(`data:${mimeType};base64,${base64}`)
+    }
+  }
+
+  return base64Images.length > 0 ? base64Images : undefined
 }
 
 // 加载图片的base64编码

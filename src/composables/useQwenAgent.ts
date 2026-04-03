@@ -77,7 +77,8 @@ export function buildFullContextMessages(
   contextNodes: Array<{ transcript: string; agentResult: string; imageBase64?: string; embeddedImages?: string[] }>,
   currentTranscript: string,
   staticContext?: string,
-  dynamicContext?: string
+  dynamicContext?: string,
+  currentEmbeddedImages?: string[]
 ): Message[] {
   const systemMessage: Message = {
     role: 'system',
@@ -146,11 +147,21 @@ export function buildFullContextMessages(
     }
   }
 
-  // 4. 当前问题
-  messages.push({
-    role: 'user',
-    content: currentTranscript
-  })
+  // 4. 当前问题（可能包含内嵌图片）
+  if (currentEmbeddedImages && currentEmbeddedImages.length > 0) {
+    const content: MessageContentItem[] = [
+      { type: 'text', text: currentTranscript }
+    ]
+    for (const imgBase64 of currentEmbeddedImages) {
+      content.push({ type: 'image_url', image_url: { url: imgBase64 } })
+    }
+    messages.push({ role: 'user', content })
+  } else {
+    messages.push({
+      role: 'user',
+      content: currentTranscript
+    })
+  }
 
   return [systemMessage, ...messages]
 }
