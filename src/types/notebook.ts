@@ -40,7 +40,8 @@ export interface CanvasNode {
   position: { x: number; y: number }
   audioPath?: string
   imagePath?: string
-  imageBase64?: string  // 图片的base64编码，用于AI上下文
+  imageBase64?: string  // 图片节点的base64编码，用于AI上下文
+  embeddedImages?: string[]  // 文本节点中内嵌图片的base64编码数组
   transcript: string | null
   transcriptStatus: 'pending' | 'processing' | 'done' | 'error'
   agentResult: string | null

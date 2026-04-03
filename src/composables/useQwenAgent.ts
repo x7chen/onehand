@@ -74,7 +74,7 @@ export async function chatWithLLM(
  * 构建包含静态上下文和动态上下文的完整消息
  */
 export function buildFullContextMessages(
-  contextNodes: Array<{ transcript: string; agentResult: string; imageBase64?: string }>,
+  contextNodes: Array<{ transcript: string; agentResult: string; imageBase64?: string; embeddedImages?: string[] }>,
   currentTranscript: string,
   staticContext?: string,
   dynamicContext?: string
@@ -104,8 +104,8 @@ export function buildFullContextMessages(
 
   // 3. 已选择的上下文记录
   for (const node of contextNodes) {
+    // 图片节点：使用Vision API格式
     if (node.imageBase64) {
-      // 图片节点：使用Vision API格式
       const content: MessageContentItem[] = [
         { type: 'text', text: node.transcript || '[图片]' }
       ]
@@ -116,8 +116,25 @@ export function buildFullContextMessages(
       if (node.agentResult) {
         messages.push({ role: 'assistant', content: node.agentResult })
       }
-    } else if (node.transcript) {
-      // 文本节点
+    }
+    // 文本节点内嵌图片：使用Vision API格式
+    else if (node.embeddedImages && node.embeddedImages.length > 0) {
+      const content: MessageContentItem[] = [
+        { type: 'text', text: node.transcript || '' }
+      ]
+      // 添加所有内嵌图片
+      for (const imgBase64 of node.embeddedImages) {
+        content.push({ type: 'image_url', image_url: { url: imgBase64 } })
+      }
+
+      messages.push({ role: 'user', content })
+
+      if (node.agentResult) {
+        messages.push({ role: 'assistant', content: node.agentResult })
+      }
+    }
+    // 纯文本节点
+    else if (node.transcript) {
       if (node.agentResult) {
         messages.push(
           { role: 'user', content: node.transcript },
@@ -166,7 +183,7 @@ export function buildImageAnalysisMessages(
   prompt: string,
   staticContext?: string,
   dynamicContext?: string,
-  contextNodes?: Array<{ transcript: string; agentResult: string; imageBase64?: string }>
+  contextNodes?: Array<{ transcript: string; agentResult: string; imageBase64?: string; embeddedImages?: string[] }>
 ): Message[] {
   const systemMessage: Message = {
     role: 'system',
@@ -194,8 +211,8 @@ export function buildImageAnalysisMessages(
   // 3. 已选择的上下文记录
   if (contextNodes) {
     for (const node of contextNodes) {
+      // 图片节点：使用Vision API格式
       if (node.imageBase64) {
-        // 图片节点：使用Vision API格式
         const content: MessageContentItem[] = [
           { type: 'text', text: node.transcript || '[图片]' }
         ]
@@ -206,8 +223,25 @@ export function buildImageAnalysisMessages(
         if (node.agentResult) {
           messages.push({ role: 'assistant', content: node.agentResult })
         }
-      } else if (node.transcript) {
-        // 文本节点
+      }
+      // 文本节点内嵌图片：使用Vision API格式
+      else if (node.embeddedImages && node.embeddedImages.length > 0) {
+        const content: MessageContentItem[] = [
+          { type: 'text', text: node.transcript || '' }
+        ]
+        // 添加所有内嵌图片
+        for (const imgBase64 of node.embeddedImages) {
+          content.push({ type: 'image_url', image_url: { url: imgBase64 } })
+        }
+
+        messages.push({ role: 'user', content })
+
+        if (node.agentResult) {
+          messages.push({ role: 'assistant', content: node.agentResult })
+        }
+      }
+      // 纯文本节点
+      else if (node.transcript) {
         if (node.agentResult) {
           messages.push(
             { role: 'user', content: node.transcript },

@@ -645,7 +645,7 @@ function handleAgentResponse(nodeId: string, transcript: string, pdfPage: number
       .join('\n\n')
 
     const messages = buildFullContextMessages(
-      selectedNodes.map(n => ({ transcript: n.transcript || '', agentResult: n.agentResult || '', imageBase64: n.imageBase64 })),
+      selectedNodes.map(n => ({ transcript: n.transcript || '', agentResult: n.agentResult || '', imageBase64: n.imageBase64, embeddedImages: n.embeddedImages })),
       transcript,
       staticContextContent,
       dynamicContextFile.value?.content
@@ -748,6 +748,75 @@ function handleToggleContext(nodeId: string) {
     // 如果是图片节点且被勾选，加载base64
     if (newSelectedState && node.type === 'image-note' && node.imagePath && !node.imageBase64) {
       loadImageBase64(nodeId, node.imagePath, pdfPage)
+    }
+
+    // 如果是文本节点且被勾选，加载内嵌图片的base64
+    if (newSelectedState && (node.type === 'voice-note' || node.type === 'text-note') && node.transcript) {
+      loadEmbeddedImages(nodeId, node.transcript, pdfPage)
+    }
+  }
+}
+
+// 提取文本中的图片路径
+function extractImagePaths(text: string): string[] {
+  const imgRegex = /!\[.*?\]\((images\/[^)]+)\)/g
+  const paths: string[] = []
+  let match
+  while ((match = imgRegex.exec(text)) !== null) {
+    paths.push(match[1])
+  }
+  return paths
+}
+
+// 加载文本节点内嵌图片的base64编码
+async function loadEmbeddedImages(nodeId: string, transcript: string, pdfPage: number | null) {
+  const imagePaths = extractImagePaths(transcript)
+  if (imagePaths.length === 0) return
+
+  const appDataPath = await window.electronAPI.getAppPath('userData')
+  const notebook = notebookStore.currentNotebook
+  if (!notebook) return
+
+  const base64Images: string[] = []
+
+  for (const imagePath of imagePaths) {
+    const fullPath = `${appDataPath}/notebooks/${notebook.id}/${imagePath}`
+    const result = await window.electronAPI.readFile(fullPath, 'arraybuffer')
+
+    if (result.success && result.data) {
+      const buffer = result.data as ArrayBuffer
+      const bytes = new Uint8Array(buffer)
+      let binary = ''
+      for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i])
+      }
+      const base64 = btoa(binary)
+
+      // 获取图片的MIME类型
+      const ext = imagePath.split('.').pop()?.toLowerCase() || 'png'
+      const mimeTypes: Record<string, string> = {
+        'png': 'image/png',
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'gif': 'image/gif',
+        'webp': 'image/webp',
+        'bmp': 'image/bmp'
+      }
+      const mimeType = mimeTypes[ext] || 'image/png'
+
+      base64Images.push(`data:${mimeType};base64,${base64}`)
+    }
+  }
+
+  if (base64Images.length > 0) {
+    if (pdfPage !== null) {
+      notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
+        embeddedImages: base64Images
+      })
+    } else {
+      notebookStore.updateNode(nodeId, {
+        embeddedImages: base64Images
+      })
     }
   }
 }
@@ -1081,7 +1150,7 @@ async function callImageAnalysisAI(
       prompt,
       staticContextContent,
       dynamicContextFile.value?.content,
-      selectedNodes.map(n => ({ transcript: n.transcript || '', agentResult: n.agentResult || '', imageBase64: n.imageBase64 }))
+      selectedNodes.map(n => ({ transcript: n.transcript || '', agentResult: n.agentResult || '', imageBase64: n.imageBase64, embeddedImages: n.embeddedImages }))
     )
 
     let accumulatedContent = ''

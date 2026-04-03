@@ -425,7 +425,7 @@ async function handleAgentResponseForText(nodeId: string, transcript: string) {
       .join('\n\n')
 
     const messages = buildFullContextMessages(
-      selectedNodes.map(n => ({ transcript: n.transcript || '', agentResult: n.agentResult || '', imageBase64: n.imageBase64 })),
+      selectedNodes.map(n => ({ transcript: n.transcript || '', agentResult: n.agentResult || '', imageBase64: n.imageBase64, embeddedImages: n.embeddedImages })),
       transcript,
       staticContextContent,
       props.dynamicContextFile?.content
@@ -503,7 +503,7 @@ async function handleImageAnalysisResponse(nodeId: string, imageBase64: string, 
       prompt,
       staticContextContent,
       props.dynamicContextFile?.content,
-      selectedNodes.map(n => ({ transcript: n.transcript || '', agentResult: n.agentResult || '', imageBase64: n.imageBase64 }))
+      selectedNodes.map(n => ({ transcript: n.transcript || '', agentResult: n.agentResult || '', imageBase64: n.imageBase64, embeddedImages: n.embeddedImages }))
     )
 
     let accumulatedContent = ''
@@ -776,7 +776,7 @@ async function handleAgentResponseForVoice(nodeId: string, transcript: string, p
       .join('\n\n')
 
     const messages = buildFullContextMessages(
-      selectedNodes.map(n => ({ transcript: n.transcript || '', agentResult: n.agentResult || '', imageBase64: n.imageBase64 })),
+      selectedNodes.map(n => ({ transcript: n.transcript || '', agentResult: n.agentResult || '', imageBase64: n.imageBase64, embeddedImages: n.embeddedImages })),
       transcript,
       staticContextContent,
       props.dynamicContextFile?.content
