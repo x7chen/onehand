@@ -240,6 +240,8 @@ function handleClick() {
 
 .small-transcript-box {
   padding: 6px 8px;
+  max-height: 350px;
+  overflow-y: auto;
 }
 
 .small-transcript-content {
