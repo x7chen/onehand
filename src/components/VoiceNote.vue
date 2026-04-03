@@ -110,6 +110,8 @@
         @keydown.ctrl.enter.exact.prevent="saveEdit"
         @keydown.meta.enter.exact.prevent="saveEdit"
         @keydown.escape="cancelEdit"
+        @dragover.prevent="handleEditDragOver"
+        @drop.prevent="handleEditDrop"
       ></textarea>
     </div>
 
@@ -131,6 +133,8 @@
           @keydown.ctrl.enter.exact.prevent="saveTranscriptEdit"
           @keydown.meta.enter.exact.prevent="saveTranscriptEdit"
           @keydown.escape="cancelTranscriptEdit"
+          @dragover.prevent="handleEditDragOver"
+          @drop.prevent="handleTranscriptEditDrop"
         ></textarea>
         <div
           v-else
@@ -176,6 +180,8 @@
           @keydown.ctrl.enter.exact.prevent="saveAgentEdit"
           @keydown.meta.enter.exact.prevent="saveAgentEdit"
           @keydown.escape="cancelAgentEdit"
+          @dragover.prevent="handleEditDragOver"
+          @drop.prevent="handleAgentEditDrop"
         ></textarea>
         <div
           v-else
@@ -278,6 +284,144 @@ async function loadImage() {
 // 图片加载完成处理
 function handleImageLoad() {
   // 图片加载完成，可以做一些处理
+}
+
+// 处理编辑区域的图片拖拽
+function handleEditDragOver(e: DragEvent) {
+  // 检查是否有图片文件
+  if (e.dataTransfer && e.dataTransfer.types.includes('Files')) {
+    const items = e.dataTransfer.items
+    for (const item of items) {
+      if (item.kind === 'file' && item.type.startsWith('image/')) {
+        e.dataTransfer.dropEffect = 'copy'
+        return
+      }
+    }
+  }
+}
+
+// 处理编辑模式的图片拖放
+async function handleEditDrop(e: DragEvent) {
+  if (!e.dataTransfer || !e.dataTransfer.files.length) return
+
+  const files = Array.from(e.dataTransfer.files)
+  const imageFiles = files.filter(f => f.type.startsWith('image/'))
+
+  if (imageFiles.length === 0) return
+
+  for (const file of imageFiles) {
+    const markdownLink = await saveImageToNotebook(file)
+    if (markdownLink) {
+      // 在光标位置插入图片链接
+      const textarea = editingTextarea.value
+      if (textarea) {
+        const start = textarea.selectionStart
+        const end = textarea.selectionEnd
+        const text = localEditingText.value
+        localEditingText.value = text.substring(0, start) + markdownLink + text.substring(end)
+        // 移动光标到插入内容之后
+        nextTick(() => {
+          textarea.selectionStart = textarea.selectionEnd = start + markdownLink.length
+          textarea.focus()
+        })
+      }
+    }
+  }
+}
+
+// 处理转写编辑模式的图片拖放
+async function handleTranscriptEditDrop(e: DragEvent) {
+  if (!e.dataTransfer || !e.dataTransfer.files.length) return
+
+  const files = Array.from(e.dataTransfer.files)
+  const imageFiles = files.filter(f => f.type.startsWith('image/'))
+
+  if (imageFiles.length === 0) return
+
+  for (const file of imageFiles) {
+    const markdownLink = await saveImageToNotebook(file)
+    if (markdownLink) {
+      // 在光标位置插入图片链接
+      const textarea = transcriptTextarea.value
+      if (textarea) {
+        const start = textarea.selectionStart
+        const end = textarea.selectionEnd
+        const text = editTranscript.value
+        editTranscript.value = text.substring(0, start) + markdownLink + text.substring(end)
+        // 移动光标到插入内容之后
+        nextTick(() => {
+          textarea.selectionStart = textarea.selectionEnd = start + markdownLink.length
+          textarea.focus()
+        })
+      }
+    }
+  }
+}
+
+// 处理AI回答编辑模式的图片拖放
+async function handleAgentEditDrop(e: DragEvent) {
+  if (!e.dataTransfer || !e.dataTransfer.files.length) return
+
+  const files = Array.from(e.dataTransfer.files)
+  const imageFiles = files.filter(f => f.type.startsWith('image/'))
+
+  if (imageFiles.length === 0) return
+
+  for (const file of imageFiles) {
+    const markdownLink = await saveImageToNotebook(file)
+    if (markdownLink) {
+      // 在光标位置插入图片链接
+      const textarea = agentTextarea.value
+      if (textarea) {
+        const start = textarea.selectionStart
+        const end = textarea.selectionEnd
+        const text = editAgent.value
+        editAgent.value = text.substring(0, start) + markdownLink + text.substring(end)
+        // 移动光标到插入内容之后
+        nextTick(() => {
+          textarea.selectionStart = textarea.selectionEnd = start + markdownLink.length
+          textarea.focus()
+        })
+      }
+    }
+  }
+}
+
+// 保存图片到笔记本目录并返回markdown链接
+async function saveImageToNotebook(file: File): Promise<string | null> {
+  const notebook = notebookStore.currentNotebook
+  if (!notebook) {
+    console.error('[VoiceNote] No current notebook')
+    return null
+  }
+
+  try {
+    const appDataPath = await window.electronAPI.getAppPath('userData')
+    const notebookDir = `${appDataPath}/notebooks/${notebook.id}`
+    const imagesDir = `${notebookDir}/images`
+
+    // 确保images目录存在
+    await window.electronAPI.mkdir(imagesDir)
+
+    // 生成唯一文件名
+    const ext = file.name.split('.').pop() || 'png'
+    const imageId = `img-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    const filename = `${imageId}.${ext}`
+    const imagePath = `${imagesDir}/${filename}`
+    const relativePath = `images/${filename}`
+
+    // 读取文件内容并保存
+    const arrayBuffer = await file.arrayBuffer()
+    await window.electronAPI.saveFileBuffer(imagePath, arrayBuffer)
+
+    console.log('[VoiceNote] Image saved:', relativePath)
+
+    // 返回markdown图片链接
+    return `\n![${file.name}](${relativePath})\n`
+  } catch (error) {
+    console.error('[VoiceNote] Failed to save image:', error)
+    return null
+  }
 }
 
 // 监听节点ID变化，重新加载图片
