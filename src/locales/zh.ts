@@ -186,6 +186,9 @@ export default {
     viewDetails: '查看详情',
     jumpToNote: '跳转到笔记位置',
     note: '笔记',
+    thinking: '思考过程',
+    showThinking: '展开思考过程',
+    hideThinking: '收起思考过程',
   },
   title: {
     appTitle: 'OneHand',

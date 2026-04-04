@@ -186,6 +186,9 @@ export default {
     viewDetails: 'View details',
     jumpToNote: 'Jump to note position',
     note: 'Note',
+    thinking: 'Thinking',
+    showThinking: 'Show thinking',
+    hideThinking: 'Hide thinking',
   },
   title: {
     appTitle: 'OneHand',

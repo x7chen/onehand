@@ -157,6 +157,24 @@
       </div>
     </div>
 
+    <!-- 思考过程显示区域 -->
+    <div v-if="(node.thinkingContent || node.thinkingStatus === 'processing') && !isAiResultHidden" class="thinking-box" @dblclick.stop>
+      <div class="thinking-header" @click="toggleThinkingExpanded">
+        <svg class="thinking-arrow" :class="{ expanded: isThinkingExpanded }" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+          <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
+        </svg>
+        <span class="thinking-label">{{ t('voiceNote.thinking') }}</span>
+        <span v-if="node.thinkingStatus === 'processing'" class="streaming-indicator thinking-indicator">
+          <span class="dot"></span>
+          <span class="dot"></span>
+          <span class="dot"></span>
+        </span>
+      </div>
+      <div v-show="isThinkingExpanded" class="thinking-content-wrapper">
+        <div class="thinking-content" v-html="sanitizedThinkingContent"></div>
+      </div>
+    </div>
+
     <div v-if="(node.agentResult || node.agentStatus === 'processing') && !isAiResultHidden" class="agent-result-box" @dblclick.stop>
       <div class="agent-header">
         <span class="agent-label">{{ t('common.aiAnswer') }}</span>
@@ -436,6 +454,12 @@ const computedIsPlaying = computed(() => props.isPlaying ?? localIsPlaying.value
 // 本地 AI 回答隐藏状态
 const isAiResultHidden = ref(false)
 
+// 思考过程展开状态（默认收起）
+const isThinkingExpanded = ref(false)
+
+// Markdown 渲染结果
+const sanitizedThinkingContent = ref('')
+
 // 笔记标题编辑
 const isEditingTitle = ref(false)
 const localTitle = ref('')
@@ -683,6 +707,11 @@ function toggleFavorite() {
 // 隐藏/显示 AI 回答
 function toggleHideAiResult() {
   isAiResultHidden.value = !isAiResultHidden.value
+}
+
+// 展开/收起思考过程
+function toggleThinkingExpanded() {
+  isThinkingExpanded.value = !isThinkingExpanded.value
 }
 
 // 重新生成 AI 回答
@@ -966,6 +995,27 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
     }, delay)
   } else {
     sanitizedAgentResult.value = ''
+  }
+}, { immediate: true })
+
+// 监听 thinkingContent 变化，重新渲染 Markdown（包括流式更新）
+let thinkingDebounceTimer: number | null = null
+watch(() => props.node.thinkingContent, async (newThinkingContent) => {
+  if (thinkingDebounceTimer) {
+    clearTimeout(thinkingDebounceTimer)
+  }
+
+  if (newThinkingContent) {
+    const delay = props.node.thinkingStatus === 'processing' ? 50 : 100
+    thinkingDebounceTimer = window.setTimeout(async () => {
+      const html = await renderMarkdown(newThinkingContent)
+      sanitizedThinkingContent.value = html
+      thinkingDebounceTimer = null
+      await nextTick()
+      await renderMermaid()
+    }, delay)
+  } else {
+    sanitizedThinkingContent.value = ''
   }
 }, { immediate: true })
 </script>
@@ -1399,6 +1449,103 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
   padding: 10px;
   border-radius: 4px;
   position: relative;
+}
+
+/* 思考过程区域样式 */
+.thinking-box {
+  background: var(--bg-thinking);
+  border-left: 3px solid var(--color-thinking);
+  padding: 8px 10px;
+  border-radius: 4px;
+  margin-bottom: 3px;
+  position: relative;
+}
+
+:root.dark .thinking-box {
+  background: var(--bg-thinking-dark);
+}
+
+.thinking-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.thinking-arrow {
+  color: var(--text-secondary);
+  transition: transform 0.2s;
+}
+
+.thinking-arrow.expanded {
+  transform: rotate(90deg);
+}
+
+.thinking-label {
+  font-size: 12px;
+  color: var(--color-thinking);
+  font-weight: 500;
+}
+
+.thinking-indicator {
+  margin-left: auto;
+}
+
+.thinking-content-wrapper {
+  margin-top: 8px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 4px;
+}
+
+:root.dark .thinking-content-wrapper {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.thinking-content {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  width: 100%;
+  box-sizing: border-box;
+  user-select: text;
+}
+
+.thinking-content :deep(p) {
+  margin: 0.5em 0;
+  line-height: 1.6;
+}
+
+.thinking-content :deep(h1),
+.thinking-content :deep(h2),
+.thinking-content :deep(h3),
+.thinking-content :deep(h4),
+.thinking-content :deep(h5),
+.thinking-content :deep(h6) {
+  font-weight: bold;
+  margin: 0.3em 0;
+}
+
+.thinking-content :deep(ul),
+.thinking-content :deep(ol) {
+  padding-left: 1.5em;
+  margin: 0.3em 0;
+}
+
+.thinking-content :deep(code) {
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', Consolas, monospace;
+  background-color: rgba(0, 0, 0, 0.05);
+  padding: 0.1em 0.4em;
+  border-radius: 3px;
+  font-size: 0.85em;
+}
+
+:root.dark .thinking-content :deep(code) {
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
 :root.dark .agent-result-box {

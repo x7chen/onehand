@@ -664,6 +664,7 @@ async function handleAgentResponse(nodeId: string, transcript: string) {
     )
 
     let accumulatedContent = ''
+    let accumulatedThinking = ''
 
     const modelConfig = currentModelConfig.value
     if (!modelConfig) {
@@ -687,11 +688,19 @@ async function handleAgentResponse(nodeId: string, transcript: string) {
         agentStatus: 'processing'
       })
       // activeNode 现在是计算属性，会自动获取最新数据
+    }, (thinkingChunk) => {
+      accumulatedThinking += thinkingChunk
+      notebookStore.updateNode(nodeId, {
+        thinkingContent: accumulatedThinking,
+        thinkingStatus: 'processing'
+      })
     })
 
     notebookStore.updateNode(nodeId, {
-      agentResult: result,
-      agentStatus: 'done'
+      agentResult: result.content,
+      agentStatus: 'done',
+      thinkingContent: result.thinking,
+      thinkingStatus: result.thinking ? 'done' : undefined
     })
     // activeNode 现在是计算属性，会自动获取最新数据
   } catch (error) {

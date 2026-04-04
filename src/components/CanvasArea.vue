@@ -505,7 +505,7 @@ async function handleAgentResponse(nodeId: string, transcript: string) {
   const settings = settingsStore.settings
 
   try {
-    notebookStore.updateNode(nodeId, { agentStatus: 'processing' })
+    notebookStore.updateNode(nodeId, { agentStatus: 'processing', thinkingStatus: 'pending' })
 
     const node = notebookStore.currentCanvas?.nodes.find(n => n.id === nodeId)
     if (!node) return
@@ -538,6 +538,7 @@ async function handleAgentResponse(nodeId: string, transcript: string) {
     )
 
     let accumulatedContent = ''
+    let accumulatedThinking = ''
 
     const modelConfig = currentModelConfig.value
     if (!modelConfig) {
@@ -560,11 +561,19 @@ async function handleAgentResponse(nodeId: string, transcript: string) {
         agentResult: accumulatedContent,
         agentStatus: 'processing'
       }, true)
+    }, (thinkingChunk) => {
+      accumulatedThinking += thinkingChunk
+      notebookStore.updateNode(nodeId, {
+        thinkingContent: accumulatedThinking,
+        thinkingStatus: 'processing'
+      }, true)
     })
 
     notebookStore.updateNode(nodeId, {
-      agentResult: result,
-      agentStatus: 'done'
+      agentResult: result.content,
+      agentStatus: 'done',
+      thinkingContent: result.thinking || accumulatedThinking || undefined,
+      thinkingStatus: result.thinking || accumulatedThinking ? 'done' : undefined
     })
   } catch (error) {
     notebookStore.updateNode(nodeId, {

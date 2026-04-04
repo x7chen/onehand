@@ -1,5 +1,10 @@
 import type { Message, MessageContentItem } from '@/types/api'
 
+export interface ChatResult {
+  content: string
+  thinking?: string
+}
+
 export async function chatWithLLM(
   messages: Message[],
   config: {
@@ -9,8 +14,9 @@ export async function chatWithLLM(
     enableThinking?: boolean
     temperature?: number
   },
-  onChunk?: (chunk: string) => void
-): Promise<string> {
+  onChunk?: (chunk: string) => void,
+  onThinkingChunk?: (chunk: string) => void
+): Promise<ChatResult> {
   try {
     // 移除 baseUrl 末尾的斜杠，避免双斜杠问题
     const baseUrl = config.baseUrl.replace(/\/+$/, '')
@@ -51,6 +57,7 @@ export async function chatWithLLM(
     }
 
     let fullContent = ''
+    let fullThinking = ''
     const decoder = new TextDecoder()
 
     while (true) {
@@ -67,7 +74,17 @@ export async function chatWithLLM(
 
           try {
             const parsed = JSON.parse(data)
-            const content = parsed.choices?.[0]?.delta?.content || ''
+            const delta = parsed.choices?.[0]?.delta
+
+            // 处理思考内容
+            const reasoningContent = delta?.reasoning_content || ''
+            if (reasoningContent) {
+              fullThinking += reasoningContent
+              onThinkingChunk?.(reasoningContent)
+            }
+
+            // 处理最终回答内容
+            const content = delta?.content || ''
             if (content) {
               fullContent += content
               onChunk?.(content)
@@ -79,7 +96,10 @@ export async function chatWithLLM(
       }
     }
 
-    return fullContent
+    return {
+      content: fullContent,
+      thinking: fullThinking || undefined
+    }
   } catch (error) {
     console.error('LLM chat failed:', error)
     throw error

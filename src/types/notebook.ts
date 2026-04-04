@@ -46,6 +46,8 @@ export interface CanvasNode {
   transcriptStatus: 'pending' | 'processing' | 'done' | 'error'
   agentResult: string | null
   agentStatus: 'pending' | 'processing' | 'done' | 'error'
+  thinkingContent?: string  // 思考过程内容
+  thinkingStatus?: 'pending' | 'processing' | 'done'  // 思考状态
   selectedAsContext?: boolean
   isFavorite?: boolean
   createdAt: number

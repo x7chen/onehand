@@ -16,6 +16,9 @@
   --color-info-light: rgba(255, 152, 0, 0.15);
   --color-favorite: #fbbf24;
   --color-recording: #ff4444;
+  --color-thinking: #9c7cf4;
+  --bg-thinking: rgba(156, 124, 244, 0.08);
+  --bg-thinking-dark: rgba(156, 124, 244, 0.15);
 }
 
 :root.dark {

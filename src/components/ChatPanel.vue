@@ -452,6 +452,7 @@ async function handleAgentResponseForText(nodeId: string, transcript: string) {
     )
 
     let accumulatedContent = ''
+    let accumulatedThinking = ''
 
     const result = await chatWithLLM(messages, {
       baseUrl: currentModelConfig.value?.baseUrl || '',
@@ -472,17 +473,34 @@ async function handleAgentResponseForText(nodeId: string, transcript: string) {
           agentStatus: 'processing'
         })
       }
+    }, (thinkingChunk) => {
+      accumulatedThinking += thinkingChunk
+      if (pdfPage) {
+        notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
+          thinkingContent: accumulatedThinking,
+          thinkingStatus: 'processing'
+        })
+      } else {
+        notebookStore.updateNode(nodeId, {
+          thinkingContent: accumulatedThinking,
+          thinkingStatus: 'processing'
+        })
+      }
     })
 
     if (pdfPage) {
       notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
-        agentResult: result,
-        agentStatus: 'done'
+        agentResult: result.content,
+        agentStatus: 'done',
+        thinkingContent: result.thinking,
+        thinkingStatus: result.thinking ? 'done' : undefined
       })
     } else {
       notebookStore.updateNode(nodeId, {
-        agentResult: result,
-        agentStatus: 'done'
+        agentResult: result.content,
+        agentStatus: 'done',
+        thinkingContent: result.thinking,
+        thinkingStatus: result.thinking ? 'done' : undefined
       })
     }
   } catch (error) {
@@ -529,6 +547,7 @@ async function handleImageAnalysisResponse(nodeId: string, imageBase64: string, 
     )
 
     let accumulatedContent = ''
+    let accumulatedThinking = ''
 
     const result = await chatWithLLM(messages, {
       baseUrl: currentModelConfig.value?.baseUrl || '',
@@ -549,17 +568,34 @@ async function handleImageAnalysisResponse(nodeId: string, imageBase64: string, 
           agentStatus: 'processing'
         })
       }
+    }, (thinkingChunk) => {
+      accumulatedThinking += thinkingChunk
+      if (pdfPage) {
+        notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
+          thinkingContent: accumulatedThinking,
+          thinkingStatus: 'processing'
+        })
+      } else {
+        notebookStore.updateNode(nodeId, {
+          thinkingContent: accumulatedThinking,
+          thinkingStatus: 'processing'
+        })
+      }
     })
 
     if (pdfPage) {
       notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
-        agentResult: result,
-        agentStatus: 'done'
+        agentResult: result.content,
+        agentStatus: 'done',
+        thinkingContent: result.thinking,
+        thinkingStatus: result.thinking ? 'done' : undefined
       })
     } else {
       notebookStore.updateNode(nodeId, {
-        agentResult: result,
-        agentStatus: 'done'
+        agentResult: result.content,
+        agentStatus: 'done',
+        thinkingContent: result.thinking,
+        thinkingStatus: result.thinking ? 'done' : undefined
       })
     }
   } catch (error) {
@@ -826,6 +862,7 @@ async function handleAgentResponseForVoice(nodeId: string, transcript: string, p
     )
 
     let accumulatedContent = ''
+    let accumulatedThinking = ''
 
     const result = await chatWithLLM(messages, {
       baseUrl: currentModelConfig.value?.baseUrl || '',
@@ -850,17 +887,34 @@ async function handleAgentResponseForVoice(nodeId: string, transcript: string, p
       if (shouldAutoScroll.value) {
         nextTick(() => scrollToBottom())
       }
+    }, (thinkingChunk) => {
+      accumulatedThinking += thinkingChunk
+      if (pdfPage !== undefined && pdfPage !== null) {
+        notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
+          thinkingContent: accumulatedThinking,
+          thinkingStatus: 'processing'
+        })
+      } else {
+        notebookStore.updateNode(nodeId, {
+          thinkingContent: accumulatedThinking,
+          thinkingStatus: 'processing'
+        })
+      }
     })
 
     if (pdfPage !== undefined && pdfPage !== null) {
       notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
-        agentResult: result,
-        agentStatus: 'done'
+        agentResult: result.content,
+        agentStatus: 'done',
+        thinkingContent: result.thinking,
+        thinkingStatus: result.thinking ? 'done' : undefined
       })
     } else {
       notebookStore.updateNode(nodeId, {
-        agentResult: result,
-        agentStatus: 'done'
+        agentResult: result.content,
+        agentStatus: 'done',
+        thinkingContent: result.thinking,
+        thinkingStatus: result.thinking ? 'done' : undefined
       })
     }
   } catch (error) {

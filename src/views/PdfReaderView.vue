@@ -666,6 +666,7 @@ async function handleAgentResponse(nodeId: string, transcript: string, pdfPage: 
     )
 
     let accumulatedContent = ''
+    let accumulatedThinking = ''
 
     const modelConfig = currentModelConfig.value
     if (!modelConfig) {
@@ -688,10 +689,18 @@ async function handleAgentResponse(nodeId: string, transcript: string, pdfPage: 
         agentResult: accumulatedContent,
         agentStatus: 'processing'
       })
+    }, (thinkingChunk) => {
+      accumulatedThinking += thinkingChunk
+      notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
+        thinkingContent: accumulatedThinking,
+        thinkingStatus: 'processing'
+      })
     }).then(result => {
       notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
-        agentResult: result,
-        agentStatus: 'done'
+        agentResult: result.content,
+        agentStatus: 'done',
+        thinkingContent: result.thinking,
+        thinkingStatus: result.thinking ? 'done' : undefined
       })
     }).catch(error => {
       notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
@@ -1081,6 +1090,7 @@ async function callImageAnalysisAI(
     )
 
     let accumulatedContent = ''
+    let accumulatedThinking = ''
 
     const modelConfig = currentModelConfig.value
     if (!modelConfig) {
@@ -1091,7 +1101,7 @@ async function callImageAnalysisAI(
       return
     }
 
-    await chatWithLLM(messages, {
+    const result = await chatWithLLM(messages, {
       baseUrl: modelConfig.baseUrl,
       apiKey: modelConfig.apiKey,
       model: modelConfig.model,
@@ -1103,11 +1113,19 @@ async function callImageAnalysisAI(
         agentResult: accumulatedContent,
         agentStatus: 'processing'
       })
+    }, (thinkingChunk) => {
+      accumulatedThinking += thinkingChunk
+      notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
+        thinkingContent: accumulatedThinking,
+        thinkingStatus: 'processing'
+      })
     })
 
     notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
-      agentResult: accumulatedContent,
-      agentStatus: 'done'
+      agentResult: result.content,
+      agentStatus: 'done',
+      thinkingContent: result.thinking,
+      thinkingStatus: result.thinking ? 'done' : undefined
     })
 
     // 更新 activeNode
