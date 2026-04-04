@@ -133,7 +133,7 @@
         <span class="ai-icon-text">AI</span>
       </button>
 
-      <!-- 动态上下文显示（右侧） -->
+      <!-- 节点上下文选择器 -->
       <div class="context-toolbar-group">
         <button
           @click="$emit('copy-selected-context')"
@@ -161,6 +161,18 @@
         </button>
       </div>
 
+      <!-- 搜索按钮 -->
+      <button
+        class="search-btn"
+        @click="showSearchDialog = true"
+        :title="t('common.search')"
+      >
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+          <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+        </svg>
+      </button>
+
+      <!-- 动态上下文显示（右侧） -->
       <div
         ref="dynamicContextDisplayRef"
         class="dynamic-context-display"
@@ -218,12 +230,19 @@
         </span>
       </div>
     </template>
+
+    <!-- 搜索对话框 -->
+    <SearchDialog
+      :visible="showSearchDialog"
+      @close="showSearchDialog = false"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import SearchDialog from '@/components/SearchDialog.vue'
 import type { ContextFile } from '@/types/context'
 import type { LLMProfile } from '@/types/settings'
 
@@ -284,6 +303,9 @@ const currentModel = computed(() => {
   const modelId = props.notebookModelId || props.activeProfileId
   return props.allProfiles.find(p => p.id === modelId)
 })
+
+// 搜索对话框状态
+const showSearchDialog = ref(false)
 
 // Header 宽度检测
 const headerRef = ref<HTMLElement | null>(null)
@@ -412,7 +434,6 @@ onUnmounted(() => {
   background: var(--bg-primary);
   box-shadow: 0 2px 4px var(--shadow-color);
   position: relative;
-  z-index: 100;
 }
 
 .back-btn {
@@ -527,6 +548,25 @@ onUnmounted(() => {
 
 .ai-answer-toggle-btn.active .ai-icon-text {
   color: white !important;
+}
+
+.search-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+  color: var(--text-secondary);
+}
+
+.search-btn:hover {
+  background: var(--border-color);
+  color: var(--text-primary);
 }
 
 .context-toolbar-group {
