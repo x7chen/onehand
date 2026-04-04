@@ -119,6 +119,7 @@ import ChatPanel from '@/components/ChatPanel.vue'
 import ContextToolbar from '@/components/ContextToolbar.vue'
 import { transcribeWithSherpaOnnx } from '@/composables/useSherpaOnnx'
 import { chatWithLLM, buildFullContextMessages, buildImageAnalysisMessages } from '@/composables/useQwenAgent'
+import { extractImagePaths, loadEmbeddedImagesForTranscript, loadImageBase64 } from '@/utils/contextBuilder'
 import type { CanvasNode } from '@/types/notebook'
 
 const route = useRoute()
@@ -639,9 +640,12 @@ async function handleAgentResponse(nodeId: string, transcript: string, pdfPage: 
     // 加载当前节点的内嵌图片（如果尚未加载）
     let currentEmbeddedImages = node.embeddedImages
     if (!currentEmbeddedImages && transcript) {
-      currentEmbeddedImages = await loadEmbeddedImagesForTranscript(transcript)
-      if (currentEmbeddedImages && currentEmbeddedImages.length > 0) {
-        notebookStore.updateNodeInPdfPage(nodeId, pdfPage, { embeddedImages: currentEmbeddedImages })
+      const notebook = notebookStore.currentNotebook
+      if (notebook) {
+        currentEmbeddedImages = await loadEmbeddedImagesForTranscript(transcript, notebook.id, window.electronAPI.readFile)
+        if (currentEmbeddedImages && currentEmbeddedImages.length > 0) {
+          notebookStore.updateNodeInPdfPage(nodeId, pdfPage, { embeddedImages: currentEmbeddedImages })
+        }
       }
     }
 
@@ -747,7 +751,7 @@ async function handlePlayNode(nodeId: string) {
   }
 }
 
-function handleToggleContext(nodeId: string) {
+async function handleToggleContext(nodeId: string) {
   const pdfPage = notebookStore.findNodePdfPage(nodeId)
   const canvas = pdfPage !== null ? notebookStore.getCanvasByPdfPage(pdfPage) : null
   const node = canvas?.nodes.find(n => n.id === nodeId)
@@ -755,162 +759,31 @@ function handleToggleContext(nodeId: string) {
     const newSelectedState = !node.selectedAsContext
     notebookStore.updateNodeAuto(nodeId, { selectedAsContext: newSelectedState })
 
+    const notebook = notebookStore.currentNotebook
+    if (!notebook) return
+
     // 如果是图片节点且被勾选，加载base64
     if (newSelectedState && node.type === 'image-note' && node.imagePath && !node.imageBase64) {
-      loadImageBase64(nodeId, node.imagePath, pdfPage)
+      const base64 = await loadImageBase64(node.imagePath, notebook.id, window.electronAPI.readFile)
+      if (base64) {
+        if (pdfPage !== null) {
+          notebookStore.updateNodeInPdfPage(nodeId, pdfPage, { imageBase64: base64 })
+        } else {
+          notebookStore.updateNode(nodeId, { imageBase64: base64 })
+        }
+      }
     }
 
     // 如果是文本节点且被勾选，加载内嵌图片的base64
     if (newSelectedState && (node.type === 'voice-note' || node.type === 'text-note') && node.transcript) {
-      loadEmbeddedImages(nodeId, node.transcript, pdfPage)
-    }
-  }
-}
-
-// 提取文本中的图片路径
-function extractImagePaths(text: string): string[] {
-  const imgRegex = /!\[.*?\]\((images\/[^)]+)\)/g
-  const paths: string[] = []
-  let match
-  while ((match = imgRegex.exec(text)) !== null) {
-    paths.push(match[1])
-  }
-  return paths
-}
-
-// 加载文本节点内嵌图片的base64编码
-async function loadEmbeddedImages(nodeId: string, transcript: string, pdfPage: number | null) {
-  const imagePaths = extractImagePaths(transcript)
-  if (imagePaths.length === 0) return
-
-  const appDataPath = await window.electronAPI.getAppPath('userData')
-  const notebook = notebookStore.currentNotebook
-  if (!notebook) return
-
-  const base64Images: string[] = []
-
-  for (const imagePath of imagePaths) {
-    const fullPath = `${appDataPath}/notebooks/${notebook.id}/${imagePath}`
-    const result = await window.electronAPI.readFile(fullPath, 'arraybuffer')
-
-    if (result.success && result.data) {
-      const buffer = result.data as ArrayBuffer
-      const bytes = new Uint8Array(buffer)
-      let binary = ''
-      for (let i = 0; i < bytes.byteLength; i++) {
-        binary += String.fromCharCode(bytes[i])
+      const embeddedImages = await loadEmbeddedImagesForTranscript(node.transcript, notebook.id, window.electronAPI.readFile)
+      if (embeddedImages && embeddedImages.length > 0) {
+        if (pdfPage !== null) {
+          notebookStore.updateNodeInPdfPage(nodeId, pdfPage, { embeddedImages })
+        } else {
+          notebookStore.updateNode(nodeId, { embeddedImages })
+        }
       }
-      const base64 = btoa(binary)
-
-      // 获取图片的MIME类型
-      const ext = imagePath.split('.').pop()?.toLowerCase() || 'png'
-      const mimeTypes: Record<string, string> = {
-        'png': 'image/png',
-        'jpg': 'image/jpeg',
-        'jpeg': 'image/jpeg',
-        'gif': 'image/gif',
-        'webp': 'image/webp',
-        'bmp': 'image/bmp'
-      }
-      const mimeType = mimeTypes[ext] || 'image/png'
-
-      base64Images.push(`data:${mimeType};base64,${base64}`)
-    }
-  }
-
-  if (base64Images.length > 0) {
-    if (pdfPage !== null) {
-      notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
-        embeddedImages: base64Images
-      })
-    } else {
-      notebookStore.updateNode(nodeId, {
-        embeddedImages: base64Images
-      })
-    }
-  }
-}
-
-// 加载 transcript 中的内嵌图片并返回 base64 数组
-async function loadEmbeddedImagesForTranscript(transcript: string): Promise<string[] | undefined> {
-  const imagePaths = extractImagePaths(transcript)
-  if (imagePaths.length === 0) return undefined
-
-  const appDataPath = await window.electronAPI.getAppPath('userData')
-  const notebook = notebookStore.currentNotebook
-  if (!notebook) return undefined
-
-  const base64Images: string[] = []
-
-  for (const imagePath of imagePaths) {
-    const fullPath = `${appDataPath}/notebooks/${notebook.id}/${imagePath}`
-    const result = await window.electronAPI.readFile(fullPath, 'arraybuffer')
-
-    if (result.success && result.data) {
-      const buffer = result.data as ArrayBuffer
-      const bytes = new Uint8Array(buffer)
-      let binary = ''
-      for (let i = 0; i < bytes.byteLength; i++) {
-        binary += String.fromCharCode(bytes[i])
-      }
-      const base64 = btoa(binary)
-
-      const ext = imagePath.split('.').pop()?.toLowerCase() || 'png'
-      const mimeTypes: Record<string, string> = {
-        'png': 'image/png',
-        'jpg': 'image/jpeg',
-        'jpeg': 'image/jpeg',
-        'gif': 'image/gif',
-        'webp': 'image/webp',
-        'bmp': 'image/bmp'
-      }
-      const mimeType = mimeTypes[ext] || 'image/png'
-
-      base64Images.push(`data:${mimeType};base64,${base64}`)
-    }
-  }
-
-  return base64Images.length > 0 ? base64Images : undefined
-}
-
-// 加载图片的base64编码
-async function loadImageBase64(nodeId: string, imagePath: string, pdfPage: number | null) {
-  const appDataPath = await window.electronAPI.getAppPath('userData')
-  const notebook = notebookStore.currentNotebook
-  if (!notebook) return
-
-  const fullPath = `${appDataPath}/notebooks/${notebook.id}/${imagePath}`
-  const result = await window.electronAPI.readFile(fullPath, 'arraybuffer')
-
-  if (result.success && result.data) {
-    const buffer = result.data as ArrayBuffer
-    const bytes = new Uint8Array(buffer)
-    let binary = ''
-    for (let i = 0; i < bytes.byteLength; i++) {
-      binary += String.fromCharCode(bytes[i])
-    }
-    const base64 = btoa(binary)
-
-    // 获取图片的MIME类型
-    const ext = imagePath.split('.').pop()?.toLowerCase() || 'png'
-    const mimeTypes: Record<string, string> = {
-      'png': 'image/png',
-      'jpg': 'image/jpeg',
-      'jpeg': 'image/jpeg',
-      'gif': 'image/gif',
-      'webp': 'image/webp',
-      'bmp': 'image/bmp'
-    }
-    const mimeType = mimeTypes[ext] || 'image/png'
-
-    if (pdfPage !== null) {
-      notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
-        imageBase64: `data:${mimeType};base64,${base64}`
-      })
-    } else {
-      notebookStore.updateNode(nodeId, {
-        imageBase64: `data:${mimeType};base64,${base64}`
-      })
     }
   }
 }
