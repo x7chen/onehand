@@ -62,6 +62,14 @@ function handleDeepLinkClick(event: MouseEvent) {
     }
   }
 
+  // Handle relative file links (e.g., ./files/document.pdf) - ignore them
+  const fileLink = target.closest('a[href^="./"]') as HTMLAnchorElement | null
+  if (fileLink) {
+    event.preventDefault()
+    event.stopPropagation()
+    return
+  }
+
   // Handle onehand:// deep links
   const link = target.closest('a[href^="onehand://"]') as HTMLAnchorElement | null
   if (link) {
