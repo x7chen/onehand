@@ -35,54 +35,73 @@
       </div>
     </div>
 
-    <!-- 左边缘翻页按钮（上一页） -->
+    <!-- 左边缘翻页按钮（上一页 + 插入） -->
     <div
       class="page-nav-zone page-nav-left"
       @mouseenter="isLeftZoneHovered = true"
       @mouseleave="isLeftZoneHovered = false"
     >
       <Transition name="page-nav-fade">
-        <button
-          v-if="isLeftZoneHovered && hasPrevPage"
-          class="page-nav-btn"
-          @click="handlePrevPage"
-          :title="t('pdf.prevPage')"
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="15 18 9 12 15 6"></polyline>
-          </svg>
-        </button>
+        <div v-if="isLeftZoneHovered" class="page-nav-buttons">
+          <button
+            class="page-nav-btn insert-btn"
+            @click="handleInsertBefore"
+            :title="t('canvas.insertBefore')"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+          </button>
+          <button
+            v-if="hasPrevPage"
+            class="page-nav-btn"
+            @click="handlePrevPage"
+            :title="t('pdf.prevPage')"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+          </button>
+        </div>
       </Transition>
     </div>
 
-    <!-- 右边缘翻页按钮（下一页/新增页面） -->
+    <!-- 右边缘翻页按钮（下一页/新增 + 插入） -->
     <div
       class="page-nav-zone page-nav-right"
       @mouseenter="isRightZoneHovered = true"
       @mouseleave="isRightZoneHovered = false"
     >
       <Transition name="page-nav-fade">
-        <button
-          v-if="isRightZoneHovered && (hasNextPage || canAddNewPage)"
-          class="page-nav-btn"
-          :class="{ 'add-new-page': !hasNextPage }"
-          @click="handleNextOrAddPage"
-          :title="hasNextPage ? t('pdf.nextPage') : t('notebook.newNotebook')"
-        >
-          <svg v-if="hasNextPage" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="9 18 15 12 9 6"></polyline>
-          </svg>
-          <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="12" y1="5" x2="12" y2="19"></line>
-            <line x1="5" y1="12" x2="19" y2="12"></line>
-          </svg>
-        </button>
+        <div v-if="isRightZoneHovered" class="page-nav-buttons">
+          <button
+            class="page-nav-btn insert-btn"
+            @click="handleInsertAfter"
+            :title="t('canvas.insertAfter')"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+          </button>
+          <button
+            v-if="hasNextPage"
+            class="page-nav-btn"
+            @click="handleNextOrAddPage"
+            :title="t('pdf.nextPage')"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+          </button>
+        </div>
       </Transition>
     </div>
 
     <!-- 页码指示器 -->
     <Transition name="page-indicator-fade">
-      <div v-if="showPageIndicator" class="page-indicator">
+      <div v-if="showPageIndicator || isLeftZoneHovered || isRightZoneHovered" class="page-indicator">
         {{ currentPageNumber }} / {{ totalPages }}
       </div>
     </Transition>
@@ -160,6 +179,18 @@ function handleNextOrAddPage() {
     notebookStore.addNewPage()
     showPageIndicatorTemporarily()
   }
+}
+
+// 在当前页之前插入
+function handleInsertBefore() {
+  notebookStore.insertPageBefore()
+  showPageIndicatorTemporarily()
+}
+
+// 在当前页之后插入
+function handleInsertAfter() {
+  notebookStore.insertPageAfter()
+  showPageIndicatorTemporarily()
 }
 
 function showPageIndicatorTemporarily() {
@@ -693,6 +724,26 @@ function scrollToNode(nodeId: string) {
 .page-nav-btn svg {
   width: 20px;
   height: 20px;
+}
+
+/* 按钮容器 */
+.page-nav-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 插入按钮样式 */
+.page-nav-btn.insert-btn {
+  background: var(--bg-primary);
+  border: 2px dashed var(--color-primary);
+  color: var(--color-primary);
+}
+
+.page-nav-btn.insert-btn:hover {
+  background: var(--color-primary);
+  color: white;
+  border-style: solid;
 }
 
 /* 页码指示器 */

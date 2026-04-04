@@ -16,59 +16,82 @@
   >
     <!-- 左侧边缘悬浮按钮区域 -->
     <div
-      class="edge-trigger left-edge"
-      :class="{ 'active': showLeftButton }"
+      class="page-nav-zone page-nav-left"
       @mouseenter="showLeftButton = true"
       @mouseleave="showLeftButton = false"
-      @mousedown.stop
-      @mouseup.stop
-      @click.stop
     >
-      <div class="edge-button-container" v-if="showLeftButton" @mousedown.stop @mouseup.stop @click.stop>
-        <div class="page-indicator">{{ t('common.page', { current: currentPageNumber || 1, total: totalPages || 1 }) }}</div>
-        <button
-          class="edge-button"
-          :class="{ 'disabled': !hasPrevPage }"
-          :disabled="!hasPrevPage"
-          @click.stop="handlePrevPage"
-          @mousedown.stop
-          @mouseup.stop
-        >
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-            <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
-          </svg>
-          <span>{{ hasPrevPage ? t('common.prevPage') : t('common.firstPage') }}</span>
-        </button>
-      </div>
+      <Transition name="page-nav-fade">
+        <div v-if="showLeftButton" class="page-nav-buttons">
+          <button
+            class="page-nav-btn insert-btn"
+            @click.stop="handleInsertBefore"
+            @mousedown.stop
+            @mouseup.stop
+            :title="t('canvas.insertBefore')"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+          </button>
+          <button
+            v-if="hasPrevPage"
+            class="page-nav-btn"
+            @click.stop="handlePrevPage"
+            @mousedown.stop
+            @mouseup.stop
+            :title="t('common.prevPage')"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+          </button>
+        </div>
+      </Transition>
     </div>
 
     <!-- 右侧边缘悬浮按钮区域 -->
     <div
-      class="edge-trigger right-edge"
-      :class="{ 'active': showRightButton }"
+      class="page-nav-zone page-nav-right"
       @mouseenter="showRightButton = true"
       @mouseleave="showRightButton = false"
-      @mousedown.stop
-      @mouseup.stop
-      @click.stop
     >
-      <div class="edge-button-container" v-if="showRightButton" @mousedown.stop @mouseup.stop @click.stop>
-        <div class="page-indicator">{{ t('common.page', { current: currentPageNumber || 1, total: totalPages || 1 }) }}</div>
-        <button
-          class="edge-button"
-          :class="{ 'disabled': !hasNextPage && isCurrentCanvasEmpty }"
-          :disabled="!hasNextPage && isCurrentCanvasEmpty"
-          @click.stop="handleNextPage"
-          @mousedown.stop
-          @mouseup.stop
-        >
-          <span>{{ hasNextPage ? t('common.nextPage') : t('common.newPage') }}</span>
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-            <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
-          </svg>
-        </button>
-      </div>
+      <Transition name="page-nav-fade">
+        <div v-if="showRightButton" class="page-nav-buttons">
+          <button
+            class="page-nav-btn insert-btn"
+            @click.stop="handleInsertAfter"
+            @mousedown.stop
+            @mouseup.stop
+            :title="t('canvas.insertAfter')"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+          </button>
+          <button
+            v-if="hasNextPage"
+            class="page-nav-btn"
+            @click.stop="handleNextPage"
+            @mousedown.stop
+            @mouseup.stop
+            :title="t('common.nextPage')"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+          </button>
+        </div>
+      </Transition>
     </div>
+
+    <!-- 页码指示器 -->
+    <Transition name="page-indicator-fade">
+      <div v-if="showPageIndicator || showLeftButton || showRightButton" class="page-indicator-bottom">
+        {{ currentPageNumber || 1 }} / {{ totalPages || 1 }}
+      </div>
+    </Transition>
 
     <div
       class="canvas-content"
@@ -127,22 +150,53 @@ const emit = defineEmits<{
   'drop-image': [x: number, y: number, files: File[]]
   'prev-page': []
   'next-page': []
+  'insert-before': []
+  'insert-after': []
 }>()
 
 // 边缘按钮显示状态
 const showLeftButton = ref(false)
 const showRightButton = ref(false)
 
+// 页码指示器状态
+const showPageIndicator = ref(false)
+let pageIndicatorTimer: ReturnType<typeof setTimeout> | null = null
+
+// 临时显示页码指示器
+function showPageIndicatorTemporarily() {
+  showPageIndicator.value = true
+  if (pageIndicatorTimer) {
+    clearTimeout(pageIndicatorTimer)
+  }
+  pageIndicatorTimer = setTimeout(() => {
+    showPageIndicator.value = false
+  }, 2000)
+}
+
 // 处理上一页
 function handlePrevPage() {
   if (props.hasPrevPage) {
     emit('prev-page')
+    showPageIndicatorTemporarily()
   }
 }
 
 // 处理下一页/新增一页
 function handleNextPage() {
   emit('next-page')
+  showPageIndicatorTemporarily()
+}
+
+// 处理在当前页之前插入
+function handleInsertBefore() {
+  emit('insert-before')
+  showPageIndicatorTemporarily()
+}
+
+// 处理在当前页之后插入
+function handleInsertAfter() {
+  emit('insert-after')
+  showPageIndicatorTemporarily()
 }
 
 const isDraggingText = ref(false)
@@ -208,7 +262,7 @@ function handleMouseDown(e: MouseEvent) {
   }
 
   // Check if clicking on edge buttons or their containers
-  if (target.closest('.edge-button') || target.closest('.edge-button-container')) {
+  if (target.closest('.page-nav-btn') || target.closest('.page-nav-buttons')) {
     return // Don't trigger canvas events when clicking edge buttons
   }
 
@@ -505,7 +559,7 @@ function handleDblClick(e: MouseEvent) {
   }
 
   // 双击边缘按钮区域不触发
-  if (target.closest('.edge-button') || target.closest('.edge-button-container')) {
+  if (target.closest('.page-nav-btn') || target.closest('.page-nav-buttons')) {
     return
   }
 
@@ -609,11 +663,11 @@ defineExpose({
   white-space: nowrap;
 }
 
-/* 边缘触发区域 */
-.edge-trigger {
+/* 边缘翻页区域 */
+.page-nav-zone {
   position: absolute;
   top: 0;
-  width: 30px;
+  width: 60px;
   height: 100%;
   z-index: 100;
   display: flex;
@@ -621,141 +675,138 @@ defineExpose({
   pointer-events: auto;
 }
 
-.edge-trigger.left-edge {
+.page-nav-left {
   left: 0;
 }
 
-.edge-trigger.right-edge {
+.page-nav-right {
   right: 0;
 }
 
-.edge-trigger.active {
-  background: linear-gradient(to right, rgba(0, 0, 0, 0.05), transparent);
+/* 按钮容器 */
+.page-nav-buttons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
 }
 
-.edge-trigger.right-edge.active {
-  background: linear-gradient(to left, rgba(0, 0, 0, 0.05), transparent);
+.page-nav-left .page-nav-buttons {
+  margin-left: 8px;
 }
 
-/* 边缘按钮容器 */
-.edge-button-container {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  opacity: 0;
-  animation: fadeIn 0.2s ease forwards;
+.page-nav-right .page-nav-buttons {
+  margin-right: 8px;
+  align-items: flex-end;
 }
 
-.edge-trigger.left-edge .edge-button-container {
-  left: 8px;
-}
-
-.edge-trigger.right-edge .edge-button-container {
-  right: 8px;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-50%) translateX(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(-50%) translateX(0);
-  }
-}
-
-.edge-trigger.right-edge .edge-button-container {
-  animation: fadeInRight 0.2s ease forwards;
-}
-
-@keyframes fadeInRight {
-  from {
-    opacity: 0;
-    transform: translateY(-50%) translateX(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(-50%) translateX(0);
-  }
-}
-
-/* 边缘按钮样式 */
-.edge-button {
+/* 圆形翻页按钮 */
+.page-nav-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 10px 16px;
-  background: var(--bg-primary, #ffffff);
-  border: 1px solid var(--border-color, #e0e0e0);
-  border-radius: 8px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-primary, #333333);
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   transition: all 0.2s ease;
-  white-space: nowrap;
 }
 
-.edge-button:hover:not(.disabled) {
-  background: var(--bg-secondary, #f5f5f5);
-  transform: scale(1.02);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+.page-nav-btn:hover {
+  background: var(--color-primary);
+  color: white;
+  transform: scale(1.1);
 }
 
-.edge-button:active:not(.disabled) {
-  transform: scale(0.98);
+.page-nav-btn svg {
+  width: 20px;
+  height: 20px;
 }
 
-.edge-button.disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  color: var(--text-secondary, #666666);
+/* 插入按钮样式 */
+.page-nav-btn.insert-btn {
+  background: var(--bg-primary);
+  border: 2px dashed var(--color-primary);
+  color: var(--color-primary);
 }
 
-/* 页码指示器 */
-.page-indicator {
-  font-size: 12px;
-  color: var(--text-secondary, #666666);
-  margin-bottom: 8px;
-  text-align: center;
-  white-space: nowrap;
-  background: var(--bg-primary, #ffffff);
-  padding: 4px 10px;
-  border-radius: 12px;
-  border: 1px solid var(--border-color, #e0e0e0);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+.page-nav-btn.insert-btn:hover {
+  background: var(--color-primary);
+  color: white;
+  border-style: solid;
+}
+
+/* 新增页面按钮样式 */
+.page-nav-btn.add-new-page {
+  background: var(--bg-primary);
+  border: 2px dashed var(--color-primary);
+  color: var(--color-primary);
+}
+
+.page-nav-btn.add-new-page:hover {
+  background: var(--color-primary);
+  color: white;
+  border-style: solid;
+}
+
+/* 底部页码指示器 */
+.page-indicator-bottom {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  padding: 6px 16px;
+  border-radius: 16px;
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 10;
+  pointer-events: none;
+}
+
+/* 过渡动画 */
+.page-nav-fade-enter-active,
+.page-nav-fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.page-nav-fade-enter-from,
+.page-nav-fade-leave-to {
+  opacity: 0;
+}
+
+/* 页码指示器过渡动画 */
+.page-indicator-fade-enter-active,
+.page-indicator-fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.page-indicator-fade-enter-from,
+.page-indicator-fade-leave-to {
+  opacity: 0;
 }
 
 /* 深色模式适配 */
 @media (prefers-color-scheme: dark) {
-  .edge-button {
+  .page-nav-btn {
     background: #3d3d3d;
-    border-color: #555555;
     color: #e0e0e0;
   }
 
-  .edge-button:hover:not(.disabled) {
-    background: #4d4d4d;
+  .page-nav-btn:hover {
+    background: var(--color-primary);
   }
 
-  .edge-button.disabled {
-    color: #888888;
-  }
-
-  .edge-trigger.active {
-    background: linear-gradient(to right, rgba(255, 255, 255, 0.05), transparent);
-  }
-
-  .edge-trigger.right-edge.active {
-    background: linear-gradient(to left, rgba(255, 255, 255, 0.05), transparent);
-  }
-
-  .page-indicator {
+  .page-indicator-bottom {
     background: #3d3d3d;
-    border-color: #555555;
-    color: #aaaaaa;
+    color: #e0e0e0;
   }
 }
 </style>

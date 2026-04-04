@@ -401,6 +401,40 @@ export const useNotebookStore = defineStore('notebook', () => {
     return true
   }
 
+  // 在当前页之前插入新画布
+  function insertPageBefore(): boolean {
+    if (!currentNotebook.value) return false
+
+    // 确保 canvases 数组存在
+    if (!currentNotebook.value.canvases) {
+      currentNotebook.value.canvases = []
+    }
+
+    const currentIndex = currentNotebook.value.currentCanvasIndex ?? 0
+    const newPage = createCanvasPage()
+    currentNotebook.value.canvases.splice(currentIndex, 0, newPage)
+    // currentCanvasIndex 保持不变，新页面成为当前页
+    saveNotebook(currentNotebook.value)
+    return true
+  }
+
+  // 在当前页之后插入新画布
+  function insertPageAfter(): boolean {
+    if (!currentNotebook.value) return false
+
+    // 确保 canvases 数组存在
+    if (!currentNotebook.value.canvases) {
+      currentNotebook.value.canvases = []
+    }
+
+    const currentIndex = currentNotebook.value.currentCanvasIndex ?? 0
+    const newPage = createCanvasPage()
+    currentNotebook.value.canvases.splice(currentIndex + 1, 0, newPage)
+    currentNotebook.value.currentCanvasIndex = currentIndex + 1
+    saveNotebook(currentNotebook.value)
+    return true
+  }
+
   // 删除指定页面
   function removePage(pageIndex: number): boolean {
     if (!currentNotebook.value?.canvases) return false
@@ -712,6 +746,8 @@ export const useNotebookStore = defineStore('notebook', () => {
     goToPrevPage,
     goToNextPage,
     addNewPage,
+    insertPageBefore,
+    insertPageAfter,
     removePage,
     checkAndRemoveEmptyPage,
     cleanupEmptyPages,

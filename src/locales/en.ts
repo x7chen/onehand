@@ -165,6 +165,8 @@ export default {
     sttConfigError: 'Speech recognition configuration error, please check settings',
     transcribeFailed: 'Transcription failed',
     llmConfigError: 'Model configuration error, please check settings',
+    insertBefore: 'Insert before this page',
+    insertAfter: 'Insert after this page',
   },
   voiceNote: {
     recording: 'Recording',

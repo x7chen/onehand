@@ -20,6 +20,8 @@
       @drop-image="handleDropImage"
       @prev-page="handlePrevPage"
       @next-page="handleNextPage"
+      @insert-before="handleInsertBefore"
+      @insert-after="handleInsertAfter"
     >
       <template #nodes>
         <VoiceNote
@@ -266,6 +268,20 @@ function handleNextPage() {
   // 切换后选中第一个节点
   selectFirstNode()
   emit('next-page')
+}
+
+function handleInsertBefore() {
+  cancelTextEdit()
+  notebookStore.insertPageBefore()
+  viewport.value = notebookStore.getCurrentViewport()
+  selectFirstNode()
+}
+
+function handleInsertAfter() {
+  cancelTextEdit()
+  notebookStore.insertPageAfter()
+  viewport.value = notebookStore.getCurrentViewport()
+  selectFirstNode()
 }
 
 // 选中当前画布的第一个节点

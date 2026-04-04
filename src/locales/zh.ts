@@ -165,6 +165,8 @@ export default {
     sttConfigError: '语音识别配置错误，请检查设置',
     transcribeFailed: '转写失败',
     llmConfigError: '模型配置错误，请检查设置',
+    insertBefore: '在此页前插入',
+    insertAfter: '在此页后插入',
   },
   voiceNote: {
     recording: '录音中',
