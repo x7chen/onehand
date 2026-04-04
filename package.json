@@ -1,6 +1,6 @@
 {
   "name": "onehand",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "智能语音笔记桌面应用 - Intelligent Voice Notebook Desktop Application",
   "main": "dist-electron/main.js",
   "scripts": {

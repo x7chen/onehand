@@ -11,9 +11,10 @@
             @click="handleNavigate"
             :title="t('voiceNote.jumpToNote')"
           >
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M15 3l2.3 2.3-2.89 2.87-1.42-1.42L15 3zm-6 6l2.3 2.3-2.89 2.87-1.42-1.42L9 9zm3 3l2.3 2.3-2.89 2.87-1.42-1.42L12 12z"/>
-              <path d="M9 21l-2.3-2.3 2.89-2.87 1.42 1.42L9 21zm6-6l-2.3-2.3 2.89-2.87 1.42 1.42L15 15z"/>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/>
+              <polyline points="15 3 21 3 21 9"/>
+              <line x1="10" y1="14" x2="21" y2="3"/>
             </svg>
             <span>{{ t('common.jump') }}</span>
           </button>

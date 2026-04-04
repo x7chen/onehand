@@ -53,7 +53,10 @@
       :title="currentModel ? t('canvas.currentModel', { name: currentModel.name }) : t('canvas.selectModel')"
     >
       <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" class="model-icon">
-        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.1c-.26.81-1.05 1.38-1.9 1.38h-1v-1c0-1.1-.9-2-2-2h-2v-2c0-.55-.45-1-1-1H7v-2h2c1.1 0 2-.9 2-2h2v2c0 .55.45 1 1 1h3v1h-1v2h2l.3 1.62zM21 12c0 .34-.03.67-.07 1H18v-2h2.93c.04.33.07.66.07 1z"/>
+        <circle cx="12" cy="12" r="2"/>
+        <ellipse cx="12" cy="12" rx="9" ry="4" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        <ellipse cx="12" cy="12" rx="9" ry="4" fill="none" stroke="currentColor" stroke-width="1.5" transform="rotate(60 12 12)"/>
+        <ellipse cx="12" cy="12" rx="9" ry="4" fill="none" stroke="currentColor" stroke-width="1.5" transform="rotate(-60 12 12)"/>
       </svg>
       <div v-if="showModelSelector" class="model-dropdown">
         <span
@@ -81,8 +84,11 @@
         class="reset-viewport-btn"
         :title="t('canvas.backToOrigin')"
       >
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm-5-9h10v2H7l3.5 3.5-1.42 1.42L4.16 13l4.92-4.92L10.5 9.5 7 13z"/>
+        <svg viewBox="0 0 24 24" width="18" height="18">
+          <rect x="3" y="3" width="18" height="18" rx="1" fill="none" stroke="currentColor" stroke-width="2"/>
+          <line x1="3" y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="1" opacity="0.5"/>
+          <line x1="12" y1="3" x2="12" y2="21" stroke="currentColor" stroke-width="1" opacity="0.5"/>
+          <circle cx="12" cy="12" r="2" fill="currentColor"/>
         </svg>
       </button>
 
@@ -94,7 +100,10 @@
         :title="t('canvas.autoLayout')"
       >
         <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-          <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
+          <rect x="2" y="2" width="9" height="9" rx="1.5"/>
+          <rect x="13" y="2" width="9" height="9" rx="1.5"/>
+          <rect x="2" y="13" width="9" height="9" rx="1.5"/>
+          <rect x="13" y="13" width="9" height="9" rx="1.5"/>
         </svg>
       </button>
 
