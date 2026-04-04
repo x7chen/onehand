@@ -23,6 +23,11 @@ const router = createRouter({
       path: '/pdf/:notebookId',
       name: 'pdf',
       component: () => import('../views/PdfReaderView.vue')
+    },
+    {
+      path: '/multi-chat/:notebookId',
+      name: 'multi-chat',
+      component: () => import('../views/MultiChatView.vue')
     }
   ]
 })

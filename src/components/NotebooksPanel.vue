@@ -96,7 +96,7 @@ function openNotebook(notebookId: string) {
     if (notebook.pdfPath) {
       router.push(`/pdf/${notebookId}`)
     } else {
-      router.push(`/node-list/${notebookId}`)
+      router.push(`/multi-chat/${notebookId}`)
     }
   }
 }

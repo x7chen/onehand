@@ -139,6 +139,7 @@ export default {
   canvas: {
     clickToView: '点击左侧笔记查看详情',
     pdfNotFound: '未找到 PDF 文件',
+    multiChat: '双面板视图',
     expandList: '展开列表',
     collapseList: '折叠列表',
     backToOrigin: '回到原点',

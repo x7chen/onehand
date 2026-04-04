@@ -139,6 +139,7 @@ export default {
   canvas: {
     clickToView: 'Click a note on the left to view details',
     pdfNotFound: 'PDF file not found',
+    multiChat: 'Dual panel view',
     expandList: 'Expand list',
     collapseList: 'Collapse list',
     backToOrigin: 'Back to origin',

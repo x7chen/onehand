@@ -1,5 +1,8 @@
 <template>
-  <div class="chat-panel">
+  <div
+    class="chat-panel"
+    :class="{ 'is-active': props.isActive }"
+  >
     <!-- 笔记详情区域 -->
     <div
       ref="nodeDetailContainerRef"
@@ -7,6 +10,7 @@
       @scroll="handleNodeDetailScroll"
       @wheel="handleUserWheel"
       @mousedown="handleMouseDown"
+      @click="handleContentClick"
     >
       <div v-if="activeNode" class="node-detail">
         <VoiceNote
@@ -33,7 +37,7 @@
           @copy-link="handleCopyLink"
         />
       </div>
-      <div v-else class="empty-node">
+      <div v-else class="empty-node" @click="handleEmptyClick">
         <svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor" class="empty-icon">
           <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/>
         </svg>
@@ -44,6 +48,7 @@
     <!-- MagicPad 区域 -->
     <div
       class="magic-pad"
+      @click="handleMagicPadClick"
       @dblclick="handleMagicPadDblClick"
       @mousedown="handleMagicPadMouseDown"
       @mouseup="handleMagicPadMouseUp"
@@ -87,6 +92,8 @@ const props = defineProps<{
   editingText?: string
   currentPage?: number
   includedPageImage?: { imageBase64: string; pageNumber: number } | null
+  isActive?: boolean
+  panelId?: 'left' | 'right'
 }>()
 
 const emit = defineEmits<{
@@ -102,7 +109,36 @@ const emit = defineEmits<{
   'save-edit': [nodeId: string, text: string]
   'cancel-edit': [nodeId: string]
   'start-editing': [nodeId: string]
+  'activate': [panelId: 'left' | 'right']
 }>()
+
+// 处理内容区域点击激活
+function handleContentClick(e: MouseEvent) {
+  // 如果点击的是交互元素，不触发激活
+  const target = e.target as HTMLElement
+  if (target.closest('button') || target.closest('input') || target.closest('textarea') || target.closest('a') || target.closest('.content-edit')) {
+    return
+  }
+  if (props.panelId) {
+    emit('activate', props.panelId)
+  }
+}
+
+// 处理空节点区域点击激活
+function handleEmptyClick() {
+  if (props.panelId) {
+    emit('activate', props.panelId)
+  }
+}
+
+// 处理 MagicPad 区域点击激活
+function handleMagicPadClick(e: MouseEvent) {
+  // 如果是双击或长按触发的操作，不触发激活
+  if (e.detail > 1) return
+  if (props.panelId) {
+    emit('activate', props.panelId)
+  }
+}
 
 const notebookStore = useNotebookStore()
 const settingsStore = useSettingsStore()
@@ -940,6 +976,12 @@ async function handleAgentResponseForVoice(nodeId: string, transcript: string, p
   display: flex;
   flex-direction: column;
   background: var(--bg-primary);
+  border-left: 1px solid var(--border-color);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.chat-panel.is-active {
+  border-top: 3px solid var(--color-primary);
   border-left: 1px solid var(--border-color);
 }
 
