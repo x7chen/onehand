@@ -340,8 +340,14 @@ function sanitizeHtml(html: string): string {
 export async function renderMarkdown(markdown: string): Promise<string> {
   if (!markdown) return ''
 
+  // 移除 <think>、</think>、begin_of_box、end_of_box 标签
+  let processedMarkdown = markdown
+    .replace(/<\/?think>/gi, '')
+    .replace(/<\|begin_of_box\|>/gi, '')
+    .replace(/<\|end_of_box\|>/gi, '')
+
   // 使用完整内容的 hash 作为缓存 key
-  const cacheKey = `v3:${markdown.length}:${markdown.substring(0, 200)}`
+  const cacheKey = `v3:${processedMarkdown.length}:${processedMarkdown.substring(0, 200)}`
 
   // 检查缓存（开发模式可禁用）
   if (markdownCache.has(cacheKey)) {
@@ -354,9 +360,9 @@ export async function renderMarkdown(markdown: string): Promise<string> {
   try {
     // 创建独立的 LaTeX 上下文
     const context: LatexContext = { placeholders: new Map() }
-    
+
     // 1. 提取 LaTeX 公式为占位符
-    const markdownWithoutLatex = extractLatex(markdown, context)
+    const markdownWithoutLatex = extractLatex(processedMarkdown, context)
     console.log('[MarkdownRenderer] After extractLatex:', markdownWithoutLatex.substring(0, 100))
 
     // 2. 解析 Markdown
