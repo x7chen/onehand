@@ -28,28 +28,6 @@
 
     <!-- 主内容区域 -->
     <div class="panel-container">
-      <!-- 左侧折叠条 -->
-      <div class="collapse-bar">
-        <button
-          class="collapse-btn"
-          :title="isLeftPanelCollapsed ? t('canvas.expandList') : t('canvas.collapseList')"
-          @click="toggleLeftPanel"
-        >
-          <!-- 折叠状态：展开图标 -->
-          <svg v-if="isLeftPanelCollapsed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="3" y="3" width="18" height="18" rx="2" />
-            <line x1="9" y1="3" x2="9" y2="21" />
-            <polyline points="14 9 11 12 14 15" />
-          </svg>
-          <!-- 展开状态：折叠图标 -->
-          <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="3" y="3" width="18" height="18" rx="2" />
-            <line x1="15" y1="3" x2="15" y2="21" />
-            <polyline points="10 9 13 12 10 15" />
-          </svg>
-        </button>
-      </div>
-
       <!-- 左侧面板：笔记列表容器 -->
       <NodeListPanel
         v-if="!isLeftPanelCollapsed"
@@ -70,13 +48,23 @@
         @activate="handleNodeActivate"
       />
 
-      <!-- 可拖动分隔线 -->
+      <!-- 可拖动分隔线（展开状态） -->
       <div
         v-if="!isLeftPanelCollapsed"
         class="panel-resizer"
         @mousedown="startResize"
+        @dblclick="toggleLeftPanel"
       >
         <div class="resizer-line"></div>
+      </div>
+
+      <!-- 折叠状态的分隔线 -->
+      <div
+        v-if="isLeftPanelCollapsed"
+        class="panel-resizer-collapsed"
+        @dblclick="toggleLeftPanel"
+      >
+        <div class="resizer-line-collapsed"></div>
       </div>
 
       <!-- 右侧面板：聊天栏 -->
@@ -893,42 +881,6 @@ async function handleCopySelectedContext() {
   overflow: hidden;
 }
 
-/* 左侧折叠条 */
-.collapse-bar {
-  width: 30px;
-  background: var(--bg-primary);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding-top: 12px;
-  flex-shrink: 0;
-  border-right: 1px solid var(--border-color);
-}
-
-.collapse-btn {
-  width: 28px;
-  height: 28px;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-}
-
-.collapse-btn:hover {
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-}
-
-.collapse-btn svg {
-  width: 16px;
-  height: 16px;
-}
-
 /* 可拖动分隔线 */
 .panel-resizer {
   width: 8px;
@@ -954,6 +906,34 @@ async function handleCopySelectedContext() {
 }
 
 .panel-resizer:hover .resizer-line {
+  background: var(--color-primary);
+}
+
+/* 折叠状态的分隔线 */
+.panel-resizer-collapsed {
+  width: 8px;
+  background: var(--bg-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+
+.panel-resizer-collapsed:hover {
+  background: var(--border-color);
+}
+
+.resizer-line-collapsed {
+  width: 2px;
+  height: 40px;
+  background: var(--border-color);
+  border-radius: 1px;
+  transition: background 0.2s;
+}
+
+.panel-resizer-collapsed:hover .resizer-line-collapsed {
   background: var(--color-primary);
 }
 
