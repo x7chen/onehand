@@ -136,6 +136,7 @@ function handleClick() {
 .voice-note-small {
   position: absolute;
   width: var(--node-width);
+  height: 200px;
   box-sizing: border-box;
   border-radius: 4px;
   overflow: hidden;
@@ -240,7 +241,7 @@ function handleClick() {
 
 .small-transcript-box {
   padding: 6px 8px;
-  max-height: 350px;
+  max-height: 200px;
   overflow-y: auto;
 }
 
