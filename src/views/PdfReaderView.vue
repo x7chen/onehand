@@ -560,9 +560,8 @@ function handleSaveEdit(nodeId: string, text: string) {
       callAIWithOptionalImage(nodeId, text.trim(), pdfPage)
     }
   } else {
-    // 删除空节点后选中第一个节点
     notebookStore.removeNodeAuto(nodeId)
-    selectFirstNode()
+    activeNode.value = null
   }
   editingNodeId.value = null
   editingText.value = ''
@@ -573,9 +572,8 @@ function handleCancelEdit(nodeId: string) {
   const canvas = pdfPage !== null ? notebookStore.getCanvasByPdfPage(pdfPage) : null
   const node = canvas?.nodes.find(n => n.id === nodeId)
   if (node && !node.transcript) {
-    // 删除空节点后选中第一个节点
     notebookStore.removeNodeAuto(nodeId)
-    selectFirstNode()
+    activeNode.value = null
   }
   editingNodeId.value = null
   editingText.value = ''
@@ -604,9 +602,8 @@ function handleClickOutsideEditing(e: MouseEvent) {
         callAIWithOptionalImage(editingNodeId.value, editingText.value.trim(), pdfPage)
       }
     } else {
-      // 删除空节点后选中第一个节点
       notebookStore.removeNodeAuto(editingNodeId.value)
-      selectFirstNode()
+      activeNode.value = null
     }
   }
   editingNodeId.value = null

@@ -590,13 +590,15 @@ export const useNotebookStore = defineStore('notebook', () => {
       // 如果该画布为空且不是唯一画布，删除该画布
       if (canvas.nodes.length === 0 && currentNotebook.value?.canvases && currentNotebook.value.canvases.length > 1) {
         const canvasIndex = currentNotebook.value.canvases.indexOf(canvas)
-        if (canvasIndex !== -1) {
+        const isCurrentCanvas = canvasIndex === currentNotebook.value.currentCanvasIndex
+
+        // 只有当删除的不是当前画布时才删除
+        // 这样可以避免自动翻页
+        if (canvasIndex !== -1 && !isCurrentCanvas) {
           currentNotebook.value.canvases.splice(canvasIndex, 1)
           // 调整当前画布索引
-          if (currentNotebook.value.currentCanvasIndex !== undefined) {
-            if (currentNotebook.value.currentCanvasIndex >= canvasIndex && currentNotebook.value.currentCanvasIndex > 0) {
-              currentNotebook.value.currentCanvasIndex--
-            }
+          if (currentNotebook.value.currentCanvasIndex !== undefined && currentNotebook.value.currentCanvasIndex > canvasIndex) {
+            currentNotebook.value.currentCanvasIndex--
           }
           saveNotebook(currentNotebook.value)
         }
