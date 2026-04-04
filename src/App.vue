@@ -50,8 +50,20 @@ const popupUrl = ref<string | undefined>(undefined)
 // Handle click on onehand:// links in the app
 function handleDeepLinkClick(event: MouseEvent) {
   const target = event.target as HTMLElement
-  const link = target.closest('a[href^="onehand://"]') as HTMLAnchorElement | null
 
+  // Handle anchor links first - prevent navigation to avoid white screen
+  const anchorLink = target.closest('a[href^="#"]') as HTMLAnchorElement | null
+  if (anchorLink) {
+    const href = anchorLink.getAttribute('href') || ''
+    if (href.length > 1) {
+      event.preventDefault()
+      event.stopPropagation()
+      return
+    }
+  }
+
+  // Handle onehand:// deep links
+  const link = target.closest('a[href^="onehand://"]') as HTMLAnchorElement | null
   if (link) {
     event.preventDefault()
     event.stopPropagation()
