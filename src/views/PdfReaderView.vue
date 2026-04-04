@@ -679,7 +679,9 @@ async function handleAgentResponse(nodeId: string, transcript: string, pdfPage: 
     chatWithLLM(messages, {
       baseUrl: modelConfig.baseUrl,
       apiKey: modelConfig.apiKey,
-      model: modelConfig.model
+      model: modelConfig.model,
+      enableThinking: modelConfig.enableThinking,
+      temperature: modelConfig.temperature
     }, (chunk) => {
       accumulatedContent += chunk
       notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
@@ -1092,7 +1094,9 @@ async function callImageAnalysisAI(
     await chatWithLLM(messages, {
       baseUrl: modelConfig.baseUrl,
       apiKey: modelConfig.apiKey,
-      model: modelConfig.model
+      model: modelConfig.model,
+      enableThinking: modelConfig.enableThinking,
+      temperature: modelConfig.temperature
     }, (chunk) => {
       accumulatedContent += chunk
       notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {

@@ -97,6 +97,33 @@
             :placeholder="t('settings.modelPlaceholder')"
           />
         </div>
+
+        <div class="form-group">
+          <label>{{ t('settings.enableThinking') }}</label>
+          <div class="toggle-switch">
+            <input
+              type="checkbox"
+              :checked="settingsStore.activeProfile?.enableThinking ?? false"
+              @change="settingsStore.updateActiveProfileField('enableThinking', ($event.target as HTMLInputElement).checked)"
+            />
+            <span class="toggle-label">{{ settingsStore.activeProfile?.enableThinking ? t('settings.enabled') : t('settings.disabled') }}</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>{{ t('settings.temperature') }}</label>
+          <div class="temperature-control">
+            <input
+              type="range"
+              min="0"
+              max="2"
+              step="0.1"
+              :value="settingsStore.activeProfile?.temperature ?? 0.7"
+              @input="settingsStore.updateActiveProfileField('temperature', parseFloat(($event.target as HTMLInputElement).value))"
+            />
+            <span class="temperature-value">{{ (settingsStore.activeProfile?.temperature ?? 0.7).toFixed(1) }}</span>
+          </div>
+        </div>
       </section>
 
       <!-- General Settings -->
@@ -537,5 +564,89 @@ async function selectCustomThemeFile() {
 
 .password-toggle-btn:hover {
   opacity: 1;
+}
+
+/* Toggle switch */
+.toggle-switch {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.toggle-switch input[type="checkbox"] {
+  width: 44px;
+  height: 24px;
+  appearance: none;
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s;
+  border: 1px solid var(--border-color);
+}
+
+.toggle-switch input[type="checkbox"]::before {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--text-secondary);
+  top: 2px;
+  left: 2px;
+  transition: all 0.2s;
+}
+
+.toggle-switch input[type="checkbox"]:checked {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.toggle-switch input[type="checkbox"]:checked::before {
+  transform: translateX(20px);
+  background: white;
+}
+
+.toggle-label {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+/* Temperature control */
+.temperature-control {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.temperature-control input[type="range"] {
+  flex: 1;
+  height: 6px;
+  appearance: none;
+  background: var(--bg-secondary);
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.temperature-control input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.temperature-control input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+}
+
+.temperature-value {
+  min-width: 36px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  text-align: center;
 }
 </style>

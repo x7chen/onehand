@@ -6,23 +6,39 @@ export async function chatWithLLM(
     baseUrl: string
     apiKey: string
     model: string
+    enableThinking?: boolean
+    temperature?: number
   },
   onChunk?: (chunk: string) => void
 ): Promise<string> {
   try {
     // 移除 baseUrl 末尾的斜杠，避免双斜杠问题
     const baseUrl = config.baseUrl.replace(/\/+$/, '')
+
+    // 构建请求体
+    const requestBody: Record<string, unknown> = {
+      model: config.model,
+      messages,
+      stream: true
+    }
+
+    // 添加温度参数
+    if (config.temperature !== undefined) {
+      requestBody.temperature = config.temperature
+    }
+
+    // 添加思考参数（针对支持的模型）
+    if (config.enableThinking) {
+      requestBody.enable_thinking = true
+    }
+
     const response = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${config.apiKey}`
       },
-      body: JSON.stringify({
-        model: config.model,
-        messages,
-        stream: true
-      })
+      body: JSON.stringify(requestBody)
     })
 
     if (!response.ok) {

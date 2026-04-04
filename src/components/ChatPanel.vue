@@ -456,7 +456,9 @@ async function handleAgentResponseForText(nodeId: string, transcript: string) {
     const result = await chatWithLLM(messages, {
       baseUrl: currentModelConfig.value?.baseUrl || '',
       apiKey: currentModelConfig.value?.apiKey || '',
-      model: currentModelConfig.value?.model || ''
+      model: currentModelConfig.value?.model || '',
+      enableThinking: currentModelConfig.value?.enableThinking,
+      temperature: currentModelConfig.value?.temperature
     }, (chunk) => {
       accumulatedContent += chunk
       if (pdfPage) {
@@ -531,7 +533,9 @@ async function handleImageAnalysisResponse(nodeId: string, imageBase64: string, 
     const result = await chatWithLLM(messages, {
       baseUrl: currentModelConfig.value?.baseUrl || '',
       apiKey: currentModelConfig.value?.apiKey || '',
-      model: currentModelConfig.value?.model || ''
+      model: currentModelConfig.value?.model || '',
+      enableThinking: currentModelConfig.value?.enableThinking,
+      temperature: currentModelConfig.value?.temperature
     }, (chunk) => {
       accumulatedContent += chunk
       if (pdfPage) {
@@ -826,7 +830,9 @@ async function handleAgentResponseForVoice(nodeId: string, transcript: string, p
     const result = await chatWithLLM(messages, {
       baseUrl: currentModelConfig.value?.baseUrl || '',
       apiKey: currentModelConfig.value?.apiKey || '',
-      model: currentModelConfig.value?.model || ''
+      model: currentModelConfig.value?.model || '',
+      enableThinking: currentModelConfig.value?.enableThinking,
+      temperature: currentModelConfig.value?.temperature
     }, (chunk) => {
       accumulatedContent += chunk
       if (pdfPage !== undefined && pdfPage !== null) {

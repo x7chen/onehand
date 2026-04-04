@@ -86,6 +86,10 @@ export default {
     profileCopy: '副本',
     modelN: '模型 {n}',
     defaultModel: '默认',
+    enableThinking: '思考模式',
+    temperature: '温度参数',
+    enabled: '已开启',
+    disabled: '已关闭',
   },
   notebook: {
     newNotebook: '新建笔记本',

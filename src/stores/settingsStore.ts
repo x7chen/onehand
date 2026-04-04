@@ -188,7 +188,7 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   // 更新当前激活配置的字段
-  function updateActiveProfileField(field: keyof LLMProfile, value: string) {
+  function updateActiveProfileField<K extends keyof LLMProfile>(field: K, value: LLMProfile[K]) {
     const profile = activeProfile.value
     if (profile) {
       profile[field] = value

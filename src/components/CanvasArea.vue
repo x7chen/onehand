@@ -551,7 +551,9 @@ async function handleAgentResponse(nodeId: string, transcript: string) {
     const result = await chatWithLLM(messages, {
       baseUrl: modelConfig.baseUrl,
       apiKey: modelConfig.apiKey,
-      model: modelConfig.model
+      model: modelConfig.model,
+      enableThinking: modelConfig.enableThinking,
+      temperature: modelConfig.temperature
     }, (chunk) => {
       accumulatedContent += chunk
       notebookStore.updateNode(nodeId, {

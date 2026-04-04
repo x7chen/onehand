@@ -11,6 +11,8 @@ export interface LLMProfile {
   apiKey: string
   baseUrl: string
   model: string
+  enableThinking?: boolean  // 思考模式开关
+  temperature?: number  // 温度参数 (0-2)
 }
 
 export interface LLMSettings {
@@ -73,7 +75,9 @@ export const defaultSettings: Settings = {
         name: '',
         apiKey: '',
         baseUrl: 'https://api-inference.modelscope.cn/v1',
-        model: 'Qwen/Qwen3-235B-A22B-Instruct-2507'
+        model: 'Qwen/Qwen3-235B-A22B-Instruct-2507',
+        enableThinking: false,
+        temperature: 0.7
       }
     ],
     activeProfileId: defaultProfileId,

@@ -86,6 +86,10 @@ export default {
     profileCopy: 'Copy',
     modelN: 'Model {n}',
     defaultModel: 'Default',
+    enableThinking: 'Thinking Mode',
+    temperature: 'Temperature',
+    enabled: 'Enabled',
+    disabled: 'Disabled',
   },
   notebook: {
     newNotebook: 'New Notebook',
