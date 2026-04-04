@@ -84,7 +84,9 @@
       />
       <span v-else-if="node.title" class="node-title" @dblclick.stop="startEditTitle">{{ node.title }}</span>
       <span v-else class="node-title-placeholder" @dblclick.stop="startEditTitle"></span>
-      <span class="created-time">{{ formatCreatedTime }}</span>
+      <span class="created-time-wrapper">
+        <span class="created-time-text">{{ formatCreatedTime }}</span>
+      </span>
       <button class="delete-btn" @click.stop="deleteNode">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
           <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
@@ -1182,16 +1184,20 @@ watch(() => props.node.thinkingContent, async (newThinkingContent) => {
   outline: none;
 }
 
-.created-time {
-  font-size: 12px;
-  color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.created-time-wrapper {
+  display: flex;
+  justify-content: flex-end;
   margin-left: auto;
   margin-right: 8px;
   min-width: 0;
   flex-shrink: 1;
+  font-size: 12px;
+  color: var(--text-secondary);
+  overflow: hidden;
+}
+
+.created-time-text {
+  white-space: nowrap;
 }
 
 .delete-btn {
