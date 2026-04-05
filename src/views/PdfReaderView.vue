@@ -368,6 +368,26 @@ function selectFirstNode() {
   })
 }
 
+// Watch for route query changes (handles navigation within the same page)
+watch(() => route.query.nodeId, (newNodeId) => {
+  if (newNodeId && typeof newNodeId === 'string') {
+    const pdfPage = notebookStore.findNodePdfPage(newNodeId)
+    if (pdfPage !== null) {
+      notebookStore.switchToPdfPage(pdfPage)
+      currentPageNumber.value = pdfPage
+      const canvas = notebookStore.getCanvasByPdfPage(pdfPage)
+      if (canvas) {
+        const node = canvas.nodes.find(n => n.id === newNodeId)
+        if (node) {
+          activeNode.value = node
+        }
+      }
+      // 清除 URL 中的查询参数
+      router.replace({ path: route.path, query: {} })
+    }
+  }
+}, { immediate: false })
+
 // Watch for canvas changes (e.g., from deep link navigation) and update page
 watch(() => notebookStore.currentCanvas, (newCanvas) => {
   if (newCanvas?.pdfPage && newCanvas.pdfPage !== currentPageNumber.value) {

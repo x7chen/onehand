@@ -28,11 +28,14 @@ function ensureNodeRuntimeState(node: CanvasNode): CanvasNode {
 }
 
 // 迁移旧笔记本数据到多页格式并设置运行时状态
-function migrateNotebook(notebook: Notebook): Notebook {
+function migrateNotebook(notebook: Notebook): { notebook: Notebook; needsSave: boolean } {
+  let needsSave = false
+
   // 如果已经有 canvases 数组，不需要迁移
   if (notebook.canvases && notebook.canvases.length > 0) {
     if (notebook.currentCanvasIndex === undefined) {
       notebook.currentCanvasIndex = 0
+      needsSave = true
     }
   } else if (notebook.canvas) {
     // 迁移旧数据：将单个 canvas 转换为 canvases 数组
@@ -41,21 +44,30 @@ function migrateNotebook(notebook: Notebook): Notebook {
       createdAt: notebook.createdAt
     }]
     notebook.currentCanvasIndex = 0
+    needsSave = true
   } else {
     // 如果没有 canvas 数据，创建一个默认的
     notebook.canvases = [createCanvasPage()]
     notebook.currentCanvasIndex = 0
+    needsSave = true
   }
 
-  // 为每个节点设置运行时状态
+  // 为每个节点设置运行时状态，并修复 PDF 画布缺少 pdfPage 的问题
   if (notebook.canvases) {
-    notebook.canvases = notebook.canvases.map(canvas => ({
-      ...canvas,
-      nodes: canvas.nodes.map(ensureNodeRuntimeState)
-    }))
+    notebook.canvases = notebook.canvases.map((canvas, index) => {
+      // 如果是 PDF 类型的画布但没有 pdfPage 属性，设置默认值为索引+1
+      if (canvas.type === 'pdf' && canvas.pdfPage === undefined) {
+        canvas.pdfPage = index + 1
+        needsSave = true
+      }
+      return {
+        ...canvas,
+        nodes: canvas.nodes.map(ensureNodeRuntimeState)
+      }
+    })
   }
 
-  return notebook
+  return { notebook, needsSave }
 }
 
 // 获取笔记本目录路径
@@ -127,7 +139,7 @@ export const useNotebookStore = defineStore('notebook', () => {
             const oldNotebooks = JSON.parse(oldResult.data) as Notebook[]
             // 将每个笔记本保存到独立文件
             for (const notebook of oldNotebooks) {
-              const migratedNotebook = migrateNotebook(notebook)
+              const { notebook: migratedNotebook } = migrateNotebook(notebook)
               await saveNotebookFile(migratedNotebook)
             }
             // 删除旧文件
@@ -148,6 +160,7 @@ export const useNotebookStore = defineStore('notebook', () => {
       // 过滤出 .json 文件并加载
       const jsonFiles = result.data.filter(f => f.endsWith('.json'))
       const loadedNotebooks: Notebook[] = []
+      const notebooksToSave: Notebook[] = []
 
       for (const file of jsonFiles) {
         const filePath = `${notebooksDir}/${file}`
@@ -156,11 +169,20 @@ export const useNotebookStore = defineStore('notebook', () => {
         if (fileResult.success && fileResult.data && typeof fileResult.data === 'string') {
           try {
             const notebook = JSON.parse(fileResult.data) as Notebook
-            loadedNotebooks.push(migrateNotebook(notebook))
+            const { notebook: migratedNotebook, needsSave } = migrateNotebook(notebook)
+            loadedNotebooks.push(migratedNotebook)
+            if (needsSave) {
+              notebooksToSave.push(migratedNotebook)
+            }
           } catch (parseError) {
             console.error(`Failed to parse notebook file ${file}:`, parseError)
           }
         }
+      }
+
+      // 保存需要迁移的笔记本
+      for (const notebook of notebooksToSave) {
+        await saveNotebookFile(notebook)
       }
 
       // 按更新时间排序
@@ -207,7 +229,7 @@ export const useNotebookStore = defineStore('notebook', () => {
       name,
       createdAt: Date.now(),
       updatedAt: Date.now(),
-      canvases: [createCanvasPage('canvas-1', finalPdfPath ? 'pdf' : 'infinite')],
+      canvases: [createCanvasPage('canvas-1', finalPdfPath ? 'pdf' : 'infinite', finalPdfPath ? 1 : undefined)],
       currentCanvasIndex: 0
     }
 

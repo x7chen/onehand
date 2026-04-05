@@ -163,9 +163,8 @@ watch(activeNodeId, (newNodeId) => {
       targetX = rect.width - padding - (node.position.x + nodeWidth) * zoom
     }
 
-    // 计算目标Y：节点顶部居中
-    const centerY = rect.height / 2
-    const targetY = centerY - node.position.y * zoom
+    // 计算目标Y：节点标题栏在可视区域从上开始8分之一位置
+    const targetY = rect.height / 8 - node.position.y * zoom
 
     // 平滑动画移动视口
     animateViewportTo(targetX, targetY, zoom)

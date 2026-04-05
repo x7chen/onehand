@@ -70,8 +70,20 @@ export async function findNodeByDeepLink(data: DeepLinkData): Promise<NodePopupD
     return null
   }
 
-  // Find the canvas
-  const canvas = notebook.canvases?.find(c => c.id === data.canvasId)
+  // Try to find canvas by ID first
+  let canvas = notebook.canvases?.find(c => c.id === data.canvasId)
+
+  // If canvas not found by ID, search for the node in all canvases (fallback for PDF notebooks)
+  if (!canvas && notebook.canvases) {
+    for (const c of notebook.canvases) {
+      if (c.nodes.some(n => n.id === data.nodeId)) {
+        canvas = c
+        console.log('Found node in canvas:', c.id, 'pdfPage:', c.pdfPage)
+        break
+      }
+    }
+  }
+
   if (!canvas) {
     console.warn('Canvas not found:', data.canvasId)
     return null
@@ -129,7 +141,7 @@ export function useDeepLink() {
         nodeData.notebook.currentCanvasIndex = canvasIndex
       }
       // Normal notebook - navigate to NodeListView with canvasId and nodeId query
-      router.push(`/node-list/${data.notebookId}?canvasId=${data.canvasId}&nodeId=${data.nodeId}`)
+      router.push(`/multi-chat/${data.notebookId}?canvasId=${data.canvasId}&nodeId=${data.nodeId}`)
     }
   }
 

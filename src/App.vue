@@ -14,7 +14,7 @@
 
 <script setup lang="ts">
 import { onMounted, onUnmounted, watchEffect, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useNotebookStore } from '@/stores/notebookStore'
 import { useTheme } from '@/composables/useTheme'
@@ -35,6 +35,7 @@ const isWindows = navigator.userAgent.toLowerCase().includes('windows')
 const settingsStore = useSettingsStore()
 const notebookStore = useNotebookStore()
 const router = useRouter()
+const route = useRoute()
 useTheme(settingsStore)
 
 // Initialize deep link handler
@@ -100,9 +101,15 @@ function handleNavigate(data: DeepLinkData) {
 
     // Navigate with query parameters to activate the node
     if (notebook.pdfPath) {
-      router.push(`/pdf/${data.notebookId}?nodeId=${data.nodeId}`)
+      // Check if we're already on the PDF view for this notebook
+      if (route.path === `/pdf/${data.notebookId}`) {
+        // Already on the page, just update nodeId query param
+        router.replace({ path: route.path, query: { nodeId: data.nodeId } })
+      } else {
+        router.push(`/pdf/${data.notebookId}?nodeId=${data.nodeId}`)
+      }
     } else {
-      router.push(`/node-list/${data.notebookId}?canvasId=${data.canvasId}&nodeId=${data.nodeId}`)
+      router.push(`/multi-chat/${data.notebookId}?canvasId=${data.canvasId}&nodeId=${data.nodeId}`)
     }
   }
 }
