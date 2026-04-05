@@ -114,6 +114,7 @@
         @keydown.escape="cancelEdit"
         @dragover.prevent="handleEditDragOver"
         @drop.prevent="handleEditDrop"
+        @input="handleEditingInput"
       ></textarea>
     </div>
 
@@ -560,6 +561,24 @@ watch(() => props.isEditing, (newVal) => {
     })
   }
 }, { immediate: true })
+
+// 处理编辑时滚动到底部
+function handleEditingInput() {
+  const textarea = editingTextarea.value
+  if (!textarea) return
+
+  // 检查光标是否在最后一行
+  const cursorPos = textarea.selectionStart
+  const text = textarea.value
+  const lines = text.substring(0, cursorPos).split('\n')
+  const currentLineNum = lines.length
+  const totalLines = text.split('\n').length
+
+  // 如果光标在最后一行，滚动到底部
+  if (currentLineNum >= totalLines) {
+    textarea.scrollTop = textarea.scrollHeight
+  }
+}
 
 function saveEdit() {
   emit('save-edit', props.node.id, localEditingText.value)
@@ -1431,8 +1450,7 @@ watch(() => props.node.thinkingContent, async (newThinkingContent) => {
 .transcript-edit {
   width: 100%;
   min-height: 60px;
-  padding: 0;
-  border: 2px solid var(--color-primary);
+  padding: 8px;
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.98);
   color: var(--text-primary);
@@ -1673,8 +1691,7 @@ watch(() => props.node.thinkingContent, async (newThinkingContent) => {
 .agent-edit {
   width: 100%;
   min-height: 60px;
-  padding: 0;
-  border: 2px solid var(--color-success);
+  padding: 8px;
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.98);
   color: var(--text-primary);
@@ -1728,9 +1745,8 @@ watch(() => props.node.thinkingContent, async (newThinkingContent) => {
 
 .content-edit {
   width: 100%;
-  min-height: 80px;
-  padding: 12px;
-  border: 2px solid var(--color-primary);
+  min-height: 300px;
+  padding: 8px;
   border-radius: 6px;
   background: var(--bg-primary);
   color: var(--text-primary);
