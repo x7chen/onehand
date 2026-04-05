@@ -658,6 +658,7 @@ async function confirmDeleteNotebook() {
 .sidebar-header {
   padding: 16px;
   border-bottom: 1px solid var(--border-color);
+  text-align: center;
 }
 
 .logo {
