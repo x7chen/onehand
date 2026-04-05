@@ -46,17 +46,41 @@
     </div>
 
     <!-- MagicPad 区域 -->
-    <div
-      class="magic-pad"
-      @click="handleMagicPadClick"
-      @dblclick="handleMagicPadDblClick"
-      @mousedown="handleMagicPadMouseDown"
-      @mouseup="handleMagicPadMouseUp"
-      @mouseleave="handleMagicPadMouseLeave"
-      @dragover.prevent
-      @drop="handleMagicPadDrop"
-    >
-      <div class="magic-pad-hint"></div>
+    <div class="magic-pad-container">
+      <div
+        class="magic-pad"
+        @click="handleMagicPadClick"
+        @dblclick="handleMagicPadDblClick"
+        @mousedown="handleMagicPadMouseDown"
+        @mouseup="handleMagicPadMouseUp"
+        @mouseleave="handleMagicPadMouseLeave"
+        @dragover.prevent
+        @drop="handleMagicPadDrop"
+      >
+        <div class="magic-pad-hint"></div>
+      </div>
+
+      <!-- 快捷指令按钮 -->
+      <div class="quick-command-wrapper" ref="quickCommandWrapperRef" v-if="quickCommandStore.quickCommands.length > 0">
+        <button class="quick-command-btn" @click="toggleQuickCommandSelector" :class="{ active: showQuickCommandSelector }" :title="t('quickCommand.title')">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/>
+          </svg>
+        </button>
+
+        <!-- 快捷指令气泡 -->
+        <div v-if="showQuickCommandSelector" class="quick-command-popover">
+          <div
+            v-for="cmd in quickCommandStore.quickCommands"
+            :key="cmd.id"
+            class="quick-command-item"
+            :style="{ backgroundColor: cmd.color + '20', borderColor: cmd.color }"
+            @click="selectQuickCommand(cmd)"
+          >
+            <span class="quick-command-name" :style="{ color: cmd.color }">{{ cmd.name }}</span>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- 录音指示器 -->
@@ -70,10 +94,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useNotebookStore } from '@/stores/notebookStore'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { useQuickCommandStore } from '@/stores/quickCommandStore'
 import VoiceNote from '@/components/VoiceNote.vue'
 import RecordingIndicator from '@/components/RecordingIndicator.vue'
 import { chatWithLLM, buildFullContextMessages, buildImageAnalysisMessages } from '@/composables/useQwenAgent'
@@ -82,6 +107,7 @@ import { createAudioWorkletRecorder } from '@/utils/audioWorkletRecorder'
 import { transcribeWithSherpaOnnx } from '@/composables/useSherpaOnnx'
 import type { CanvasNode } from '@/types/notebook'
 import type { ContextFile } from '@/types/context'
+import type { QuickCommand } from '@/types/quickCommand'
 
 const props = defineProps<{
   activeNode: CanvasNode | null
@@ -142,7 +168,37 @@ function handleMagicPadClick(e: MouseEvent) {
 
 const notebookStore = useNotebookStore()
 const settingsStore = useSettingsStore()
+const quickCommandStore = useQuickCommandStore()
 const { t } = useI18n()
+
+// 加载快捷指令
+onMounted(() => {
+  quickCommandStore.loadQuickCommands()
+})
+
+// 快捷指令选择器
+const showQuickCommandSelector = ref(false)
+const quickCommandWrapperRef = ref<HTMLElement | null>(null)
+
+// 点击外部关闭快捷指令气泡
+function handleClickOutside(e: MouseEvent) {
+  if (quickCommandWrapperRef.value && !quickCommandWrapperRef.value.contains(e.target as Node)) {
+    showQuickCommandSelector.value = false
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
+})
+
+// 切换快捷指令选择器
+function toggleQuickCommandSelector() {
+  showQuickCommandSelector.value = !showQuickCommandSelector.value
+}
 
 // Get notebookId and canvasId from notebookStore
 const notebookId = computed(() => notebookStore.currentNotebook?.id)
@@ -850,6 +906,44 @@ function handleCopyLink(nodeId: string) {
   console.log('Link copied for node:', nodeId)
 }
 
+// 选择快捷指令创建节点
+async function selectQuickCommand(cmd: QuickCommand) {
+  showQuickCommandSelector.value = false
+
+  const newNodeId = `node-${Date.now()}`
+  const newNode: CanvasNode = {
+    id: newNodeId,
+    type: 'text-note',
+    position: { x: 100, y: 100 },
+    transcript: cmd.content,
+    transcriptStatus: 'done',
+    agentResult: null,
+    agentStatus: props.aiAnswerEnabled ? 'pending' : 'pending',
+    selectedAsContext: false,
+    createdAt: Date.now(),
+    pdfPage: props.currentPage,
+    pdfPosition: { x: 100, y: 100 }
+  }
+
+  if (props.currentPage) {
+    notebookStore.addNodeToPdfPage(newNode, props.currentPage)
+  } else {
+    notebookStore.addNode(newNode)
+  }
+  emit('node-created', newNode)
+
+  if (props.aiAnswerEnabled) {
+    // 检查是否有当前勾选的附图且是同一页面
+    const hasIncludedImage = props.includedPageImage && props.includedPageImage.pageNumber === props.currentPage
+
+    if (hasIncludedImage) {
+      await handleImageAnalysisResponse(newNodeId, props.includedPageImage!.imageBase64, cmd.content)
+    } else {
+      await handleAgentResponseForText(newNodeId, cmd.content)
+    }
+  }
+}
+
 // 语音节点的 AI 回答
 async function handleAgentResponseForVoice(nodeId: string, transcript: string, pdfPage?: number) {
   const settings = settingsStore.settings
@@ -971,6 +1065,7 @@ async function handleAgentResponseForVoice(nodeId: string, transcript: string, p
 
 <style scoped>
 .chat-panel {
+  position: relative;
   flex: 1;
   min-width: 400px;
   display: flex;
@@ -1035,11 +1130,18 @@ async function handleAgentResponseForVoice(nodeId: string, transcript: string, p
 }
 
 /* MagicPad 区域 */
-.magic-pad {
-  min-height: 120px;
-  padding: 16px;
+.magic-pad-container {
+  position: relative;
+  display: flex;
+  align-items: stretch;
   border-top: 1px solid var(--border-color);
   background: var(--bg-primary);
+}
+
+.magic-pad {
+  flex: 1;
+  min-height: 120px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1063,5 +1165,80 @@ async function handleAgentResponseForVoice(nodeId: string, transcript: string, p
 .magic-pad:hover .magic-pad-hint {
   border-color: var(--primary-color);
   opacity: 0.7;
+}
+
+/* 快捷指令区域 */
+.quick-command-wrapper {
+  display: flex;
+  align-items: center;
+  padding: 16px 8px;
+}
+
+.quick-command-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.quick-command-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--color-primary);
+}
+
+.quick-command-btn.active {
+  background: var(--color-primary-bg);
+  border-color: var(--color-primary);
+}
+
+.quick-command-btn svg {
+  opacity: 0.7;
+}
+
+.quick-command-popover {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  margin-bottom: 0px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px var(--shadow-color);
+  max-height: 150px;
+  overflow-y: auto;
+  z-index: 1000;
+}
+
+.quick-command-item {
+  display: flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 16px;
+  border: 1px solid;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.quick-command-item:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px var(--shadow-color);
+}
+
+.quick-command-name {
+  font-size: 13px;
+  font-weight: 500;
 }
 </style>

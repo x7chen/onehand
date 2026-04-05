@@ -219,4 +219,16 @@ export default {
   theme: {
     currentTheme: 'Current: {name} (click to switch)',
   },
+  quickCommand: {
+    title: 'Quick Commands',
+    noCommands: 'No quick commands',
+    newCommand: 'New Command',
+    editCommand: 'Edit Command',
+    commandName: 'Command Name',
+    commandNamePlaceholder: 'Enter command name',
+    commandContent: 'Prompt Content',
+    commandContentPlaceholder: 'Enter prompt content',
+    deleteConfirmTitle: 'Confirm Delete',
+    deleteConfirmMessage: 'Are you sure you want to delete quick command "{name}"?',
+  },
 }

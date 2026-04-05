@@ -110,6 +110,8 @@
         @editContext="editContextFile"
         @dragStart="handleContextDragStart"
         @dragEnd="handleContextDragEnd"
+        @quickCommandDragStart="handleQuickCommandDragStart"
+        @quickCommandDragEnd="handleQuickCommandDragEnd"
       />
       <FavoritesPanel v-if="activeTab === 'favorites'" />
       <SettingsPanel
@@ -300,6 +302,18 @@
       </div>
     </div>
 
+    <!-- 快捷指令删除确认对话框 -->
+    <div v-if="showQuickCommandDeleteConfirm" class="dialog-overlay" @click="showQuickCommandDeleteConfirm = false">
+      <div class="dialog confirm-dialog" @click.stop>
+        <h3>{{ t('quickCommand.deleteConfirmTitle') }}</h3>
+        <p>{{ t('quickCommand.deleteConfirmMessage', { name: quickCommandToDelete?.name }) }}</p>
+        <div class="dialog-actions">
+          <button @click="showQuickCommandDeleteConfirm = false" class="cancel-btn">{{ t('common.cancel') }}</button>
+          <button @click="confirmDeleteQuickCommand" class="delete-btn confirm-delete">{{ t('common.delete') }}</button>
+        </div>
+      </div>
+    </div>
+
     <!-- 搜索对话框 -->
     <SearchDialog
       :visible="showSearchDialog"
@@ -314,6 +328,7 @@ import { useI18n } from 'vue-i18n'
 import { useNotebookStore } from '@/stores/notebookStore'
 import { useContextStore } from '@/stores/contextStore'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { useQuickCommandStore } from '@/stores/quickCommandStore'
 import SearchDialog from '@/components/SearchDialog.vue'
 import NotebooksPanel from '@/components/NotebooksPanel.vue'
 import ContextsPanel from '@/components/ContextsPanel.vue'
@@ -322,10 +337,12 @@ import SettingsPanel from '@/components/SettingsPanel.vue'
 import type { ContextFile, ContextType } from '@/types/context'
 import { CONTEXT_COLORS } from '@/types/context'
 import type { Notebook } from '@/types/notebook'
+import type { QuickCommand } from '@/types/quickCommand'
 
 const notebookStore = useNotebookStore()
 const contextStore = useContextStore()
 const settingsStore = useSettingsStore()
+const quickCommandStore = useQuickCommandStore()
 const { t } = useI18n()
 
 const contextColors = computed(() => CONTEXT_COLORS)
@@ -358,8 +375,11 @@ const isDragOverTrash = ref(false)
 const draggedNotebook = ref<Notebook | null>(null)
 const draggedContext = ref<ContextFile | null>(null)
 const draggedProfileId = ref<string | null>(null)
+const draggedQuickCommand = ref<QuickCommand | null>(null)
 const showNotebookDeleteConfirm = ref(false)
 const notebookToDelete = ref<Notebook | null>(null)
+const showQuickCommandDeleteConfirm = ref(false)
+const quickCommandToDelete = ref<QuickCommand | null>(null)
 
 // 搜索对话框
 const showSearchDialog = ref(false)
@@ -584,6 +604,16 @@ function handleProfileDragEnd(e: DragEvent) {
   isDragOverTrash.value = false
 }
 
+function handleQuickCommandDragStart(e: DragEvent, cmd: QuickCommand) {
+  draggedQuickCommand.value = cmd
+  isDragOverTrash.value = false
+}
+
+function handleQuickCommandDragEnd(e: DragEvent) {
+  draggedQuickCommand.value = null
+  isDragOverTrash.value = false
+}
+
 function handleSidebarDragOver(e: DragEvent) {
   // Allow drag over sidebar
 }
@@ -619,6 +649,13 @@ function handleTrashDrop(e: DragEvent) {
     return
   }
 
+  // 删除快捷指令，显示确认对话框
+  if (draggedQuickCommand.value) {
+    quickCommandToDelete.value = draggedQuickCommand.value
+    showQuickCommandDeleteConfirm.value = true
+    return
+  }
+
   const notebookId = e.dataTransfer?.getData('text/plain')
   if (notebookId && draggedNotebook.value) {
     notebookToDelete.value = draggedNotebook.value
@@ -634,6 +671,14 @@ async function confirmDeleteNotebook() {
     await notebookStore.deleteNotebook(notebookToDelete.value.id)
     showNotebookDeleteConfirm.value = false
     notebookToDelete.value = null
+  }
+}
+
+async function confirmDeleteQuickCommand() {
+  if (quickCommandToDelete.value) {
+    await quickCommandStore.deleteQuickCommand(quickCommandToDelete.value.id)
+    showQuickCommandDeleteConfirm.value = false
+    quickCommandToDelete.value = null
   }
 }
 </script>

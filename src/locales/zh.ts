@@ -219,4 +219,16 @@ export default {
   theme: {
     currentTheme: '当前: {name} (点击切换)',
   },
+  quickCommand: {
+    title: '快捷指令',
+    noCommands: '暂无快捷指令',
+    newCommand: '新建指令',
+    editCommand: '编辑指令',
+    commandName: '指令名称',
+    commandNamePlaceholder: '输入指令名称',
+    commandContent: '提示词内容',
+    commandContentPlaceholder: '输入提示词内容',
+    deleteConfirmTitle: '确认删除',
+    deleteConfirmMessage: '确定要删除快捷指令 "{name}" 吗？',
+  },
 }
