@@ -101,6 +101,7 @@ export default {
     staticContext: '静态上下文（可选，可多选）',
     dynamicContext: '动态上下文（可选）',
     noStaticContext: '暂无静态上下文，请先创建',
+    noDynamicContext: '无动态上下文',
     deleteConfirmTitle: '确认删除笔记本',
     deleteConfirmMessage: '确定要删除笔记本 "{name}" 吗？此操作不可恢复。',
     myNotebooks: '我的笔记本',

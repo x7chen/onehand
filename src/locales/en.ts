@@ -101,6 +101,7 @@ export default {
     staticContext: 'Static Context (Optional, Multiple)',
     dynamicContext: 'Dynamic Context (Optional)',
     noStaticContext: 'No static context available, please create first',
+    noDynamicContext: 'No dynamic context',
     deleteConfirmTitle: 'Confirm Delete Notebook',
     deleteConfirmMessage: 'Are you sure you want to delete notebook "{name}"? This action cannot be undone.',
     myNotebooks: 'My Notebooks',
