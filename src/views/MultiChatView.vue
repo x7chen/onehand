@@ -307,6 +307,28 @@ watch(() => notebookStore.currentCanvas?.id, (newCanvasId, oldCanvasId) => {
   }
 })
 
+// 监听路由查询参数变化（处理同一页面内的链接跳转）
+watch(() => route.query.nodeId, (newNodeId) => {
+  if (newNodeId && typeof newNodeId === 'string') {
+    const canvasId = route.query.canvasId as string
+
+    // 如果有指定画布，切换到该画布
+    if (canvasId && notebookStore.currentNotebook?.canvases) {
+      const canvasIndex = notebookStore.currentNotebook.canvases.findIndex(c => c.id === canvasId)
+      if (canvasIndex >= 0 && notebookStore.currentNotebook.currentCanvasIndex !== canvasIndex) {
+        notebookStore.currentNotebook.currentCanvasIndex = canvasIndex
+      }
+    }
+
+    // 激活节点
+    activeNodeIdLeft.value = newNodeId
+    scrollToNode(newNodeId)
+
+    // 清除 URL 中的查询参数
+    router.replace({ path: route.path, query: {} })
+  }
+}, { immediate: false })
+
 // 选中当前画布的前两个节点
 function selectFirstNodes() {
   const nodes = notebookStore.currentCanvas?.nodes || []

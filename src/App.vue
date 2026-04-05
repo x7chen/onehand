@@ -109,7 +109,13 @@ function handleNavigate(data: DeepLinkData) {
         router.push(`/pdf/${data.notebookId}?nodeId=${data.nodeId}`)
       }
     } else {
-      router.push(`/multi-chat/${data.notebookId}?canvasId=${data.canvasId}&nodeId=${data.nodeId}`)
+      // Check if we're already on the multi-chat view for this notebook
+      if (route.path === `/multi-chat/${data.notebookId}`) {
+        // Already on the page, update query params
+        router.replace({ path: route.path, query: { canvasId: data.canvasId, nodeId: data.nodeId } })
+      } else {
+        router.push(`/multi-chat/${data.notebookId}?canvasId=${data.canvasId}&nodeId=${data.nodeId}`)
+      }
     }
   }
 }
