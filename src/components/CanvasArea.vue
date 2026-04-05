@@ -144,8 +144,8 @@ watch(activeNodeId, (newNodeId) => {
     const rect = canvasEl.getBoundingClientRect()
     const zoom = viewport.value.zoom
 
-    // 节点尺寸
-    const nodeWidth = 450 // --node-width
+    // 节点尺寸（使用节点的自定义宽度或默认值）
+    const nodeWidth = node.width || 450
 
     // 节点在屏幕上的位置
     const nodeScreenLeft = node.position.x * zoom + viewport.value.x
@@ -739,8 +739,8 @@ async function handleAutoLayout() {
 
   const sortedNodes = [...layoutNodes].sort((a, b) => a.createdAt - b.createdAt)
 
+  const DEFAULT_NODE_WIDTH = 450
   const COLUMN_COUNT = 3
-  const NODE_WIDTH = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--node-width'))
   const COLUMN_GAP = 5
   const ROW_GAP = 5
   const START_X = 100
@@ -756,7 +756,9 @@ async function handleAutoLayout() {
     }
   }
 
+  // 第一遍：放置节点并记录每个节点所在的列
   const columnHeights: number[] = Array(COLUMN_COUNT).fill(START_Y)
+  const nodeColumns: Record<string, number> = {}
 
   for (const node of sortedNodes) {
     let minColumn = 0
@@ -768,13 +770,38 @@ async function handleAutoLayout() {
       }
     }
 
-    const x = START_X + minColumn * (NODE_WIDTH + COLUMN_GAP)
-    const y = columnHeights[minColumn]
+    nodeColumns[node.id] = minColumn
+    const nodeHeight = nodeHeights[node.id] || 200
+    columnHeights[minColumn] = minHeight + nodeHeight + ROW_GAP
+  }
+
+  // 计算每列的最大宽度
+  const columnWidths: number[] = Array(COLUMN_COUNT).fill(DEFAULT_NODE_WIDTH)
+  for (const node of sortedNodes) {
+    const col = nodeColumns[node.id]
+    const nodeWidth = node.width || DEFAULT_NODE_WIDTH
+    if (nodeWidth > columnWidths[col]) {
+      columnWidths[col] = nodeWidth
+    }
+  }
+
+  // 计算每列的起始 X 位置
+  const columnStartX: number[] = [START_X]
+  for (let col = 1; col < COLUMN_COUNT; col++) {
+    columnStartX[col] = columnStartX[col - 1] + columnWidths[col - 1] + COLUMN_GAP
+  }
+
+  // 第二遍：根据实际列宽设置节点位置
+  const columnY: number[] = Array(COLUMN_COUNT).fill(START_Y)
+  for (const node of sortedNodes) {
+    const col = nodeColumns[node.id]
+    const x = columnStartX[col]
+    const y = columnY[col]
 
     notebookStore.updateNode(node.id, { position: { x, y } })
 
     const nodeHeight = nodeHeights[node.id] || 200
-    columnHeights[minColumn] = y + nodeHeight + ROW_GAP
+    columnY[col] = y + nodeHeight + ROW_GAP
   }
 
   if (notebookStore.currentNotebook) {

@@ -38,6 +38,7 @@ export interface CanvasNode {
   type: 'voice-note' | 'text-note' | 'image-note'
   title?: string
   position: { x: number; y: number }
+  width?: number  // 节点宽度，默认为 CSS 变量 --node-width
   audioPath?: string
   imagePath?: string
   imageBase64?: string  // 图片节点的base64编码，用于AI上下文

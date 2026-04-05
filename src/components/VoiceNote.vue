@@ -3,13 +3,18 @@
     ref="voiceNoteRef"
     class="voice-note"
     :data-node-id="node.id"
-    :class="{ active: isActive, selected: node.selectedAsContext, 'show-header': showHeader }"
-    :style="{ left: node.position.x + 'px', top: node.position.y + 'px', zIndex: isActive ? 1000 : 'auto' }"
+    :class="{ active: isActive, selected: node.selectedAsContext, 'show-header': showHeader, 'is-resizing': isResizing }"
+    :style="nodeStyle"
     @mousedown="handleVoiceNoteMouseDown"
     @click="handleClick"
     @mousedown.right.stop
     @mouseenter="handleMouseEnter"
   >
+    <!-- 拖动调整宽度的手柄 -->
+    <div
+      class="resize-handle"
+      @mousedown.stop="startResize"
+    ></div>
     <div class="node-header" @mousedown="handleMouseDown" @mousedown.right.stop>
       <input
         type="checkbox"
@@ -268,6 +273,61 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+
+// 默认节点宽度
+const DEFAULT_NODE_WIDTH = 450
+const MIN_NODE_WIDTH = 300
+const MAX_NODE_WIDTH = 800
+
+// 拖动调整宽度相关
+const isResizing = ref(false)
+const resizeStartWidth = ref(0)
+const resizeStartX = ref(0)
+
+// 节点样式（包含宽度）
+const nodeStyle = computed(() => {
+  const width = props.node.width || DEFAULT_NODE_WIDTH
+  return {
+    left: props.node.position.x + 'px',
+    top: props.node.position.y + 'px',
+    width: width + 'px',
+    zIndex: props.isActive ? 1000 : 'auto'
+  }
+})
+
+// 开始拖动调整宽度
+function startResize(e: MouseEvent) {
+  e.preventDefault()
+  isResizing.value = true
+  resizeStartWidth.value = props.node.width || DEFAULT_NODE_WIDTH
+  resizeStartX.value = e.clientX
+
+  document.addEventListener('mousemove', handleResizeMove)
+  document.addEventListener('mouseup', handleResizeEnd)
+  document.body.style.cursor = 'ew-resize'
+  document.body.style.userSelect = 'none'
+}
+
+// 拖动调整宽度中
+function handleResizeMove(e: MouseEvent) {
+  if (!isResizing.value) return
+
+  const deltaX = e.clientX - resizeStartX.value
+  const newWidth = Math.max(MIN_NODE_WIDTH, Math.min(MAX_NODE_WIDTH, resizeStartWidth.value + deltaX))
+
+  emit('update-node', props.node.id, { width: newWidth })
+}
+
+// 结束拖动调整宽度
+function handleResizeEnd() {
+  if (!isResizing.value) return
+
+  isResizing.value = false
+  document.removeEventListener('mousemove', handleResizeMove)
+  document.removeEventListener('mouseup', handleResizeEnd)
+  document.body.style.cursor = ''
+  document.body.style.userSelect = ''
+}
 
 // 图片节点相关
 const imageBlobUrl = ref<string | null>(null)
@@ -892,6 +952,11 @@ onUnmounted(() => {
   if (imageBlobUrl.value) {
     URL.revokeObjectURL(imageBlobUrl.value)
   }
+  // 清理 resize 事件监听器
+  if (isResizing.value) {
+    document.removeEventListener('mousemove', handleResizeMove)
+    document.removeEventListener('mouseup', handleResizeEnd)
+  }
 })
 
 // 组件引用
@@ -1048,7 +1113,6 @@ watch(() => props.node.thinkingContent, async (newThinkingContent) => {
   border-radius: 8px;
   box-shadow: 0 2px 8px var(--shadow-color);
   padding: 4px;
-  width: var(--node-width);
   box-sizing: border-box;
   contain: layout style paint;
   transition: box-shadow 0.2s;
@@ -1061,6 +1125,31 @@ watch(() => props.node.thinkingContent, async (newThinkingContent) => {
 .voice-note.active {
   box-shadow: 0 4px 20px rgba(66, 153, 225, 0.4), 0 0 0 3px var(--color-primary);
   border: 1px solid var(--color-primary);
+}
+
+/* 拖动调整宽度的手柄 */
+.resize-handle {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: ew-resize;
+  z-index: 10;
+  border-radius: 0 8px 8px 0;
+  transition: background-color 0.2s;
+}
+
+.resize-handle:hover {
+  background-color: var(--color-primary-light);
+}
+
+.voice-note.is-resizing {
+  transition: none;
+}
+
+.voice-note.is-resizing .resize-handle {
+  background-color: var(--color-primary);
 }
 
 .node-header {
