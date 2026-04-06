@@ -92,11 +92,25 @@
       <span class="created-time-wrapper">
         <span class="created-time-text">{{ formatCreatedTime }}</span>
       </span>
-      <button class="delete-btn" @click.stop="deleteNode">
+      <!-- 菜单按钮 -->
+      <button class="menu-btn" @click.stop="toggleMenu" :class="{ active: showMenu }">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-          <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+          <path d="M6 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm12 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm-6 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
         </svg>
       </button>
+
+      <!-- 抽屉菜单 -->
+      <Teleport to="body">
+        <div v-if="showMenu" class="menu-overlay" @click="closeMenu"></div>
+        <div v-if="showMenu" class="node-menu-drawer" :style="menuStyle">
+          <button class="menu-item delete-menu-item" @click.stop="deleteNode">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+            </svg>
+            <span>{{ t('common.delete') }}</span>
+          </button>
+        </div>
+      </Teleport>
     </div>
 
     <!-- 图片预览模式 -->
@@ -594,6 +608,29 @@ const canRegenerate = computed(() => {
 const localEditingText = ref('')
 const editingTextarea = ref<HTMLTextAreaElement | null>(null)
 
+// 菜单相关
+const showMenu = ref(false)
+const menuStyle = ref<{ top: string; right: string }>({ top: '0px', right: '0px' })
+
+function toggleMenu(e: MouseEvent) {
+  if (showMenu.value) {
+    showMenu.value = false
+  } else {
+    // 计算菜单位置
+    const btn = (e.currentTarget as HTMLElement)
+    const rect = btn.getBoundingClientRect()
+    menuStyle.value = {
+      top: `${rect.bottom + 4}px`,
+      right: `${window.innerWidth - rect.right}px`
+    }
+    showMenu.value = true
+  }
+}
+
+function closeMenu() {
+  showMenu.value = false
+}
+
 // Markdown 渲染结果
 const sanitizedTranscript = ref('')
 const sanitizedAgentResult = ref('')
@@ -777,6 +814,7 @@ function playAudio() {
 }
 
 function deleteNode() {
+  showMenu.value = false
   emit('delete', props.node.id)
 }
 
@@ -1308,7 +1346,7 @@ watch(() => props.node.thinkingContent, async (newThinkingContent) => {
   white-space: nowrap;
 }
 
-.delete-btn {
+.menu-btn {
   background: none;
   border: none;
   cursor: pointer;
@@ -1319,9 +1357,60 @@ watch(() => props.node.thinkingContent, async (newThinkingContent) => {
   flex-shrink: 0;
 }
 
-.delete-btn:hover {
-  background: rgba(255, 68, 68, 0.1);
+.menu-btn:hover,
+.menu-btn.active {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* 菜单遮罩层 */
+.menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 999;
+}
+
+/* 抽屉菜单 */
+.node-menu-drawer {
+  position: fixed;
+  z-index: 1000;
+  min-width: 120px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px var(--shadow-color);
+  padding: 4px;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  color: var(--text-primary);
+  font-size: 14px;
+  text-align: left;
+  transition: background 0.2s;
+}
+
+.menu-item:hover {
+  background: var(--bg-hover);
+}
+
+.delete-menu-item {
   color: var(--color-error);
+}
+
+.delete-menu-item:hover {
+  background: rgba(255, 68, 68, 0.1);
 }
 
 /* 功能按钮组 */
