@@ -135,7 +135,14 @@ const pdfViewerRef = ref<InstanceType<typeof PdfViewer> | null>(null)
 const isResizing = ref(false)
 let savePanelRatioTimer: number | null = null
 
-const activeNode = ref<CanvasNode | null>(null)
+const activeNodeId = ref<string | null>(null)
+const activeNode = computed(() => {
+  if (!activeNodeId.value) return null
+  const pdfPage = notebookStore.findNodePdfPage(activeNodeId.value)
+  if (pdfPage === null) return null
+  const canvas = notebookStore.getCanvasByPdfPage(pdfPage)
+  return canvas?.nodes.find(n => n.id === activeNodeId.value) || null
+})
 const currentAudio = ref<HTMLAudioElement | null>(null)
 const playingNodeId = ref<string | null>(null)
 const editingNodeId = ref<string | null>(null)
@@ -281,13 +288,7 @@ onMounted(async () => {
           notebookStore.switchToPdfPage(pdfPage)
           currentPageNumber.value = pdfPage
           // 激活该节点
-          const canvas = notebookStore.getCanvasByPdfPage(pdfPage)
-          if (canvas) {
-            const node = canvas.nodes.find(n => n.id === nodeId)
-            if (node) {
-              activeNode.value = node
-            }
-          }
+          activeNodeId.value = nodeId
         }
         // 清除 URL 中的查询参数
         router.replace({ path: route.path, query: {} })
@@ -306,7 +307,7 @@ onMounted(async () => {
   window.addEventListener('keydown', handleKeyDown)
 
   // 如果没有通过深度链接激活节点，选中第一个节点
-  if (!activeNode.value) {
+  if (!activeNodeId.value) {
     nextTick(() => {
       selectFirstNode()
     })
@@ -361,9 +362,9 @@ function selectFirstNode() {
     const nodes = notebookStore.getNodesByPdfPage(currentPageNumber.value)
     if (nodes.length > 0) {
       const sortedNodes = [...nodes].sort((a, b) => a.createdAt - b.createdAt)
-      activeNode.value = sortedNodes[0]
+      activeNodeId.value = sortedNodes[0]?.id || null
     } else {
-      activeNode.value = null
+      activeNodeId.value = null
     }
   })
 }
@@ -375,13 +376,7 @@ watch(() => route.query.nodeId, (newNodeId) => {
     if (pdfPage !== null) {
       notebookStore.switchToPdfPage(pdfPage)
       currentPageNumber.value = pdfPage
-      const canvas = notebookStore.getCanvasByPdfPage(pdfPage)
-      if (canvas) {
-        const node = canvas.nodes.find(n => n.id === newNodeId)
-        if (node) {
-          activeNode.value = node
-        }
-      }
+      activeNodeId.value = newNodeId
       // 清除 URL 中的查询参数
       router.replace({ path: route.path, query: {} })
     }
@@ -429,8 +424,8 @@ function handleKeyDown(e: KeyboardEvent) {
 
     e.preventDefault()
 
-    const currentIndex = activeNode.value
-      ? nodes.findIndex(n => n.id === activeNode.value!.id)
+    const currentIndex = activeNodeId.value
+      ? nodes.findIndex(n => n.id === activeNodeId.value)
       : -1
 
     let newIndex = currentIndex
@@ -440,7 +435,7 @@ function handleKeyDown(e: KeyboardEvent) {
       newIndex = currentIndex >= nodes.length - 1 ? 0 : currentIndex + 1
     }
 
-    activeNode.value = nodes[newIndex]
+    activeNodeId.value = nodes[newIndex]?.id || null
   }
 }
 
@@ -471,7 +466,7 @@ function handleCreateNode(data: { type: 'text-note' | 'voice-note'; page: number
   editingNodeId.value = nodeId
   editingText.value = ''
   notebookStore.addNodeToPdfPage(node, data.page)
-  activeNode.value = node
+  activeNodeId.value = nodeId
 }
 
 async function handleRecordingComplete(data: { audioBlob: Blob; duration: number; page: number; x: number; y: number }) {
@@ -495,7 +490,7 @@ async function handleRecordingComplete(data: { audioBlob: Blob; duration: number
 
   // 使用新的 PDF 页面画布管理方法
   notebookStore.addNodeToPdfPage(node, data.page)
-  activeNode.value = node
+  activeNodeId.value = nodeId
 
   try {
     const extension = data.audioBlob.type === 'audio/wav' ? 'wav' : 'webm'
@@ -539,18 +534,15 @@ async function handleRecordingComplete(data: { audioBlob: Blob; duration: number
 }
 
 function handleNodeClick(node: CanvasNode) {
-  activeNode.value = node
+  activeNodeId.value = node.id
 }
 
 function handleNodeActivate(nodeId: string) {
-  const node = notebookStore.currentCanvas?.nodes.find(n => n.id === nodeId)
-  if (node) {
-    activeNode.value = node
-  }
+  activeNodeId.value = nodeId
 }
 
 function handleNodeCreated(node: CanvasNode) {
-  activeNode.value = node
+  activeNodeId.value = node.id
 }
 
 function handleStartEditing(nodeId: string) {
@@ -559,9 +551,7 @@ function handleStartEditing(nodeId: string) {
 }
 
 function handleNodeUpdated(node: CanvasNode) {
-  if (activeNode.value?.id === node.id) {
-    activeNode.value = node
-  }
+  // activeNode 是 computed 属性，自动更新
 }
 
 function handleSaveEdit(nodeId: string, text: string) {
@@ -571,17 +561,12 @@ function handleSaveEdit(nodeId: string, text: string) {
 
     notebookStore.updateNodeAuto(nodeId, { transcript: text.trim(), title })
 
-    if (activeNode.value?.id === nodeId) {
-      const canvas = pdfPage !== null ? notebookStore.getCanvasByPdfPage(pdfPage) : null
-      activeNode.value = canvas?.nodes.find(n => n.id === nodeId) || null
-    }
-
     if (aiAnswerEnabled.value && pdfPage !== null) {
       callAIWithOptionalImage(nodeId, text.trim(), pdfPage)
     }
   } else {
     notebookStore.removeNodeAuto(nodeId)
-    activeNode.value = null
+    activeNodeId.value = null
   }
   editingNodeId.value = null
   editingText.value = ''
@@ -593,7 +578,7 @@ function handleCancelEdit(nodeId: string) {
   const node = canvas?.nodes.find(n => n.id === nodeId)
   if (node && !node.transcript) {
     notebookStore.removeNodeAuto(nodeId)
-    activeNode.value = null
+    activeNodeId.value = null
   }
   editingNodeId.value = null
   editingText.value = ''
@@ -615,15 +600,13 @@ function handleClickOutsideEditing(e: MouseEvent) {
   if (node) {
     if (editingText.value.trim()) {
       notebookStore.updateNodeAuto(editingNodeId.value, { transcript: editingText.value.trim() })
-      if (activeNode.value?.id === editingNodeId.value) {
-        activeNode.value = canvas?.nodes.find(n => n.id === editingNodeId.value) || null
-      }
+      // activeNode 是 computed 属性，自动更新
       if (aiAnswerEnabled.value && pdfPage !== null) {
         callAIWithOptionalImage(editingNodeId.value, editingText.value.trim(), pdfPage)
       }
     } else {
       notebookStore.removeNodeAuto(editingNodeId.value)
-      activeNode.value = null
+      activeNodeId.value = null
     }
   }
   editingNodeId.value = null
@@ -735,8 +718,8 @@ async function handleAgentResponse(nodeId: string, transcript: string, pdfPage: 
 
 function handleDeleteNode(nodeId: string) {
   notebookStore.removeNodeAuto(nodeId)
-  if (activeNode.value?.id === nodeId) {
-    activeNode.value = null
+  if (activeNodeId.value === nodeId) {
+    activeNodeId.value = null
   }
 }
 
@@ -866,9 +849,7 @@ function handleToggleFavorite(nodeId: string) {
 
 function handleUpdateNode(nodeId: string, updates: Partial<CanvasNode>) {
   notebookStore.updateNodeAuto(nodeId, updates)
-  if (activeNode.value?.id === nodeId) {
-    activeNode.value = { ...activeNode.value, ...updates }
-  }
+  // activeNode 是 computed 属性，自动更新
 }
 
 async function toggleStaticContext(contextId: string) {
@@ -1043,7 +1024,7 @@ async function handleAnalyzePage(data: { imageBase64: string; pageNumber: number
   }
 
   notebookStore.addNodeToPdfPage(node, data.pageNumber)
-  activeNode.value = node
+  activeNodeId.value = nodeId
 
   // 调用 AI 进行分析
   await callImageAnalysisAI(nodeId, data.imageBase64, '请分析这个 PDF 页面的内容，总结主要信息。', data.pageNumber)
@@ -1072,7 +1053,7 @@ async function handleExplainSelection(data: { imageBase64: string; selectedText:
   }
 
   notebookStore.addNodeToPdfPage(node, data.pageNumber)
-  activeNode.value = node
+  activeNodeId.value = nodeId
 
   // 调用 AI 进行解释
   await callImageAnalysisAI(nodeId, data.imageBase64, `请解释以下内容：\n\n${data.selectedText}`, data.pageNumber)
@@ -1144,14 +1125,7 @@ async function callImageAnalysisAI(
       thinkingContent: result.thinking,
       thinkingStatus: result.thinking ? 'done' : undefined
     })
-
-    // 更新 activeNode
-    if (activeNode.value?.id === nodeId) {
-      const canvas = notebookStore.getCanvasByPdfPage(pdfPage)
-      if (canvas) {
-        activeNode.value = canvas.nodes.find(n => n.id === nodeId) || null
-      }
-    }
+    // activeNode 是 computed 属性，自动更新
   } catch (error) {
     console.error('Image analysis failed:', error)
     notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
