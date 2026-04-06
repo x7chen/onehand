@@ -763,6 +763,12 @@ function handleVoiceNoteMouseDown(e: MouseEvent) {
 function handleClick(e: MouseEvent) {
   // 阻止事件冒泡，防止触发画布点击
   e.stopPropagation()
+
+  // 如果菜单打开，关闭菜单
+  if (showMenu.value) {
+    showMenu.value = false
+  }
+
   // 发送激活事件
   emit('activate', props.node.id)
 }
