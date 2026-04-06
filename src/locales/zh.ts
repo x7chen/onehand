@@ -131,6 +131,8 @@ export default {
     tagName: '标签名称：',
     tagColor: '标签颜色：',
     tagContent: '标签内容：',
+    contextContent: '上下文内容：',
+    tagContentPlaceholder: '输入上下文内容...',
     noDynamicContext: '当前笔记未关联动态上下文文件。',
     createHint: '拖拽文字到 Header 右侧区域可自动创建。',
     deleteConfirmTitle: '确认删除',

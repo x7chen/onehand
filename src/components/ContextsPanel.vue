@@ -95,7 +95,7 @@
           class="content-input"
         ></textarea>
         <div class="form-group">
-          <label>{{ t('context.tagColor') }}：</label>
+          <label>{{ t('context.tagColor') }}</label>
           <div class="color-picker">
             <button
               v-for="color in QUICK_COMMAND_COLORS"
@@ -129,7 +129,7 @@
           class="content-input"
         ></textarea>
         <div class="form-group">
-          <label>{{ t('context.tagColor') }}：</label>
+          <label>{{ t('context.tagColor') }}</label>
           <div class="color-picker">
             <button
               v-for="color in QUICK_COMMAND_COLORS"

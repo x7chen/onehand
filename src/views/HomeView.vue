@@ -123,21 +123,53 @@
 
     <!-- New Context Dialog -->
     <div v-if="showNewContextDialog" class="dialog-overlay" @click="showNewContextDialog = false">
-      <div class="dialog" @click.stop>
+      <div class="dialog edit-dialog" @click.stop>
         <h3>{{ t('context.newContext') }}</h3>
-        <input
-          v-model="newContextName"
-          type="text"
-          :placeholder="t('context.contextNamePlaceholder')"
-          @keyup.enter="createContextFile"
-        />
-        <div class="form-group">
-          <label>{{ t('context.contextType') }}：</label>
-          <select v-model="newContextType">
-            <option value="static">{{ t('context.staticDesc') }}</option>
-            <option value="dynamic">{{ t('context.dynamicDesc') }}</option>
-          </select>
+
+        <div class="edit-form">
+          <div class="form-group">
+            <label>{{ t('context.tagName') }}</label>
+            <input
+              v-model="newContextName"
+              type="text"
+              :placeholder="t('context.contextNamePlaceholder')"
+              class="name-input"
+            />
+          </div>
+
+          <div class="form-group">
+            <label>{{ t('context.contextType') }}</label>
+            <select v-model="newContextType">
+              <option value="static">{{ t('context.staticDesc') }}</option>
+              <option value="dynamic">{{ t('context.dynamicDesc') }}</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>{{ t('context.tagColor') }}</label>
+            <div class="color-picker">
+              <button
+                v-for="color in contextColors"
+                :key="color"
+                class="color-option"
+                :class="{ selected: newContextColor === color }"
+                :style="{ backgroundColor: color }"
+                @click="newContextColor = color"
+                :title="color"
+              />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>{{ t('context.contextContent') }}</label>
+            <textarea
+              v-model="newContextContent"
+              :placeholder="t('context.tagContentPlaceholder')"
+              class="content-input"
+            ></textarea>
+          </div>
         </div>
+
         <div class="dialog-actions">
           <button @click="showNewContextDialog = false" class="cancel-btn">{{ t('common.cancel') }}</button>
           <button @click="createContextFile" class="confirm-btn">{{ t('common.create') }}</button>
@@ -159,7 +191,7 @@
 
         <div class="edit-form">
           <div class="form-group">
-            <label>{{ t('context.tagName') }}：</label>
+            <label>{{ t('context.tagName') }}</label>
             <input
               v-model="editingContext.name"
               type="text"
@@ -169,7 +201,7 @@
           </div>
 
           <div class="form-group">
-            <label>{{ t('context.tagColor') }}：</label>
+            <label>{{ t('context.tagColor') }}</label>
             <div class="color-picker">
               <button
                 v-for="color in contextColors"
@@ -184,7 +216,7 @@
           </div>
 
           <div class="form-group">
-            <label>{{ t('context.tagContent') }}：</label>
+            <label>{{ t('context.contextContent') }}</label>
             <textarea
               v-model="editingContext.content"
               :placeholder="t('context.tagContentPlaceholder')"
@@ -335,7 +367,7 @@ import ContextsPanel from '@/components/ContextsPanel.vue'
 import FavoritesPanel from '@/components/FavoritesPanel.vue'
 import SettingsPanel from '@/components/SettingsPanel.vue'
 import type { ContextFile, ContextType } from '@/types/context'
-import { CONTEXT_COLORS } from '@/types/context'
+import { CONTEXT_COLORS, type ContextColor } from '@/types/context'
 import type { Notebook } from '@/types/notebook'
 import type { QuickCommand } from '@/types/quickCommand'
 
@@ -354,6 +386,8 @@ const activeTab = ref<'notebooks' | 'contexts' | 'favorites' | 'settings' | 'sea
 const showNewContextDialog = ref(false)
 const newContextName = ref('')
 const newContextType = ref<ContextType>('static')
+const newContextColor = ref<ContextColor>(CONTEXT_COLORS[0])
+const newContextContent = ref('')
 
 const showEditContextDialog = ref(false)
 const editingContext = ref<ContextFile | undefined>(undefined)
@@ -443,16 +477,22 @@ async function createContextFile() {
 
   const newFile = await contextStore.createContextFile(
     newContextName.value.trim(),
-    newContextType.value
+    newContextType.value,
+    newContextContent.value
   )
+
+  // 更新颜色
+  if (newFile.color !== newContextColor.value) {
+    await contextStore.updateContextFile(newFile.id, {
+      color: newContextColor.value
+    })
+  }
 
   showNewContextDialog.value = false
   newContextName.value = ''
   newContextType.value = 'static'
-
-  // 新建后自动进入编辑对话框
-  editingContext.value = { ...newFile }
-  showEditContextDialog.value = true
+  newContextColor.value = CONTEXT_COLORS[0]
+  newContextContent.value = ''
 }
 
 function editContextFile(file: ContextFile) {

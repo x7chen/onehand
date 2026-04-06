@@ -131,6 +131,8 @@ export default {
     tagName: 'Tag Name:',
     tagColor: 'Tag Color:',
     tagContent: 'Tag Content:',
+    contextContent: 'Context Content:',
+    tagContentPlaceholder: 'Enter context content...',
     noDynamicContext: 'Current note has no associated dynamic context file.',
     createHint: 'Drag text to the header right area to auto-create.',
     deleteConfirmTitle: 'Confirm Delete',
