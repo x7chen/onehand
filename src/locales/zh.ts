@@ -61,7 +61,7 @@ export default {
     modelPlaceholder: '模型名称',
     modelProfile: '模型',
     addProfile: '添加配置',
-    generalSettings: '其他设置',
+    generalSettings: '通用设置',
     language: '界面语言',
     languageSystem: '跟随系统',
     languageZh: '中文',

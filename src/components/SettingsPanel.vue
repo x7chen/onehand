@@ -5,6 +5,78 @@
     </div>
 
     <div class="settings-content">
+      <!-- General Settings -->
+      <section class="settings-section">
+        <h3>{{ t('settings.generalSettings') }}</h3>
+
+        <div class="form-group">
+          <label>{{ t('settings.language') }}</label>
+          <select
+            :value="settingsStore.settings.general.language"
+            @change="settingsStore.setLanguage(($event.target as HTMLSelectElement).value as 'zh' | 'en' | 'system')"
+          >
+            <option value="system">{{ t('settings.languageSystem') }}</option>
+            <option value="zh">{{ t('settings.languageZh') }}</option>
+            <option value="en">{{ t('settings.languageEn') }}</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>{{ t('settings.theme') }}</label>
+          <select v-model="settingsStore.settings.general.theme">
+            <option value="system">{{ t('settings.themeSystem') }}</option>
+            <option value="light">{{ t('settings.themeLight') }}</option>
+            <option value="dark">{{ t('settings.themeDark') }}</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>{{ t('settings.colorTheme') }}</label>
+          <div class="theme-colors">
+            <button
+              v-for="theme in predefinedThemes"
+              :key="theme.value"
+              class="theme-color-btn"
+              :class="{ active: settingsStore.settings.general.colorTheme === theme.value }"
+              :style="{ backgroundColor: theme.color }"
+              :title="theme.label"
+              @click="selectTheme(theme.value)"
+            >
+              <svg v-if="settingsStore.settings.general.colorTheme === theme.value" viewBox="0 0 24 24" width="16" height="16" fill="white">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              </svg>
+            </button>
+            <button
+              class="theme-color-btn custom-theme-btn"
+              :class="{ active: settingsStore.settings.general.colorTheme === 'custom' }"
+              :title="t('settings.colorThemeCustom')"
+              @click="selectTheme('custom')"
+            >
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.04-.23-.26-.38-.61-.38-.96 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div v-if="settingsStore.settings.general.colorTheme === 'custom'" class="form-group">
+          <label>{{ t('settings.customThemeFile') }}</label>
+          <div class="custom-theme-row">
+            <input
+              :value="settingsStore.settings.general.customThemePath || ''"
+              type="text"
+              :placeholder="t('settings.customThemePlaceholder')"
+              readonly
+              class="custom-theme-path"
+            />
+            <button class="select-theme-btn" @click="selectCustomThemeFile">
+              {{ t('settings.selectFile') }}
+            </button>
+          </div>
+          <p class="theme-hint">{{ t('settings.customThemeHint') }}</p>
+        </div>
+      </section>
+
       <!-- LLM Settings -->
       <section class="settings-section">
         <h3>{{ t('settings.llmConfig') }}</h3>
@@ -123,78 +195,6 @@
             />
             <span class="temperature-value">{{ (settingsStore.activeProfile?.temperature ?? 0.7).toFixed(1) }}</span>
           </div>
-        </div>
-      </section>
-
-      <!-- General Settings -->
-      <section class="settings-section">
-        <h3>{{ t('settings.generalSettings') }}</h3>
-
-        <div class="form-group">
-          <label>{{ t('settings.language') }}</label>
-          <select
-            :value="settingsStore.settings.general.language"
-            @change="settingsStore.setLanguage(($event.target as HTMLSelectElement).value as 'zh' | 'en' | 'system')"
-          >
-            <option value="system">{{ t('settings.languageSystem') }}</option>
-            <option value="zh">{{ t('settings.languageZh') }}</option>
-            <option value="en">{{ t('settings.languageEn') }}</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label>{{ t('settings.theme') }}</label>
-          <select v-model="settingsStore.settings.general.theme">
-            <option value="system">{{ t('settings.themeSystem') }}</option>
-            <option value="light">{{ t('settings.themeLight') }}</option>
-            <option value="dark">{{ t('settings.themeDark') }}</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label>{{ t('settings.colorTheme') }}</label>
-          <div class="theme-colors">
-            <button
-              v-for="theme in predefinedThemes"
-              :key="theme.value"
-              class="theme-color-btn"
-              :class="{ active: settingsStore.settings.general.colorTheme === theme.value }"
-              :style="{ backgroundColor: theme.color }"
-              :title="theme.label"
-              @click="selectTheme(theme.value)"
-            >
-              <svg v-if="settingsStore.settings.general.colorTheme === theme.value" viewBox="0 0 24 24" width="16" height="16" fill="white">
-                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-              </svg>
-            </button>
-            <button
-              class="theme-color-btn custom-theme-btn"
-              :class="{ active: settingsStore.settings.general.colorTheme === 'custom' }"
-              :title="t('settings.colorThemeCustom')"
-              @click="selectTheme('custom')"
-            >
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.04-.23-.26-.38-.61-.38-.96 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
-              </svg>
-            </button>
-          </div>
-        </div>
-
-        <div v-if="settingsStore.settings.general.colorTheme === 'custom'" class="form-group">
-          <label>{{ t('settings.customThemeFile') }}</label>
-          <div class="custom-theme-row">
-            <input
-              :value="settingsStore.settings.general.customThemePath || ''"
-              type="text"
-              :placeholder="t('settings.customThemePlaceholder')"
-              readonly
-              class="custom-theme-path"
-            />
-            <button class="select-theme-btn" @click="selectCustomThemeFile">
-              {{ t('settings.selectFile') }}
-            </button>
-          </div>
-          <p class="theme-hint">{{ t('settings.customThemeHint') }}</p>
         </div>
       </section>
     </div>
