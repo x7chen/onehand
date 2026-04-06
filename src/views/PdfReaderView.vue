@@ -402,7 +402,14 @@ watch(currentPageNumber, (newPage) => {
 })
 
 function handleKeyDown(e: KeyboardEvent) {
+  // 如果正在编辑节点，不处理键盘事件
   if (editingNodeId.value) return
+
+  // 如果当前焦点在输入框或文本框中，不处理键盘事件
+  const activeElement = document.activeElement
+  if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA' || (activeElement as HTMLElement).isContentEditable)) {
+    return
+  }
 
   // 左右键：PDF 页面翻页
   if (e.key === 'ArrowLeft') {
