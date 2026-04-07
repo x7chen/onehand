@@ -141,7 +141,6 @@ function handleClick() {
   border-radius: 4px;
   overflow: hidden;
   background: white;
-  border-left: 3px solid var(--color-primary);
   box-shadow: 0 1px 4px var(--shadow-color);
   transition: box-shadow 0.2s;
   cursor: pointer;
