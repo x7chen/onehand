@@ -1571,7 +1571,9 @@ watch(() => props.node.thinkingContent, async (newThinkingContent) => {
   color: white;
 }
 
-.transcript-content {
+.transcript-content,
+.agent-content,
+.thinking-content {
   font-size: 14px;
   line-height: 1.6;
   color: var(--text-primary);
@@ -1585,27 +1587,17 @@ watch(() => props.node.thinkingContent, async (newThinkingContent) => {
   min-height: 24px;
 }
 
-/* 确保段落有正确的间距 */
-.transcript-content :deep(p) {
-  margin: 0.5em 0;
-  line-height: 1.6;
-}
-
-/* 确保换行符正常工作 */
-.transcript-content :deep(br) {
-  line-height: 1.6;
-}
-
 /* LaTeX 占位符隐藏 */
-.transcript-content :deep(.latex-placeholder) {
+.transcript-content :deep(.latex-placeholder),
+.agent-content :deep(.latex-placeholder) {
   display: inline;
   padding: 0;
   margin: 0;
 }
 
-.transcript-content::selection {
-  background: rgba(66, 153, 225, 0.3);
-}
+/* ========================================
+   Markdown 渲染样式
+   ======================================== */
 
 /* 深度选择器，确保样式应用到 v-html 渲染的内容 */
 .transcript-content :deep(h1),
@@ -1625,13 +1617,216 @@ watch(() => props.node.thinkingContent, async (newThinkingContent) => {
 .transcript-content :deep(img),
 .transcript-content :deep(.katex),
 .transcript-content :deep(.mermaid),
-.transcript-content :deep(.mermaid-wrapper) {
-  all: revert; /* 重置继承的样式 */
+.transcript-content :deep(.mermaid-wrapper),
+.agent-content :deep(h1),
+.agent-content :deep(h2),
+.agent-content :deep(h3),
+.agent-content :deep(h4),
+.agent-content :deep(h5),
+.agent-content :deep(h6),
+.agent-content :deep(p),
+.agent-content :deep(ul),
+.agent-content :deep(ol),
+.agent-content :deep(li),
+.agent-content :deep(code),
+.agent-content :deep(pre),
+.agent-content :deep(blockquote),
+.agent-content :deep(a),
+.agent-content :deep(img),
+.agent-content :deep(.katex),
+.agent-content :deep(.mermaid),
+.agent-content :deep(.mermaid-wrapper) {
+  all: revert;
 }
 
-/* .hljs 不应用 all: revert，保留 highlight.js 语法高亮颜色 */
+/* 标题 */
+.transcript-content :deep(h1),
+.agent-content :deep(h1) {
+  font-size: 1.5em;
+  margin: 0.5em 0;
+  font-weight: bold;
+}
 
-.transcript-edit {
+.transcript-content :deep(h2),
+.agent-content :deep(h2) {
+  font-size: 1.4em;
+  margin: 0.5em 0;
+  font-weight: bold;
+}
+
+.transcript-content :deep(h3),
+.agent-content :deep(h3) {
+  font-size: 1.3em;
+  margin: 0.4em 0;
+  font-weight: bold;
+}
+
+.transcript-content :deep(h4),
+.agent-content :deep(h4) {
+  font-size: 1.2em;
+  margin: 0.4em 0;
+  font-weight: bold;
+}
+
+.transcript-content :deep(h5),
+.agent-content :deep(h5) {
+  font-size: 1.1em;
+  margin: 0.3em 0;
+  font-weight: bold;
+}
+
+.transcript-content :deep(h6),
+.agent-content :deep(h6) {
+  font-size: 1em;
+  margin: 0.3em 0;
+  font-weight: bold;
+}
+
+/* 段落 */
+.transcript-content :deep(p),
+.agent-content :deep(p) {
+  margin: 0.5em 0;
+  line-height: 1.4;
+}
+
+/* 段落换行 */
+.transcript-content :deep(br),
+.agent-content :deep(br) {
+  line-height: 1.6;
+}
+
+/* 列表 */
+.transcript-content :deep(ul),
+.agent-content :deep(ul) {
+  list-style-type: disc;
+  padding-left: 1.5em;
+  margin: 0.3em 0;
+}
+
+.transcript-content :deep(ol),
+.agent-content :deep(ol) {
+  list-style-type: decimal;
+  padding-left: 1.5em;
+  margin: 0.3em 0;
+}
+
+.transcript-content :deep(li),
+.agent-content :deep(li) {
+  margin: 0.15em 0;
+  padding: 0;
+}
+
+/* 强调 */
+.transcript-content :deep(strong),
+.agent-content :deep(strong) {
+  font-weight: bold;
+}
+
+.transcript-content :deep(em),
+.agent-content :deep(em) {
+  font-style: italic;
+}
+
+/* 链接 */
+.transcript-content :deep(a),
+.agent-content :deep(a) {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+/* 图片 */
+.transcript-content :deep(img),
+.agent-content :deep(img) {
+  max-width: 100%;
+  border-radius: 4px;
+}
+
+/* 引用 */
+.transcript-content :deep(blockquote),
+.agent-content :deep(blockquote) {
+  border-left: 3px solid var(--blockquote-border);
+  padding-left: 0.8em;
+  margin: 0.5em 0;
+  padding: 0.3em 0 0.3em 0.5em;
+  font-style: italic;
+  color: var(--blockquote-text);
+}
+
+/* 行内代码 */
+.transcript-content :deep(.inline-code),
+.agent-content :deep(.inline-code),
+.thinking-content :deep(code) {
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, monospace;
+  background-color: rgba(0, 0, 0, 0.05);
+  padding: 0.1em 0.4em;
+  border-radius: 3px;
+  font-size: 0.85em;
+}
+
+:root.dark .transcript-content :deep(.inline-code),
+:root.dark .agent-content :deep(.inline-code),
+:root.dark .thinking-content :deep(code) {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* ========================================
+   代码块样式 (Highlight.js)
+   ======================================== */
+.transcript-content :deep(pre),
+.agent-content :deep(pre) {
+  background-color: rgba(0, 0, 0, 0.05);
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: 0.85em;
+  line-height: 1.5;
+  margin: 0.5em 0;
+  padding: 16px;
+  display: block;
+}
+
+.transcript-content :deep(pre.hljs),
+.agent-content :deep(pre.hljs) {
+  background-color: var(--code-bg-light) !important;
+}
+
+:root.dark .transcript-content :deep(pre.hljs),
+:root.dark .agent-content :deep(pre.hljs) {
+  background-color: var(--code-bg-dark) !important;
+}
+
+:root.dark .transcript-content :deep(pre.hljs code),
+:root.dark .agent-content :deep(pre.hljs code) {
+  background-color: transparent !important;
+}
+
+.transcript-content :deep(code.hljs),
+.agent-content :deep(code.hljs) {
+  background: transparent !important;
+  padding: 0;
+  margin: 0;
+}
+
+.transcript-content :deep(pre code),
+.agent-content :deep(pre code) {
+  background: transparent !important;
+  padding: 0;
+  border-radius: 0;
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', Consolas, monospace;
+}
+
+/* Mermaid 的 pre 元素不应用代码高亮背景 */
+.transcript-content :deep(pre.mermaid),
+.agent-content :deep(pre.mermaid) {
+  background: transparent !important;
+  padding: 0;
+  margin: 0;
+}
+
+/* ========================================
+   编辑框样式
+   ======================================== */
+.transcript-edit,
+.agent-edit {
   width: 100%;
   min-height: 60px;
   padding: 8px;
@@ -1712,20 +1907,7 @@ watch(() => props.node.thinkingContent, async (newThinkingContent) => {
 }
 
 .thinking-content {
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--text-primary);
-  white-space: normal;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-  width: 100%;
-  box-sizing: border-box;
-  user-select: text;
-}
-
-.thinking-content :deep(p) {
-  margin: 0.5em 0;
-  line-height: 1.6;
+  /* 基础样式已与 transcript-content 合并定义 */
 }
 
 .thinking-content :deep(h1),
@@ -1742,18 +1924,6 @@ watch(() => props.node.thinkingContent, async (newThinkingContent) => {
 .thinking-content :deep(ol) {
   padding-left: 1.5em;
   margin: 0.3em 0;
-}
-
-.thinking-content :deep(code) {
-  font-family: 'SF Mono', Monaco, 'Cascadia Code', Consolas, monospace;
-  background-color: rgba(0, 0, 0, 0.05);
-  padding: 0.1em 0.4em;
-  border-radius: 3px;
-  font-size: 0.85em;
-}
-
-:root.dark .thinking-content :deep(code) {
-  background-color: rgba(255, 255, 255, 0.1);
 }
 
 :root.dark .agent-result-box {
@@ -1813,85 +1983,12 @@ watch(() => props.node.thinkingContent, async (newThinkingContent) => {
 }
 
 .agent-content {
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--text-primary);
-  white-space: normal;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-  width: 100%;
-  box-sizing: border-box;
-  user-select: text;
-  cursor: text;
-  min-height: 24px;
+  /* 基础样式已与 transcript-content 合并定义 */
 }
 
-/* 确保段落有正确的间距 */
-.agent-content :deep(p) {
-  margin: 0.5em 0;
-  line-height: 1.6;
-}
-
-/* 确保换行符正常工作 */
-.agent-content :deep(br) {
-  line-height: 1.6;
-}
-
-/* LaTeX 占位符隐藏 */
-.agent-content :deep(.latex-placeholder) {
-  display: inline;
-  padding: 0;
-  margin: 0;
-}
-
-.agent-content::selection {
-  background: rgba(66, 153, 225, 0.3);
-}
-
-/* 深度选择器，确保样式应用到 v-html 渲染的内容 */
-.agent-content :deep(h1),
-.agent-content :deep(h2),
-.agent-content :deep(h3),
-.agent-content :deep(h4),
-.agent-content :deep(h5),
-.agent-content :deep(h6),
-.agent-content :deep(p),
-.agent-content :deep(ul),
-.agent-content :deep(ol),
-.agent-content :deep(li),
-.agent-content :deep(code),
-.agent-content :deep(pre),
-.agent-content :deep(blockquote),
-.agent-content :deep(a),
-.agent-content :deep(img),
-.agent-content :deep(.katex),
-.agent-content :deep(.mermaid),
-.agent-content :deep(.mermaid-wrapper) {
-  all: revert; /* 重置继承的样式 */
-}
-
-/* .hljs 不应用 all: revert，保留 highlight.js 语法高亮颜色 */
-
-.agent-edit {
-  width: 100%;
-  min-height: 60px;
-  padding: 8px;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.98);
-  color: var(--text-primary);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  font-size: 14px;
-  line-height: 1.6;
-  resize: none;
-  outline: none;
-  box-sizing: border-box;
-  overflow: hidden;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  position: relative;
-  z-index: 10;
-}
-
+/* ========================================
+   状态和错误样式
+   ======================================== */
 .status-text {
   font-size: 14px;
   color: var(--text-secondary);
@@ -1920,6 +2017,9 @@ watch(() => props.node.thinkingContent, async (newThinkingContent) => {
   background: rgba(255, 68, 68, 0.2);
 }
 
+/* ========================================
+   编辑模式样式
+   ======================================== */
 .editing-box {
   display: flex;
   flex-direction: column;
@@ -1947,234 +2047,8 @@ watch(() => props.node.thinkingContent, async (newThinkingContent) => {
 }
 
 /* ========================================
-   Markdown 渲染样式
-   ======================================== */
-/* 标题 */
-.transcript-content :deep(h1),
-.agent-content :deep(h1) {
-  font-size: 1.5em;
-  margin: 0.5em 0;
-  font-weight: bold;
-}
-
-.transcript-content :deep(h2),
-.agent-content :deep(h2) {
-  font-size: 1.4em;
-  margin: 0.5em 0;
-  font-weight: bold;
-}
-
-.transcript-content :deep(h3),
-.agent-content :deep(h3) {
-  font-size: 1.3em;
-  margin: 0.4em 0;
-  font-weight: bold;
-}
-
-.transcript-content :deep(h4),
-.agent-content :deep(h4) {
-  font-size: 1.2em;
-  margin: 0.4em 0;
-  font-weight: bold;
-}
-
-.transcript-content :deep(h5),
-.agent-content :deep(h5) {
-  font-size: 1.1em;
-  margin: 0.3em 0;
-  font-weight: bold;
-}
-
-.transcript-content :deep(h6),
-.agent-content :deep(h6) {
-  font-size: 1em;
-  margin: 0.3em 0;
-  font-weight: bold;
-}
-
-/* 段落 */
-.transcript-content :deep(p),
-.agent-content :deep(p) {
-  margin: 0.5em 0;
-  line-height: 1.4;
-}
-
-/* 列表 */
-.transcript-content :deep(ul),
-.agent-content :deep(ul) {
-  list-style-type: disc;
-  padding-left: 1.5em;
-  margin: 0.3em 0;
-}
-
-.transcript-content :deep(ol),
-.agent-content :deep(ol) {
-  list-style-type: decimal;
-  padding-left: 1.5em;
-  margin: 0.3em 0;
-}
-
-.transcript-content :deep(li),
-.agent-content :deep(li) {
-  margin: 0.15em 0;
-  padding: 0;
-}
-
-/* 强调 */
-.transcript-content :deep(strong),
-.agent-content :deep(strong) {
-  font-weight: bold;
-}
-
-.transcript-content :deep(em),
-.agent-content :deep(em) {
-  font-style: italic;
-}
-
-/* 行内代码 */
-.transcript-content :deep(.inline-code),
-.agent-content :deep(.inline-code) {
-  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, monospace;
-  background-color: rgba(0, 0, 0, 0.05);
-  padding: 0.1em 0.4em;
-  border-radius: 3px;
-  font-size: 0.85em;
-  white-space: nowrap;
-}
-
-:root.dark .transcript-content :deep(.inline-code),
-:root.dark .agent-content :deep(.inline-code) {
-  background-color: rgba(255, 255, 255, 0.1);
-}
-
-/* 代码块 */
-.transcript-content :deep(pre),
-.agent-content :deep(pre) {
-  background-color: rgba(0, 0, 0, 0.05);
-  padding: 0.5em;
-  border-radius: 4px;
-  overflow-x: auto;
-  margin: 0.5em 0;
-}
-
-.transcript-content :deep(pre code),
-.agent-content :deep(pre code) {
-  background: none;
-  padding: 0;
-  font-size: 1em;
-}
-
-/* 引用 */
-.transcript-content :deep(blockquote),
-.agent-content :deep(blockquote) {
-  border-left: 3px solid var(--blockquote-border);
-  padding-left: 0.8em;
-  margin: 0.5em 0;
-  padding: 0.3em 0 0.3em 0.5em;
-  font-style: italic;
-  color: var(--blockquote-text);
-}
-
-/* 链接 */
-.transcript-content :deep(a),
-.agent-content :deep(a) {
-  color: var(--color-primary);
-  text-decoration: underline;
-}
-
-/* 图片 */
-.transcript-content :deep(img),
-.agent-content :deep(img) {
-  max-width: 100%;
-  border-radius: 4px;
-}
-
-/* ========================================
-   代码高亮样式 (Highlight.js)
-   ======================================== */
-/* 代码块容器 */
-.transcript-content :deep(pre),
-.agent-content :deep(pre) {
-  border-radius: 6px;
-  overflow-x: auto;
-  font-size: 0.85em;
-  line-height: 1.5;
-  margin: 0.5em 0;
-  padding: 16px;
-  display: block;
-  /* 背景色和颜色由 highlight.js 主题控制 */
-}
-
-/* 浅色主题下代码块背景色 */
-.transcript-content :deep(pre.hljs),
-.agent-content :deep(pre.hljs) {
-  background-color: var(--code-bg-light) !important;
-}
-
-/* 深色主题下代码块颜色和背景由 highlight.js 主题控制 */
-:root.dark .transcript-content :deep(pre.hljs),
-:root.dark .agent-content :deep(pre.hljs) {
-  color: unset;
-  background-color: var(--code-bg-dark) !important;
-}
-
-:root.dark .transcript-content :deep(pre.hljs code),
-:root.dark .agent-content :deep(pre.hljs code) {
-  color: unset;
-  background-color: transparent !important;
-}
-
-/* 不要为 pre.hljs span 设置颜色，让 highlight.js 主题控制 */
-/* :root.dark .transcript-content :deep(pre.hljs span),
-:root.dark .agent-content :deep(pre.hljs span) {
-  color: inherit;
-} */
-
-/* 确保 hljs 类的样式由主题控制 - 只针对 code.hljs，不覆盖 pre.hljs 的 padding */
-.transcript-content :deep(code.hljs),
-.agent-content :deep(code.hljs) {
-  background: transparent !important;
-  padding: 0;
-  margin: 0;
-}
-
-/* 代码块内的 code 元素 */
-.transcript-content :deep(pre code),
-.agent-content :deep(pre code) {
-  background: transparent !important;
-  padding: 0;
-  border-radius: 0;
-  font-family: 'SF Mono', Monaco, 'Cascadia Code', Consolas, monospace;
-}
-
-/* Mermaid 的 pre 元素不应用代码高亮背景 */
-.transcript-content :deep(pre.mermaid),
-.agent-content :deep(pre.mermaid) {
-  background: transparent !important;
-  padding: 0;
-  margin: 0;
-}
-
-/* 行内代码 */
-.transcript-content :deep(.inline-code),
-.agent-content :deep(.inline-code) {
-  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, monospace;
-  background-color: rgba(0, 0, 0, 0.05);
-  padding: 0.1em 0.4em;
-  border-radius: 3px;
-  font-size: 0.85em;
-  white-space: nowrap;
-}
-
-:root.dark .transcript-content :deep(.inline-code),
-:root.dark .agent-content :deep(.inline-code) {
-  background-color: rgba(255, 255, 255, 0.1);
-}
-
-/* ========================================
    LaTeX 公式样式 (KaTeX)
    ======================================== */
-/* KaTeX 公式容器 - 确保 KaTeX CSS 能正确应用 */
 .transcript-content :deep(.katex),
 .agent-content :deep(.katex) {
   font-size: 1.1em;
@@ -2195,7 +2069,6 @@ watch(() => props.node.thinkingContent, async (newThinkingContent) => {
   display: inline-block;
 }
 
-/* 公式错误提示 */
 .transcript-content :deep(.latex-error),
 .agent-content :deep(.latex-error) {
   display: inline-block;
@@ -2213,7 +2086,6 @@ watch(() => props.node.thinkingContent, async (newThinkingContent) => {
 /* ========================================
    Mermaid 图表样式
    ======================================== */
-/* Mermaid 容器 */
 .transcript-content :deep(.mermaid-wrapper),
 .agent-content :deep(.mermaid-wrapper) {
   margin: 1em 0;
@@ -2225,7 +2097,6 @@ watch(() => props.node.thinkingContent, async (newThinkingContent) => {
   display: block;
 }
 
-/* Mermaid 渲染后的 SVG */
 .transcript-content :deep(.mermaid-svg),
 .agent-content :deep(.mermaid-svg) {
   max-width: 100%;
@@ -2234,7 +2105,6 @@ watch(() => props.node.thinkingContent, async (newThinkingContent) => {
   margin: 0 auto;
 }
 
-/* 确保 SVG 内的元素可见 */
 .transcript-content :deep(.mermaid-svg svg),
 .agent-content :deep(.mermaid-svg svg) {
   display: block;
@@ -2242,7 +2112,6 @@ watch(() => props.node.thinkingContent, async (newThinkingContent) => {
   height: auto;
 }
 
-/* Mermaid 元素 */
 .transcript-content :deep(.mermaid),
 .agent-content :deep(.mermaid) {
   display: inline-block;
@@ -2255,7 +2124,6 @@ watch(() => props.node.thinkingContent, async (newThinkingContent) => {
   height: auto;
 }
 
-/* Mermaid 渲染后移除背景 */
 .transcript-content :deep(.mermaid-wrapper.mermaid-rendered),
 .agent-content :deep(.mermaid-wrapper.mermaid-rendered) {
   background: transparent;
@@ -2263,7 +2131,6 @@ watch(() => props.node.thinkingContent, async (newThinkingContent) => {
   padding: 0.5em 0;
 }
 
-/* Mermaid 错误提示 */
 .transcript-content :deep(.mermaid-error),
 .agent-content :deep(.mermaid-error) {
   display: inline-block;
