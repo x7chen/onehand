@@ -144,6 +144,7 @@ import { chatWithLLM, buildFullContextMessages, buildImageAnalysisMessages } fro
 import { loadEmbeddedImagesForTranscript } from '@/utils/contextBuilder'
 import { createAudioWorkletRecorder } from '@/utils/audioWorkletRecorder'
 import { transcribeWithSherpaOnnx } from '@/composables/useSherpaOnnx'
+import { getNotebookAudioDir, getNotebookImagesDir, getNotebookDataDir, getPdfDir } from '@/utils/userFilesPath'
 import type { CanvasNode } from '@/types/notebook'
 import type { ContextFile } from '@/types/context'
 import type { QuickCommand } from '@/types/quickCommand'
@@ -595,9 +596,7 @@ async function saveImageToNotebook(file: File): Promise<string | null> {
   }
 
   try {
-    const appDataPath = await window.electronAPI.getAppPath('userData')
-    const notebookDir = `${appDataPath}/notebooks/${notebook.id}`
-    const imagesDir = `${notebookDir}/images`
+    const imagesDir = await getNotebookImagesDir(notebook.id)
 
     await window.electronAPI.mkdir(imagesDir)
 
@@ -757,12 +756,12 @@ async function handleMagicPadDrop(e: DragEvent) {
 
 // MagicPad - 拖拽图片创建节点
 async function handleMagicPadImageDrop(files: File[]) {
-  const appDataPath = await window.electronAPI.getAppPath('userData')
   const notebook = notebookStore.currentNotebook
   if (!notebook) return
 
-  const notebookDir = `${appDataPath}/notebooks/${notebook.id}`
-  await window.electronAPI.mkdir(`${notebookDir}/images`)
+  const notebookDir = await getNotebookDataDir(notebook.id)
+  const imagesDir = `${notebookDir}/images`
+  await window.electronAPI.mkdir(imagesDir)
 
   for (const file of files) {
     const nodeId = `node-${Date.now()}`
@@ -1038,15 +1037,14 @@ async function createVoiceNode(audioBlob: Blob, duration: number) {
   const nodeId = `node-${Date.now()}`
   const audioPath = `audio/${nodeId}.${extension}`
 
-  const appDataPath = await window.electronAPI.getAppPath('userData')
   const notebook = notebookStore.currentNotebook
   if (!notebook) return
 
-  const notebookDir = `${appDataPath}/notebooks/${notebook.id}`
-  await window.electronAPI.mkdir(`${notebookDir}/audio`)
+  const audioDir = await getNotebookAudioDir(notebook.id)
+  await window.electronAPI.mkdir(audioDir)
 
   const arrayBuffer = await audioBlob.arrayBuffer()
-  await window.electronAPI.saveFileBuffer(`${notebookDir}/${audioPath}`, arrayBuffer)
+  await window.electronAPI.saveFileBuffer(`${audioDir}/${nodeId}.${extension}`, arrayBuffer)
 
   const pdfPage = props.currentPage
 
@@ -1098,11 +1096,11 @@ async function handleTranscription(node: CanvasNode) {
   try {
     updateNodeWithPage(node.id, { transcriptStatus: 'processing' })
 
-    const appDataPath = await window.electronAPI.getAppPath('userData')
     const notebook = notebookStore.currentNotebook
     if (!notebook || !node.audioPath) return
 
-    const audioPath = `${appDataPath}/notebooks/${notebook.id}/${node.audioPath}`
+    const notebookDir = await getNotebookDataDir(notebook.id)
+    const audioPath = `${notebookDir}/${node.audioPath}`
     const result = await window.electronAPI.readFile(audioPath, 'arraybuffer')
 
     if (result.success && result.data) {

@@ -4,6 +4,7 @@
  */
 
 import type { RendererObject, Tokens } from 'marked'
+import { getNotebookDataDir } from '@/utils/userFilesPath'
 
 // Markdown 渲染缓存
 const markdownCache = new Map<string, string>()
@@ -449,8 +450,8 @@ async function loadImageAsBlobUrl(relativePath: string, notebookId: string): Pro
   }
 
   try {
-    const appDataPath = await window.electronAPI.getAppPath('userData')
-    const fullPath = `${appDataPath}/notebooks/${notebookId}/${relativePath}`
+    const notebookDir = await getNotebookDataDir(notebookId)
+    const fullPath = `${notebookDir}/${relativePath}`
     const result = await window.electronAPI.readFile(fullPath, 'arraybuffer')
 
     if (result.success && result.data) {

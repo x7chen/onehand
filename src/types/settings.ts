@@ -43,6 +43,7 @@ export interface GeneralSettings {
   colorTheme: BuiltinTheme | 'custom'  // 颜色主题
   customPrimaryColor?: string  // 自定义主题色（仅当colorTheme为custom时有效）
   notebooksViewMode?: 'grid' | 'list'  // 笔记本面板视图模式
+  userFilesPath?: string  // 用户文件目录（笔记本、PDF、图片、音频、上下文等）
 }
 
 export interface ViewSettings {

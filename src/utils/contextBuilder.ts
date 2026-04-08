@@ -3,6 +3,8 @@
  * 用于处理节点上下文、图片加载等
  */
 
+import { getNotebookDataDir } from '@/utils/userFilesPath'
+
 /**
  * 提取文本中的图片路径
  */
@@ -66,11 +68,11 @@ export async function loadEmbeddedImagesForTranscript(
   const imagePaths = extractImagePaths(transcript)
   if (imagePaths.length === 0) return undefined
 
-  const appDataPath = await window.electronAPI.getAppPath('userData')
+  const notebookDir = await getNotebookDataDir(notebookId)
   const base64Images: string[] = []
 
   for (const imagePath of imagePaths) {
-    const fullPath = `${appDataPath}/notebooks/${notebookId}/${imagePath}`
+    const fullPath = `${notebookDir}/${imagePath}`
     const result = await readFile(fullPath, 'arraybuffer')
 
     if (result.success && result.data instanceof ArrayBuffer) {
@@ -90,8 +92,8 @@ export async function loadImageBase64(
   notebookId: string,
   readFile: ReadFileFunction
 ): Promise<string | undefined> {
-  const appDataPath = await window.electronAPI.getAppPath('userData')
-  const fullPath = `${appDataPath}/notebooks/${notebookId}/${imagePath}`
+  const notebookDir = await getNotebookDataDir(notebookId)
+  const fullPath = `${notebookDir}/${imagePath}`
   const result = await readFile(fullPath, 'arraybuffer')
 
   if (result.success && result.data instanceof ArrayBuffer) {

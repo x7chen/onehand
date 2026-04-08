@@ -78,6 +78,7 @@ import { createAudioWorkletRecorder } from '@/utils/audioWorkletRecorder'
 import { transcribeWithSherpaOnnx } from '@/composables/useSherpaOnnx'
 import { chatWithLLM, buildFullContextMessages } from '@/composables/useQwenAgent'
 import { extractImagePaths, loadEmbeddedImagesForTranscript, loadImageBase64 } from '@/utils/contextBuilder'
+import { getNotebookAudioDir, getNotebookDataDir, getNotebookImagesDir } from '@/utils/userFilesPath'
 
 const props = defineProps<{
   globalHideAiResult: boolean
@@ -341,15 +342,14 @@ async function handleLongPressEnd(isCancel = false) {
     const nodeId = `node-${Date.now()}`
     const audioPath = `audio/${nodeId}.${extension}`
 
-    const appDataPath = await window.electronAPI.getAppPath('userData')
     const notebook = notebookStore.currentNotebook
     if (!notebook) return
 
-    const notebookDir = `${appDataPath}/notebooks/${notebook.id}`
-    await window.electronAPI.mkdir(`${notebookDir}/audio`)
+    const audioDir = await getNotebookAudioDir(notebook.id)
+    await window.electronAPI.mkdir(audioDir)
 
     const arrayBuffer = await audioBlob.arrayBuffer()
-    await window.electronAPI.saveFileBuffer(`${notebookDir}/${audioPath}`, arrayBuffer)
+    await window.electronAPI.saveFileBuffer(`${audioDir}/${nodeId}.${extension}`, arrayBuffer)
 
     const startX = recordingStartPosition.value?.x || 100
     const startY = recordingStartPosition.value?.y || 100
@@ -479,11 +479,11 @@ async function handleTranscription(node: CanvasNode) {
   try {
     notebookStore.updateNode(node.id, { transcriptStatus: 'processing' })
 
-    const appDataPath = await window.electronAPI.getAppPath('userData')
     const notebook = notebookStore.currentNotebook
     if (!notebook || !node.audioPath) return
 
-    const audioPath = `${appDataPath}/notebooks/${notebook.id}/${node.audioPath}`
+    const notebookDir = await getNotebookDataDir(notebook.id)
+    const audioPath = `${notebookDir}/${node.audioPath}`
     const result = await window.electronAPI.readFile(audioPath, 'arraybuffer')
 
     if (result.success && result.data) {
@@ -619,11 +619,11 @@ async function handlePlayNode(nodeId: string) {
   }
 
   try {
-    const appDataPath = await window.electronAPI.getAppPath('userData')
     const notebook = notebookStore.currentNotebook
     if (!notebook) return
 
-    const audioPath = `${appDataPath}/notebooks/${notebook.id}/${node.audioPath}`
+    const notebookDir = await getNotebookDataDir(notebook.id)
+    const audioPath = `${notebookDir}/${node.audioPath}`
     const result = await window.electronAPI.readFile(audioPath, 'arraybuffer')
     if (!result.success || !result.data) return
 
@@ -868,12 +868,11 @@ async function handleDropText(x: number, y: number, text: string) {
 }
 
 async function handleDropImage(x: number, y: number, files: File[]) {
-  const appDataPath = await window.electronAPI.getAppPath('userData')
   const notebook = notebookStore.currentNotebook
   if (!notebook) return
 
-  const notebookDir = `${appDataPath}/notebooks/${notebook.id}`
-  await window.electronAPI.mkdir(`${notebookDir}/images`)
+  const imagesDir = await getNotebookImagesDir(notebook.id)
+  await window.electronAPI.mkdir(imagesDir)
 
   for (const file of files) {
     const nodeId = `node-${Date.now()}`
@@ -882,7 +881,7 @@ async function handleDropImage(x: number, y: number, files: File[]) {
 
     // 保存图片到笔记本目录
     const arrayBuffer = await file.arrayBuffer()
-    await window.electronAPI.saveFileBuffer(`${notebookDir}/${imagePath}`, arrayBuffer)
+    await window.electronAPI.saveFileBuffer(`${imagesDir}/${nodeId}.${ext}`, arrayBuffer)
 
     // 创建图片节点
     const node: CanvasNode = {
@@ -921,15 +920,14 @@ async function handleAskWithNewRecording() {
       const nodeId = `node-${Date.now()}`
       const audioPath = `audio/${nodeId}.${extension}`
 
-      const appDataPath = await window.electronAPI.getAppPath('userData')
       const notebook = notebookStore.currentNotebook
       if (!notebook) return
 
-      const notebookDir = `${appDataPath}/notebooks/${notebook.id}`
-      await window.electronAPI.mkdir(`${notebookDir}/audio`)
+      const audioDir = await getNotebookAudioDir(notebook.id)
+      await window.electronAPI.mkdir(audioDir)
 
       const arrayBuffer = await audioBlob.arrayBuffer()
-      await window.electronAPI.saveFileBuffer(`${notebookDir}/${audioPath}`, arrayBuffer)
+      await window.electronAPI.saveFileBuffer(`${audioDir}/${nodeId}.${extension}`, arrayBuffer)
 
       const node: CanvasNode = {
         id: nodeId,

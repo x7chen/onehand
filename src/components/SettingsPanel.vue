@@ -81,6 +81,40 @@
             </div>
           </div>
         </div>
+
+        <div class="form-group">
+          <label>{{ t('settings.userFilesPath') }}</label>
+          <div class="path-input-wrapper">
+            <input
+              :value="settingsStore.settings.general.userFilesPath || ''"
+              type="text"
+              :placeholder="t('settings.userFilesPathPlaceholder')"
+              readonly
+            />
+            <button
+              type="button"
+              class="browse-btn"
+              @click="selectUserFilesPath"
+              :title="t('common.browse')"
+            >
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                <path d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V6h5.17l2 2H20v10z"/>
+              </svg>
+            </button>
+            <button
+              v-if="settingsStore.settings.general.userFilesPath"
+              type="button"
+              class="reset-btn"
+              @click="resetUserFilesPath"
+              :title="t('settings.resetToDefault')"
+            >
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                <path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/>
+              </svg>
+            </button>
+          </div>
+          <p class="form-hint">{{ t('settings.userFilesPathHint') }}</p>
+        </div>
       </section>
 
       <!-- LLM Settings -->
@@ -259,6 +293,29 @@ function updateCustomColor(color: string) {
 
 function openColorPicker() {
   colorInputRef.value?.click()
+}
+
+// 选择用户文件目录
+async function selectUserFilesPath() {
+  const result = await window.electronAPI.selectDirectory()
+  if (!result.canceled && result.filePaths.length > 0) {
+    settingsStore.updateSettings({
+      general: {
+        ...settingsStore.settings.general,
+        userFilesPath: result.filePaths[0]
+      }
+    })
+  }
+}
+
+// 重置用户文件目录为默认值
+function resetUserFilesPath() {
+  settingsStore.updateSettings({
+    general: {
+      ...settingsStore.settings.general,
+      userFilesPath: undefined
+    }
+  })
 }
 
 onMounted(async () => {
@@ -646,5 +703,50 @@ function handleDragEnd(event: DragEvent) {
   font-weight: 500;
   color: var(--text-primary);
   text-align: center;
+}
+
+/* Path input wrapper */
+.path-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.path-input-wrapper input {
+  flex: 1;
+  padding-right: 12px;
+  background: var(--bg-secondary);
+}
+
+.path-input-wrapper input[readonly] {
+  cursor: default;
+}
+
+.browse-btn,
+.reset-btn {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 8px 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+}
+
+.browse-btn:hover,
+.reset-btn:hover {
+  background: var(--bg-hover);
+  color: var(--color-primary);
+}
+
+.form-hint {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 6px;
+  opacity: 0.7;
 }
 </style>

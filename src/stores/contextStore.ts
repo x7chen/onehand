@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { ContextFile, ContextType, ContextColor } from '@/types/context'
 import { CONTEXT_COLORS } from '@/types/context'
+import { getContextsDir } from '@/utils/userFilesPath'
 
 export const useContextStore = defineStore('context', () => {
   const contextFiles = ref<ContextFile[]>([])
@@ -35,8 +36,7 @@ export const useContextStore = defineStore('context', () => {
    */
   async function loadContextFiles() {
     try {
-      const appDataPath = await window.electronAPI.getAppPath('userData')
-      const contextsDir = `${appDataPath}/contexts`
+      const contextsDir = await getContextsDir()
       const exists = await window.electronAPI.exists(`${contextsDir}/contexts.json`)
 
       if (exists) {
@@ -65,8 +65,7 @@ export const useContextStore = defineStore('context', () => {
    */
   async function saveContextFiles() {
     try {
-      const appDataPath = await window.electronAPI.getAppPath('userData')
-      const contextsDir = `${appDataPath}/contexts`
+      const contextsDir = await getContextsDir()
       await window.electronAPI.mkdir(contextsDir)
       await window.electronAPI.saveFile(
         `${contextsDir}/contexts.json`,
@@ -112,8 +111,7 @@ export const useContextStore = defineStore('context', () => {
    */
   async function saveContextFileContent(contextFile: ContextFile) {
     try {
-      const appDataPath = await window.electronAPI.getAppPath('userData')
-      const contextsDir = `${appDataPath}/contexts`
+      const contextsDir = await getContextsDir()
       await window.electronAPI.mkdir(contextsDir)
       await window.electronAPI.saveFile(
         `${contextsDir}/${contextFile.id}.md`,
@@ -129,8 +127,7 @@ export const useContextStore = defineStore('context', () => {
    */
   async function loadContextFileContent(contextFileId: string): Promise<string | null> {
     try {
-      const appDataPath = await window.electronAPI.getAppPath('userData')
-      const contextsDir = `${appDataPath}/contexts`
+      const contextsDir = await getContextsDir()
       const result = await window.electronAPI.readFile(`${contextsDir}/${contextFileId}.md`, 'utf-8')
       if (result.success && result.data && typeof result.data === 'string') {
         return result.data

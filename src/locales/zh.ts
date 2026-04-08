@@ -91,6 +91,10 @@ export default {
     temperature: '温度参数',
     enabled: '已开启',
     disabled: '已关闭',
+    userFilesPath: '用户文件目录',
+    userFilesPathPlaceholder: '使用默认位置',
+    userFilesPathHint: '笔记本、PDF、图片、音频、上下文等文件的保存目录',
+    resetToDefault: '恢复默认',
   },
   notebook: {
     newNotebook: '新建笔记本',

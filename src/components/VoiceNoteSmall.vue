@@ -47,6 +47,7 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useNotebookStore } from '@/stores/notebookStore'
 import { renderMarkdown, processImagePaths } from '@/utils/markdownRenderer'
+import { getNotebookDataDir } from '@/utils/userFilesPath'
 import type { CanvasNode } from '@/types/notebook'
 
 const notebookStore = useNotebookStore()
@@ -80,11 +81,11 @@ const imageBlobUrl = ref<string | null>(null)
 async function loadImage() {
   if (props.node.type !== 'image-note' || !props.node.imagePath) return
 
-  const appDataPath = await window.electronAPI.getAppPath('userData')
   const notebook = notebookStore.currentNotebook
   if (!notebook) return
 
-  const fullPath = `${appDataPath}/notebooks/${notebook.id}/${props.node.imagePath}`
+  const notebookDir = await getNotebookDataDir(notebook.id)
+  const fullPath = `${notebookDir}/${props.node.imagePath}`
   const result = await window.electronAPI.readFile(fullPath, 'arraybuffer')
 
   if (result.success && result.data) {

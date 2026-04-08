@@ -65,6 +65,7 @@ import { useI18n } from 'vue-i18n'
 import VoiceNote from '@/components/VoiceNote.vue'
 import { parseDeepLinkUrl, findNodeByDeepLink, type NodePopupData } from '@/composables/useDeepLink'
 import { useNotebookStore } from '@/stores/notebookStore'
+import { getNotebookDataDir } from '@/utils/userFilesPath'
 import type { DeepLinkData } from '@/composables/useDeepLink'
 
 const props = defineProps<{
@@ -192,11 +193,11 @@ async function handlePlay(nodeId: string) {
   }
 
   try {
-    const appDataPath = await window.electronAPI.getAppPath('userData')
     const notebook = notebookStore.currentNotebook
     if (!notebook || !node.audioPath) return
-    
-    const audioPath = `${appDataPath}/notebooks/${notebook.id}/${node.audioPath}`
+
+    const notebookDir = await getNotebookDataDir(notebook.id)
+    const audioPath = `${notebookDir}/${node.audioPath}`
 
     currentAudio.value = new Audio(`file://${audioPath}`)
     await currentAudio.value.play()

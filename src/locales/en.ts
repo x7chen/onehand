@@ -91,6 +91,10 @@ export default {
     temperature: 'Temperature',
     enabled: 'Enabled',
     disabled: 'Disabled',
+    userFilesPath: 'User Files Directory',
+    userFilesPathPlaceholder: 'Use default location',
+    userFilesPathHint: 'Directory for notebooks, PDFs, images, audio, contexts, etc.',
+    resetToDefault: 'Reset to default',
   },
   notebook: {
     newNotebook: 'New Notebook',

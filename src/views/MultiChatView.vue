@@ -193,6 +193,7 @@ import ChatPanel from '@/components/ChatPanel.vue'
 import ContextToolbar from '@/components/ContextToolbar.vue'
 import { chatWithLLM, buildFullContextMessages } from '@/composables/useQwenAgent'
 import { extractImagePaths, loadEmbeddedImagesForTranscript, loadImageBase64 } from '@/utils/contextBuilder'
+import { getNotebookDataDir } from '@/utils/userFilesPath'
 import type { CanvasNode } from '@/types/notebook'
 
 const route = useRoute()
@@ -745,11 +746,11 @@ async function handlePlayNode(nodeId: string) {
   }
 
   try {
-    const appDataPath = await window.electronAPI.getAppPath('userData')
     const notebook = notebookStore.currentNotebook
     if (!notebook || !node.audioPath) return
 
-    const audioPath = `${appDataPath}/notebooks/${notebook.id}/${node.audioPath}`
+    const notebookDir = await getNotebookDataDir(notebook.id)
+    const audioPath = `${notebookDir}/${node.audioPath}`
 
     currentAudio.value = new Audio(`file://${audioPath}`)
     await currentAudio.value.play()

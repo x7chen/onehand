@@ -252,6 +252,7 @@ import { useI18n } from 'vue-i18n'
 import { useNotebookStore } from '@/stores/notebookStore'
 import { formatDuration } from '@/utils/helpers'
 import { renderMarkdown, renderMermaidCharts, processImagePaths } from '@/utils/markdownRenderer'
+import { getNotebookDataDir, getNotebookImagesDir } from '@/utils/userFilesPath'
 import type { CanvasNode } from '@/types/notebook'
 
 const notebookStore = useNotebookStore()
@@ -363,11 +364,11 @@ async function loadImage() {
     imageBlobUrl.value = null
   }
 
-  const appDataPath = await window.electronAPI.getAppPath('userData')
   const notebook = notebookStore.currentNotebook
   if (!notebook) return
 
-  const fullPath = `${appDataPath}/notebooks/${notebook.id}/${props.node.imagePath}`
+  const notebookDir = await getNotebookDataDir(notebook.id)
+  const fullPath = `${notebookDir}/${props.node.imagePath}`
   const result = await window.electronAPI.readFile(fullPath, 'arraybuffer')
 
   if (result.success && result.data) {
@@ -491,9 +492,7 @@ async function saveImageToNotebook(file: File): Promise<string | null> {
   }
 
   try {
-    const appDataPath = await window.electronAPI.getAppPath('userData')
-    const notebookDir = `${appDataPath}/notebooks/${notebook.id}`
-    const imagesDir = `${notebookDir}/images`
+    const imagesDir = await getNotebookImagesDir(notebook.id)
 
     // 确保images目录存在
     await window.electronAPI.mkdir(imagesDir)

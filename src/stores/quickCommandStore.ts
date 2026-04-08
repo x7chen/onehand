@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { QuickCommand, QuickCommandColor } from '@/types/quickCommand'
 import { QUICK_COMMAND_COLORS } from '@/types/quickCommand'
+import { getUserDataFilePath } from '@/utils/userFilesPath'
 
 export const useQuickCommandStore = defineStore('quickCommand', () => {
   const quickCommands = ref<QuickCommand[]>([])
@@ -24,8 +25,7 @@ export const useQuickCommandStore = defineStore('quickCommand', () => {
    */
   async function loadQuickCommands() {
     try {
-      const appDataPath = await window.electronAPI.getAppPath('userData')
-      const filePath = `${appDataPath}/quickCommands.json`
+      const filePath = await getUserDataFilePath('quickCommands.json')
       const exists = await window.electronAPI.exists(filePath)
 
       if (exists) {
@@ -52,9 +52,9 @@ export const useQuickCommandStore = defineStore('quickCommand', () => {
    */
   async function saveQuickCommands() {
     try {
-      const appDataPath = await window.electronAPI.getAppPath('userData')
+      const filePath = await getUserDataFilePath('quickCommands.json')
       await window.electronAPI.saveFile(
-        `${appDataPath}/quickCommands.json`,
+        filePath,
         JSON.stringify(quickCommands.value, null, 2)
       )
     } catch (error) {

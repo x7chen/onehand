@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { Notebook, CanvasNode, CanvasPage } from '@/types/notebook'
 import type { NotebookContext } from '@/types/context'
+import { getNotebooksDir, getNotebookFilePath, getPdfDir, getNotebookDataDir, getNotebookAudioDir, getNotebookImagesDir } from '@/utils/userFilesPath'
 
 // 创建新画布页的工厂函数
 function createCanvasPage(id?: string, type: 'infinite' | 'pdf' = 'infinite', pdfPage?: number): CanvasPage {
@@ -68,18 +69,6 @@ function migrateNotebook(notebook: Notebook): { notebook: Notebook; needsSave: b
   }
 
   return { notebook, needsSave }
-}
-
-// 获取笔记本目录路径
-async function getNotebooksDir(): Promise<string> {
-  const appDataPath = await window.electronAPI.getAppPath('userData')
-  return `${appDataPath}/notebooks`
-}
-
-// 获取单个笔记本文件路径
-async function getNotebookFilePath(notebookId: string): Promise<string> {
-  const notebooksDir = await getNotebooksDir()
-  return `${notebooksDir}/${notebookId}.json`
 }
 
 export const useNotebookStore = defineStore('notebook', () => {
@@ -200,8 +189,7 @@ export const useNotebookStore = defineStore('notebook', () => {
     // 如果有PDF路径，复制PDF到用户数据目录
     if (pdfPath) {
       try {
-        const appDataPath = await window.electronAPI.getAppPath('userData')
-        const pdfDir = `${appDataPath}/pdf`
+        const pdfDir = await getPdfDir()
 
         // 确保pdf目录存在
         await window.electronAPI.mkdir(pdfDir)

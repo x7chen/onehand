@@ -120,6 +120,7 @@ import ContextToolbar from '@/components/ContextToolbar.vue'
 import { transcribeWithSherpaOnnx } from '@/composables/useSherpaOnnx'
 import { chatWithLLM, buildFullContextMessages, buildImageAnalysisMessages } from '@/composables/useQwenAgent'
 import { extractImagePaths, loadEmbeddedImagesForTranscript, loadImageBase64 } from '@/utils/contextBuilder'
+import { getNotebookAudioDir, getNotebookDataDir } from '@/utils/userFilesPath'
 import type { CanvasNode } from '@/types/notebook'
 
 const route = useRoute()
@@ -503,15 +504,14 @@ async function handleRecordingComplete(data: { audioBlob: Blob; duration: number
     const extension = data.audioBlob.type === 'audio/wav' ? 'wav' : 'webm'
     const audioPath = `audio/${nodeId}.${extension}`
 
-    const appDataPath = await window.electronAPI.getAppPath('userData')
     const notebook = notebookStore.currentNotebook
     if (!notebook) return
 
-    const notebookDir = `${appDataPath}/notebooks/${notebook.id}`
-    await window.electronAPI.mkdir(`${notebookDir}/audio`)
+    const audioDir = await getNotebookAudioDir(notebook.id)
+    await window.electronAPI.mkdir(audioDir)
 
     const arrayBuffer = await data.audioBlob.arrayBuffer()
-    await window.electronAPI.saveFileBuffer(`${notebookDir}/${audioPath}`, arrayBuffer)
+    await window.electronAPI.saveFileBuffer(`${audioDir}/${nodeId}.${extension}`, arrayBuffer)
 
     notebookStore.updateNodeInPdfPage(nodeId, data.page, { audioPath })
 
@@ -749,11 +749,11 @@ async function handlePlayNode(nodeId: string) {
   }
 
   try {
-    const appDataPath = await window.electronAPI.getAppPath('userData')
     const notebook = notebookStore.currentNotebook
     if (!notebook || !node.audioPath) return
-    
-    const audioPath = `${appDataPath}/notebooks/${notebook.id}/${node.audioPath}`
+
+    const notebookDir = await getNotebookDataDir(notebook.id)
+    const audioPath = `${notebookDir}/${node.audioPath}`
 
     currentAudio.value = new Audio(`file://${audioPath}`)
     await currentAudio.value.play()
@@ -815,11 +815,11 @@ async function handleRetryTranscription(nodeId: string) {
   notebookStore.updateNodeInPdfPage(nodeId, pdfPage, { transcriptStatus: 'processing' })
 
   try {
-    const appDataPath = await window.electronAPI.getAppPath('userData')
     const notebook = notebookStore.currentNotebook
     if (!notebook) return
 
-    const audioPath = `${appDataPath}/notebooks/${notebook.id}/${node.audioPath}`
+    const notebookDir = await getNotebookDataDir(notebook.id)
+    const audioPath = `${notebookDir}/${node.audioPath}`
     const result = await window.electronAPI.readFile(audioPath, 'arraybuffer')
 
     if (result.success && result.data) {
