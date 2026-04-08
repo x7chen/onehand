@@ -46,34 +46,40 @@
                 <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
               </svg>
             </button>
-            <button
-              class="theme-color-btn custom-theme-btn"
-              :class="{ active: settingsStore.settings.general.colorTheme === 'custom' }"
-              :title="t('settings.colorThemeCustom')"
-              @click="selectTheme('custom')"
-            >
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.04-.23-.26-.38-.61-.38-.96 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
-              </svg>
-            </button>
+            <!-- 自定义颜色按钮 -->
+            <div class="custom-color-wrapper">
+              <input
+                ref="colorInputRef"
+                type="color"
+                :value="settingsStore.settings.general.customPrimaryColor || '#4299e1'"
+                @input="updateCustomColor(($event.target as HTMLInputElement).value)"
+                class="color-input-hidden"
+              />
+              <button
+                class="theme-color-btn custom-theme-btn"
+                :class="{ active: settingsStore.settings.general.colorTheme === 'custom' }"
+                :title="t('settings.colorThemeCustom')"
+                @click="openColorPicker"
+              >
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                  <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.04-.23-.26-.38-.61-.38-.96 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
+                </svg>
+              </button>
+              <!-- 已选择的自定义颜色预览 -->
+              <button
+                v-if="settingsStore.settings.general.customPrimaryColor"
+                class="theme-color-btn custom-preview-btn"
+                :class="{ active: settingsStore.settings.general.colorTheme === 'custom' }"
+                :style="{ backgroundColor: settingsStore.settings.general.customPrimaryColor }"
+                :title="settingsStore.settings.general.customPrimaryColor"
+                @click="selectTheme('custom')"
+              >
+                <svg v-if="settingsStore.settings.general.colorTheme === 'custom'" viewBox="0 0 24 24" width="16" height="16" fill="white">
+                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                </svg>
+              </button>
+            </div>
           </div>
-        </div>
-
-        <div v-if="settingsStore.settings.general.colorTheme === 'custom'" class="form-group">
-          <label>{{ t('settings.customThemeFile') }}</label>
-          <div class="custom-theme-row">
-            <input
-              :value="settingsStore.settings.general.customThemePath || ''"
-              type="text"
-              :placeholder="t('settings.customThemePlaceholder')"
-              readonly
-              class="custom-theme-path"
-            />
-            <button class="select-theme-btn" @click="selectCustomThemeFile">
-              {{ t('settings.selectFile') }}
-            </button>
-          </div>
-          <p class="theme-hint">{{ t('settings.customThemeHint') }}</p>
         </div>
       </section>
 
@@ -221,6 +227,7 @@ const renameValue = ref('')
 const renameInput = ref<HTMLInputElement | null>(null)
 const showApiKey = ref(false)
 const draggedProfileId = ref<string | null>(null)
+const colorInputRef = ref<HTMLInputElement | null>(null)
 
 // 预定义主题颜色
 const predefinedThemes = computed(() => [
@@ -238,6 +245,20 @@ function selectTheme(theme: BuiltinTheme | 'custom') {
       colorTheme: theme
     }
   })
+}
+
+function updateCustomColor(color: string) {
+  settingsStore.updateSettings({
+    general: {
+      ...settingsStore.settings.general,
+      customPrimaryColor: color,
+      colorTheme: 'custom'
+    }
+  })
+}
+
+function openColorPicker() {
+  colorInputRef.value?.click()
 }
 
 onMounted(async () => {
@@ -299,23 +320,6 @@ function handleDragEnd(event: DragEvent) {
   target.style.opacity = '1'
   draggedProfileId.value = null
   emit('dragEnd', event)
-}
-
-// 选择自定义主题文件
-async function selectCustomThemeFile() {
-  const result = await window.electronAPI.showOpenDialog({
-    filters: [{ name: 'CSS文件', extensions: ['css'] }],
-    properties: ['openFile']
-  })
-
-  if (!result.canceled && result.filePaths && result.filePaths.length > 0) {
-    settingsStore.updateSettings({
-      general: {
-        ...settingsStore.settings.general,
-        customThemePath: result.filePaths[0]
-      }
-    })
-  }
 }
 </script>
 
@@ -509,34 +513,28 @@ async function selectCustomThemeFile() {
   border-style: solid;
 }
 
-.custom-theme-row {
+/* 自定义颜色包装器 */
+.custom-color-wrapper {
   display: flex;
+  align-items: center;
   gap: 8px;
 }
 
-.custom-theme-path {
-  flex: 1;
-  background: var(--bg-secondary);
+.color-input-hidden {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 
-.select-theme-btn {
-  padding: 10px 16px;
-  background: var(--color-primary);
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background 0.2s;
+.custom-preview-btn {
+  border: 2px solid var(--border-color);
 }
 
-.select-theme-btn:hover {
-  background: var(--color-primary-hover);
-}
-
-.theme-hint {
-  margin-top: 8px;
-  font-size: 12px;
-  color: var(--text-secondary);
+.custom-preview-btn.active {
+  border-color: var(--text-primary);
+  box-shadow: 0 0 0 2px var(--bg-secondary), 0 0 0 4px var(--border-color);
 }
 
 .password-input-wrapper {

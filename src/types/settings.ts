@@ -41,7 +41,7 @@ export interface GeneralSettings {
   language: 'zh' | 'en' | 'system'
   theme: 'dark' | 'light' | 'system'  // 深浅色模式
   colorTheme: BuiltinTheme | 'custom'  // 颜色主题
-  customThemePath?: string  // 自定义CSS文件路径（仅当colorTheme为custom时有效）
+  customPrimaryColor?: string  // 自定义主题色（仅当colorTheme为custom时有效）
   notebooksViewMode?: 'grid' | 'list'  // 笔记本面板视图模式
 }
 
@@ -99,7 +99,7 @@ export const defaultSettings: Settings = {
     language: 'system',
     theme: 'system',
     colorTheme: 'default',
-    customThemePath: undefined,
+    customPrimaryColor: undefined,
     notebooksViewMode: 'grid'
   },
   view: {

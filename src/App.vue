@@ -187,11 +187,13 @@ body {
   --grid-line: rgba(0, 0, 0, 0.05);
   --node-width: 450px;
 
-  /* 主题色彩系统 */
+  /* 主题色 - 用户可自定义 */
   --color-primary: #4299e1;
   --color-primary-hover: #3182ce;
   --color-primary-light: rgba(66, 153, 225, 0.1);
   --color-primary-dark: #2b6cb0;
+
+  /* 固定功能色 - 不可自定义 */
   --color-success: #66bb6a;
   --color-success-hover: #4caf50;
   --color-success-light: rgba(102, 187, 106, 0.1);
@@ -204,6 +206,9 @@ body {
   --color-info-light: rgba(255, 152, 0, 0.15);
   --color-favorite: #fbbf24;
   --color-recording: #ff4444;
+  --color-thinking: #9c7cf4;
+  --bg-thinking: rgba(156, 124, 244, 0.08);
+  --bg-thinking-dark: rgba(156, 124, 244, 0.15);
 
   /* 代码块颜色 */
   --code-bg-light: #f6f8fa;
