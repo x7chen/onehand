@@ -15,6 +15,7 @@ export default {
     noData: '暂无数据',
     irreversible: '此操作不可恢复',
     retry: '重试',
+    send: '发送',
     aiAnswer: 'AI 回答',
     page: '第 {current} 页 / 共 {total} 页',
     prevPage: '上一页',

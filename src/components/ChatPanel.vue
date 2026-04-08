@@ -46,7 +46,14 @@
     </div>
 
     <!-- MagicPad 区域 -->
-    <div class="magic-pad-container">
+    <div class="magic-pad-container" :style="{ height: magicPadHeight + 'px' }">
+      <!-- 调整高度手柄 -->
+      <div
+        class="resize-handle"
+        @mousedown="startResizeMagicPad"
+      ></div>
+
+      <!-- magicpad 主体 -->
       <div
         class="magic-pad"
         @click="handleMagicPadClick"
@@ -57,27 +64,53 @@
         @dragover.prevent
         @drop="handleMagicPadDrop"
       >
-        <div class="magic-pad-hint"></div>
-      </div>
-
-      <!-- 快捷指令按钮 -->
-      <div class="quick-command-wrapper" ref="quickCommandWrapperRef" v-if="quickCommandStore.quickCommands.length > 0">
-        <button class="quick-command-btn" @click="toggleQuickCommandSelector" :class="{ active: showQuickCommandSelector }" :title="t('quickCommand.title')">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-            <path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/>
-          </svg>
-        </button>
-
         <!-- 快捷指令气泡 -->
-        <div v-if="showQuickCommandSelector" class="quick-command-popover">
+        <div v-if="showQuickCommandSelector && isInputMode" class="quick-command-popover-input">
           <div
             v-for="cmd in quickCommandStore.quickCommands"
             :key="cmd.id"
             class="quick-command-item"
             :style="{ backgroundColor: cmd.color + '20', borderColor: cmd.color }"
-            @click="selectQuickCommand(cmd)"
+            @click="insertQuickCommand(cmd)"
           >
             <span class="quick-command-name" :style="{ color: cmd.color }">{{ cmd.name }}</span>
+          </div>
+        </div>
+
+        <!-- 虚线提示框（正常模式） -->
+        <div v-if="!isInputMode" class="magic-pad-hint"></div>
+
+        <!-- 输入模式容器 -->
+        <div v-else class="magic-pad-input-mode">
+          <textarea
+            ref="inputTextareaRef"
+            v-model="inputText"
+            class="magic-pad-input"
+            :placeholder="t('common.inputContent')"
+            @keydown.ctrl.enter.exact.prevent="handleSendInput"
+            @keydown.meta.enter.exact.prevent="handleSendInput"
+            @keydown.escape="handleCancelInput"
+            @dragover.prevent
+            @drop.prevent="handleInputDrop"
+          ></textarea>
+          <!-- 菜单栏 -->
+          <div class="input-menu-bar">
+            <button v-if="quickCommandStore.quickCommands.length > 0" class="menu-btn quick-btn" @click="toggleQuickCommandSelector" :class="{ active: showQuickCommandSelector }" :title="t('quickCommand.title')">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                <path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/>
+              </svg>
+            </button>
+            <div class="menu-spacer"></div>
+            <button class="menu-btn cancel-btn" @click="handleCancelInput" :title="t('common.cancel')">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+              </svg>
+            </button>
+            <button class="menu-btn send-btn" @click="handleSendInput" :disabled="!inputText.trim()" :title="t('common.send')">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+              </svg>
+            </button>
           </div>
         </div>
       </div>
@@ -178,11 +211,11 @@ onMounted(() => {
 
 // 快捷指令选择器
 const showQuickCommandSelector = ref(false)
-const quickCommandWrapperRef = ref<HTMLElement | null>(null)
 
 // 点击外部关闭快捷指令气泡
 function handleClickOutside(e: MouseEvent) {
-  if (quickCommandWrapperRef.value && !quickCommandWrapperRef.value.contains(e.target as Node)) {
+  const target = e.target as HTMLElement
+  if (!target.closest('.quick-command-popover-input') && !target.closest('.quick-btn')) {
     showQuickCommandSelector.value = false
   }
 }
@@ -193,6 +226,11 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
+  // 清理调整高度事件监听器
+  if (isResizingMagicPad) {
+    document.removeEventListener('mousemove', handleResizeMagicPadMove)
+    document.removeEventListener('mouseup', handleResizeMagicPadEnd)
+  }
 })
 
 // 切换快捷指令选择器
@@ -214,6 +252,49 @@ const currentModelConfig = computed(() => {
 const magicPadRef = ref<HTMLElement | null>(null)
 let longPressTimer: number | null = null
 const LONG_PRESS_DURATION = 500
+
+// 输入模式相关
+const isInputMode = ref(false)
+const inputText = ref('')
+const inputTextareaRef = ref<HTMLTextAreaElement | null>(null)
+
+// MagicPad 高度调整
+const magicPadHeight = ref(120)
+const MIN_MAGIC_PAD_HEIGHT = 80
+const MAX_MAGIC_PAD_HEIGHT = 400
+let isResizingMagicPad = false
+let resizeStartY = 0
+let resizeStartHeight = 0
+
+function startResizeMagicPad(e: MouseEvent) {
+  e.preventDefault()
+  isResizingMagicPad = true
+  resizeStartY = e.clientY
+  resizeStartHeight = magicPadHeight.value
+
+  document.addEventListener('mousemove', handleResizeMagicPadMove)
+  document.addEventListener('mouseup', handleResizeMagicPadEnd)
+  document.body.style.cursor = 'ns-resize'
+  document.body.style.userSelect = 'none'
+}
+
+function handleResizeMagicPadMove(e: MouseEvent) {
+  if (!isResizingMagicPad) return
+
+  const deltaY = resizeStartY - e.clientY // 向上拖动增加高度
+  const newHeight = Math.max(MIN_MAGIC_PAD_HEIGHT, Math.min(MAX_MAGIC_PAD_HEIGHT, resizeStartHeight + deltaY))
+  magicPadHeight.value = newHeight
+}
+
+function handleResizeMagicPadEnd() {
+  if (!isResizingMagicPad) return
+
+  isResizingMagicPad = false
+  document.removeEventListener('mousemove', handleResizeMagicPadMove)
+  document.removeEventListener('mouseup', handleResizeMagicPadEnd)
+  document.body.style.cursor = ''
+  document.body.style.userSelect = ''
+}
 
 // 节点详情区域滚动相关
 const nodeDetailContainerRef = ref<HTMLElement | null>(null)
@@ -301,15 +382,33 @@ function handleSaveEdit(nodeId: string, text: string) {
 function handleCancelEdit(nodeId: string) {
 }
 
-// MagicPad - 双击创建文本节点
+// MagicPad - 双击进入输入模式
 function handleMagicPadDblClick(e: MouseEvent) {
-  const newNodeId = `node-${Date.now()}`
+  isInputMode.value = true
+  inputText.value = ''
+  nextTick(() => {
+    inputTextareaRef.value?.focus()
+  })
+}
 
+// 输入模式 - 取消
+function handleCancelInput() {
+  isInputMode.value = false
+  inputText.value = ''
+  showQuickCommandSelector.value = false
+}
+
+// 输入模式 - 发送
+async function handleSendInput() {
+  const text = inputText.value.trim()
+  if (!text) return
+
+  const newNodeId = `node-${Date.now()}`
   const newNode: CanvasNode = {
     id: newNodeId,
     type: 'text-note',
     position: { x: 100, y: 100 },
-    transcript: '',
+    transcript: text,
     transcriptStatus: 'done',
     agentResult: null,
     agentStatus: props.aiAnswerEnabled ? 'pending' : 'pending',
@@ -325,12 +424,95 @@ function handleMagicPadDblClick(e: MouseEvent) {
     notebookStore.addNode(newNode)
   }
   emit('node-created', newNode)
-  emit('update-editing-text', '')
-  emit('start-editing', newNodeId)
+
+  // 重置输入模式
+  isInputMode.value = false
+  inputText.value = ''
+  showQuickCommandSelector.value = false
+
+  // 触发 AI 回答
+  if (props.aiAnswerEnabled) {
+    const hasIncludedImage = props.includedPageImage && props.includedPageImage.pageNumber === props.currentPage
+    if (hasIncludedImage) {
+      await handleImageAnalysisResponse(newNodeId, props.includedPageImage!.imageBase64, text)
+    } else {
+      await handleAgentResponseForText(newNodeId, text)
+    }
+  }
+}
+
+// 输入模式 - 插入快捷指令
+function insertQuickCommand(cmd: QuickCommand) {
+  inputText.value = cmd.content
+  showQuickCommandSelector.value = false
+  nextTick(() => {
+    inputTextareaRef.value?.focus()
+  })
+}
+
+// 输入模式 - 处理拖放
+async function handleInputDrop(e: DragEvent) {
+  if (!e.dataTransfer?.files.length) return
+
+  const files = Array.from(e.dataTransfer.files)
+  const imageFiles = files.filter(f => f.type.startsWith('image/'))
+
+  if (imageFiles.length === 0) return
+
+  for (const file of imageFiles) {
+    const markdownLink = await saveImageToNotebook(file)
+    if (markdownLink) {
+      const textarea = inputTextareaRef.value
+      if (textarea) {
+        const start = textarea.selectionStart
+        const end = textarea.selectionEnd
+        const text = inputText.value
+        inputText.value = text.substring(0, start) + markdownLink + text.substring(end)
+        nextTick(() => {
+          textarea.selectionStart = textarea.selectionEnd = start + markdownLink.length
+          textarea.focus()
+        })
+      }
+    }
+  }
+}
+
+// 保存图片到笔记本目录并返回markdown链接
+async function saveImageToNotebook(file: File): Promise<string | null> {
+  const notebook = notebookStore.currentNotebook
+  if (!notebook) {
+    console.error('[ChatPanel] No current notebook')
+    return null
+  }
+
+  try {
+    const appDataPath = await window.electronAPI.getAppPath('userData')
+    const notebookDir = `${appDataPath}/notebooks/${notebook.id}`
+    const imagesDir = `${notebookDir}/images`
+
+    await window.electronAPI.mkdir(imagesDir)
+
+    const ext = file.name.split('.').pop() || 'png'
+    const imageId = `img-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    const filename = `${imageId}.${ext}`
+    const imagePath = `${imagesDir}/${filename}`
+    const relativePath = `images/${filename}`
+
+    const arrayBuffer = await file.arrayBuffer()
+    await window.electronAPI.saveFileBuffer(imagePath, arrayBuffer)
+
+    console.log('[ChatPanel] Image saved:', relativePath)
+    return `\n![${file.name}](${relativePath})\n`
+  } catch (error) {
+    console.error('[ChatPanel] Failed to save image:', error)
+    return null
+  }
 }
 
 // MagicPad - 长按开始录音
 function handleMagicPadMouseDown(e: MouseEvent) {
+  // 输入模式下屏蔽录音
+  if (isInputMode.value) return
   if (isRecording.value) return
 
   const target = e.target as HTMLElement
@@ -346,7 +528,7 @@ function handleMagicPadMouseDown(e: MouseEvent) {
 
   longPressTimer = window.setTimeout(async () => {
     if (isRecording.value) return
-    
+
     try {
       await simpleRecorder.start()
       isRecording.value = true
@@ -365,6 +547,9 @@ function handleMagicPadMouseDown(e: MouseEvent) {
 
 // MagicPad - 松开鼠标
 async function handleMagicPadMouseUp(e: MouseEvent) {
+  // 输入模式下不处理
+  if (isInputMode.value) return
+
   if (longPressTimer) {
     clearTimeout(longPressTimer)
     longPressTimer = null
@@ -379,6 +564,9 @@ async function handleMagicPadMouseUp(e: MouseEvent) {
 
 // MagicPad - 鼠标离开取消长按
 function handleMagicPadMouseLeave() {
+  // 输入模式下不处理
+  if (isInputMode.value) return
+
   if (longPressTimer) {
     clearTimeout(longPressTimer)
     longPressTimer = null
@@ -399,6 +587,9 @@ function handleMagicPadMouseLeave() {
 
 // MagicPad - 拖拽文本创建节点
 async function handleMagicPadDrop(e: DragEvent) {
+  // 输入模式下屏蔽拖拽创建节点
+  if (isInputMode.value) return
+
   e.preventDefault()
   e.stopPropagation()
 
@@ -906,44 +1097,6 @@ function handleCopyLink(nodeId: string) {
   console.log('Link copied for node:', nodeId)
 }
 
-// 选择快捷指令创建节点
-async function selectQuickCommand(cmd: QuickCommand) {
-  showQuickCommandSelector.value = false
-
-  const newNodeId = `node-${Date.now()}`
-  const newNode: CanvasNode = {
-    id: newNodeId,
-    type: 'text-note',
-    position: { x: 100, y: 100 },
-    transcript: cmd.content,
-    transcriptStatus: 'done',
-    agentResult: null,
-    agentStatus: props.aiAnswerEnabled ? 'pending' : 'pending',
-    selectedAsContext: false,
-    createdAt: Date.now(),
-    pdfPage: props.currentPage,
-    pdfPosition: { x: 100, y: 100 }
-  }
-
-  if (props.currentPage) {
-    notebookStore.addNodeToPdfPage(newNode, props.currentPage)
-  } else {
-    notebookStore.addNode(newNode)
-  }
-  emit('node-created', newNode)
-
-  if (props.aiAnswerEnabled) {
-    // 检查是否有当前勾选的附图且是同一页面
-    const hasIncludedImage = props.includedPageImage && props.includedPageImage.pageNumber === props.currentPage
-
-    if (hasIncludedImage) {
-      await handleImageAnalysisResponse(newNodeId, props.includedPageImage!.imageBase64, cmd.content)
-    } else {
-      await handleAgentResponseForText(newNodeId, cmd.content)
-    }
-  }
-}
-
 // 语音节点的 AI 回答
 async function handleAgentResponseForVoice(nodeId: string, transcript: string, pdfPage?: number) {
   const settings = settingsStore.settings
@@ -1132,25 +1285,41 @@ async function handleAgentResponseForVoice(nodeId: string, transcript: string, p
 /* MagicPad 区域 */
 .magic-pad-container {
   position: relative;
-  display: flex;
-  align-items: stretch;
   border-top: 1px solid var(--border-color);
   background: var(--bg-primary);
+  min-height: 180px;
+}
+
+/* 调整高度手柄 */
+.magic-pad-container .resize-handle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  cursor: ns-resize;
+  z-index: 10;
+  transition: background-color 0.2s;
+}
+
+.magic-pad-container .resize-handle:hover {
+  background-color: var(--color-primary-light);
 }
 
 .magic-pad {
-  flex: 1;
-  min-height: 120px;
-  padding: 16px;
+  position: relative;
+  height: 100%;
+  padding: 8px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
 }
 
 .magic-pad-hint {
   width: 100%;
-  height: 80px;
+  height: 100%;
   border: 2px dashed var(--border-color);
   border-radius: 8px;
   display: flex;
@@ -1167,47 +1336,107 @@ async function handleAgentResponseForVoice(nodeId: string, transcript: string, p
   opacity: 0.7;
 }
 
-/* 快捷指令区域 */
-.quick-command-wrapper {
+/* 输入模式容器 */
+.magic-pad-input-mode {
   display: flex;
-  align-items: center;
-  padding: 16px 8px;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  padding: 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-sizing: border-box;
 }
 
-.quick-command-btn {
+.magic-pad-input {
+  flex: 1;
+  min-height: 0;
+  padding: 12px;
+  border: none;
+  background: var(--bg-primary) !important;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: none;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.magic-pad-input::placeholder {
+  color: var(--text-secondary);
+}
+
+/* 输入模式菜单栏 */
+.input-menu-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  height: 32px;
+}
+
+.input-menu-bar .menu-spacer {
+  flex: 1;
+}
+
+.input-menu-bar .menu-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  border: 1px solid var(--border-color);
+  width: 32px;
+  height: 32px;
+  border: none;
   border-radius: 6px;
-  background: var(--bg-secondary);
-  color: var(--text-primary);
+  background: var(--bg-hover);
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.2s;
 }
 
-.quick-command-btn:hover {
-  background: var(--bg-hover);
-  border-color: var(--color-primary);
+.input-menu-bar .menu-btn:hover {
+  background: var(--border-color);
+  color: var(--text-primary);
 }
 
-.quick-command-btn.active {
+.input-menu-bar .menu-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.input-menu-bar .menu-btn:disabled:hover {
   background: var(--color-primary-bg);
-  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
-.quick-command-btn svg {
-  opacity: 0.7;
+.input-menu-bar .menu-btn:not(:disabled):hover {
+  background: var(--color-primary);
+  color: white;
 }
 
-.quick-command-popover {
+.input-menu-bar .menu-btn:not(:disabled) {
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
+}
+
+.input-menu-bar .send-btn:disabled {
+  background: var(--bg-primary-bg);
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+
+.input-menu-bar .send-btn:disabled:hover {
+  background: var(--bg-primary-bg);
+  color: var(--text-secondary);
+}
+
+/* 快捷指令气泡 */
+.quick-command-popover-input {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 100%;
-  margin-bottom: 0px;
+  left: 16px;
+  right: 16px;
+  bottom: 56px;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;

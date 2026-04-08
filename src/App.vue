@@ -284,22 +284,22 @@ body {
 :root.dark .canvas-view,
 :root.dark .dialog,
 :root.dark .home-view {
-  background: var(--bg-primary) !important;
+  background: var(--bg-primary);
 }
 
 :root.dark .voice-note,
 :root.dark .section-header,
 :root.dark .canvas-header {
-  background: var(--bg-primary) !important;
-  box-shadow: 0 2px 8px var(--shadow-color) !important;
+  background: var(--bg-primary);
+  box-shadow: 0 2px 8px var(--shadow-color);
 }
 
 :root.dark input,
 :root.dark select,
 :root.dark textarea {
-  background: var(--bg-secondary) !important;
-  color: var(--text-primary) !important;
-  border-color: var(--border-color) !important;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border-color: var(--border-color);
 }
 
 :root.dark h1,
@@ -309,12 +309,12 @@ body {
 :root.dark p,
 :root.dark label,
 :root.dark a {
-  color: var(--text-primary) !important;
+  color: var(--text-primary);
 }
 
 /* 排除代码块内的元素，让 highlight.js 主题控制代码颜色 */
 :root.dark span:not(.hljs *):not(.katex *):not(.mermaid *):not(.textLayer *) {
-  color: var(--text-primary) !important;
+  color: var(--text-primary);
 }
 
 /* 确保 highlight.js 代码块内的颜色不被覆盖 - 不覆盖子元素 */
@@ -337,23 +337,23 @@ body {
 }
 
 :root.dark button {
-  color: var(--text-primary) !important;
+  color: var(--text-primary);
 }
 
 :root.dark .settings-btn,
 :root.dark .back-btn,
 :root.dark .cancel-btn {
-  background: var(--bg-secondary) !important;
+  background: var(--bg-secondary);
 }
 
 :root.dark .empty-state {
-  color: var(--text-secondary) !important;
+  color: var(--text-secondary);
 }
 
 /* Ensure Electron window background matches */
 :root.dark html,
 :root.dark body {
-  background-color: var(--bg-secondary) !important;
+  background-color: var(--bg-secondary);
 }
 
 /* Custom scrollbar for dark mode */

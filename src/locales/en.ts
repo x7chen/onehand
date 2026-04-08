@@ -15,6 +15,7 @@ export default {
     noData: 'No data',
     irreversible: 'This action cannot be undone',
     retry: 'Retry',
+    send: 'Send',
     aiAnswer: 'AI Answer',
     page: 'Page {current} of {total}',
     prevPage: 'Previous page',
