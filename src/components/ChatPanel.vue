@@ -1332,8 +1332,8 @@ async function handleAgentResponseForVoice(nodeId: string, transcript: string, p
 }
 
 .magic-pad:hover .magic-pad-hint {
-  border-color: var(--primary-color);
-  opacity: 0.7;
+  border-color: var(--border-color);
+  opacity: 1;
 }
 
 /* 输入模式容器 */

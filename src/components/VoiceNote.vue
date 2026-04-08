@@ -2029,7 +2029,7 @@ watch(() => props.node.thinkingContent, async (newThinkingContent) => {
 
 .content-edit {
   width: 100%;
-  min-height: 300px;
+  min-height: 150px;
   padding: 8px;
   border-radius: 6px;
   background: var(--bg-primary);
