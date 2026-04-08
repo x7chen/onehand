@@ -40,6 +40,8 @@ export default {
     canvasN: '画布 {n}',
     inputContent: '输入内容...',
     converting: '转换中...',
+    startRecording: '开始录音',
+    stopRecording: '停止录音',
   },
   nav: {
     notebooks: '笔记本',

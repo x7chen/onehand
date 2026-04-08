@@ -40,6 +40,8 @@ export default {
     canvasN: 'Canvas {n}',
     inputContent: 'Enter content...',
     converting: 'Converting...',
+    startRecording: 'Start recording',
+    stopRecording: 'Stop recording',
   },
   nav: {
     notebooks: 'Notebooks',

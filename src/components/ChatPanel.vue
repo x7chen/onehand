@@ -100,6 +100,12 @@
                 <path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/>
               </svg>
             </button>
+            <button class="menu-btn record-btn" :class="{ active: isInputRecording }" @click="toggleInputRecording" :title="isInputRecording ? t('common.stopRecording') : t('common.startRecording')">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm6 6c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+              </svg>
+              <span v-if="isInputRecording" class="record-time">{{ inputRecordingTimeDisplay }}</span>
+            </button>
             <div class="menu-spacer"></div>
             <button class="menu-btn cancel-btn" @click="handleCancelInput" :title="t('common.cancel')">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
@@ -367,6 +373,17 @@ const recordingPosition = ref({ x: 0, y: 0 })
 const recordingStartPosition = ref<{ x: number; y: number } | null>(null)
 let recordingTimer: number | null = null
 
+// 输入模式录音相关（文字输入用）
+const inputRecorder = createAudioWorkletRecorder()
+const isInputRecording = ref(false)
+const inputRecordingDuration = ref(0)
+let inputRecordingTimer: number | null = null
+const INPUT_RECORDING_TIMEOUT = 30000 // 30秒超时
+const inputRecordingTimeDisplay = computed(() => {
+  const seconds = Math.floor(inputRecordingDuration.value / 1000)
+  return `${seconds}s`
+})
+
 // 当选中节点变化时，重置自动滚动状态
 watch(() => props.activeNode, () => {
   shouldAutoScroll.value = true
@@ -393,6 +410,16 @@ function handleMagicPadDblClick(e: MouseEvent) {
 
 // 输入模式 - 取消
 function handleCancelInput() {
+  // 停止录音
+  if (isInputRecording.value) {
+    inputRecorder.stop().catch(console.error)
+    isInputRecording.value = false
+    if (inputRecordingTimer) {
+      clearInterval(inputRecordingTimer)
+      inputRecordingTimer = null
+    }
+    inputRecordingDuration.value = 0
+  }
   isInputMode.value = false
   inputText.value = ''
   showQuickCommandSelector.value = false
@@ -448,6 +475,88 @@ function insertQuickCommand(cmd: QuickCommand) {
   nextTick(() => {
     inputTextareaRef.value?.focus()
   })
+}
+
+// 输入模式 - 切换录音
+async function toggleInputRecording() {
+  if (isInputRecording.value) {
+    // 结束录音
+    await stopInputRecording()
+  } else {
+    // 开始录音
+    try {
+      await inputRecorder.start()
+      isInputRecording.value = true
+      inputRecordingDuration.value = 0
+
+      // 开始计时
+      inputRecordingTimer = window.setInterval(() => {
+        inputRecordingDuration.value += 100
+        // 30秒超时自动停止
+        if (inputRecordingDuration.value >= INPUT_RECORDING_TIMEOUT) {
+          stopInputRecording()
+        }
+      }, 100)
+    } catch (error) {
+      console.error('Failed to start input recording:', error)
+      isInputRecording.value = false
+    }
+  }
+}
+
+// 输入模式 - 停止录音并转写
+async function stopInputRecording() {
+  if (!isInputRecording.value) return
+
+  try {
+    const audioBlob = await inputRecorder.stop()
+    isInputRecording.value = false
+
+    if (inputRecordingTimer) {
+      clearInterval(inputRecordingTimer)
+      inputRecordingTimer = null
+    }
+
+    // 转写音频
+    const settings = settingsStore.settings
+    if (!settings.stt.sherpaOnnx) {
+      console.error('Sherpa-ONNX not configured')
+      return
+    }
+
+    const transcriptResult = await transcribeWithSherpaOnnx(audioBlob, settings.stt.sherpaOnnx)
+
+    if (transcriptResult.success && transcriptResult.text) {
+      // 追加文字到输入框
+      const textarea = inputTextareaRef.value
+      if (textarea) {
+        const start = textarea.selectionStart
+        const end = textarea.selectionEnd
+        const text = inputText.value
+        const insertText = transcriptResult.text
+
+        // 在光标位置插入文字
+        inputText.value = text.substring(0, start) + insertText + text.substring(end)
+
+        nextTick(() => {
+          textarea.selectionStart = textarea.selectionEnd = start + insertText.length
+          textarea.focus()
+        })
+      } else {
+        // 没有textarea时直接追加
+        inputText.value += transcriptResult.text
+      }
+    }
+  } catch (error) {
+    console.error('Failed to stop input recording:', error)
+    isInputRecording.value = false
+    if (inputRecordingTimer) {
+      clearInterval(inputRecordingTimer)
+      inputRecordingTimer = null
+    }
+  }
+
+  inputRecordingDuration.value = 0
 }
 
 // 输入模式 - 处理拖放
@@ -1468,6 +1577,29 @@ async function handleAgentResponseForVoice(nodeId: string, transcript: string, p
 
 .quick-command-name {
   font-size: 13px;
+  font-weight: 500;
+}
+
+/* 录音按钮 */
+.input-menu-bar .record-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 32px;
+}
+
+.input-menu-bar .record-btn.active {
+  background: var(--color-danger);
+  color: white;
+}
+
+.input-menu-bar .record-btn.active:hover {
+  background: var(--color-danger);
+  opacity: 0.9;
+}
+
+.input-menu-bar .record-btn .record-time {
+  font-size: 12px;
   font-weight: 500;
 }
 </style>
