@@ -87,8 +87,8 @@
             v-model="inputText"
             class="magic-pad-input"
             :placeholder="t('common.inputContent')"
-            @keydown.ctrl.enter.exact.prevent="handleSendInput"
-            @keydown.meta.enter.exact.prevent="handleSendInput"
+            @keydown.enter.exact.prevent="handleSendInput"
+            @keydown.shift.enter.exact.stop
             @keydown.escape="handleCancelInput"
             @dragover.prevent
             @drop.prevent="handleInputDrop"

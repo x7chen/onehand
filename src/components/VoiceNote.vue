@@ -128,8 +128,8 @@
         ref="editingTextarea"
         class="content-edit"
         :placeholder="t('common.inputContent')"
-        @keydown.ctrl.enter.exact.prevent="saveEdit"
-        @keydown.meta.enter.exact.prevent="saveEdit"
+        @keydown.enter.exact.prevent="saveEdit"
+        @keydown.shift.enter.exact.stop
         @keydown.escape="cancelEdit"
         @dragover.prevent="handleEditDragOver"
         @drop.prevent="handleEditDrop"
@@ -152,8 +152,8 @@
           ref="transcriptTextarea"
           class="transcript-edit"
           @blur="saveTranscriptEdit"
-          @keydown.ctrl.enter.exact.prevent="saveTranscriptEdit"
-          @keydown.meta.enter.exact.prevent="saveTranscriptEdit"
+          @keydown.enter.exact.prevent="saveTranscriptEdit"
+          @keydown.shift.enter.exact.stop
           @keydown.escape="cancelTranscriptEdit"
           @dragover.prevent="handleEditDragOver"
           @drop.prevent="handleTranscriptEditDrop"
@@ -217,8 +217,8 @@
           ref="agentTextarea"
           class="agent-edit"
           @blur="saveAgentEdit"
-          @keydown.ctrl.enter.exact.prevent="saveAgentEdit"
-          @keydown.meta.enter.exact.prevent="saveAgentEdit"
+          @keydown.enter.exact.prevent="saveAgentEdit"
+          @keydown.shift.enter.exact.stop
           @keydown.escape="cancelAgentEdit"
           @dragover.prevent="handleEditDragOver"
           @drop.prevent="handleAgentEditDrop"
