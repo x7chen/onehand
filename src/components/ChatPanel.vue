@@ -560,8 +560,29 @@ async function stopInputRecording() {
   inputRecordingDuration.value = 0
 }
 
-// 输入模式 - 处理拖放
+// 输入模式 - 处理拖放（文字追加、图片转为链接）
 async function handleInputDrop(e: DragEvent) {
+  // 处理文字拖拽追加
+  const text = e.dataTransfer?.getData('text/plain')
+  if (text && text.trim()) {
+    const textarea = inputTextareaRef.value
+    if (textarea) {
+      const start = textarea.selectionStart
+      const end = textarea.selectionEnd
+      const currentText = inputText.value
+      // 在光标位置插入文字
+      inputText.value = currentText.substring(0, start) + text + currentText.substring(end)
+      nextTick(() => {
+        textarea.selectionStart = textarea.selectionEnd = start + text.length
+        textarea.focus()
+      })
+    } else {
+      inputText.value += text
+    }
+    return
+  }
+
+  // 处理图片文件拖拽
   if (!e.dataTransfer?.files.length) return
 
   const files = Array.from(e.dataTransfer.files)
