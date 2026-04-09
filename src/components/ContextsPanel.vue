@@ -26,7 +26,7 @@
             @dragstart="$emit('dragStart', $event, file)"
             @dragend="$emit('dragEnd', $event)"
           >
-            <span class="tag-name" :style="{ color: file.color }">{{ file.name }}</span>
+            <span class="tag-name" :style="{ color: 'var(--text-primary)' }">{{ file.name }}</span>
           </div>
         </div>
       </div>
@@ -45,7 +45,7 @@
             @dragstart="$emit('dragStart', $event, file)"
             @dragend="$emit('dragEnd', $event)"
           >
-            <span class="tag-name" :style="{ color: file.color }">{{ file.name }}</span>
+            <span class="tag-name" :style="{ color: 'var(--text-primary)' }">{{ file.name }}</span>
           </div>
         </div>
       </div>
@@ -75,7 +75,7 @@
           @dragstart="handleQuickCommandDragStart($event, cmd)"
           @dragend="handleQuickCommandDragEnd($event)"
         >
-          <span class="tag-name" :style="{ color: cmd.color }">{{ cmd.name }}</span>
+          <span class="tag-name" :style="{ color: 'var(--text-primary)' }">{{ cmd.name }}</span>
         </div>
       </div>
     </div>

@@ -73,7 +73,7 @@
             :style="{ backgroundColor: cmd.color + '20', borderColor: cmd.color }"
             @click="insertQuickCommand(cmd)"
           >
-            <span class="quick-command-name" :style="{ color: cmd.color }">{{ cmd.name }}</span>
+            <span class="quick-command-name" :style="{ color: 'var(--text-primary)' }">{{ cmd.name }}</span>
           </div>
         </div>
 

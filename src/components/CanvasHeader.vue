@@ -26,7 +26,7 @@
           :style="{
             backgroundColor: staticContextFiles.some(f => f.id === file.id) ? file.color + '40' : 'var(--bg-secondary)',
             borderColor: staticContextFiles.some(f => f.id === file.id) ? file.color : 'var(--border-color)',
-            color: staticContextFiles.some(f => f.id === file.id) ? file.color : 'var(--text-secondary)'
+            color: staticContextFiles.some(f => f.id === file.id) ? 'var(--text-primary)' : 'var(--text-secondary)'
           }"
           @click.stop="toggleStaticContext(file.id)"
         >
@@ -35,7 +35,7 @@
       </div>
       <div v-else-if="staticContextFiles.length > 0" class="static-context-names">
         <template v-for="(file, index) in staticContextFiles" :key="file.id">
-          <span v-if="index < 4" class="context-name-tag" :title="file.name" :style="{ backgroundColor: file.color + '20', borderColor: file.color, color: file.color }">
+          <span v-if="index < 4" class="context-name-tag" :title="file.name" :style="{ backgroundColor: file.color + '20', borderColor: file.color, color: 'var(--text-primary)' }">
             {{ file.name }}
           </span>
         </template>
@@ -201,7 +201,7 @@
             :style="{
               backgroundColor: dynamicContextFile?.id === file.id ? file.color + '40' : 'var(--bg-secondary)',
               borderColor: dynamicContextFile?.id === file.id ? file.color : 'var(--border-color)',
-              color: dynamicContextFile?.id === file.id ? file.color : 'var(--text-secondary)'
+              color: dynamicContextFile?.id === file.id ? 'var(--text-primary)' : 'var(--text-secondary)'
             }"
             @click.stop="selectDynamicContext(file.id)"
           >
@@ -215,7 +215,7 @@
           @dblclick.stop="$emit('open-dynamic-context-editor')"
           :title="t('canvas.doubleClickToEdit')"
         >
-          <span class="context-name" :style="{ color: dynamicContextFile.color }">
+          <span class="context-name" :style="{ color: 'var(--text-primary)' }">
             {{ dynamicContextFile.name }}
           </span>
           <span class="word-count" v-if="dynamicContextFile.content">{{ t('context.wordCount', { count: dynamicContextFile.content.length }) }}</span>
