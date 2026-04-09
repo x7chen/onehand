@@ -277,7 +277,18 @@ export async function renderMermaidCharts(container: HTMLElement): Promise<numbe
       }
 
       // 从 pre 元素获取原始定义（textContent 会包含原始文本）
-      const graphDefinition = (mermaidEl.textContent || '').trim()
+      let graphDefinition = (mermaidEl.textContent || '').trim()
+
+      // 预处理：将中文标点转换为英文标点（Mermaid 只支持英文标点）
+      const originalDefinition = graphDefinition
+      graphDefinition = graphDefinition
+        .replace(/[\u201c\u201d]/g, '"')  // 中文双引号 " " -> "
+        .replace(/[\u2018\u2019]/g, "'")  // 中文单引号 ' ' -> '
+        .replace(/\uff1a/g, ':')          // 中文冒号 ： -> :
+        .replace(/\uff0c/g, ',')          // 中文逗号 ， -> ,
+        .replace(/\uff08/g, '(')          // 中文左括号 （ -> (
+        .replace(/\uff09/g, ')')          // 中文右括号 ） -> )
+
       const mermaidId = mermaidEl.getAttribute('id') || `mermaid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
 
       console.log('[MarkdownRenderer] Rendering mermaid:', {
