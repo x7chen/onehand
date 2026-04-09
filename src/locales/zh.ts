@@ -42,6 +42,7 @@ export default {
     converting: '转换中...',
     startRecording: '开始录音',
     stopRecording: '停止录音',
+    correctText: '纠正文本',
   },
   nav: {
     notebooks: '笔记本',
@@ -95,6 +96,9 @@ export default {
     userFilesPathPlaceholder: '使用默认位置',
     userFilesPathHint: '笔记本、PDF、图片、音频、上下文等文件的保存目录',
     resetToDefault: '恢复默认',
+    quickModel: '快速模型',
+    quickModelNone: '未设置',
+    quickModelHint: '用于文本纠正、翻译等简单任务，建议选择轻量级模型',
   },
   notebook: {
     newNotebook: '新建笔记本',

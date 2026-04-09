@@ -106,6 +106,25 @@
               </svg>
               <span v-if="isInputRecording" class="record-time">{{ inputRecordingTimeDisplay }}</span>
             </button>
+            <!-- 纠正按钮 -->
+            <button
+              v-if="quickModelConfig"
+              class="menu-btn correct-btn"
+              :class="{ loading: isCorrecting }"
+              @click="handleCorrectText"
+              :disabled="!inputText.trim() || isCorrecting"
+              :title="t('common.correctText')"
+            >
+              <!-- 正常状态：铅笔图标 -->
+              <svg v-if="!isCorrecting" viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                <path d="M14.06 9.02l.92.92L5.92 19H5v-.92l9.06-9.06M17.66 3c-.25 0-.51.1-.71.29l-1.83 1.83 3.75 3.75 1.83-1.83c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.2-.2-.45-.29-.7-.29zm-3.6 3.19L3 17.25V21h3.75L17.81 9.94l-3.75-3.75z"/>
+              </svg>
+              <!-- 加载状态：渐隐未闭合圆圈 -->
+              <svg v-else class="loading-spinner" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                <circle cx="12" cy="12" r="10" stroke-opacity="0.25"/>
+                <path d="M12 2a10 10 0 0 1 10 10" stroke-opacity="1"/>
+              </svg>
+            </button>
             <div class="menu-spacer"></div>
             <button class="menu-btn cancel-btn" @click="handleCancelInput" :title="t('common.cancel')">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
@@ -384,6 +403,43 @@ const inputRecordingTimeDisplay = computed(() => {
   const seconds = Math.floor(inputRecordingDuration.value / 1000)
   return `${seconds}s`
 })
+
+// 快速模型配置
+const quickModelConfig = computed(() => {
+  const quickModelId = settingsStore.settings.llm.quickModelProfileId
+  if (!quickModelId) return null
+  return settingsStore.settings.llm.profiles.find(p => p.id === quickModelId)
+})
+
+// 纠正状态
+const isCorrecting = ref(false)
+
+// 纠正文本函数
+async function handleCorrectText() {
+  if (!quickModelConfig.value || !inputText.value.trim()) return
+
+  isCorrecting.value = true
+
+  const messages = [
+    { role: 'user' as const, content: `Correct spelling errors and add missing or incorrect punctuation to the text: ${inputText.value}\n\nProvide only the corrected text without any additional explanation.`,}
+  ]
+
+  try {
+    const result = await chatWithLLM(messages, {
+      baseUrl: quickModelConfig.value.baseUrl,
+      apiKey: quickModelConfig.value.apiKey,
+      model: quickModelConfig.value.model,
+      temperature: 0.3  // 低温度确保一致性
+    })
+
+    // 用纠正后的内容覆盖输入框
+    inputText.value = result.content.trim()
+  } catch (error) {
+    console.error('Text correction failed:', error)
+  } finally {
+    isCorrecting.value = false
+  }
+}
 
 // 当选中节点变化时，重置自动滚动状态
 watch(() => props.activeNode, () => {
@@ -1559,6 +1615,18 @@ async function handleAgentResponseForVoice(nodeId: string, transcript: string, p
   color: var(--text-secondary);
 }
 
+/* 纠正按钮样式（与发送按钮一致） */
+.input-menu-bar .correct-btn:disabled {
+  background: var(--bg-primary-bg);
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+
+.input-menu-bar .correct-btn:disabled:hover {
+  background: var(--bg-primary-bg);
+  color: var(--text-secondary);
+}
+
 /* 快捷指令气泡 */
 .quick-command-popover-input {
   position: absolute;
@@ -1620,5 +1688,19 @@ async function handleAgentResponseForVoice(nodeId: string, transcript: string, p
 .input-menu-bar .record-btn .record-time {
   font-size: 12px;
   font-weight: 500;
+}
+
+/* 纠正按钮加载动画 */
+.correct-btn .loading-spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>

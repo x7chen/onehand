@@ -19,6 +19,7 @@ export interface LLMSettings {
   provider: 'custom'
   profiles: LLMProfile[]
   activeProfileId: string
+  quickModelProfileId?: string  // 快速模型配置ID（用于纠正、翻译等简单任务）
   enabledProviders: string[]
   enabledModels: string[]
 }

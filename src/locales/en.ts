@@ -42,6 +42,7 @@ export default {
     converting: 'Converting...',
     startRecording: 'Start recording',
     stopRecording: 'Stop recording',
+    correctText: 'Correct Text',
   },
   nav: {
     notebooks: 'Notebooks',
@@ -95,6 +96,9 @@ export default {
     userFilesPathPlaceholder: 'Use default location',
     userFilesPathHint: 'Directory for notebooks, PDFs, images, audio, contexts, etc.',
     resetToDefault: 'Reset to default',
+    quickModel: 'Quick Model',
+    quickModelNone: 'Not set',
+    quickModelHint: 'Used for text correction, translation and simple tasks. Lightweight model recommended.',
   },
   notebook: {
     newNotebook: 'New Notebook',

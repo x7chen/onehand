@@ -23,11 +23,38 @@
 
         <div class="form-group">
           <label>{{ t('settings.theme') }}</label>
-          <select v-model="settingsStore.settings.general.theme">
-            <option value="system">{{ t('settings.themeSystem') }}</option>
-            <option value="light">{{ t('settings.themeLight') }}</option>
-            <option value="dark">{{ t('settings.themeDark') }}</option>
-          </select>
+          <div class="theme-mode-selector">
+            <button
+              class="theme-mode-btn"
+              :class="{ active: settingsStore.settings.general.theme === 'system' }"
+              @click="settingsStore.settings.general.theme = 'system'"
+            >
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.04-.23-.26-.38-.61-.38-.96 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
+              </svg>
+              <span>{{ t('settings.themeSystem') }}</span>
+            </button>
+            <button
+              class="theme-mode-btn"
+              :class="{ active: settingsStore.settings.general.theme === 'light' }"
+              @click="settingsStore.settings.general.theme = 'light'"
+            >
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                <path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0 .39-.39.39-1.03 0-1.41l-1.06-1.06zm1.06-10.96c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/>
+              </svg>
+              <span>{{ t('settings.themeLight') }}</span>
+            </button>
+            <button
+              class="theme-mode-btn"
+              :class="{ active: settingsStore.settings.general.theme === 'dark' }"
+              @click="settingsStore.settings.general.theme = 'dark'"
+            >
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/>
+              </svg>
+              <span>{{ t('settings.themeDark') }}</span>
+            </button>
+          </div>
         </div>
 
         <div class="form-group">
@@ -86,9 +113,9 @@
           <label>{{ t('settings.userFilesPath') }}</label>
           <div class="path-input-wrapper">
             <input
-              :value="settingsStore.settings.general.userFilesPath || ''"
+              :value="settingsStore.settings.general.userFilesPath || defaultUserFilesPath"
               type="text"
-              :placeholder="t('settings.userFilesPathPlaceholder')"
+              :placeholder="defaultUserFilesPath"
               readonly
             />
             <button
@@ -211,18 +238,6 @@
         </div>
 
         <div class="form-group">
-          <label>{{ t('settings.enableThinking') }}</label>
-          <div class="toggle-switch">
-            <input
-              type="checkbox"
-              :checked="settingsStore.activeProfile?.enableThinking ?? false"
-              @change="settingsStore.updateActiveProfileField('enableThinking', ($event.target as HTMLInputElement).checked)"
-            />
-            <span class="toggle-label">{{ settingsStore.activeProfile?.enableThinking ? t('settings.enabled') : t('settings.disabled') }}</span>
-          </div>
-        </div>
-
-        <div class="form-group">
           <label>{{ t('settings.temperature') }}</label>
           <div class="temperature-control">
             <input
@@ -235,6 +250,37 @@
             />
             <span class="temperature-value">{{ (settingsStore.activeProfile?.temperature ?? 0.7).toFixed(1) }}</span>
           </div>
+        </div>
+
+        <div class="form-group">
+          <label>{{ t('settings.enableThinking') }}</label>
+          <div class="toggle-switch">
+            <input
+              type="checkbox"
+              :checked="settingsStore.activeProfile?.enableThinking ?? false"
+              @change="settingsStore.updateActiveProfileField('enableThinking', ($event.target as HTMLInputElement).checked)"
+            />
+            <span class="toggle-label">{{ settingsStore.activeProfile?.enableThinking ? t('settings.enabled') : t('settings.disabled') }}</span>
+          </div>
+        </div>
+
+        <!-- 快速模型配置 -->
+        <div class="form-group">
+          <label>{{ t('settings.quickModel') }}</label>
+          <select
+            :value="settingsStore.settings.llm.quickModelProfileId || ''"
+            @change="updateQuickModelProfile(($event.target as HTMLSelectElement).value)"
+          >
+            <option value="">{{ t('settings.quickModelNone') }}</option>
+            <option
+              v-for="profile in settingsStore.settings.llm.profiles"
+              :key="profile.id"
+              :value="profile.id"
+            >
+              {{ profile.name || t('settings.defaultModel') }} ({{ profile.model.split('/').pop() || profile.model }})
+            </option>
+          </select>
+          <p class="form-hint">{{ t('settings.quickModelHint') }}</p>
         </div>
       </section>
     </div>
@@ -262,6 +308,7 @@ const renameInput = ref<HTMLInputElement | null>(null)
 const showApiKey = ref(false)
 const draggedProfileId = ref<string | null>(null)
 const colorInputRef = ref<HTMLInputElement | null>(null)
+const defaultUserFilesPath = ref('')
 
 // 预定义主题颜色
 const predefinedThemes = computed(() => [
@@ -322,6 +369,8 @@ onMounted(async () => {
   if (!settingsStore.isLoaded) {
     await settingsStore.loadSettings()
   }
+  // 获取默认用户文件目录路径
+  defaultUserFilesPath.value = await window.electronAPI.getAppPath('userData')
 })
 
 watch(
@@ -377,6 +426,16 @@ function handleDragEnd(event: DragEvent) {
   target.style.opacity = '1'
   draggedProfileId.value = null
   emit('dragEnd', event)
+}
+
+// 更新快速模型配置
+function updateQuickModelProfile(profileId: string) {
+  settingsStore.updateSettings({
+    llm: {
+      ...settingsStore.settings.llm,
+      quickModelProfileId: profileId || undefined
+    }
+  })
 }
 </script>
 
@@ -521,6 +580,37 @@ function handleDragEnd(event: DragEvent) {
 .form-group select:focus {
   outline: none;
   border-color: var(--color-primary);
+}
+
+/* 深浅色模式选择器 */
+.theme-mode-selector {
+  display: flex;
+  gap: 8px;
+}
+
+.theme-mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.theme-mode-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.theme-mode-btn.active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: white;
 }
 
 /* 主题选择样式 */
