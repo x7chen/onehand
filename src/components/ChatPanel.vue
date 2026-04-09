@@ -434,6 +434,9 @@ async function handleCorrectText() {
 
     // 用纠正后的内容覆盖输入框
     inputText.value = result.content.trim()
+    .replace(/<\/?think>/gi, '')
+    .replace(/<\|begin_of_box\|>/gi, '')
+    .replace(/<\|end_of_box\|>/gi, '')
   } catch (error) {
     console.error('Text correction failed:', error)
   } finally {
