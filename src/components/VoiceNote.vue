@@ -1463,7 +1463,7 @@ watch(() => props.node.thinkingContent, async (newThinkingContent) => {
 
 .favorite-btn.active,
 .favorite-btn:active {
-  color: var(--color-favorite) !important;
+  color: var(--color-favorite);
 }
 
 /* 隐藏 AI 按钮 */
@@ -1782,43 +1782,14 @@ watch(() => props.node.thinkingContent, async (newThinkingContent) => {
   padding: 16px;
   display: block;
 }
-
-.transcript-content :deep(pre.hljs),
-.agent-content :deep(pre.hljs) {
-  background-color: var(--code-bg-light) !important;
-}
-
-:root.dark .transcript-content :deep(pre.hljs),
-:root.dark .agent-content :deep(pre.hljs) {
-  background-color: var(--code-bg-dark) !important;
-}
-
-:root.dark .transcript-content :deep(pre.hljs code),
-:root.dark .agent-content :deep(pre.hljs code) {
-  background-color: transparent !important;
-}
-
-.transcript-content :deep(code.hljs),
-.agent-content :deep(code.hljs) {
-  background: transparent !important;
-  padding: 0;
-  margin: 0;
+:root.dark .transcript-content :deep(pre),
+:root.dark .agent-content :deep(pre) {
+background-color: rgba(0, 0, 0, 1);
 }
 
 .transcript-content :deep(pre code),
 .agent-content :deep(pre code) {
-  background: transparent !important;
-  padding: 0;
-  border-radius: 0;
   font-family: 'SF Mono', Monaco, 'Cascadia Code', Consolas, monospace;
-}
-
-/* Mermaid 的 pre 元素不应用代码高亮背景 */
-.transcript-content :deep(pre.mermaid),
-.agent-content :deep(pre.mermaid) {
-  background: transparent !important;
-  padding: 0;
-  margin: 0;
 }
 
 /* ========================================

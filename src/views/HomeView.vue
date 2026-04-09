@@ -1033,7 +1033,7 @@ async function confirmDeleteQuickCommand() {
 }
 
 .name-input {
-  margin-bottom: 12px !important;
+  margin-bottom: 12px;
 }
 
 .context-tags-selector {

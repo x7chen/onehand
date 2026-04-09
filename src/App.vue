@@ -210,11 +210,6 @@ body {
   --bg-thinking: rgba(156, 124, 244, 0.08);
   --bg-thinking-dark: rgba(156, 124, 244, 0.15);
 
-  /* 代码块颜色 */
-  --code-bg-light: #f6f8fa;
-  --code-bg-dark: #0d1117;
-  --code-border: #ccc;
-
   /* 引用块颜色 */
   --blockquote-border: #cccccc;
   --blockquote-text: #666666;
@@ -247,8 +242,7 @@ body {
   --bg-node-agent: #2d2d2d;
   --bg-active-shadow: rgba(66, 153, 225, 0.4);
 
-  /* 深色模式下的代码块 */
-  --code-bg-light: #0d1117;
+  /* 引用块颜色 */
   --blockquote-text: #a0a0a0;
 }
 
@@ -322,23 +316,9 @@ body {
   color: var(--text-primary);
 }
 
-/* 确保 highlight.js 代码块内的颜色不被覆盖 - 不覆盖子元素 */
-:root.dark .hljs,
-:root.dark pre.hljs code {
-  color: unset;
-}
-
 :root.dark .transcript-content,
 :root.dark .agent-content {
   color: var(--text-primary);
-}
-
-/* 代码块内的文本颜色由 highlight.js 主题控制 */
-:root.dark .transcript-content pre.hljs,
-:root.dark .agent-content pre.hljs,
-:root.dark .transcript-content pre.hljs code,
-:root.dark .agent-content pre.hljs code {
-  color: unset !important;
 }
 
 :root.dark button {

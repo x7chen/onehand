@@ -236,7 +236,7 @@ function handleClick() {
 }
 
 :root.dark .small-favorite-btn.active {
-  color: var(--color-favorite) !important;
+  color: var(--color-favorite);
 }
 
 .small-transcript-box {
