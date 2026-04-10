@@ -1,8 +1,8 @@
 <template>
   <Teleport to="body">
     <Transition name="magic-input-fade">
-      <div v-if="isOpen" class="magic-input-overlay" @click="handleCancel">
-        <div class="magic-input-container" @click.stop>
+      <div v-if="isOpen" class="magic-input-overlay" @click="handleOverlayClick">
+        <div class="magic-input-container" :class="{ shake: isShaking }" @click.stop>
           <!-- 快捷指令气泡 -->
           <div v-if="showQuickCommandSelector" class="quick-command-popover">
             <div
@@ -53,6 +53,13 @@
               <span>{{ t('common.paste') }}</span>
             </button>
           </div>
+
+          <!-- Toast 消息提示 -->
+          <Transition name="toast-fade">
+            <div v-if="showToast" class="toast-message">
+              {{ toastMessage }}
+            </div>
+          </Transition>
 
           <!-- 菜单栏 -->
           <div class="magic-input-menu-bar">
@@ -146,6 +153,17 @@ const notebookStore = useNotebookStore()
 const inputText = ref('')
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 
+// 初始文本（用于检测变化）
+const initialText = ref('')
+
+// Toast 消息
+const showToast = ref(false)
+const toastMessage = ref('')
+let toastTimer: number | null = null
+
+// 抖动动画
+const isShaking = ref(false)
+
 // 拖拽时的光标位置
 const dragCaretPosition = ref<number | null>(null)
 // 内部拖拽时原始选区
@@ -200,7 +218,9 @@ const quickModelConfig = computed(() => {
 watch(() => props.isOpen, (newVal) => {
   if (newVal) {
     inputText.value = props.initialText || ''
+    initialText.value = inputText.value  // 记录初始文本
     showQuickCommandSelector.value = false
+    showToast.value = false
     nextTick(() => {
       autoResize()
       textareaRef.value?.focus()
@@ -208,6 +228,41 @@ watch(() => props.isOpen, (newVal) => {
     })
   }
 })
+
+// 检查文本是否有变化
+function hasTextChanges(): boolean {
+  return inputText.value !== initialText.value
+}
+
+// 显示 toast 消息
+function showToastMessage(message: string) {
+  toastMessage.value = message
+  showToast.value = true
+  if (toastTimer) {
+    clearTimeout(toastTimer)
+  }
+  toastTimer = window.setTimeout(() => {
+    showToast.value = false
+  }, 2000)
+}
+
+// 触发抖动动画
+function triggerShake() {
+  isShaking.value = true
+  setTimeout(() => {
+    isShaking.value = false
+  }, 500)
+}
+
+// 处理点击 overlay（非内容区域）
+function handleOverlayClick() {
+  if (hasTextChanges()) {
+    triggerShake()
+    showToastMessage(t('common.unsavedChanges'))
+  } else {
+    handleCancel()
+  }
+}
 
 // 加载快捷指令
 onMounted(() => {
@@ -234,6 +289,9 @@ onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
   if (recordingTimer) {
     clearInterval(recordingTimer)
+  }
+  if (toastTimer) {
+    clearTimeout(toastTimer)
   }
 })
 
@@ -895,6 +953,43 @@ function handleCancel() {
 
 .magic-input-fade-enter-from,
 .magic-input-fade-leave-to {
+  opacity: 0;
+}
+
+/* 抖动动画 */
+.magic-input-container.shake {
+  animation: shake 0.5s ease-in-out;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+  20%, 40%, 60%, 80% { transform: translateX(4px); }
+}
+
+/* Toast 消息 */
+.toast-message {
+  position: absolute;
+  top: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-warning-bg, rgba(234, 179, 8, 0.15));
+  border: 1px solid var(--color-warning, #eab308);
+  color: var(--color-warning, #eab308);
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  white-space: nowrap;
+  z-index: 20;
+}
+
+.toast-fade-enter-active,
+.toast-fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.toast-fade-enter-from,
+.toast-fade-leave-to {
   opacity: 0;
 }
 </style>

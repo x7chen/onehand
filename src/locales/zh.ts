@@ -45,6 +45,7 @@ export default {
     correctText: '纠正文本',
     paste: '粘贴',
     copy: '复制',
+    unsavedChanges: '您有未保存的更改，是否保存？',
   },
   nav: {
     notebooks: '笔记本',

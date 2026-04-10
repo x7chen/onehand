@@ -45,6 +45,7 @@ export default {
     correctText: 'Correct Text',
     paste: 'Paste',
     copy: 'Copy',
+    unsavedChanges: 'You have unsaved changes. Do you want to save?',
   },
   nav: {
     notebooks: 'Notebooks',
