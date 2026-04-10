@@ -43,6 +43,8 @@ export default {
     startRecording: 'Start recording',
     stopRecording: 'Stop recording',
     correctText: 'Correct Text',
+    paste: 'Paste',
+    copy: 'Copy',
   },
   nav: {
     notebooks: 'Notebooks',

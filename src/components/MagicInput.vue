@@ -27,7 +27,30 @@
             @keydown.escape="handleCancel"
             @dragover.prevent
             @drop.prevent="handleDrop"
+            @contextmenu.prevent="handleTextareaContextMenu"
           ></textarea>
+
+          <!-- 右键编辑菜单 -->
+          <div v-if="showEditMenu" class="edit-menu-overlay" @click="showEditMenu = false"></div>
+          <div
+            v-if="showEditMenu"
+            class="edit-menu"
+            :style="editMenuStyle"
+            @click.stop
+          >
+            <button class="edit-menu-item" @click="handleCopy" v-if="hasSelection">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+              </svg>
+              <span>{{ t('common.copy') }}</span>
+            </button>
+            <button class="edit-menu-item" @click="handlePaste">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                <path d="M19 2h-4.18C14.4.84 13.3 0 12 0c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm7 18H5V4h2v3h10V4h2v16z"/>
+              </svg>
+              <span>{{ t('common.paste') }}</span>
+            </button>
+          </div>
 
           <!-- 菜单栏 -->
           <div class="magic-input-menu-bar">
@@ -78,7 +101,7 @@
             </button>
             <button class="menu-btn send-btn" @click="handleSave" :disabled="!inputText.trim()" :title="t('common.send')">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
               </svg>
             </button>
           </div>
@@ -120,6 +143,11 @@ const notebookStore = useNotebookStore()
 // 输入文本
 const inputText = ref('')
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
+
+// 右键编辑菜单
+const showEditMenu = ref(false)
+const editMenuStyle = ref<{ top: string; left: string }>({ top: '0px', left: '0px' })
+const hasSelection = ref(false)
 
 // 自适应高度
 function autoResize() {
@@ -185,6 +213,10 @@ function handleClickOutside(e: MouseEvent) {
   if (!target.closest('.quick-command-popover') && !target.closest('.quick-btn')) {
     showQuickCommandSelector.value = false
   }
+  // 关闭编辑菜单
+  if (!target.closest('.edit-menu') && !target.closest('.magic-input-textarea')) {
+    showEditMenu.value = false
+  }
 }
 
 onMounted(() => {
@@ -201,6 +233,60 @@ onUnmounted(() => {
 // 切换快捷指令选择器
 function toggleQuickCommandSelector() {
   showQuickCommandSelector.value = !showQuickCommandSelector.value
+}
+
+// 右键菜单处理
+function handleTextareaContextMenu(e: MouseEvent) {
+  const textarea = textareaRef.value
+  const selection = textarea ? textarea.value.substring(textarea.selectionStart, textarea.selectionEnd) : ''
+
+  hasSelection.value = selection.length > 0
+  editMenuStyle.value = {
+    top: `${e.clientY}px`,
+    left: `${e.clientX}px`
+  }
+  showEditMenu.value = true
+}
+
+// 复制选中文本
+async function handleCopy() {
+  const textarea = textareaRef.value
+  if (textarea) {
+    const selectedText = textarea.value.substring(textarea.selectionStart, textarea.selectionEnd)
+    if (selectedText) {
+      try {
+        await navigator.clipboard.writeText(selectedText)
+      } catch (error) {
+        console.error('Copy failed:', error)
+      }
+    }
+  }
+  showEditMenu.value = false
+}
+
+// 粘贴文本
+async function handlePaste() {
+  try {
+    const clipboardText = await navigator.clipboard.readText()
+    if (clipboardText) {
+      const textarea = textareaRef.value
+      if (textarea) {
+        const start = textarea.selectionStart
+        const end = textarea.selectionEnd
+        const text = inputText.value
+        inputText.value = text.substring(0, start) + clipboardText + text.substring(end)
+        nextTick(() => {
+          textarea.selectionStart = textarea.selectionEnd = start + clipboardText.length
+          textarea.focus()
+        })
+      } else {
+        inputText.value += clipboardText
+      }
+    }
+  } catch (error) {
+    console.error('Paste failed:', error)
+  }
+  showEditMenu.value = false
 }
 
 // 插入快捷指令
@@ -571,6 +657,46 @@ function handleCancel() {
 .quick-command-name {
   font-size: 13px;
   font-weight: 500;
+}
+
+/* 右键编辑菜单 */
+.edit-menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 3005;
+}
+
+.edit-menu {
+  position: fixed;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px var(--shadow-color);
+  padding: 4px;
+  z-index: 3010;
+  min-width: 100px;
+}
+
+.edit-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: 4px;
+  width: 100%;
+  transition: background 0.2s;
+}
+
+.edit-menu-item:hover {
+  background: var(--bg-secondary);
 }
 
 /* 纠正按钮加载动画 */

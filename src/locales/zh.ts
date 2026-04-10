@@ -43,6 +43,8 @@ export default {
     startRecording: '开始录音',
     stopRecording: '停止录音',
     correctText: '纠正文本',
+    paste: '粘贴',
+    copy: '复制',
   },
   nav: {
     notebooks: '笔记本',

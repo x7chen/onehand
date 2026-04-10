@@ -89,7 +89,26 @@
             @keydown.escape="handleCancelInput"
             @dragover.prevent
             @drop.prevent="handleInputDrop"
+            @contextmenu.prevent="handleTextareaContextMenu"
           ></textarea>
+          <!-- 右键编辑菜单 -->
+          <Teleport to="body">
+            <div v-if="showEditMenu" class="edit-menu-overlay" @click="showEditMenu = false"></div>
+            <div v-if="showEditMenu" class="edit-menu" :style="editMenuStyle" @click.stop>
+              <button class="edit-menu-item" @click="handleCopy" v-if="hasSelection">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                  <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+                </svg>
+                <span>{{ t('common.copy') }}</span>
+              </button>
+              <button class="edit-menu-item" @click="handlePaste">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                  <path d="M19 2h-4.18C14.4.84 13.3 0 12 0c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm7 18H5V4h2v3h10V4h2v16z"/>
+                </svg>
+                <span>{{ t('common.paste') }}</span>
+              </button>
+            </div>
+          </Teleport>
           <!-- 菜单栏 -->
           <div class="input-menu-bar">
             <button v-if="quickCommandStore.quickCommands.length > 0" class="menu-btn quick-btn" @click="toggleQuickCommandSelector" :class="{ active: showQuickCommandSelector }" :title="t('quickCommand.title')">
@@ -286,6 +305,11 @@ const LONG_PRESS_DURATION = 500
 const isInputMode = ref(false)
 const inputText = ref('')
 const inputTextareaRef = ref<HTMLTextAreaElement | null>(null)
+
+// 右键编辑菜单
+const showEditMenu = ref(false)
+const editMenuStyle = ref<{ top: string; left: string }>({ top: '0px', left: '0px' })
+const hasSelection = ref(false)
 
 // MagicPad 高度调整
 const magicPadHeight = ref(120)
@@ -591,6 +615,60 @@ function insertQuickCommand(cmd: QuickCommand) {
     inputText.value += cmd.content
   }
   showQuickCommandSelector.value = false
+}
+
+// 右键菜单处理
+function handleTextareaContextMenu(e: MouseEvent) {
+  const textarea = inputTextareaRef.value
+  const selection = textarea ? textarea.value.substring(textarea.selectionStart, textarea.selectionEnd) : ''
+
+  hasSelection.value = selection.length > 0
+  editMenuStyle.value = {
+    top: `${e.clientY}px`,
+    left: `${e.clientX}px`
+  }
+  showEditMenu.value = true
+}
+
+// 复制选中文本
+async function handleCopy() {
+  const textarea = inputTextareaRef.value
+  if (textarea) {
+    const selectedText = textarea.value.substring(textarea.selectionStart, textarea.selectionEnd)
+    if (selectedText) {
+      try {
+        await navigator.clipboard.writeText(selectedText)
+      } catch (error) {
+        console.error('Copy failed:', error)
+      }
+    }
+  }
+  showEditMenu.value = false
+}
+
+// 粘贴文本
+async function handlePaste() {
+  try {
+    const clipboardText = await navigator.clipboard.readText()
+    if (clipboardText) {
+      const textarea = inputTextareaRef.value
+      if (textarea) {
+        const start = textarea.selectionStart
+        const end = textarea.selectionEnd
+        const text = inputText.value
+        inputText.value = text.substring(0, start) + clipboardText + text.substring(end)
+        nextTick(() => {
+          textarea.selectionStart = textarea.selectionEnd = start + clipboardText.length
+          textarea.focus()
+        })
+      } else {
+        inputText.value += clipboardText
+      }
+    }
+  } catch (error) {
+    console.error('Paste failed:', error)
+  }
+  showEditMenu.value = false
 }
 
 // 输入模式 - 切换录音
@@ -1761,5 +1839,46 @@ async function handleAgentResponseForVoice(nodeId: string, transcript: string, p
   to {
     transform: rotate(360deg);
   }
+}
+
+/* 右键编辑菜单 */
+.edit-menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2000;
+}
+
+.edit-menu {
+  position: fixed;
+  z-index: 2001;
+  min-width: 100px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px var(--shadow-color);
+  padding: 4px;
+}
+
+.edit-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  color: var(--text-primary);
+  font-size: 14px;
+  text-align: left;
+  transition: background 0.2s;
+}
+
+.edit-menu-item:hover {
+  background: var(--bg-hover);
 }
 </style>

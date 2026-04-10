@@ -110,6 +110,17 @@
             <span>{{ t('common.delete') }}</span>
           </button>
         </div>
+
+        <!-- 右键上下文菜单 -->
+        <div v-if="showContextMenu" class="context-menu-overlay" @click="closeContextMenu"></div>
+        <div v-if="showContextMenu" class="context-menu" :style="contextMenuStyle">
+          <button class="menu-item" @click.stop="handleCopySelection">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+            </svg>
+            <span>{{ t('common.copy') }}</span>
+          </button>
+        </div>
       </Teleport>
     </div>
 
@@ -135,6 +146,7 @@
           draggable="true"
           @dragstart="handleTextDragStart"
           @dblclick.stop="handleEditTranscript"
+          @contextmenu.prevent.stop="handleTextContextMenu"
           v-html="sanitizedTranscript"
         ></div>
         <button
@@ -187,6 +199,7 @@
           draggable="true"
           @dragstart="handleTextDragStart"
           @dblclick.stop="handleEditAgent"
+          @contextmenu.prevent.stop="handleTextContextMenu"
           v-html="sanitizedAgentResult"
         ></div>
         <button
@@ -461,6 +474,10 @@ const canRegenerate = computed(() => {
 const showMenu = ref(false)
 const menuStyle = ref<{ top: string; right: string }>({ top: '0px', right: '0px' })
 
+// 右键上下文菜单
+const showContextMenu = ref(false)
+const contextMenuStyle = ref<{ top: string; left: string }>({ top: '0px', left: '0px' })
+
 function toggleMenu(e: MouseEvent) {
   if (showMenu.value) {
     showMenu.value = false
@@ -478,6 +495,38 @@ function toggleMenu(e: MouseEvent) {
 
 function closeMenu() {
   showMenu.value = false
+}
+
+// 右键上下文菜单处理
+function handleTextContextMenu(e: MouseEvent) {
+  const selection = window.getSelection()
+  const selectedText = selection?.toString().trim()
+
+  if (selectedText && selectedText.length > 0) {
+    contextMenuStyle.value = {
+      top: `${e.clientY}px`,
+      left: `${e.clientX}px`
+    }
+    showContextMenu.value = true
+  }
+}
+
+function closeContextMenu() {
+  showContextMenu.value = false
+}
+
+async function handleCopySelection() {
+  const selection = window.getSelection()
+  const selectedText = selection?.toString().trim()
+
+  if (selectedText) {
+    try {
+      await navigator.clipboard.writeText(selectedText)
+    } catch (error) {
+      console.error('Copy failed:', error)
+    }
+  }
+  closeContextMenu()
 }
 
 // Markdown 渲染结果
@@ -1057,14 +1106,35 @@ watch(() => props.node.thinkingContent, async (newThinkingContent) => {
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 999;
+  z-index: 2000;
 }
 
 /* 抽屉菜单 */
 .node-menu-drawer {
   position: fixed;
-  z-index: 1000;
+  z-index: 2001;
   min-width: 120px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px var(--shadow-color);
+  padding: 4px;
+}
+
+/* 右键上下文菜单 */
+.context-menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2000;
+}
+
+.context-menu {
+  position: fixed;
+  z-index: 2001;
+  min-width: 100px;
   background: var(--bg-primary);
   border: 1px solid var(--border-color);
   border-radius: 8px;
