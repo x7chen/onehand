@@ -87,7 +87,9 @@
             @keydown.enter.exact.prevent="handleSendInput"
             @keydown.shift.enter.exact.stop
             @keydown.escape="handleCancelInput"
-            @dragover.prevent
+            @dragstart="handleInputDragStart"
+            @dragend="handleInputDragEnd"
+            @dragover.prevent="handleInputDragOver"
             @drop.prevent="handleInputDrop"
             @contextmenu.prevent="handleTextareaContextMenu"
           ></textarea>
@@ -305,6 +307,10 @@ const LONG_PRESS_DURATION = 500
 const isInputMode = ref(false)
 const inputText = ref('')
 const inputTextareaRef = ref<HTMLTextAreaElement | null>(null)
+
+// 输入模式拖拽相关
+const dragCaretPosition = ref<number | null>(null)
+const internalDragSelection = ref<{ start: number; end: number; text: string } | null>(null)
 
 // 右键编辑菜单
 const showEditMenu = ref(false)
@@ -630,6 +636,127 @@ function handleTextareaContextMenu(e: MouseEvent) {
   showEditMenu.value = true
 }
 
+// 输入模式 - 拖拽开始
+function handleInputDragStart(e: DragEvent) {
+  const textarea = inputTextareaRef.value
+  if (!textarea) return
+
+  const start = textarea.selectionStart
+  const end = textarea.selectionEnd
+  const selectedText = textarea.value.substring(start, end)
+
+  if (selectedText && e.dataTransfer) {
+    e.dataTransfer.setData('text/plain', selectedText)
+    e.dataTransfer.setData('application/x-magic-pad-input', 'true')
+    e.dataTransfer.effectAllowed = 'move'
+
+    internalDragSelection.value = {
+      start: Math.min(start, end),
+      end: Math.max(start, end),
+      text: selectedText
+    }
+  }
+}
+
+// 输入模式 - 拖拽结束
+function handleInputDragEnd() {
+  dragCaretPosition.value = null
+  internalDragSelection.value = null
+}
+
+// 输入模式 - 拖拽悬停
+function handleInputDragOver(e: DragEvent) {
+  e.preventDefault()
+  const textarea = inputTextareaRef.value
+  if (!textarea) return
+
+  const position = getInputCaretPositionFromPoint(e.clientX, e.clientY, textarea)
+  if (position !== null) {
+    dragCaretPosition.value = position
+    textarea.selectionStart = textarea.selectionEnd = position
+    textarea.focus()
+  }
+}
+
+// 根据鼠标坐标计算 textarea 中的字符位置
+function getInputCaretPositionFromPoint(x: number, y: number, textarea: HTMLTextAreaElement): number | null {
+  const mirror = document.createElement('div')
+  const style = window.getComputedStyle(textarea)
+  const rect = textarea.getBoundingClientRect()
+
+  mirror.style.cssText = `
+    position: fixed;
+    left: ${rect.left}px;
+    top: ${rect.top}px;
+    width: ${rect.width}px;
+    height: ${rect.height}px;
+    font-family: ${style.fontFamily};
+    font-size: ${style.fontSize};
+    line-height: ${style.lineHeight};
+    letter-spacing: ${style.letterSpacing};
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow: hidden;
+    overflow-y: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    padding: ${style.padding};
+    border: ${style.border};
+    box-sizing: border-box;
+    z-index: 9999;
+    opacity: 0;
+  `
+
+  const styleSheet = document.createElement('style')
+  styleSheet.textContent = 'textarea-caret-mirror::-webkit-scrollbar { display: none; }'
+  document.head.appendChild(styleSheet)
+
+  mirror.textContent = textarea.value
+  document.body.appendChild(mirror)
+  mirror.scrollTop = textarea.scrollTop
+
+  try {
+    let position: number | null = null
+
+    if (document.caretRangeFromPoint) {
+      const range = document.caretRangeFromPoint(x, y)
+      if (range && range.startContainer === mirror) {
+        position = range.startOffset
+      } else if (range && range.startContainer.nodeType === Node.TEXT_NODE) {
+        position = findInputTextOffset(mirror, range.startContainer, range.startOffset)
+      }
+    }
+
+    if (position === null && document.caretPositionFromPoint) {
+      const caretPos = document.caretPositionFromPoint(x, y)
+      if (caretPos && caretPos.offsetNode === mirror) {
+        position = caretPos.offset
+      } else if (caretPos && caretPos.offsetNode.nodeType === Node.TEXT_NODE) {
+        position = findInputTextOffset(mirror, caretPos.offsetNode, caretPos.offset)
+      }
+    }
+
+    return position
+  } finally {
+    mirror.remove()
+    styleSheet.remove()
+  }
+}
+
+// 在镜像元素中找到文本节点的偏移
+function findInputTextOffset(mirror: HTMLElement, textNode: Node, localOffset: number): number {
+  let offset = 0
+  for (const child of mirror.childNodes) {
+    if (child === textNode) {
+      return offset + localOffset
+    }
+    if (child.nodeType === Node.TEXT_NODE) {
+      offset += (child as Text).length
+    }
+  }
+  return offset + localOffset
+}
+
 // 复制选中文本
 async function handleCopy() {
   const textarea = inputTextareaRef.value
@@ -755,20 +882,51 @@ async function stopInputRecording() {
 
 // 输入模式 - 处理拖放（文字追加、图片转为链接）
 async function handleInputDrop(e: DragEvent) {
-  // 处理文字拖拽追加
+  const textarea = inputTextareaRef.value
+
+  // 处理文字拖拽
   const text = e.dataTransfer?.getData('text/plain')
   if (text && text.trim()) {
-    const textarea = inputTextareaRef.value
     if (textarea) {
-      const start = textarea.selectionStart
-      const end = textarea.selectionEnd
+      const insertPosition = dragCaretPosition.value ?? textarea.selectionStart
       const currentText = inputText.value
-      // 在光标位置插入文字
-      inputText.value = currentText.substring(0, start) + text + currentText.substring(end)
-      nextTick(() => {
-        textarea.selectionStart = textarea.selectionEnd = start + text.length
-        textarea.focus()
-      })
+
+      // 判断是否是内部拖拽
+      const isInternalDrag = internalDragSelection.value !== null
+
+      if (isInternalDrag && internalDragSelection.value) {
+        // 内部拖拽: 先删除选中内容,再插入到目标位置
+        const { start: deleteStart, end: deleteEnd } = internalDragSelection.value
+
+        let adjustedInsertPos = insertPosition
+        if (insertPosition > deleteEnd) {
+          adjustedInsertPos = insertPosition - (deleteEnd - deleteStart)
+        } else if (insertPosition >= deleteStart && insertPosition <= deleteEnd) {
+          adjustedInsertPos = deleteStart
+        }
+
+        const beforeDelete = currentText.substring(0, deleteStart)
+        const afterDelete = currentText.substring(deleteEnd)
+        const textAfterDelete = beforeDelete + afterDelete
+
+        inputText.value = textAfterDelete.substring(0, adjustedInsertPos) + text + textAfterDelete.substring(adjustedInsertPos)
+
+        nextTick(() => {
+          textarea.selectionStart = textarea.selectionEnd = adjustedInsertPos + text.length
+          textarea.focus()
+        })
+
+        internalDragSelection.value = null
+      } else {
+        // 外部拖拽: 直接插入到目标位置
+        inputText.value = currentText.substring(0, insertPosition) + text + currentText.substring(insertPosition)
+        nextTick(() => {
+          textarea.selectionStart = textarea.selectionEnd = insertPosition + text.length
+          textarea.focus()
+        })
+      }
+
+      dragCaretPosition.value = null
     } else {
       inputText.value += text
     }
@@ -788,17 +946,18 @@ async function handleInputDrop(e: DragEvent) {
     if (markdownLink) {
       const textarea = inputTextareaRef.value
       if (textarea) {
-        const start = textarea.selectionStart
-        const end = textarea.selectionEnd
+        const insertPosition = dragCaretPosition.value ?? textarea.selectionStart
         const text = inputText.value
-        inputText.value = text.substring(0, start) + markdownLink + text.substring(end)
+        inputText.value = text.substring(0, insertPosition) + markdownLink + text.substring(insertPosition)
         nextTick(() => {
-          textarea.selectionStart = textarea.selectionEnd = start + markdownLink.length
+          textarea.selectionStart = textarea.selectionEnd = insertPosition + markdownLink.length
           textarea.focus()
         })
       }
     }
   }
+
+  dragCaretPosition.value = null
 }
 
 // 保存图片到笔记本目录并返回markdown链接

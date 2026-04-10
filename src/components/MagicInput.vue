@@ -25,7 +25,9 @@
             @keydown.enter.exact.prevent="handleSave"
             @keydown.shift.enter.exact.stop
             @keydown.escape="handleCancel"
-            @dragover.prevent
+            @dragstart="handleTextareaDragStart"
+            @dragend="handleDragEnd"
+            @dragover.prevent="handleDragOver"
             @drop.prevent="handleDrop"
             @contextmenu.prevent="handleTextareaContextMenu"
           ></textarea>
@@ -144,6 +146,11 @@ const notebookStore = useNotebookStore()
 const inputText = ref('')
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 
+// 拖拽时的光标位置
+const dragCaretPosition = ref<number | null>(null)
+// 内部拖拽时原始选区
+const internalDragSelection = ref<{ start: number; end: number; text: string } | null>(null)
+
 // 右键编辑菜单
 const showEditMenu = ref(false)
 const editMenuStyle = ref<{ top: string; left: string }>({ top: '0px', left: '0px' })
@@ -246,6 +253,139 @@ function handleTextareaContextMenu(e: MouseEvent) {
     left: `${e.clientX}px`
   }
   showEditMenu.value = true
+}
+
+// 处理 textarea 内部拖拽开始
+function handleTextareaDragStart(e: DragEvent) {
+  const textarea = textareaRef.value
+  if (!textarea) return
+
+  const start = textarea.selectionStart
+  const end = textarea.selectionEnd
+  const selectedText = textarea.value.substring(start, end)
+
+  if (selectedText && e.dataTransfer) {
+    e.dataTransfer.setData('text/plain', selectedText)
+    e.dataTransfer.setData('application/x-magic-input', 'true')
+    e.dataTransfer.effectAllowed = 'move'
+
+    // 记录原始选区位置
+    internalDragSelection.value = {
+      start: Math.min(start, end),
+      end: Math.max(start, end),
+      text: selectedText
+    }
+  }
+}
+
+// 处理拖拽结束
+function handleDragEnd() {
+  // 清理拖拽状态
+  dragCaretPosition.value = null
+  internalDragSelection.value = null
+}
+
+// 处理拖拽悬停,实时更新光标位置
+function handleDragOver(e: DragEvent) {
+  e.preventDefault()
+  const textarea = textareaRef.value
+  if (!textarea) return
+
+  const position = getCaretPositionFromPoint(e.clientX, e.clientY, textarea)
+  if (position !== null) {
+    dragCaretPosition.value = position
+    // 设置光标位置提供视觉反馈
+    textarea.selectionStart = textarea.selectionEnd = position
+    textarea.focus()
+  }
+}
+
+// 根据鼠标坐标计算 textarea 中的字符位置
+function getCaretPositionFromPoint(x: number, y: number, textarea: HTMLTextAreaElement): number | null {
+  // 创建临时镜像元素，定位在与 textarea 完全相同的位置
+  const mirror = document.createElement('div')
+  const style = window.getComputedStyle(textarea)
+  const rect = textarea.getBoundingClientRect()
+
+  // 复制 textarea 的所有关键样式
+  mirror.style.cssText = `
+    position: fixed;
+    left: ${rect.left}px;
+    top: ${rect.top}px;
+    width: ${rect.width}px;
+    height: ${rect.height}px;
+    font-family: ${style.fontFamily};
+    font-size: ${style.fontSize};
+    line-height: ${style.lineHeight};
+    letter-spacing: ${style.letterSpacing};
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow: hidden;
+    overflow-y: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    padding: ${style.padding};
+    border: ${style.border};
+    box-sizing: border-box;
+    z-index: 9999;
+    opacity: 0;
+  `
+
+  // 隐藏滚动条
+  const styleSheet = document.createElement('style')
+  styleSheet.textContent = 'textarea-caret-mirror::-webkit-scrollbar { display: none; }'
+  document.head.appendChild(styleSheet)
+
+  // 复制文本内容
+  mirror.textContent = textarea.value
+
+  document.body.appendChild(mirror)
+
+  // 同步滚动位置
+  mirror.scrollTop = textarea.scrollTop
+
+  try {
+    let position: number | null = null
+
+    // 使用 caretRangeFromPoint (Chrome/Safari/Edge)
+    if (document.caretRangeFromPoint) {
+      const range = document.caretRangeFromPoint(x, y)
+      if (range && range.startContainer === mirror) {
+        position = range.startOffset
+      } else if (range && range.startContainer.nodeType === Node.TEXT_NODE) {
+        position = findTextOffset(mirror, range.startContainer, range.startOffset)
+      }
+    }
+
+    // Firefox 使用 caretPositionFromPoint
+    if (position === null && document.caretPositionFromPoint) {
+      const caretPos = document.caretPositionFromPoint(x, y)
+      if (caretPos && caretPos.offsetNode === mirror) {
+        position = caretPos.offset
+      } else if (caretPos && caretPos.offsetNode.nodeType === Node.TEXT_NODE) {
+        position = findTextOffset(mirror, caretPos.offsetNode, caretPos.offset)
+      }
+    }
+
+    return position
+  } finally {
+    mirror.remove()
+    styleSheet.remove()
+  }
+}
+
+// 在镜像元素中找到文本节点的偏移
+function findTextOffset(mirror: HTMLElement, textNode: Node, localOffset: number): number {
+  let offset = 0
+  for (const child of mirror.childNodes) {
+    if (child === textNode) {
+      return offset + localOffset
+    }
+    if (child.nodeType === Node.TEXT_NODE) {
+      offset += (child as Text).length
+    }
+  }
+  return offset + localOffset
 }
 
 // 复制选中文本
@@ -418,19 +558,57 @@ async function handleCorrectText() {
 
 // 处理拖放
 async function handleDrop(e: DragEvent) {
+  const textarea = textareaRef.value
+
   // 处理文字拖拽
   const text = e.dataTransfer?.getData('text/plain')
   if (text && text.trim()) {
-    const textarea = textareaRef.value
     if (textarea) {
-      const start = textarea.selectionStart
-      const end = textarea.selectionEnd
+      // 使用 dragover 记录的位置,或当前 selectionStart 作为 fallback
+      const insertPosition = dragCaretPosition.value ?? textarea.selectionStart
       const currentText = inputText.value
-      inputText.value = currentText.substring(0, start) + text + currentText.substring(end)
-      nextTick(() => {
-        textarea.selectionStart = textarea.selectionEnd = start + text.length
-        textarea.focus()
-      })
+
+      // 判断是否是内部拖拽
+      const isInternalDrag = internalDragSelection.value !== null
+
+      if (isInternalDrag && internalDragSelection.value) {
+        // 内部拖拽: 先删除选中内容,再插入到目标位置
+        const { start: deleteStart, end: deleteEnd } = internalDragSelection.value
+
+        // 如果插入位置在删除范围后面,需要调整插入位置
+        let adjustedInsertPos = insertPosition
+        if (insertPosition > deleteEnd) {
+          adjustedInsertPos = insertPosition - (deleteEnd - deleteStart)
+        } else if (insertPosition >= deleteStart && insertPosition <= deleteEnd) {
+          // 如果插入位置在删除范围内,插入到删除起始位置
+          adjustedInsertPos = deleteStart
+        }
+
+        // 构建新文本: 删除原选中内容,插入新文本
+        const beforeDelete = currentText.substring(0, deleteStart)
+        const afterDelete = currentText.substring(deleteEnd)
+        const textAfterDelete = beforeDelete + afterDelete
+
+        // 在调整后的位置插入
+        inputText.value = textAfterDelete.substring(0, adjustedInsertPos) + text + textAfterDelete.substring(adjustedInsertPos)
+
+        nextTick(() => {
+          textarea.selectionStart = textarea.selectionEnd = adjustedInsertPos + text.length
+          textarea.focus()
+        })
+
+        // 清除内部拖拽记录
+        internalDragSelection.value = null
+      } else {
+        // 外部拖拽: 直接插入到目标位置
+        inputText.value = currentText.substring(0, insertPosition) + text + currentText.substring(insertPosition)
+        nextTick(() => {
+          textarea.selectionStart = textarea.selectionEnd = insertPosition + text.length
+          textarea.focus()
+        })
+      }
+
+      dragCaretPosition.value = null
     } else {
       inputText.value += text
     }
