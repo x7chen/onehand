@@ -32,8 +32,6 @@
           :notebook-id="notebookStore.currentNotebook?.id"
           :canvas-id="notebookStore.currentCanvas?.id"
           :is-playing="playingNodeId === node.id"
-          :is-editing="editingNodeId === node.id"
-          :editing-text="editingText"
           :global-hide-ai-result="globalHideAiResult"
           :is-active="activeNodeId === node.id"
           :show-header="true"
@@ -46,9 +44,8 @@
           @toggle-favorite="handleToggleFavorite"
           @drag-start="handleDragStart"
           @update-node="handleUpdateNode"
-          @save-edit="handleSaveEdit"
-          @cancel-edit="handleCancelEdit"
-          @update:editing-text="editingText = $event"
+          @edit-transcript="handleEditTranscript"
+          @edit-agent="handleEditAgent"
           @activate="handleActivateNode"
           @copy-link="handleCopyLink"
         />
@@ -61,6 +58,16 @@
       @clear="clearContextSelection"
       @ask="handleAskWithNewRecording"
     />
+
+    <!-- MagicInput 弹出框 -->
+    <MagicInput
+      :is-open="magicInputState.isOpen"
+      :initial-text="magicInputInitialText"
+      :show-correct="!!quickModelConfig"
+      :node-id="magicInputState.nodeId"
+      @save="handleMagicInputSave"
+      @cancel="handleMagicInputCancel"
+    />
   </div>
 </template>
 
@@ -72,6 +79,7 @@ import { useSettingsStore } from '@/stores/settingsStore'
 import InfiniteCanvas from '@/components/InfiniteCanvas.vue'
 import VoiceNote from '@/components/VoiceNote.vue'
 import ContextToolbar from '@/components/ContextToolbar.vue'
+import MagicInput from '@/components/MagicInput.vue'
 import type { CanvasNode, Viewport } from '@/types/notebook'
 import type { ContextFile } from '@/types/context'
 import { createAudioWorkletRecorder } from '@/utils/audioWorkletRecorder'
@@ -115,6 +123,26 @@ const currentModelConfig = computed(() => {
   return settingsStore.settings.llm.profiles.find(p => p.id === modelId)
 })
 
+// 快速模型配置（用于纠正文本）
+const quickModelConfig = computed(() => {
+  const quickModelId = settingsStore.settings.llm.quickModelProfileId
+  if (!quickModelId) return null
+  return settingsStore.settings.llm.profiles.find(p => p.id === quickModelId)
+})
+
+// MagicInput 初始文本
+const magicInputInitialText = computed(() => {
+  if (!magicInputState.value.nodeId) return ''
+  const node = notebookStore.currentCanvas?.nodes.find(n => n.id === magicInputState.value.nodeId)
+  if (!node) return ''
+  if (magicInputState.value.mode === 'transcript') {
+    return node.transcript || ''
+  } else if (magicInputState.value.mode === 'agent') {
+    return node.agentResult || ''
+  }
+  return ''
+})
+
 // 节点拖动相关
 const isDraggingNode = ref(false)
 const draggingNodeId = ref<string | null>(null)
@@ -128,6 +156,19 @@ const infiniteCanvasRef = ref<InstanceType<typeof InfiniteCanvas> | null>(null)
 
 // 当前激活的节点ID
 const activeNodeId = ref<string | null>(null)
+
+// MagicInput 状态
+interface MagicInputState {
+  isOpen: boolean
+  mode: 'create' | 'transcript' | 'agent'
+  nodeId?: string
+  position?: { x: number; y: number }
+}
+
+const magicInputState = ref<MagicInputState>({
+  isOpen: false,
+  mode: 'create'
+})
 
 // 监听激活节点变化，移动画布视口到节点位置
 watch(activeNodeId, (newNodeId) => {
@@ -205,10 +246,6 @@ function animateViewportTo(targetX: number, targetY: number, zoom: number) {
 const currentAudio = ref<HTMLAudioElement | null>(null)
 const playingNodeId = ref<string | null>(null)
 
-// 文本框编辑相关
-const editingNodeId = ref<string | null>(null)
-const editingText = ref('')
-
 const selectedContextCount = computed(() =>
   notebookStore.currentCanvas?.nodes.filter(n => n.selectedAsContext).length || 0
 )
@@ -222,7 +259,6 @@ onMounted(() => {
   initViewport()
   window.addEventListener('mousemove', handleNodeDragMove)
   window.addEventListener('mouseup', handleNodeDragEnd)
-  document.addEventListener('click', handleClickOutsideEditing)
 })
 
 onUnmounted(() => {
@@ -231,7 +267,6 @@ onUnmounted(() => {
   }
   window.removeEventListener('mousemove', handleNodeDragMove)
   window.removeEventListener('mouseup', handleNodeDragEnd)
-  document.removeEventListener('click', handleClickOutsideEditing)
 })
 
 function handleViewportChange(newViewport: Viewport) {
@@ -246,7 +281,6 @@ function handleResetViewport() {
 }
 
 function handlePrevPage() {
-  cancelTextEdit()
   notebookStore.goToPrevPage()
   viewport.value = notebookStore.getCurrentViewport()
   // 切换后选中第一个节点
@@ -255,7 +289,6 @@ function handlePrevPage() {
 }
 
 function handleNextPage() {
-  cancelTextEdit()
   if (notebookStore.hasNextPage) {
     notebookStore.goToNextPage()
     viewport.value = notebookStore.getCurrentViewport()
@@ -271,14 +304,12 @@ function handleNextPage() {
 }
 
 function handleInsertBefore() {
-  cancelTextEdit()
   notebookStore.insertPageBefore()
   viewport.value = notebookStore.getCurrentViewport()
   selectFirstNode()
 }
 
 function handleInsertAfter() {
-  cancelTextEdit()
   notebookStore.insertPageAfter()
   viewport.value = notebookStore.getCurrentViewport()
   selectFirstNode()
@@ -387,78 +418,11 @@ function handleCanvasClick(x: number, y: number) {
 }
 
 function handleDblClick(x: number, y: number) {
-  const node: CanvasNode = {
-    id: `node-${Date.now()}`,
-    type: 'text-note',
-    position: { x: x, y },
-    transcript: '',
-    transcriptStatus: 'done',
-    agentResult: null,
-    agentStatus: 'pending',
-    selectedAsContext: false,
-    createdAt: Date.now()
+  magicInputState.value = {
+    isOpen: true,
+    mode: 'create',
+    position: { x, y }
   }
-
-  notebookStore.addNode(node)
-  editingNodeId.value = node.id
-  editingText.value = ''
-}
-
-function cancelTextEdit() {
-  if (editingNodeId.value) {
-    const node = notebookStore.currentCanvas?.nodes.find(n => n.id === editingNodeId.value)
-    if (node && !node.transcript) {
-      notebookStore.removeNode(editingNodeId.value)
-    }
-    editingNodeId.value = null
-    editingText.value = ''
-  }
-}
-
-function handleSaveEdit(nodeId: string, text: string) {
-  if (text.trim()) {
-    notebookStore.updateNode(nodeId, { transcript: text.trim() })
-    if (props.aiAnswerEnabled) {
-      handleAgentResponse(nodeId, text.trim())
-    }
-  } else {
-    notebookStore.removeNode(nodeId)
-  }
-  editingNodeId.value = null
-  editingText.value = ''
-}
-
-function handleCancelEdit(nodeId: string) {
-  const node = notebookStore.currentCanvas?.nodes.find(n => n.id === nodeId)
-  if (node && !node.transcript) {
-    notebookStore.removeNode(nodeId)
-  }
-  editingNodeId.value = null
-  editingText.value = ''
-}
-
-function handleClickOutsideEditing(e: MouseEvent) {
-  if (!editingNodeId.value) return
-
-  const target = e.target as HTMLElement
-
-  if (target.closest('.content-edit') || target.closest('.voice-note')) {
-    return
-  }
-
-  const node = notebookStore.currentCanvas?.nodes.find(n => n.id === editingNodeId.value)
-  if (node) {
-    if (editingText.value.trim()) {
-      notebookStore.updateNode(editingNodeId.value, { transcript: editingText.value.trim() })
-      if (props.aiAnswerEnabled) {
-        handleAgentResponse(editingNodeId.value, editingText.value.trim())
-      }
-    } else {
-      notebookStore.removeNode(editingNodeId.value)
-    }
-  }
-  editingNodeId.value = null
-  editingText.value = ''
 }
 
 async function handleTranscription(node: CanvasNode) {
@@ -847,6 +811,70 @@ function handleUpdateNode(nodeId: string, updates: Partial<CanvasNode>) {
   notebookStore.updateNode(nodeId, updates)
 }
 
+// 编辑转写内容
+function handleEditTranscript(nodeId: string) {
+  const node = notebookStore.currentCanvas?.nodes.find(n => n.id === nodeId)
+  if (node) {
+    magicInputState.value = {
+      isOpen: true,
+      mode: 'transcript',
+      nodeId
+    }
+  }
+}
+
+// 编辑AI回答
+function handleEditAgent(nodeId: string) {
+  const node = notebookStore.currentCanvas?.nodes.find(n => n.id === nodeId)
+  if (node) {
+    magicInputState.value = {
+      isOpen: true,
+      mode: 'agent',
+      nodeId
+    }
+  }
+}
+
+// MagicInput 保存
+function handleMagicInputSave(text: string) {
+  const state = magicInputState.value
+
+  if (state.mode === 'create') {
+    // 创建新节点
+    const position = state.position || { x: 100, y: 100 }
+    const node: CanvasNode = {
+      id: `node-${Date.now()}`,
+      type: 'text-note',
+      position,
+      transcript: text,
+      transcriptStatus: 'done',
+      agentResult: null,
+      agentStatus: 'pending',
+      selectedAsContext: false,
+      createdAt: Date.now()
+    }
+    notebookStore.addNode(node)
+
+    if (props.aiAnswerEnabled) {
+      handleAgentResponse(node.id, text)
+    }
+  } else if (state.mode === 'transcript' && state.nodeId) {
+    // 更新转写内容
+    notebookStore.updateNode(state.nodeId, { transcript: text })
+  } else if (state.mode === 'agent' && state.nodeId) {
+    // 更新AI回答
+    notebookStore.updateNode(state.nodeId, { agentResult: text, agentStatus: 'done' })
+  }
+
+  // 关闭弹出框
+  magicInputState.value = { isOpen: false, mode: 'create' }
+}
+
+// MagicInput 取消
+function handleMagicInputCancel() {
+  magicInputState.value = { isOpen: false, mode: 'create' }
+}
+
 async function handleDropText(x: number, y: number, text: string) {
   const node: CanvasNode = {
     id: `node-${Date.now()}`,
@@ -966,7 +994,6 @@ defineExpose({
   handleResetViewport,
   handleAutoLayout,
   initViewport,
-  cancelTextEdit,
   activeNodeId,
   setActiveNodeId
 })

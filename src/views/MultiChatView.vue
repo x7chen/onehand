@@ -75,8 +75,6 @@
           :static-context-files="staticContextFiles"
           :dynamic-context-file="dynamicContextFile"
           :ai-answer-enabled="aiAnswerEnabled"
-          :editing-node-id="editingNodeIdLeft"
-          :editing-text="editingTextLeft"
           :is-active="activePanel === 'left'"
           :panel-id="'left'"
           class="left-chat-panel"
@@ -91,9 +89,6 @@
           @update-node="handleUpdateNode"
           @node-created="handleNodeCreatedLeft"
           @node-updated="handleNodeUpdatedLeft"
-          @update-editing-text="editingTextLeft = $event"
-          @save-edit="handleSaveEditLeft"
-          @cancel-edit="handleCancelEditLeft"
           @start-editing="handleStartEditingLeft"
           @activate="handleChatPanelActivate"
         />
@@ -124,8 +119,6 @@
           :static-context-files="staticContextFiles"
           :dynamic-context-file="dynamicContextFile"
           :ai-answer-enabled="aiAnswerEnabled"
-          :editing-node-id="editingNodeIdRight"
-          :editing-text="editingTextRight"
           :is-active="activePanel === 'right'"
           :panel-id="'right'"
           class="right-chat-panel"
@@ -138,9 +131,6 @@
           @update-node="handleUpdateNode"
           @node-created="handleNodeCreatedRight"
           @node-updated="handleNodeUpdatedRight"
-          @update-editing-text="editingTextRight = $event"
-          @save-edit="handleSaveEditRight"
-          @cancel-edit="handleCancelEditRight"
           @start-editing="handleStartEditingRight"
           @activate="handleChatPanelActivate"
         />
@@ -250,12 +240,6 @@ const currentActiveNodeId = computed(() => {
 // 音频播放
 const currentAudio = ref<HTMLAudioElement | null>(null)
 const playingNodeId = ref<string | null>(null)
-
-// 两个面板各自的编辑状态
-const editingNodeIdLeft = ref<string | null>(null)
-const editingTextLeft = ref('')
-const editingNodeIdRight = ref<string | null>(null)
-const editingTextRight = ref('')
 
 // 全局隐藏 AI 回答
 const globalHideAiResult = ref(false)
@@ -405,7 +389,6 @@ onMounted(async () => {
   await contextStore.loadContextFiles()
 
   window.addEventListener('keydown', handleKeyDown)
-  document.addEventListener('click', handleClickOutsideEditing)
 
   initPanelWidths()
 
@@ -422,7 +405,6 @@ onUnmounted(() => {
   document.removeEventListener('mousemove', handleResizeChat)
   document.removeEventListener('mouseup', stopResizeLeft)
   document.removeEventListener('mouseup', stopResizeChat)
-  document.removeEventListener('click', handleClickOutsideEditing)
 
   if (currentAudio.value) {
     currentAudio.value.pause()
@@ -627,95 +609,13 @@ function handleNodeUpdatedRight(node: CanvasNode) {
   // activeNodeRight 是计算属性，自动更新
 }
 
-// 编辑相关处理
+// 编辑相关处理（MagicInput 由 ChatPanel 内部处理）
 function handleStartEditingLeft(nodeId: string) {
-  editingNodeIdLeft.value = nodeId
-  editingTextLeft.value = ''
+  // 编辑处理已移至 ChatPanel 内部
 }
 
 function handleStartEditingRight(nodeId: string) {
-  editingNodeIdRight.value = nodeId
-  editingTextRight.value = ''
-}
-
-function handleSaveEditLeft(nodeId: string, text: string) {
-  if (text.trim()) {
-    notebookStore.updateNode(nodeId, { transcript: text.trim() })
-    if (aiAnswerEnabled.value) {
-      handleAgentResponse(nodeId, text.trim())
-    }
-  } else {
-    notebookStore.removeNode(nodeId)
-    selectFirstNodes()
-  }
-  editingNodeIdLeft.value = null
-  editingTextLeft.value = ''
-}
-
-function handleSaveEditRight(nodeId: string, text: string) {
-  if (text.trim()) {
-    notebookStore.updateNode(nodeId, { transcript: text.trim() })
-    if (aiAnswerEnabled.value) {
-      handleAgentResponse(nodeId, text.trim())
-    }
-  } else {
-    notebookStore.removeNode(nodeId)
-    selectFirstNodes()
-  }
-  editingNodeIdRight.value = null
-  editingTextRight.value = ''
-}
-
-function handleCancelEditLeft(nodeId: string) {
-  const node = notebookStore.currentCanvas?.nodes.find(n => n.id === nodeId)
-  if (node && !node.transcript) {
-    notebookStore.removeNode(nodeId)
-    selectFirstNodes()
-  }
-  editingNodeIdLeft.value = null
-  editingTextLeft.value = ''
-}
-
-function handleCancelEditRight(nodeId: string) {
-  const node = notebookStore.currentCanvas?.nodes.find(n => n.id === nodeId)
-  if (node && !node.transcript) {
-    notebookStore.removeNode(nodeId)
-    selectFirstNodes()
-  }
-  editingNodeIdRight.value = null
-  editingTextRight.value = ''
-}
-
-// 点击外部结束编辑
-function handleClickOutsideEditing(e: MouseEvent) {
-  // 检查左右面板的编辑状态
-  const editingNodeId = editingNodeIdLeft.value || editingNodeIdRight.value
-  if (!editingNodeId) return
-
-  const target = e.target as HTMLElement
-
-  if (target.closest('.content-edit') || target.closest('.voice-note')) {
-    return
-  }
-
-  const node = notebookStore.currentCanvas?.nodes.find(n => n.id === editingNodeId)
-  const editingText = editingNodeIdLeft.value ? editingTextLeft.value : editingTextRight.value
-
-  if (node) {
-    if (editingText.trim()) {
-      notebookStore.updateNode(editingNodeId, { transcript: editingText.trim() })
-      if (aiAnswerEnabled.value) {
-        handleAgentResponse(editingNodeId, editingText.trim())
-      }
-    } else {
-      notebookStore.removeNode(editingNodeId)
-      selectFirstNodes()
-    }
-  }
-  editingNodeIdLeft.value = null
-  editingTextLeft.value = ''
-  editingNodeIdRight.value = null
-  editingTextRight.value = ''
+  // 编辑处理已移至 ChatPanel 内部
 }
 
 // 节点操作

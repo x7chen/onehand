@@ -121,23 +121,7 @@
       </div>
     </div>
 
-    <!-- 编辑模式 -->
-    <div v-else-if="isEditing" class="editing-box" @click.stop @mousedown.stop>
-      <textarea
-        v-model="localEditingText"
-        ref="editingTextarea"
-        class="content-edit"
-        :placeholder="t('common.inputContent')"
-        @keydown.enter.exact.prevent="saveEdit"
-        @keydown.shift.enter.exact.stop
-        @keydown.escape="cancelEdit"
-        @dragover.prevent="handleEditDragOver"
-        @drop.prevent="handleEditDrop"
-        @input="handleEditingInput"
-      ></textarea>
-    </div>
-
-    <div v-else-if="node.transcript && node.type !== 'image-note'" class="transcript-box" @dblclick.stop>
+    <div v-else-if="node.transcript && node.type !== 'image-note'" class="transcript-box">
       <div v-if="node.transcriptStatus === 'processing'" class="status-text">
         {{ t('common.converting') }}
       </div>
@@ -146,28 +130,15 @@
         <button @click.stop="retryTranscription">{{ t('common.retry') }}</button>
       </div>
       <div v-else class="transcript-content-wrapper">
-        <textarea
-          v-if="isEditingTranscript"
-          v-model="editTranscript"
-          ref="transcriptTextarea"
-          class="transcript-edit"
-          @blur="saveTranscriptEdit"
-          @keydown.enter.exact.prevent="saveTranscriptEdit"
-          @keydown.shift.enter.exact.stop
-          @keydown.escape="cancelTranscriptEdit"
-          @dragover.prevent="handleEditDragOver"
-          @drop.prevent="handleTranscriptEditDrop"
-        ></textarea>
         <div
-          v-else
           class="transcript-content"
           draggable="true"
           @dragstart="handleTextDragStart"
-          @dblclick.stop="startTranscriptEdit"
+          @dblclick.stop="handleEditTranscript"
           v-html="sanitizedTranscript"
         ></div>
         <button
-          v-if="!isEditingTranscript && node.transcript"
+          v-if="node.transcript"
           class="copy-btn transcript-copy-btn"
           @click.stop="copyTranscript"
           :title="t('voiceNote.copyTranscript')"
@@ -211,28 +182,15 @@
         <button @click.stop="retryAgent">{{ t('common.retry') }}</button>
       </div>
       <div v-else class="agent-content-wrapper">
-        <textarea
-          v-if="isEditingAgent"
-          v-model="editAgent"
-          ref="agentTextarea"
-          class="agent-edit"
-          @blur="saveAgentEdit"
-          @keydown.enter.exact.prevent="saveAgentEdit"
-          @keydown.shift.enter.exact.stop
-          @keydown.escape="cancelAgentEdit"
-          @dragover.prevent="handleEditDragOver"
-          @drop.prevent="handleAgentEditDrop"
-        ></textarea>
         <div
-          v-else
           class="agent-content"
           draggable="true"
           @dragstart="handleTextDragStart"
-          @dblclick.stop="startAgentEdit"
+          @dblclick.stop="handleEditAgent"
           v-html="sanitizedAgentResult"
         ></div>
         <button
-          v-if="!isEditingAgent && node.agentResult"
+          v-if="node.agentResult"
           class="copy-btn agent-copy-btn"
           @click.stop="copyAgentResult"
           :title="t('voiceNote.copyAiAnswer')"
@@ -262,8 +220,6 @@ const props = defineProps<{
   notebookId?: string
   canvasId?: string
   isPlaying?: boolean
-  isEditing?: boolean
-  editingText?: string
   globalHideAiResult?: boolean
   isActive?: boolean
   activateOnHover?: boolean
@@ -280,9 +236,8 @@ const emit = defineEmits<{
   (e: 'toggle-favorite', nodeId: string): void
   (e: 'drag-start', nodeId: string, offsetX: number, offsetY: number): void
   (e: 'update-node', nodeId: string, updates: Partial<CanvasNode>): void
-  (e: 'save-edit', nodeId: string, text: string): void
-  (e: 'cancel-edit', nodeId: string): void
-  (e: 'update:editingText', text: string): void
+  (e: 'edit-transcript', nodeId: string): void
+  (e: 'edit-agent', nodeId: string): void
   (e: 'activate', nodeId: string): void
   (e: 'copy-link', nodeId: string): void
 }>()
@@ -380,107 +335,6 @@ async function loadImage() {
 // 图片加载完成处理
 function handleImageLoad() {
   // 图片加载完成，可以做一些处理
-}
-
-// 处理编辑区域的图片拖拽
-function handleEditDragOver(e: DragEvent) {
-  // 检查是否有图片文件
-  if (e.dataTransfer && e.dataTransfer.types.includes('Files')) {
-    const items = e.dataTransfer.items
-    for (const item of items) {
-      if (item.kind === 'file' && item.type.startsWith('image/')) {
-        e.dataTransfer.dropEffect = 'copy'
-        return
-      }
-    }
-  }
-}
-
-// 处理编辑模式的图片拖放
-async function handleEditDrop(e: DragEvent) {
-  if (!e.dataTransfer || !e.dataTransfer.files.length) return
-
-  const files = Array.from(e.dataTransfer.files)
-  const imageFiles = files.filter(f => f.type.startsWith('image/'))
-
-  if (imageFiles.length === 0) return
-
-  for (const file of imageFiles) {
-    const markdownLink = await saveImageToNotebook(file)
-    if (markdownLink) {
-      // 在光标位置插入图片链接
-      const textarea = editingTextarea.value
-      if (textarea) {
-        const start = textarea.selectionStart
-        const end = textarea.selectionEnd
-        const text = localEditingText.value
-        localEditingText.value = text.substring(0, start) + markdownLink + text.substring(end)
-        // 移动光标到插入内容之后
-        nextTick(() => {
-          textarea.selectionStart = textarea.selectionEnd = start + markdownLink.length
-          textarea.focus()
-        })
-      }
-    }
-  }
-}
-
-// 处理转写编辑模式的图片拖放
-async function handleTranscriptEditDrop(e: DragEvent) {
-  if (!e.dataTransfer || !e.dataTransfer.files.length) return
-
-  const files = Array.from(e.dataTransfer.files)
-  const imageFiles = files.filter(f => f.type.startsWith('image/'))
-
-  if (imageFiles.length === 0) return
-
-  for (const file of imageFiles) {
-    const markdownLink = await saveImageToNotebook(file)
-    if (markdownLink) {
-      // 在光标位置插入图片链接
-      const textarea = transcriptTextarea.value
-      if (textarea) {
-        const start = textarea.selectionStart
-        const end = textarea.selectionEnd
-        const text = editTranscript.value
-        editTranscript.value = text.substring(0, start) + markdownLink + text.substring(end)
-        // 移动光标到插入内容之后
-        nextTick(() => {
-          textarea.selectionStart = textarea.selectionEnd = start + markdownLink.length
-          textarea.focus()
-        })
-      }
-    }
-  }
-}
-
-// 处理AI回答编辑模式的图片拖放
-async function handleAgentEditDrop(e: DragEvent) {
-  if (!e.dataTransfer || !e.dataTransfer.files.length) return
-
-  const files = Array.from(e.dataTransfer.files)
-  const imageFiles = files.filter(f => f.type.startsWith('image/'))
-
-  if (imageFiles.length === 0) return
-
-  for (const file of imageFiles) {
-    const markdownLink = await saveImageToNotebook(file)
-    if (markdownLink) {
-      // 在光标位置插入图片链接
-      const textarea = agentTextarea.value
-      if (textarea) {
-        const start = textarea.selectionStart
-        const end = textarea.selectionEnd
-        const text = editAgent.value
-        editAgent.value = text.substring(0, start) + markdownLink + text.substring(end)
-        // 移动光标到插入内容之后
-        nextTick(() => {
-          textarea.selectionStart = textarea.selectionEnd = start + markdownLink.length
-          textarea.focus()
-        })
-      }
-    }
-  }
 }
 
 // 保存图片到笔记本目录并返回markdown链接
@@ -603,10 +457,6 @@ const canRegenerate = computed(() => {
   return true
 })
 
-// 编辑模式相关
-const localEditingText = ref('')
-const editingTextarea = ref<HTMLTextAreaElement | null>(null)
-
 // 菜单相关
 const showMenu = ref(false)
 const menuStyle = ref<{ top: string; right: string }>({ top: '0px', right: '0px' })
@@ -634,109 +484,16 @@ function closeMenu() {
 const sanitizedTranscript = ref('')
 const sanitizedAgentResult = ref('')
 
-// 同步外部传入的编辑文本
-watch(() => props.editingText, (newVal) => {
-  if (newVal !== undefined) {
-    localEditingText.value = newVal
-  }
-}, { immediate: true })
-
-// 同步本地编辑文本到父组件
-watch(localEditingText, (newVal) => {
-  emit('update:editingText', newVal)
-})
-
-// 监听 isEditing 变化，自动聚焦
-watch(() => props.isEditing, (newVal) => {
-  if (newVal) {
-    nextTick(() => {
-      if (editingTextarea.value) {
-        editingTextarea.value.focus()
-        editingTextarea.value.select()
-      }
-    })
-  }
-}, { immediate: true })
-
-// 处理编辑时滚动到底部
-function handleEditingInput() {
-  const textarea = editingTextarea.value
-  if (!textarea) return
-
-  // 检查光标是否在最后一行
-  const cursorPos = textarea.selectionStart
-  const text = textarea.value
-  const lines = text.substring(0, cursorPos).split('\n')
-  const currentLineNum = lines.length
-  const totalLines = text.split('\n').length
-
-  // 如果光标在最后一行，滚动到底部
-  if (currentLineNum >= totalLines) {
-    textarea.scrollTop = textarea.scrollHeight
-  }
-}
-
-function saveEdit() {
-  emit('save-edit', props.node.id, localEditingText.value)
-}
-
-function cancelEdit() {
-  emit('cancel-edit', props.node.id)
-}
-
-const isEditingTranscript = ref(false)
-const isEditingAgent = ref(false)
-const editTranscript = ref('')
-const editAgent = ref('')
-const transcriptTextarea = ref<HTMLTextAreaElement | null>(null)
-const agentTextarea = ref<HTMLTextAreaElement | null>(null)
-
-// 自动调整 textarea 高度的函数
-function autoResizeTextarea(textarea: HTMLTextAreaElement | null) {
-  if (textarea) {
-    textarea.style.height = 'auto'
-    textarea.style.height = textarea.scrollHeight + 'px'
-  }
-}
-
-// 监听编辑内容变化，自动调整高度
-watch(editTranscript, () => {
-  nextTick(() => {
-    autoResizeTextarea(transcriptTextarea.value)
-  })
-})
-
-watch(editAgent, () => {
-  nextTick(() => {
-    autoResizeTextarea(agentTextarea.value)
-  })
-})
-
-// 在编辑开始时也调整一次高度
-function startTranscriptEdit() {
+// 编辑转写内容
+function handleEditTranscript() {
   if (props.node.transcriptStatus !== 'done') return
-  isEditingTranscript.value = true
-  editTranscript.value = props.node.transcript || ''
-  nextTick(() => {
-    if (transcriptTextarea.value) {
-      transcriptTextarea.value.focus()
-      transcriptTextarea.value.select()
-      autoResizeTextarea(transcriptTextarea.value)
-    }
-  })
+  emit('edit-transcript', props.node.id)
 }
 
-function startAgentEdit() {
+// 编辑AI回答
+function handleEditAgent() {
   if (props.node.agentStatus !== 'done') return
-  isEditingAgent.value = true
-  editAgent.value = props.node.agentResult || ''
-  nextTick(() => {
-    if (agentTextarea.value) {
-      agentTextarea.value.focus()
-      agentTextarea.value.select()
-      autoResizeTextarea(agentTextarea.value)
-    }
-  })
+  emit('edit-agent', props.node.id)
 }
 
 // Prevent cross-node text selection
@@ -915,74 +672,6 @@ async function handleCopyLink() {
   emit('copy-link', props.node.id)
 }
 
-async function saveTranscriptEdit() {
-  console.log('[VoiceNote] saveTranscriptEdit called')
-  if (!isEditingTranscript.value) {
-    console.log('[VoiceNote] Not in edit mode, returning')
-    return
-  }
-  const newTranscript = editTranscript.value.trim()
-  isEditingTranscript.value = false
-
-  console.log('[VoiceNote] New transcript:', newTranscript.substring(0, 50))
-
-  // 重新渲染
-  console.log('[VoiceNote] Rendering transcript...')
-  let html = await renderMarkdown(newTranscript)
-  // 处理相对路径图片
-  const notebookId = notebookStore.currentNotebook?.id
-  if (notebookId) {
-    html = await processImagePaths(html, notebookId)
-  }
-  sanitizedTranscript.value = html
-  await nextTick()
-  console.log('[VoiceNote] Rendering mermaid...')
-  await renderMermaid()
-  console.log('[VoiceNote] Transcript edit saved and rendered')
-
-  // 通知父组件保存
-  emit('update-node', props.node.id, { transcript: newTranscript })
-}
-
-function cancelTranscriptEdit() {
-  console.log('[VoiceNote] cancelTranscriptEdit called')
-  isEditingTranscript.value = false
-}
-
-async function saveAgentEdit() {
-  console.log('[VoiceNote] saveAgentEdit called')
-  if (!isEditingAgent.value) {
-    console.log('[VoiceNote] Not in edit mode, returning')
-    return
-  }
-  const newAgentResult = editAgent.value.trim()
-  isEditingAgent.value = false
-
-  console.log('[VoiceNote] New agent result:', newAgentResult.substring(0, 50))
-
-  // 重新渲染
-  console.log('[VoiceNote] Rendering agent result...')
-  let html = await renderMarkdown(newAgentResult)
-  // 处理相对路径图片
-  const notebookId = notebookStore.currentNotebook?.id
-  if (notebookId) {
-    html = await processImagePaths(html, notebookId)
-  }
-  sanitizedAgentResult.value = html
-  await nextTick()
-  console.log('[VoiceNote] Rendering mermaid...')
-  await renderMermaid()
-  console.log('[VoiceNote] Agent edit saved and rendered')
-
-  // 通知父组件保存
-  emit('update-node', props.node.id, { agentResult: newAgentResult })
-}
-
-function cancelAgentEdit() {
-  console.log('[VoiceNote] cancelAgentEdit called')
-  isEditingAgent.value = false
-}
-
 // 组件卸载时清理定时器
 onUnmounted(() => {
   if (transcriptDebounceTimer) {
@@ -1070,22 +759,20 @@ watch(() => props.node.transcript, async (newTranscript) => {
     clearTimeout(transcriptDebounceTimer)
   }
 
-  if (!isEditingTranscript.value) {
-    transcriptDebounceTimer = window.setTimeout(async () => {
-      let html = newTranscript ? await renderMarkdown(newTranscript) : ''
-      // 处理相对路径图片
-      const notebookId = notebookStore.currentNotebook?.id
-      if (notebookId && html) {
-        html = await processImagePaths(html, notebookId)
-      }
-      sanitizedTranscript.value = html
-      transcriptDebounceTimer = null
-      // 渲染 Mermaid
-      await nextTick()
-      await nextTick()
-      await renderMermaid()
-    }, 100)
-  }
+  transcriptDebounceTimer = window.setTimeout(async () => {
+    let html = newTranscript ? await renderMarkdown(newTranscript) : ''
+    // 处理相对路径图片
+    const notebookId = notebookStore.currentNotebook?.id
+    if (notebookId && html) {
+      html = await processImagePaths(html, notebookId)
+    }
+    sanitizedTranscript.value = html
+    transcriptDebounceTimer = null
+    // 渲染 Mermaid
+    await nextTick()
+    await nextTick()
+    await renderMermaid()
+  }, 100)
 })
 
 // 监听 agentResult 变化，重新渲染 Markdown（包括流式更新）
@@ -1098,11 +785,6 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
   }
 
   if (newAgentResult) {
-    // 如果用户正在编辑，同步更新编辑框内容
-    if (isEditingAgent.value) {
-      editAgent.value = newAgentResult
-    }
-
     // 流式模式下，使用短延迟渲染 Markdown 以避免频繁重渲染
     // 在 processing 状态下使用更短的延迟（50ms）以实现流畅的流式效果
     const delay = props.node.agentStatus === 'processing' ? 50 : 100

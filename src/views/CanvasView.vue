@@ -211,7 +211,6 @@ function selectFirstNode() {
 
 function goBack() {
   notebookStore.cleanupEmptyPages()
-  canvasAreaRef.value?.cancelTextEdit()
   router.push('/')
 }
 

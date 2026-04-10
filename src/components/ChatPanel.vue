@@ -18,8 +18,6 @@
           :notebook-id="notebookId"
           :canvas-id="canvasId"
           :is-active="true"
-          :is-editing="isCurrentNodeEditing"
-          :editing-text="currentEditingText"
           :global-hide-ai-result="false"
           :show-header="true"
           @delete="$emit('delete', $event)"
@@ -30,9 +28,8 @@
           @regenerate-agent="handleRegenerateAgent"
           @toggle-favorite="$emit('toggle-favorite', $event)"
           @update-node="(nodeId, updates) => $emit('update-node', nodeId, updates)"
-          @save-edit="handleSaveEdit"
-          @cancel-edit="handleCancelEdit"
-          @update:editing-text="(text) => $emit('update-editing-text', text)"
+          @edit-transcript="handleEditTranscript"
+          @edit-agent="handleEditAgent"
           @activate="() => {}"
           @copy-link="handleCopyLink"
         />
@@ -148,6 +145,16 @@
       :y="recordingPosition.y"
       :duration="recordingDuration"
     />
+
+    <!-- MagicInput 弹出框 -->
+    <MagicInput
+      :is-open="magicInputState.isOpen"
+      :initial-text="magicInputInitialText"
+      :show-correct="!!quickModelConfig"
+      :node-id="magicInputState.nodeId"
+      @save="handleMagicInputSave"
+      @cancel="handleMagicInputCancel"
+    />
   </div>
 </template>
 
@@ -159,6 +166,7 @@ import { useSettingsStore } from '@/stores/settingsStore'
 import { useQuickCommandStore } from '@/stores/quickCommandStore'
 import VoiceNote from '@/components/VoiceNote.vue'
 import RecordingIndicator from '@/components/RecordingIndicator.vue'
+import MagicInput from '@/components/MagicInput.vue'
 import { chatWithLLM, buildFullContextMessages, buildImageAnalysisMessages } from '@/composables/useQwenAgent'
 import { loadEmbeddedImagesForTranscript } from '@/utils/contextBuilder'
 import { createAudioWorkletRecorder } from '@/utils/audioWorkletRecorder'
@@ -173,8 +181,6 @@ const props = defineProps<{
   staticContextFiles: ContextFile[]
   dynamicContextFile?: ContextFile | null
   aiAnswerEnabled: boolean
-  editingNodeId?: string | null
-  editingText?: string
   currentPage?: number
   includedPageImage?: { imageBase64: string; pageNumber: number } | null
   isActive?: boolean
@@ -190,9 +196,6 @@ const emit = defineEmits<{
   'update-node': [nodeId: string, updates: Partial<CanvasNode>]
   'node-created': [node: CanvasNode]
   'node-updated': [node: CanvasNode]
-  'update-editing-text': [text: string]
-  'save-edit': [nodeId: string, text: string]
-  'cancel-edit': [nodeId: string]
   'start-editing': [nodeId: string]
   'activate': [panelId: 'left' | 'right']
 }>()
@@ -376,14 +379,65 @@ function scrollToBottom() {
   nodeDetailContainerRef.value.scrollTop = nodeDetailContainerRef.value.scrollHeight
 }
 
-// 编辑状态计算属性
-const isCurrentNodeEditing = computed((): boolean => {
-  return !!(props.editingNodeId && props.activeNode && props.editingNodeId === props.activeNode.id)
+// MagicInput 状态
+interface MagicInputState {
+  isOpen: boolean
+  mode: 'transcript' | 'agent'
+  nodeId?: string
+}
+
+const magicInputState = ref<MagicInputState>({
+  isOpen: false,
+  mode: 'transcript'
 })
 
-const currentEditingText = computed((): string => {
-  return isCurrentNodeEditing.value ? (props.editingText || '') : ''
+// MagicInput 初始文本
+const magicInputInitialText = computed(() => {
+  if (!magicInputState.value.nodeId) return ''
+  const node = props.activeNode
+  if (!node || node.id !== magicInputState.value.nodeId) return ''
+  if (magicInputState.value.mode === 'transcript') {
+    return node.transcript || ''
+  } else if (magicInputState.value.mode === 'agent') {
+    return node.agentResult || ''
+  }
+  return ''
 })
+
+// 编辑处理方法
+function handleEditTranscript(nodeId: string) {
+  magicInputState.value = {
+    isOpen: true,
+    mode: 'transcript',
+    nodeId
+  }
+}
+
+function handleEditAgent(nodeId: string) {
+  magicInputState.value = {
+    isOpen: true,
+    mode: 'agent',
+    nodeId
+  }
+}
+
+// MagicInput 保存
+function handleMagicInputSave(text: string) {
+  const state = magicInputState.value
+  if (state.nodeId) {
+    if (state.mode === 'transcript') {
+      emit('update-node', state.nodeId, { transcript: text })
+    } else if (state.mode === 'agent') {
+      emit('update-node', state.nodeId, { agentResult: text, agentStatus: 'done' })
+    }
+  }
+  magicInputState.value = { isOpen: false, mode: 'transcript' }
+}
+
+// MagicInput 取消
+function handleMagicInputCancel() {
+  magicInputState.value = { isOpen: false, mode: 'transcript' }
+}
 
 // MagicPad 录音相关
 const simpleRecorder = createAudioWorkletRecorder()
@@ -451,13 +505,6 @@ watch(() => props.activeNode, () => {
     scrollToBottom()
   })
 })
-
-function handleSaveEdit(nodeId: string, text: string) {
-  emit('save-edit', nodeId, text)
-}
-
-function handleCancelEdit(nodeId: string) {
-}
 
 // MagicPad - 双击进入输入模式
 function handleMagicPadDblClick(e: MouseEvent) {
@@ -530,11 +577,20 @@ async function handleSendInput() {
 
 // 输入模式 - 插入快捷指令
 function insertQuickCommand(cmd: QuickCommand) {
-  inputText.value = cmd.content
+  const textarea = inputTextareaRef.value
+  if (textarea) {
+    const start = textarea.selectionStart
+    const end = textarea.selectionEnd
+    const text = inputText.value
+    inputText.value = text.substring(0, start) + cmd.content + text.substring(end)
+    nextTick(() => {
+      textarea.selectionStart = textarea.selectionEnd = start + cmd.content.length
+      textarea.focus()
+    })
+  } else {
+    inputText.value += cmd.content
+  }
   showQuickCommandSelector.value = false
-  nextTick(() => {
-    inputTextareaRef.value?.focus()
-  })
 }
 
 // 输入模式 - 切换录音
