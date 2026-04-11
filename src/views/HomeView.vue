@@ -243,7 +243,7 @@
           v-model="newNotebookName"
           type="text"
           :placeholder="t('notebook.notebookNamePlaceholder')"
-          @keyup.enter="createNotebook"
+          @keydown.enter="handleCreateNotebookEnter"
           ref="notebookNameInput"
         />
 
@@ -537,6 +537,13 @@ async function deleteContextFile() {
 }
 
 // Notebook management
+// 处理 Enter 键创建笔记本（检查输入法组合状态）
+function handleCreateNotebookEnter(event: KeyboardEvent) {
+  if (event.isComposing) return
+  event.preventDefault()
+  createNotebook()
+}
+
 async function createNotebook() {
   let notebookName = newNotebookName.value.trim()
   if (!notebookName && newNotebookPdfPath.value) {

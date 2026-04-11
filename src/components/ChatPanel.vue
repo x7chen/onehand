@@ -84,7 +84,7 @@
             v-model="inputText"
             class="magic-pad-input"
             :placeholder="t('common.inputContent')"
-            @keydown.enter.exact.prevent="handleSendInput"
+            @keydown.enter.exact="handleSendInputEnter"
             @keydown.shift.enter.exact.stop
             @keydown.escape="handleCancelInput"
             @dragstart="handleInputDragStart"
@@ -560,6 +560,13 @@ function handleCancelInput() {
   isInputMode.value = false
   inputText.value = ''
   showQuickCommandSelector.value = false
+}
+
+// 处理 Enter 键发送（检查输入法组合状态）
+function handleSendInputEnter(event: KeyboardEvent) {
+  if (event.isComposing) return
+  event.preventDefault()
+  handleSendInput()
 }
 
 // 输入模式 - 发送

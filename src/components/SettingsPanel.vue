@@ -172,7 +172,7 @@
               class="rename-input"
               ref="renameInput"
               @blur="finishRename"
-              @keyup.enter="finishRename"
+              @keydown.enter="handleRenameEnter"
               @keyup.escape="cancelRename"
             />
           </div>
@@ -393,6 +393,13 @@ function startRename(profileId: string) {
       renameInput.value?.select()
     })
   }
+}
+
+// 处理 Enter 键完成重命名（检查输入法组合状态）
+function handleRenameEnter(event: KeyboardEvent) {
+  if (event.isComposing) return
+  event.preventDefault()
+  finishRename()
 }
 
 function finishRename() {

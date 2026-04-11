@@ -82,7 +82,7 @@
         v-model="localTitle"
         class="node-title-input"
         @blur="saveTitle"
-        @keydown.enter="saveTitle"
+        @keydown.enter="handleSaveTitleEnter"
         @keydown.escape="cancelTitle"
         @mousedown.stop
         ref="titleInput"
@@ -417,6 +417,12 @@ function startEditTitle() {
       titleInput.value.select()
     }
   })
+}
+
+// 处理 Enter 键保存标题（检查输入法组合状态）
+function handleSaveTitleEnter(event: KeyboardEvent) {
+  if (event.isComposing) return
+  saveTitle()
 }
 
 function saveTitle() {

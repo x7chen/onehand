@@ -22,7 +22,7 @@
             v-model="inputText"
             class="magic-input-textarea"
             :placeholder="t('common.inputContent')"
-            @keydown.enter.exact.prevent="handleSave"
+            @keydown.enter.exact="handleEnterKey"
             @keydown.shift.enter.exact.stop
             @keydown.escape="handleCancel"
             @dragstart="handleTextareaDragStart"
@@ -712,6 +712,14 @@ async function handleDrop(e: DragEvent) {
   }
 }
 
+// 处理 Enter 键（检查输入法组合状态）
+function handleEnterKey(event: KeyboardEvent) {
+  // 如果正在输入法组合中（如中文拼音输入），忽略 Enter 键
+  if (event.isComposing) return
+  event.preventDefault()
+  handleSave()
+}
+
 // 保存
 function handleSave() {
   const text = inputText.value.trim()
@@ -755,7 +763,7 @@ function handleCancel() {
   display: flex;
   flex-direction: column;
   width: 90%;
-  max-width: 600px;
+  max-width: 800px;
 
   background: var(--bg-primary);
   padding: 8px;
