@@ -7,21 +7,30 @@
   >
     <!-- 头部 -->
     <div class="small-header">
-      <input
-        type="checkbox"
-        class="small-checkbox"
-        :checked="node.selectedAsContext"
-        :disabled="node.transcriptStatus !== 'done'"
-        @change="toggleContext"
-        @click.stop
-      />
-      <span class="small-title">{{ node.title || '' }}</span>
-      <button class="small-favorite-btn" :class="{ active: isFavorite }" @click.stop="toggleFavorite">
-        <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
-          <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
-        </svg>
-      </button>
-      <div class="small-indicator" :class="{ 'has-ai': hasAiResult }"></div>
+      <!-- 左侧：checkbox + 收藏 + AI指示器 -->
+      <div class="small-header-left">
+        <input
+          type="checkbox"
+          class="small-checkbox"
+          :checked="node.selectedAsContext"
+          :disabled="node.transcriptStatus !== 'done'"
+          @change="toggleContext"
+          @click.stop
+        />
+        <button class="small-favorite-btn" :class="{ active: isFavorite }" @click.stop="toggleFavorite">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
+            <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
+          </svg>
+        </button>
+        <div class="small-indicator" :class="{ 'has-ai': hasAiResult }"></div>
+      </div>
+      <!-- 居中：标题 -->
+      <span v-if="node.title" class="small-title">{{ node.title }}</span>
+      <span v-else class="small-title-placeholder"></span>
+      <!-- 右侧：日期 -->
+      <div class="small-header-right">
+        <span class="small-date">{{ formatCreatedTime }}</span>
+      </div>
     </div>
 
     <!-- 图片预览 -->
@@ -65,6 +74,19 @@ const emit = defineEmits<{
 
 // 收藏状态
 const isFavorite = computed(() => props.node.isFavorite ?? false)
+
+// 格式化创建时间
+const formatCreatedTime = computed(() => {
+  const timestamp = props.node.createdAt
+  if (!timestamp) return ''
+  const date = new Date(timestamp)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${year}-${month}-${day} ${hours}:${minutes}`
+})
 
 // 是否有 AI 回答
 const hasAiResult = computed(() => {
@@ -158,12 +180,11 @@ function handleClick() {
 .small-header {
   display: flex;
   align-items: center;
-  gap: 6px;
-  height: 20px;
+  justify-content: space-between;
+  height: 24px;
   padding: 0 6px;
   background: rgba(0, 0, 0, 0.03);
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-  position: relative;
 }
 
 :root.dark .small-header {
@@ -171,12 +192,25 @@ function handleClick() {
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
+.small-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.small-header-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
 .small-checkbox {
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
   margin: 0;
   cursor: pointer;
-  flex-shrink: 0;
 }
 
 .small-checkbox:disabled {
@@ -185,18 +219,25 @@ function handleClick() {
 }
 
 .small-title {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  max-width: 60%;
+  max-width: 120px;
   text-align: center;
 }
+
+.small-title-placeholder {
+  display: inline-block;
+}
+
+.small-date {
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
 
 .small-indicator {
   width: 6px;

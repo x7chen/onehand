@@ -47,21 +47,21 @@
         </svg>
       </div>
       <!-- 功能按钮组 -->
-      <div class="action-buttons">
-        <!-- 标签按钮 -->
-        <button class="action-btn tag-btn" @click.stop="toggleTagPopover" :class="{ active: showTagPopover }" :title="t('tag.title')">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-            <path d="M17.63 5.84C17.27 5.33 16.67 5 16 5L5 5.01C3.9 5.01 3 5.9 3 7v10c0 1.1.9 1.99 2 1.99L16 19c.67 0 1.27-.33 1.63-.84L22 12l-4.37-6.16z"/>
-          </svg>
-        </button>
-        <!-- 收藏按钮 -->
-        <button class="action-btn favorite-btn" :class="{ active: isFavorite }" @click.stop="toggleFavorite" :title="isFavorite ? t('voiceNote.unfavorite') : t('voiceNote.favorite')">
+      <div class="action-buttons" ref="actionButtonsRef">
+        <!-- 收藏按钮 - 最高优先级 -->
+        <button v-if="visibleButtons.includes('favorite')" class="action-btn favorite-btn" :class="{ active: isFavorite }" @click.stop="toggleFavorite" :title="isFavorite ? t('voiceNote.unfavorite') : t('voiceNote.favorite')">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
             <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
           </svg>
         </button>
+        <!-- 重新生成按钮 -->
+        <button v-if="visibleButtons.includes('regenerate')" class="action-btn regenerate-btn" @click.stop="handleRegenerate" :disabled="!canRegenerate" :title="canRegenerate ? t('voiceNote.regenerate') : t('voiceNote.cannotRegenerate')">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+          </svg>
+        </button>
         <!-- 隐藏 AI 回答按钮 -->
-        <button class="action-btn hide-ai-btn" @click.stop="toggleHideAiResult" :title="isAiResultHidden ? t('voiceNote.showAiAnswer') : t('voiceNote.hideAiAnswer')">
+        <button v-if="visibleButtons.includes('hideAi')" class="action-btn hide-ai-btn" @click.stop="toggleHideAiResult" :title="isAiResultHidden ? t('voiceNote.showAiAnswer') : t('voiceNote.hideAiAnswer')">
           <svg v-if="!isAiResultHidden" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
             <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
           </svg>
@@ -69,16 +69,16 @@
             <path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"/>
           </svg>
         </button>
-        <!-- 重新生成按钮 -->
-        <button class="action-btn regenerate-btn" @click.stop="handleRegenerate" :disabled="!canRegenerate" :title="canRegenerate ? t('voiceNote.regenerate') : t('voiceNote.cannotRegenerate')">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-            <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
-          </svg>
-        </button>
         <!-- 复制链接按钮 -->
-        <button v-if="notebookId && canvasId" class="action-btn copy-link-btn" @click.stop="handleCopyLink" :title="t('voiceNote.copyLink')">
+        <button v-if="visibleButtons.includes('copyLink') && notebookId && canvasId" class="action-btn copy-link-btn" @click.stop="handleCopyLink" :title="t('voiceNote.copyLink')">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
             <path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/>
+          </svg>
+        </button>
+        <!-- 标签按钮 - 最低优先级 -->
+        <button v-if="visibleButtons.includes('tag')" class="action-btn tag-btn" @click.stop="toggleTagPopover" :class="{ active: showTagPopover }" :title="t('tag.title')">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M17.63 5.84C17.27 5.33 16.67 5 16 5L5 5.01C3.9 5.01 3 5.9 3 7v10c0 1.1.9 1.99 2 1.99L16 19c.67 0 1.27-.33 1.63-.84L22 12l-4.37-6.16z"/>
           </svg>
         </button>
       </div>
@@ -109,6 +109,48 @@
       <Teleport to="body">
         <div v-if="showMenu" class="menu-overlay" @click="closeMenu"></div>
         <div v-if="showMenu" class="node-menu-drawer" :style="menuStyle">
+          <!-- 折叠的按钮项 - 按优先级从高到低排列 -->
+          <!-- 收藏 - 折叠时显示（优先级最高） -->
+          <button v-if="!visibleButtons.includes('favorite')" class="menu-item" @click.stop="handleMenuFavorite">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
+            </svg>
+            <span>{{ isFavorite ? t('voiceNote.unfavorite') : t('voiceNote.favorite') }}</span>
+          </button>
+          <!-- 重新生成 - 折叠时显示 -->
+          <button v-if="!visibleButtons.includes('regenerate')" class="menu-item" :disabled="!canRegenerate" @click.stop="handleMenuRegenerate">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+            </svg>
+            <span>{{ t('voiceNote.regenerate') }}</span>
+          </button>
+          <!-- 隐藏AI回答 - 折叠时显示 -->
+          <button v-if="!visibleButtons.includes('hideAi')" class="menu-item" @click.stop="handleMenuHideAi">
+            <svg v-if="!isAiResultHidden" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+            </svg>
+            <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"/>
+            </svg>
+            <span>{{ isAiResultHidden ? t('voiceNote.showAiAnswer') : t('voiceNote.hideAiAnswer') }}</span>
+          </button>
+          <!-- 复制链接 - 折叠时显示 -->
+          <button v-if="!visibleButtons.includes('copyLink') && notebookId && canvasId" class="menu-item" @click.stop="handleMenuCopyLink">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/>
+            </svg>
+            <span>{{ t('voiceNote.copyLink') }}</span>
+          </button>
+          <!-- 标签 - 折叠时显示（优先级最低） -->
+          <button v-if="!visibleButtons.includes('tag')" class="menu-item" @click.stop="handleMenuTag">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <path d="M17.63 5.84C17.27 5.33 16.67 5 16 5L5 5.01C3.9 5.01 3 5.9 3 7v10c0 1.1.9 1.99 2 1.99L16 19c.67 0 1.27-.33 1.63-.84L22 12l-4.37-6.16z"/>
+            </svg>
+            <span>{{ t('tag.title') }}</span>
+          </button>
+          <!-- 分隔线 -->
+          <div v-if="!allButtonsVisible" class="menu-divider"></div>
+          <!-- 删除按钮 - 永远在菜单中 -->
           <button class="menu-item delete-menu-item" @click.stop="deleteNode">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
               <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
@@ -336,6 +378,70 @@ const { t } = useI18n()
 const DEFAULT_NODE_WIDTH = 450
 const MIN_NODE_WIDTH = 300
 const MAX_NODE_WIDTH = 800
+
+// 按钮宽度常量
+const BUTTON_WIDTH = 32  // 每个按钮宽度
+const BUTTON_GAP = 4     // 按钮间距
+const HEADER_PADDING = 8 // header 左右 padding
+const CHECKBOX_WIDTH = 16 // checkbox 宽度
+const MIC_ICON_WIDTH = 32 // mic icon 宽度
+const TITLE_MIN_WIDTH = 60 // 标题最小宽度
+const TIME_WIDTH = 130    // 时间显示宽度
+const MENU_BTN_WIDTH = 28 // 菜单按钮宽度
+
+// 按钮优先级（从低到高，优先级低的先折叠）
+const BUTTON_PRIORITY = ['tag', 'copyLink', 'hideAi', 'regenerate', 'favorite'] as const
+type ButtonType = typeof BUTTON_PRIORITY[number]
+
+// action-buttons 容器引用
+const actionButtonsRef = ref<HTMLElement | null>(null)
+
+// 计算当前节点宽度下可见的按钮
+const visibleButtons = computed<ButtonType[]>(() => {
+  const width = props.node.width || DEFAULT_NODE_WIDTH
+
+  // 计算可用于按钮的空间
+  // 总宽度 - checkbox - mic icon - title - time - menu btn - paddings
+  const availableForButtons = width - CHECKBOX_WIDTH - MIC_ICON_WIDTH - TITLE_MIN_WIDTH - TIME_WIDTH - MENU_BTN_WIDTH - HEADER_PADDING * 2 - BUTTON_GAP * 2
+
+  // 计算最多能显示多少按钮
+  const maxButtons = Math.floor((availableForButtons - BUTTON_GAP) / (BUTTON_WIDTH + BUTTON_GAP))
+
+  // 如果能显示所有按钮，全部显示
+  // copyLink 需要 notebookId 和 canvasId
+  const hasCopyLink = props.notebookId && props.canvasId
+  const allButtonsCount = hasCopyLink ? BUTTON_PRIORITY.length : BUTTON_PRIORITY.length - 1
+
+  if (maxButtons >= allButtonsCount) {
+    return [...BUTTON_PRIORITY]
+  }
+
+  // 按优先级从高到低保留按钮（优先级低的先被移除）
+  // BUTTON_PRIORITY 是 [tag, copyLink, hideAi, regenerate, favorite] 从低到高
+  // 所以我们从数组末尾开始保留（favorite 优先级最高，最后保留）
+  const buttonsToShow: ButtonType[] = []
+  let buttonsNeeded = maxButtons
+
+  // 从高优先级开始添加
+  for (let i = BUTTON_PRIORITY.length - 1; i >= 0 && buttonsNeeded > 0; i--) {
+    const btn = BUTTON_PRIORITY[i]
+    // copyLink 需要条件判断
+    if (btn === 'copyLink' && !hasCopyLink) {
+      continue
+    }
+    buttonsToShow.unshift(btn)
+    buttonsNeeded--
+  }
+
+  return buttonsToShow
+})
+
+// 所有按钮是否都可见
+const allButtonsVisible = computed(() => {
+  const hasCopyLink = props.notebookId && props.canvasId
+  const allButtonsCount = hasCopyLink ? BUTTON_PRIORITY.length : BUTTON_PRIORITY.length - 1
+  return visibleButtons.value.length >= allButtonsCount
+})
 
 // 拖动调整宽度相关
 const isResizing = ref(false)
@@ -576,6 +682,43 @@ function toggleMenu(e: MouseEvent) {
 
 function closeMenu() {
   showMenu.value = false
+}
+
+// 菜单中折叠按钮的处理函数
+function handleMenuTag() {
+  closeMenu()
+  // 打开标签气泡
+  const voiceNoteEl = voiceNoteRef.value
+  if (voiceNoteEl) {
+    const rect = voiceNoteEl.getBoundingClientRect()
+    const btnRect = rect // 使用整个节点位置
+    tagPopoverStyle.value = {
+      top: `${btnRect.top + 32}px`,
+      left: `${btnRect.left}px`
+    }
+    showTagPopover.value = true
+  }
+}
+
+function handleMenuCopyLink() {
+  closeMenu()
+  handleCopyLink()
+}
+
+function handleMenuHideAi() {
+  closeMenu()
+  toggleHideAiResult()
+}
+
+function handleMenuRegenerate() {
+  if (!canRegenerate.value) return
+  closeMenu()
+  handleRegenerate()
+}
+
+function handleMenuFavorite() {
+  closeMenu()
+  toggleFavorite()
 }
 
 // 标签气泡相关
@@ -1379,6 +1522,21 @@ watch(() => props.node.thinkingContent, async (newThinkingContent) => {
 
 .delete-menu-item:hover {
   background: rgba(255, 68, 68, 0.1);
+}
+
+.menu-divider {
+  height: 1px;
+  background: var(--border-color);
+  margin: 4px 8px;
+}
+
+.menu-item:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.menu-item:disabled:hover {
+  background: transparent;
 }
 
 /* 功能按钮组 */
