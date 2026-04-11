@@ -48,6 +48,12 @@
       </div>
       <!-- 功能按钮组 -->
       <div class="action-buttons">
+        <!-- 标签按钮 -->
+        <button class="action-btn tag-btn" @click.stop="toggleTagPopover" :class="{ active: showTagPopover }" :title="t('tag.title')">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M17.63 5.84C17.27 5.33 16.67 5 16 5L5 5.01C3.9 5.01 3 5.9 3 7v10c0 1.1.9 1.99 2 1.99L16 19c.67 0 1.27-.33 1.63-.84L22 12l-4.37-6.16z"/>
+          </svg>
+        </button>
         <!-- 收藏按钮 -->
         <button class="action-btn favorite-btn" :class="{ active: isFavorite }" @click.stop="toggleFavorite" :title="isFavorite ? t('voiceNote.unfavorite') : t('voiceNote.favorite')">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
@@ -109,6 +115,73 @@
             </svg>
             <span>{{ t('common.delete') }}</span>
           </button>
+        </div>
+
+        <!-- 标签气泡 -->
+        <div v-if="showTagPopover" class="tag-popover-overlay" @click="closeTagPopover"></div>
+        <div v-if="showTagPopover" class="tag-popover" :style="tagPopoverStyle">
+          <div class="tag-popover-header">
+            <span class="tag-popover-title">{{ t('tag.title') }}</span>
+          </div>
+          <div class="tag-list">
+            <div
+              v-for="tag in nodeTags"
+              :key="tag.id"
+              class="tag-item"
+              :style="{ backgroundColor: tag.color + '20', borderColor: tag.color }"
+            >
+              <span class="tag-name" :style="{ color: tag.color }">{{ tag.name }}</span>
+              <button class="tag-remove-btn" @click.stop="removeTagFromNode(tag.name)" :title="t('common.delete')">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
+                  <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+          <!-- 添加标签区域 -->
+          <div class="tag-add-area">
+            <div v-if="!isAddingTag" class="tag-add-btn" @click.stop="startAddingTag">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+              </svg>
+              <span>{{ t('tag.addTag') }}</span>
+            </div>
+            <div v-else class="tag-input-area">
+              <input
+                ref="tagInputRef"
+                v-model="newTagInput"
+                class="tag-input"
+                :placeholder="t('tag.tagNamePlaceholder')"
+                @keydown.enter="handleTagInputEnter"
+                @keydown.escape="cancelAddingTag"
+                @input="handleTagInputChange"
+              />
+              <!-- 自动补全下拉列表 -->
+              <div v-if="showTagDropdown && filteredTags.length > 0" class="tag-dropdown">
+                <div
+                  v-for="tag in filteredTags"
+                  :key="tag.id"
+                  class="tag-dropdown-item"
+                  :style="{ backgroundColor: tag.color + '20' }"
+                  @click.stop="selectExistingTag(tag.name)"
+                >
+                  <span :style="{ color: tag.color }">{{ tag.name }}</span>
+                </div>
+              </div>
+              <div class="tag-input-actions">
+                <button class="tag-confirm-btn" @click.stop="confirmAddTag" :title="t('common.confirm')">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                  </svg>
+                </button>
+                <button class="tag-cancel-btn" @click.stop="cancelAddingTag" :title="t('common.cancel')">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- 右键上下文菜单 -->
@@ -221,12 +294,14 @@
 import { ref, nextTick, watch, computed, onMounted, onUnmounted, watchEffect } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useNotebookStore } from '@/stores/notebookStore'
+import { useTagStore } from '@/stores/tagStore'
 import { formatDuration } from '@/utils/helpers'
 import { renderMarkdown, renderMermaidCharts, processImagePaths } from '@/utils/markdownRenderer'
 import { getNotebookDataDir, getNotebookImagesDir } from '@/utils/userFilesPath'
 import type { CanvasNode } from '@/types/notebook'
 
 const notebookStore = useNotebookStore()
+const tagStore = useTagStore()
 
 const props = defineProps<{
   node: CanvasNode
@@ -501,6 +576,136 @@ function toggleMenu(e: MouseEvent) {
 
 function closeMenu() {
   showMenu.value = false
+}
+
+// 标签气泡相关
+const showTagPopover = ref(false)
+const tagPopoverStyle = ref<{ top: string; left: string }>({ top: '0px', left: '0px' })
+const isAddingTag = ref(false)
+const newTagInput = ref('')
+const tagInputRef = ref<HTMLInputElement | null>(null)
+const showTagDropdown = ref(false)
+const filteredTags = ref<Tag[]>([])
+
+import type { Tag } from '@/types/tag'
+
+// 获取节点标签（带颜色信息）
+const nodeTags = computed<Tag[]>(() => {
+  const tagNames = props.node.tags || []
+  return tagNames.map(name => {
+    const tag = tagStore.getTagByName(name)
+    if (tag) {
+      return tag
+    }
+    // 如果标签不存在于 store，创建临时标签对象
+    return {
+      id: `temp-${name}`,
+      name,
+      color: tagStore.getNextColor(),
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    }
+  })
+})
+
+function toggleTagPopover(e: MouseEvent) {
+  if (showTagPopover.value) {
+    closeTagPopover()
+  } else {
+    const btn = (e.currentTarget as HTMLElement)
+    const rect = btn.getBoundingClientRect()
+    tagPopoverStyle.value = {
+      top: `${rect.bottom + 4}px`,
+      left: `${rect.left}px`
+    }
+    showTagPopover.value = true
+    isAddingTag.value = false
+    newTagInput.value = ''
+  }
+}
+
+function closeTagPopover() {
+  showTagPopover.value = false
+  isAddingTag.value = false
+  newTagInput.value = ''
+  showTagDropdown.value = false
+}
+
+function startAddingTag() {
+  isAddingTag.value = true
+  newTagInput.value = ''
+  showTagDropdown.value = false
+  nextTick(() => {
+    tagInputRef.value?.focus()
+  })
+}
+
+function cancelAddingTag() {
+  isAddingTag.value = false
+  newTagInput.value = ''
+  showTagDropdown.value = false
+}
+
+// 处理 Enter 键添加标签（检查输入法组合状态）
+function handleTagInputEnter(event: KeyboardEvent) {
+  if (event.isComposing) return
+  event.preventDefault()
+  confirmAddTag()
+}
+
+async function handleTagInputChange() {
+  const query = newTagInput.value.trim()
+  if (query) {
+    filteredTags.value = tagStore.searchTags(query)
+    showTagDropdown.value = filteredTags.value.length > 0
+  } else {
+    showTagDropdown.value = false
+    filteredTags.value = []
+  }
+}
+
+async function selectExistingTag(tagName: string) {
+  // 确保 store 中有这个标签
+  await tagStore.ensureTagExists(tagName)
+
+  // 添加到节点
+  const currentTags = props.node.tags || []
+  if (!currentTags.includes(tagName)) {
+    emit('update-node', props.node.id, { tags: [...currentTags, tagName] })
+  }
+
+  // 重置输入状态
+  isAddingTag.value = false
+  newTagInput.value = ''
+  showTagDropdown.value = false
+}
+
+async function confirmAddTag() {
+  const tagName = newTagInput.value.trim()
+  if (!tagName) {
+    cancelAddingTag()
+    return
+  }
+
+  // 创建或获取标签
+  await tagStore.ensureTagExists(tagName)
+
+  // 添加到节点
+  const currentTags = props.node.tags || []
+  if (!currentTags.includes(tagName)) {
+    emit('update-node', props.node.id, { tags: [...currentTags, tagName] })
+  }
+
+  // 重置输入状态
+  isAddingTag.value = false
+  newTagInput.value = ''
+  showTagDropdown.value = false
+}
+
+function removeTagFromNode(tagName: string) {
+  const currentTags = props.node.tags || []
+  const newTags = currentTags.filter(t => t !== tagName)
+  emit('update-node', props.node.id, { tags: newTags })
 }
 
 // 右键上下文菜单处理
@@ -1873,5 +2078,207 @@ background-color: rgba(0, 0, 0, 1);
   white-space: pre-wrap;
   word-break: break-word;
   max-width: 100%;
+}
+
+/* ========================================
+   标签气泡样式
+   ======================================== */
+
+.tag-btn {
+  color: var(--text-secondary);
+}
+
+.tag-btn.active,
+.tag-btn:active {
+  color: var(--color-primary);
+}
+
+.tag-popover-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2000;
+}
+
+.tag-popover {
+  position: fixed;
+  z-index: 2001;
+  min-width: 180px;
+  max-width: 280px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px var(--shadow-color);
+  padding: 12px;
+}
+
+.tag-popover-header {
+  margin-bottom: 8px;
+}
+
+.tag-popover-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 24px;
+}
+
+.tag-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  border: 1px solid;
+  font-size: 12px;
+  transition: all 0.2s;
+}
+
+.tag-item:hover {
+  transform: scale(1.05);
+}
+
+.tag-name {
+  font-weight: 500;
+}
+
+.tag-remove-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  color: inherit;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.tag-remove-btn:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.tag-add-area {
+  margin-top: 8px;
+  border-top: 1px solid var(--border-color);
+  padding-top: 8px;
+}
+
+.tag-add-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s;
+}
+
+.tag-add-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.tag-input-area {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  position: relative;
+}
+
+.tag-input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 12px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  outline: none;
+}
+
+.tag-input:focus {
+  border-color: var(--color-primary);
+}
+
+.tag-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 32px;
+  margin-top: 2px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px var(--shadow-color);
+  max-height: 120px;
+  overflow-y: auto;
+  z-index: 10;
+}
+
+.tag-dropdown-item {
+  display: flex;
+  align-items: center;
+  padding: 6px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.tag-dropdown-item:hover {
+  background: var(--bg-hover);
+}
+
+.tag-input-actions {
+  display: flex;
+  gap: 2px;
+}
+
+.tag-confirm-btn,
+.tag-cancel-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tag-confirm-btn {
+  background: var(--color-primary);
+  color: white;
+}
+
+.tag-confirm-btn:hover {
+  background: var(--color-primary-hover);
+}
+
+.tag-cancel-btn {
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+}
+
+.tag-cancel-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }
 </style>

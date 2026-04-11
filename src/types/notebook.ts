@@ -51,6 +51,7 @@ export interface CanvasNode {
   thinkingStatus?: 'pending' | 'processing' | 'done'  // 思考状态
   selectedAsContext?: boolean
   isFavorite?: boolean
+  tags?: string[]  // 节点标签列表
   createdAt: number
   duration?: number
   pdfPage?: number

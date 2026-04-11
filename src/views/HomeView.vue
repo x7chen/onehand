@@ -56,6 +56,17 @@
 
         <button
           class="nav-item"
+          :class="{ active: activeTab === 'tags' }"
+          @click="activeTab = 'tags'"
+        >
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+            <path d="M17.63 5.84C17.27 5.33 16.67 5 16 5L5 5.01C3.9 5.01 3 5.9 3 7v10c0 1.1.9 1.99 2 1.99L16 19c.67 0 1.27-.33 1.63-.84L22 12l-4.37-6.16z"/>
+          </svg>
+          <span>{{ t('nav.tags') }}</span>
+        </button>
+
+        <button
+          class="nav-item"
           :class="{ active: activeTab === 'settings' }"
           @click="activeTab = 'settings'"
         >
@@ -114,6 +125,7 @@
         @quickCommandDragEnd="handleQuickCommandDragEnd"
       />
       <FavoritesPanel v-if="activeTab === 'favorites'" />
+      <TagsPanel v-if="activeTab === 'tags'" />
       <SettingsPanel
         v-if="activeTab === 'settings'"
         @dragStart="handleProfileDragStart"
@@ -365,6 +377,7 @@ import SearchDialog from '@/components/SearchDialog.vue'
 import NotebooksPanel from '@/components/NotebooksPanel.vue'
 import ContextsPanel from '@/components/ContextsPanel.vue'
 import FavoritesPanel from '@/components/FavoritesPanel.vue'
+import TagsPanel from '@/components/TagsPanel.vue'
 import SettingsPanel from '@/components/SettingsPanel.vue'
 import type { ContextFile, ContextType } from '@/types/context'
 import { CONTEXT_COLORS, type ContextColor } from '@/types/context'
@@ -380,7 +393,7 @@ const { t } = useI18n()
 const contextColors = computed(() => CONTEXT_COLORS)
 
 // 当前激活的 tab
-const activeTab = ref<'notebooks' | 'contexts' | 'favorites' | 'settings' | 'search'>('notebooks')
+const activeTab = ref<'notebooks' | 'contexts' | 'favorites' | 'tags' | 'settings' | 'search'>('notebooks')
 
 // 对话框状态
 const showNewContextDialog = ref(false)

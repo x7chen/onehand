@@ -567,7 +567,53 @@ def parse_enex(enex_path: str) -> List[Dict]:
     return notes
 
 
-def create_onehand_notebook(notes: List[Dict], notebook_name: str, by_month: bool = False, by_week: bool = False, by_day: bool = False, extract_images: bool = False, output_dir: str = None, notebook_id: str = None) -> Dict:
+TAG_COLORS = [
+    '#66bb6a',  # 绿色
+    '#4299e1',  # 蓝色
+    '#ed8936',  # 橙色
+    '#e53e3e',  # 红色
+    '#9f7aea',  # 紫色
+    '#ed64a6',  # 粉色
+    '#38b2ac',  # 青色
+    '#ecc94b',  # 黄色
+]
+
+
+def get_next_tag_color(used_colors: set) -> str:
+    """获取下一个可用的标签颜色"""
+    for color in TAG_COLORS:
+        if color not in used_colors:
+            return color
+    return TAG_COLORS[0]
+
+
+def collect_all_tags(notes: List[Dict]) -> Dict[str, Dict]:
+    """
+    从所有笔记中收集标签，返回标签定义字典
+
+    Returns:
+        Dict[tag_name, tag_definition]: 标签名称到标签定义的映射
+    """
+    all_tags = {}
+    used_colors = set()
+
+    for note in notes:
+        for tag in note.get('tags', []):
+            if tag and tag not in all_tags:
+                color = get_next_tag_color(used_colors)
+                used_colors.add(color)
+                all_tags[tag] = {
+                    'id': f'tag-{hashlib.md5(tag.encode()).hexdigest()[:12]}',
+                    'name': tag,
+                    'color': color,
+                    'createdAt': int(datetime.now().timestamp() * 1000),
+                    'updatedAt': int(datetime.now().timestamp() * 1000)
+                }
+
+    return all_tags
+
+
+def create_onehand_notebook(notes: List[Dict], notebook_name: str, by_month: bool = False, by_week: bool = False, by_day: bool = False, extract_images: bool = False, output_dir: str = None, notebook_id: str = None, tags_dict: Dict[str, Dict] = None) -> Dict:
     """
     创建 OneHand 笔记本格式
 
@@ -635,10 +681,9 @@ def create_onehand_notebook(notes: List[Dict], notebook_name: str, by_month: boo
             'createdAt': note['created']
         }
 
-        # 添加标签作为内容的一部分
+        # 添加标签到节点的 tags 字段
         if note['tags']:
-            tags_text = '\n\n---\n**标签:** ' + ', '.join(note['tags'])
-            node['transcript'] += tags_text
+            node['tags'] = note['tags']
 
         nodes.append(node)
 
@@ -720,9 +765,9 @@ def create_onehand_notebook_by_month(notes: List[Dict], notebook_name: str, note
                 'createdAt': note['created']
             }
 
+            # 添加标签到节点的 tags 字段
             if note['tags']:
-                tags_text = '\n\n---\n**标签:** ' + ', '.join(note['tags'])
-                node['transcript'] += tags_text
+                node['tags'] = note['tags']
 
             nodes.append(node)
 
@@ -825,9 +870,9 @@ def create_onehand_notebook_by_week(notes: List[Dict], notebook_name: str, noteb
                 'createdAt': note['created']
             }
 
+            # 添加标签到节点的 tags 字段
             if note['tags']:
-                tags_text = '\n\n---\n**标签:** ' + ', '.join(note['tags'])
-                node['transcript'] += tags_text
+                node['tags'] = note['tags']
 
             nodes.append(node)
 
@@ -910,9 +955,9 @@ def create_onehand_notebook_by_day(notes: List[Dict], notebook_name: str, notebo
                 'createdAt': note['created']
             }
 
+            # 添加标签到节点的 tags 字段
             if note['tags']:
-                tags_text = '\n\n---\n**标签:** ' + ', '.join(note['tags'])
-                node['transcript'] += tags_text
+                node['tags'] = note['tags']
 
             nodes.append(node)
 
@@ -959,13 +1004,20 @@ def convert_enex_to_onehand(enex_path: str, output_dir: str, by_month: bool = Fa
     notebook_name = f"印象笔记_{enex_name}"
     notebook_id = str(int(datetime.now().timestamp() * 1000))
 
+    # 收集所有标签并生成标签定义
+    tags_dict = collect_all_tags(notes)
+    tag_count = len(tags_dict)
+    if tag_count > 0:
+        print(f"发现 {tag_count} 个标签")
+
     # 创建 OneHand 笔记本
     notebook = create_onehand_notebook(
         notes, notebook_name,
         by_month=by_month, by_week=by_week, by_day=by_day,
         extract_images=extract_images,
         output_dir=output_dir,
-        notebook_id=notebook_id
+        notebook_id=notebook_id,
+        tags_dict=tags_dict
     )
 
     # 确保输出目录存在
@@ -976,9 +1028,34 @@ def convert_enex_to_onehand(enex_path: str, output_dir: str, by_month: bool = Fa
     with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(notebook, f, ensure_ascii=False, indent=2)
 
+    # 写入标签文件（如果有标签）
+    if tag_count > 0:
+        tags_path = os.path.join(output_dir, 'tags.json')
+        # 检查是否已有标签文件，如果有则合并
+        existing_tags = []
+        if os.path.exists(tags_path):
+            try:
+                with open(tags_path, 'r', encoding='utf-8') as f:
+                    existing_tags = json.load(f)
+            except:
+                existing_tags = []
+
+        # 合并标签（避免重复）
+        existing_tag_names = {t['name'] for t in existing_tags}
+        for tag_name, tag_def in tags_dict.items():
+            if tag_name not in existing_tag_names:
+                existing_tags.append(tag_def)
+
+        # 写入合并后的标签文件
+        with open(tags_path, 'w', encoding='utf-8') as f:
+            json.dump(existing_tags, f, ensure_ascii=False, indent=2)
+        print(f"标签已写入: {tags_path}")
+
     print(f"已创建笔记本: {output_path}")
     print(f"笔记本名称: {notebook_name}")
     print(f"包含 {len(notes)} 条笔记")
+    if tag_count > 0:
+        print(f"包含 {tag_count} 个标签")
     if by_month:
         print(f"按月份分为 {len(notebook['canvases'])} 个画布页")
     if by_week:
@@ -1039,9 +1116,12 @@ def main():
         )
         if output_path:
             print(f"\n转换完成!")
-            print(f"请将生成的笔记本文件复制到 OneHand 用户数据目录:")
-            print(f"  Windows: %APPDATA%\\OneHand\\notebooks\\")
-            print(f"  macOS: ~/Library/Application Support/OneHand/notebooks/")
+            print(f"请将生成的文件复制到 OneHand 用户数据目录:")
+            print(f"  Windows: %APPDATA%\\OneHand\\")
+            print(f"  macOS: ~/Library/Application Support/OneHand/")
+            print(f"\n文件说明:")
+            print(f"  - 笔记本文件 ({os.path.basename(output_path)}) 放入 notebooks/ 目录")
+            print(f"  - 标签文件 (tags.json) 放入用户数据根目录")
             if args.images:
                 # 获取笔记本ID（文件名不含扩展名）
                 notebook_id = os.path.basename(output_path).replace('.json', '')
