@@ -162,6 +162,33 @@ export const useTagStore = defineStore('tag', () => {
     return createTag(name)
   }
 
+  /**
+   * 从笔记本数据同步标签
+   * 将所有节点中的标签添加到 store
+   */
+  async function syncTagsFromNotebooks(notebooks: any[]) {
+    const allTagNames = new Set<string>()
+
+    for (const notebook of notebooks) {
+      if (!notebook.canvases) continue
+      for (const canvas of notebook.canvases) {
+        if (!canvas.nodes) continue
+        for (const node of canvas.nodes) {
+          if (node.tags && Array.isArray(node.tags)) {
+            for (const tagName of node.tags) {
+              allTagNames.add(tagName)
+            }
+          }
+        }
+      }
+    }
+
+    // 为每个标签确保存在
+    for (const tagName of allTagNames) {
+      await ensureTagExists(tagName)
+    }
+  }
+
   return {
     tags,
     allTagNames,
@@ -175,6 +202,7 @@ export const useTagStore = defineStore('tag', () => {
     getTagByName,
     searchTags,
     ensureTagExists,
+    syncTagsFromNotebooks,
     getNextColor
   }
 })

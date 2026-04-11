@@ -17,6 +17,7 @@ import { onMounted, onUnmounted, watchEffect, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useNotebookStore } from '@/stores/notebookStore'
+import { useTagStore } from '@/stores/tagStore'
 import { useTheme } from '@/composables/useTheme'
 import { useDeepLink } from '@/composables/useDeepLink'
 import { useLinkPaste } from '@/composables/useLinkPaste'
@@ -34,6 +35,7 @@ const isWindows = navigator.userAgent.toLowerCase().includes('windows')
 
 const settingsStore = useSettingsStore()
 const notebookStore = useNotebookStore()
+const tagStore = useTagStore()
 const router = useRouter()
 const route = useRoute()
 useTheme(settingsStore)
@@ -121,8 +123,12 @@ function handleNavigate(data: DeepLinkData) {
 }
 
 // 在应用启动时加载设置
-onMounted(() => {
+onMounted(async () => {
   settingsStore.loadSettings()
+  await tagStore.loadTags()
+  await notebookStore.loadNotebooks()
+  // 同步笔记本中的标签到 tagStore
+  await tagStore.syncTagsFromNotebooks(notebookStore.notebooks)
 
   // Add global click handler for onehand:// links
   document.addEventListener('click', handleDeepLinkClick, true)

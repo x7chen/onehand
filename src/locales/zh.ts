@@ -255,6 +255,7 @@ export default {
     noTags: '暂无标签',
     createTag: '创建标签',
     deleteTag: '删除标签',
+    manage: '管理标签',
     tagNNotes: '{count} 个笔记',
   },
 }

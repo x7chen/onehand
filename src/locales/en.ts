@@ -255,6 +255,7 @@ export default {
     noTags: 'No tags',
     createTag: 'Create tag',
     deleteTag: 'Delete tag',
+    manage: 'Manage tags',
     tagNNotes: '{count} notes',
   },
 }

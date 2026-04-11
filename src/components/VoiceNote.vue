@@ -164,8 +164,13 @@
         <div v-if="showTagPopover" class="tag-popover" :style="tagPopoverStyle">
           <div class="tag-popover-header">
             <span class="tag-popover-title">{{ t('tag.title') }}</span>
+            <button class="tag-manage-btn" :class="{ active: isManagingTags }" @click.stop="toggleManageTags" :title="t('tag.manage')">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+              </svg>
+            </button>
           </div>
-          <div class="tag-list">
+          <div v-if="nodeTags.length > 0" class="tag-list">
             <div
               v-for="tag in nodeTags"
               :key="tag.id"
@@ -173,15 +178,15 @@
               :style="{ backgroundColor: tag.color + '20', borderColor: tag.color }"
             >
               <span class="tag-name" :style="{ color: tag.color }">{{ tag.name }}</span>
-              <button class="tag-remove-btn" @click.stop="removeTagFromNode(tag.name)" :title="t('common.delete')">
-                <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
+              <button v-if="isManagingTags" class="tag-remove-btn" @click.stop="removeTagFromNode(tag.name)" :title="t('common.delete')">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
                   <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
                 </svg>
               </button>
             </div>
           </div>
           <!-- 添加标签区域 -->
-          <div class="tag-add-area">
+          <div class="tag-add-area" :class="{ 'has-tags': nodeTags.length > 0 }">
             <div v-if="!isAddingTag" class="tag-add-btn" @click.stop="startAddingTag">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
                 <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
@@ -725,6 +730,7 @@ function handleMenuFavorite() {
 const showTagPopover = ref(false)
 const tagPopoverStyle = ref<{ top: string; left: string }>({ top: '0px', left: '0px' })
 const isAddingTag = ref(false)
+const isManagingTags = ref(false)
 const newTagInput = ref('')
 const tagInputRef = ref<HTMLInputElement | null>(null)
 const showTagDropdown = ref(false)
@@ -770,8 +776,13 @@ function toggleTagPopover(e: MouseEvent) {
 function closeTagPopover() {
   showTagPopover.value = false
   isAddingTag.value = false
+  isManagingTags.value = false
   newTagInput.value = ''
   showTagDropdown.value = false
+}
+
+function toggleManageTags() {
+  isManagingTags.value = !isManagingTags.value
 }
 
 function startAddingTag() {
@@ -2273,6 +2284,9 @@ background-color: rgba(0, 0, 0, 1);
 }
 
 .tag-popover-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   margin-bottom: 8px;
 }
 
@@ -2280,6 +2294,30 @@ background-color: rgba(0, 0, 0, 1);
   font-size: 13px;
   font-weight: 500;
   color: var(--text-primary);
+}
+
+.tag-manage-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tag-manage-btn:hover {
+  background: var(--border-color);
+  color: var(--text-primary);
+}
+
+.tag-manage-btn.active {
+  background: var(--color-primary);
+  color: white;
 }
 
 .tag-list {
@@ -2312,10 +2350,9 @@ background-color: rgba(0, 0, 0, 1);
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
+  padding: 2px;
   border: none;
-  border-radius: 50%;
+  border-radius: 4px;
   background: transparent;
   cursor: pointer;
   color: inherit;
@@ -2330,8 +2367,11 @@ background-color: rgba(0, 0, 0, 1);
 
 .tag-add-area {
   margin-top: 8px;
-  border-top: 1px solid var(--border-color);
   padding-top: 8px;
+}
+
+.tag-add-area.has-tags {
+  border-top: 1px solid var(--border-color);
 }
 
 .tag-add-btn {
