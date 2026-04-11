@@ -36,9 +36,13 @@
               <span class="notebook-name">{{ item.notebookName }}</span>
               <span class="separator">·</span>
               <span class="canvas-info">{{ item.canvasName }}</span>
+              <template v-if="item.nodeTitle">
+                <span class="separator">·</span>
+                <span class="node-title">{{ item.nodeTitle }}</span>
+              </template>
             </div>
             <div class="result-text" :title="item.fullText">
-              {{ item.previewText }}
+              {{ item.fullText }}
             </div>
           </div>
           <button class="detail-btn" @click="openNodeDetail(item)" :title="t('voiceNote.viewDetails')">
@@ -84,8 +88,8 @@ interface FavoriteNodeItem {
   canvasId: string
   canvasName: string
   nodeId: string
+  nodeTitle: string
   fullText: string
-  previewText: string
 }
 
 onMounted(async () => {
@@ -110,7 +114,6 @@ async function loadFavorites() {
       for (const node of canvas.nodes) {
         if (node.isFavorite) {
           const fullText = node.transcript || node.agentResult || ''
-          const previewText = fullText.slice(0, 30)
 
           results.push({
             notebookId: notebook.id,
@@ -118,8 +121,8 @@ async function loadFavorites() {
             canvasId: canvas.id,
             canvasName: getCanvasName(canvas, notebook),
             nodeId: node.id,
-            fullText,
-            previewText: previewText.length < fullText.length ? previewText + '...' : previewText
+            nodeTitle: node.title || '',
+            fullText
           })
         }
       }
@@ -143,7 +146,7 @@ function getCanvasName(canvas: CanvasPage, notebook: Notebook): string {
   }
   const index = notebook.canvases?.findIndex(c => c.id === canvas.id) ?? 0
   if (notebook.canvases && notebook.canvases.length > 1) {
-    return t('common.canvasN', { n: index + 1 })
+    return t('common.pageN', { n: index + 1 })
   }
   return t('common.canvas')
 }
@@ -301,6 +304,10 @@ function handleNavigate(data: DeepLinkData) {
 
 .canvas-info {
   opacity: 0.8;
+}
+
+.node-title {
+  font-weight: 500;
 }
 
 .result-text {

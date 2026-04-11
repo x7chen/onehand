@@ -40,9 +40,13 @@
                   <span class="notebook-name">{{ item.notebookName }}</span>
                   <span class="separator">·</span>
                   <span class="canvas-info">{{ item.canvasName }}</span>
+                  <template v-if="item.nodeTitle">
+                    <span class="separator">·</span>
+                    <span class="node-title">{{ item.nodeTitle }}</span>
+                  </template>
                 </div>
                 <div class="node-text" :title="item.fullText">
-                  {{ item.previewText }}
+                  {{ item.fullText }}
                 </div>
               </div>
               <button class="detail-btn" @click="openNodeDetail(item)" :title="t('voiceNote.viewDetails')">
@@ -92,8 +96,8 @@ interface TaggedNodeItem {
   canvasId: string
   canvasName: string
   nodeId: string
+  nodeTitle: string
   fullText: string
-  previewText: string
 }
 
 interface TagGroup {
@@ -130,7 +134,6 @@ async function loadTaggedNodes() {
       for (const node of canvas.nodes) {
         if (node.tags && node.tags.length > 0) {
           const fullText = node.transcript || node.agentResult || ''
-          const previewText = fullText.slice(0, 30)
 
           for (const tagName of node.tags) {
             if (!tagMap.has(tagName)) {
@@ -148,8 +151,8 @@ async function loadTaggedNodes() {
               canvasId: canvas.id,
               canvasName: getCanvasName(canvas, notebook),
               nodeId: node.id,
-              fullText,
-              previewText: previewText.length < fullText.length ? previewText + '...' : previewText
+              nodeTitle: node.title || '',
+              fullText
             })
           }
         }
@@ -181,7 +184,7 @@ function getCanvasName(canvas: CanvasPage, notebook: Notebook): string {
   }
   const index = notebook.canvases?.findIndex(c => c.id === canvas.id) ?? 0
   if (notebook.canvases && notebook.canvases.length > 1) {
-    return t('common.canvasN', { n: index + 1 })
+    return t('common.pageN', { n: index + 1 })
   }
   return t('common.canvas')
 }
@@ -371,6 +374,10 @@ function handleNavigate(data: DeepLinkData) {
 
 .canvas-info {
   opacity: 0.8;
+}
+
+.node-title {
+  font-weight: 500;
 }
 
 .node-text {

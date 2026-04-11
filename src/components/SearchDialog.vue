@@ -54,6 +54,10 @@
                 <span class="notebook-name">{{ result.notebookName }}</span>
                 <span class="separator">·</span>
                 <span class="canvas-info">{{ result.canvasName }}</span>
+                <template v-if="result.nodeTitle">
+                  <span class="separator">·</span>
+                  <span class="node-title">{{ result.nodeTitle }}</span>
+                </template>
               </div>
               <div class="result-text" :title="result.fullText">
                 <span class="text-line" v-html="result.highlightedText"></span>
@@ -110,6 +114,7 @@ interface SearchResult {
   canvasId: string
   canvasName: string
   nodeId: string
+  nodeTitle: string
   fieldType: 'transcript' | 'agentResult'
   fullText: string
   highlightedText: string
@@ -203,6 +208,7 @@ function performSearch() {
               canvasId: canvas.id,
               canvasName: getCanvasName(canvas, notebook),
               nodeId: node.id,
+              nodeTitle: node.title || '',
               fieldType: 'transcript',
               fullText: node.transcript,
               highlightedText: createHighlightedText(node.transcript, query, match.index),
@@ -221,6 +227,7 @@ function performSearch() {
               canvasId: canvas.id,
               canvasName: getCanvasName(canvas, notebook),
               nodeId: node.id,
+              nodeTitle: node.title || '',
               fieldType: 'agentResult',
               fullText: node.agentResult,
               highlightedText: createHighlightedText(node.agentResult, query, match.index),
@@ -249,40 +256,65 @@ function performSearch() {
 function findMatches(text: string, query: string): { index: number }[] {
   const matches: { index: number }[] = []
   const lowerText = text.toLowerCase()
-  let index = 0
+  const lowerQuery = query.toLowerCase()
 
-  while (true) {
-    index = lowerText.indexOf(query, index)
-    if (index === -1) break
-    matches.push({ index })
-    index += 1
+  // 检查查询是否包含英文字母
+  const hasEnglishLetters = /[a-zA-Z]/.test(query)
+
+  if (hasEnglishLetters) {
+    // 使用正则表达式匹配完整单词
+    const regex = new RegExp(`\\b${escapeRegExp(lowerQuery)}\\b`, 'gi')
+    let match: RegExpExecArray | null
+    while ((match = regex.exec(text)) !== null) {
+      matches.push({ index: match.index })
+    }
+  } else {
+    // 对于中文等非英文，使用普通匹配
+    let index = 0
+    while (true) {
+      index = lowerText.indexOf(lowerQuery, index)
+      if (index === -1) break
+      matches.push({ index })
+      index += 1
+    }
   }
 
   return matches
 }
 
+function escapeRegExp(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 function createHighlightedText(text: string, query: string, matchIndex: number): string {
-  const contextLength = 15
-  const start = Math.max(0, matchIndex - contextLength)
-  const end = Math.min(text.length, matchIndex + query.length + contextLength)
+  // CSS line-clamp: 2 大约可显示 70-90 个中文字符或 100 个英文字符
+  // 设置较小的长度确保匹配词在 CSS 截断范围内可见
+  const visibleLength = 80
+
+  // 计算显示片段的起始位置，让匹配词尽量在片段中间偏前
+  const halfVisible = visibleLength / 2
+  let start = Math.max(0, matchIndex - halfVisible * 0.6)
+  let end = Math.min(text.length, start + visibleLength)
+
+  // 如果末尾不够长，调整起始位置
+  if (end - start < visibleLength) {
+    start = Math.max(0, end - visibleLength)
+  }
+
+  const beforeMatch = escapeHtml(text.slice(start, matchIndex))
+  const matchedText = escapeHtml(text.slice(matchIndex, matchIndex + query.length))
+  const afterMatch = escapeHtml(text.slice(matchIndex + query.length, end))
 
   let result = ''
 
-  // Add ellipsis if truncated at start
+  // 如果截断了开头，添加省略号
   if (start > 0) {
     result += '...'
   }
 
-  // Add text before match
-  result += escapeHtml(text.slice(start, matchIndex))
+  result += `${beforeMatch}<mark class="highlight">${matchedText}</mark>${afterMatch}`
 
-  // Add highlighted match
-  result += `<mark class="highlight">${escapeHtml(text.slice(matchIndex, matchIndex + query.length))}</mark>`
-
-  // Add text after match
-  result += escapeHtml(text.slice(matchIndex + query.length, end))
-
-  // Add ellipsis if truncated at end
+  // 如果截断了末尾，添加省略号
   if (end < text.length) {
     result += '...'
   }
@@ -304,7 +336,7 @@ function getCanvasName(canvas: CanvasPage, notebook: Notebook): string {
   // Find canvas index for non-PDF notebooks
   const index = notebook.canvases?.findIndex(c => c.id === canvas.id) ?? 0
   if (notebook.canvases && notebook.canvases.length > 1) {
-    return t('common.canvasN', { n: index + 1 })
+    return t('common.pageN', { n: index + 1 })
   }
   return t('common.canvas')
 }
@@ -362,7 +394,7 @@ function handleNavigate(data: DeepLinkData) {
   background: var(--bg-primary);
   border-radius: 12px;
   width: 90%;
-  max-width: 600px;
+  max-width: 800px;
   max-height: 70vh;
   display: flex;
   flex-direction: column;
@@ -543,6 +575,10 @@ function handleNavigate(data: DeepLinkData) {
 
 .canvas-info {
   opacity: 0.8;
+}
+
+.node-title {
+  font-weight: 500;
 }
 
 .result-text {
