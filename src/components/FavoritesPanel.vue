@@ -29,10 +29,10 @@
         <div
           v-for="item in favoriteNodes"
           :key="`${item.notebookId}-${item.canvasId}-${item.nodeId}`"
-          class="result-item"
+          class="node-item"
         >
-          <div class="result-content" @click="openNodeDetail(item)">
-            <div class="result-meta">
+          <div class="node-content" @click="openNodeDetail(item)">
+            <div class="node-meta">
               <span class="notebook-name">{{ item.notebookName }}</span>
               <span class="separator">·</span>
               <span class="canvas-info">{{ item.canvasName }}</span>
@@ -41,7 +41,7 @@
                 <span class="node-title">{{ item.nodeTitle }}</span>
               </template>
             </div>
-            <div class="result-text" :title="item.fullText">
+            <div class="node-text" :title="item.fullText">
               {{ item.fullText }}
             </div>
           </div>
@@ -264,37 +264,37 @@ function handleNavigate(data: DeepLinkData) {
   gap: 8px;
 }
 
-.result-item {
+.node-item {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px;
-  background: var(--bg-primary);
-  border-radius: 8px;
+  padding: 10px;
+  background: var(--bg-secondary);
+  border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
-.result-item:hover {
+.node-item:hover {
   background: var(--border-color);
 }
 
-.result-content {
+.node-content {
   flex: 1;
   min-width: 0;
 }
 
-.result-meta {
+.node-meta {
   display: flex;
   align-items: center;
   gap: 6px;
   font-size: 12px;
   color: var(--text-secondary);
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .notebook-name {
-  color: var(--color-favorite);
+  color: var(--color-primary);
   font-weight: 500;
 }
 
@@ -310,10 +310,10 @@ function handleNavigate(data: DeepLinkData) {
   font-weight: 500;
 }
 
-.result-text {
-  font-size: 14px;
+.node-text {
+  font-size: 13px;
   color: var(--text-primary);
-  line-height: 1.5;
+  line-height: 1.4;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -335,7 +335,7 @@ function handleNavigate(data: DeepLinkData) {
 }
 
 .detail-btn:hover {
-  background: var(--color-favorite);
+  background: var(--color-primary);
   color: white;
 }
 </style>

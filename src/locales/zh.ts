@@ -257,5 +257,6 @@ export default {
     deleteTag: '删除标签',
     manage: '管理标签',
     tagNNotes: '{count} 个笔记',
+    selectTagToView: '选择标签查看笔记',
   },
 }

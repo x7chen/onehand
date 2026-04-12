@@ -257,5 +257,6 @@ export default {
     deleteTag: 'Delete tag',
     manage: 'Manage tags',
     tagNNotes: '{count} notes',
+    selectTagToView: 'Select a tag to view notes',
   },
 }

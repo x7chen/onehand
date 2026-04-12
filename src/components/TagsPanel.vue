@@ -22,16 +22,32 @@
         <p>{{ t('nav.noTags') }}</p>
       </div>
 
-      <div v-else class="tags-list">
-        <div v-for="tagGroup in taggedNodes" :key="tagGroup.tagName" class="tag-group">
-          <div class="tag-group-header">
+      <div v-else class="tags-layout">
+        <!-- 左侧标签列表 -->
+        <div class="tags-sidebar">
+          <div
+            v-for="tagGroup in taggedNodes"
+            :key="tagGroup.tagName"
+            class="tag-item"
+            :class="{ active: selectedTag?.tagName === tagGroup.tagName }"
+            @click="selectTag(tagGroup)"
+          >
             <span class="tag-color-dot" :style="{ backgroundColor: tagGroup.tagColor }"></span>
-            <span class="tag-group-name">{{ tagGroup.tagName }}</span>
-            <span class="tag-group-count">{{ t('tag.tagNNotes', { count: tagGroup.nodes.length }) }}</span>
+            <span class="tag-name">{{ tagGroup.tagName }}</span>
+            <span class="tag-count">{{ tagGroup.nodes.length }}</span>
           </div>
-          <div class="tag-group-nodes">
+        </div>
+
+        <!-- 右侧节点列表 -->
+        <div class="nodes-panel">
+          <div v-if="selectedTag" class="nodes-header">
+            <span class="nodes-count">
+              {{ t('tag.tagNNotes', { count: selectedTag.nodes.length }) }}
+            </span>
+          </div>
+          <div v-if="selectedTag" class="nodes-list">
             <div
-              v-for="item in tagGroup.nodes"
+              v-for="item in selectedTag.nodes"
               :key="`${item.notebookId}-${item.canvasId}-${item.nodeId}`"
               class="node-item"
             >
@@ -55,6 +71,9 @@
                 </svg>
               </button>
             </div>
+          </div>
+          <div v-else class="select-hint">
+            <p>{{ t('tag.selectTagToView') }}</p>
           </div>
         </div>
       </div>
@@ -87,6 +106,7 @@ const tagStore = useTagStore()
 const { t } = useI18n()
 const loading = ref(false)
 const taggedNodes = ref<TagGroup[]>([])
+const selectedTag = ref<TagGroup | null>(null)
 const showNodePopup = ref(false)
 const selectedNodeUrl = ref('')
 
@@ -175,6 +195,11 @@ async function loadTaggedNodes() {
     a.tagName.localeCompare(b.tagName)
   )
 
+  // Auto-select first tag if available
+  if (taggedNodes.value.length > 0 && !selectedTag.value) {
+    selectedTag.value = taggedNodes.value[0]
+  }
+
   loading.value = false
 }
 
@@ -187,6 +212,10 @@ function getCanvasName(canvas: CanvasPage, notebook: Notebook): string {
     return t('common.pageN', { n: index + 1 })
   }
   return t('common.canvas')
+}
+
+function selectTag(tagGroup: TagGroup) {
+  selectedTag.value = tagGroup
 }
 
 function openNodeDetail(item: TaggedNodeItem) {
@@ -248,8 +277,8 @@ function handleNavigate(data: DeepLinkData) {
 
 .tags-content {
   flex: 1;
-  overflow-y: auto;
-  padding: 16px;
+  overflow: hidden;
+  display: flex;
 }
 
 .loading-state,
@@ -260,6 +289,7 @@ function handleNavigate(data: DeepLinkData) {
   justify-content: center;
   padding: 40px 20px;
   text-align: center;
+  flex: 1;
 }
 
 .loading-spinner {
@@ -289,46 +319,86 @@ function handleNavigate(data: DeepLinkData) {
   color: var(--text-secondary);
 }
 
-.tags-list {
+.tags-layout {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* 左侧标签栏 */
+.tags-sidebar {
+  width: 180px;
+  border-right: 1px solid var(--border-color);
+  overflow-y: auto;
+  padding: 12px 8px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 4px;
 }
 
-.tag-group {
-  background: var(--bg-primary);
-  border-radius: 8px;
-  padding: 12px;
-}
-
-.tag-group-header {
+.tag-item {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--border-color);
+  padding: 10px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tag-item:hover {
+  background: var(--bg-hover);
+}
+
+.tag-item.active {
+  background: var(--color-primary);
+  color: white;
+}
+
+.tag-item.active .tag-count {
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .tag-color-dot {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
+  flex-shrink: 0;
 }
 
-.tag-group-name {
+.tag-name {
+  flex: 1;
   font-size: 14px;
-  font-weight: 500;
-  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.tag-group-count {
+.tag-count {
   font-size: 12px;
   color: var(--text-secondary);
-  margin-left: auto;
+  flex-shrink: 0;
 }
 
-.tag-group-nodes {
+/* 右侧节点面板 */
+.nodes-panel {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+.nodes-header {
+  margin-bottom: 12px;
+}
+
+.nodes-count {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.nodes-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -407,5 +477,14 @@ function handleNavigate(data: DeepLinkData) {
 .detail-btn:hover {
   background: var(--color-primary);
   color: white;
+}
+
+.select-hint {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  font-size: 14px;
 }
 </style>
