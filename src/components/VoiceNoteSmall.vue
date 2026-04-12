@@ -167,6 +167,8 @@ function handleClick() {
   box-shadow: 0 1px 4px var(--shadow-color);
   transition: box-shadow 0.2s;
   cursor: pointer;
+  display: flex;
+  flex-direction: column;
 }
 
 :root.dark .voice-note-small {
@@ -281,8 +283,22 @@ function handleClick() {
 }
 
 .small-transcript-box {
+  flex: 1;
   padding: 6px 8px;
-  overflow-y: auto;
+  padding-bottom: 40px;
+  overflow: hidden;
+  position: relative;
+}
+
+.small-transcript-box::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 40px;
+  background: linear-gradient(to bottom, transparent, var(--bg-node-transcript));
+  pointer-events: none;
 }
 
 .small-transcript-content {
@@ -322,6 +338,7 @@ function handleClick() {
 
 /* 图片预览样式 */
 .small-image-box {
+  flex: 1;
   padding: 6px 8px;
 }
 
