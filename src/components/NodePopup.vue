@@ -49,10 +49,12 @@
           :canvas-id="nodeData.canvas.id"
           :show-header="true"
           :is-active="false"
+          :popup-mode="true"
           @toggle-context="handleToggleContext"
           @toggle-favorite="handleToggleFavorite"
           @play="handlePlay"
           @delete="handleDelete"
+          @update-node="handleUpdateNode"
         />
       </div>
     </div>
@@ -67,6 +69,7 @@ import { parseDeepLinkUrl, findNodeByDeepLink, type NodePopupData } from '@/comp
 import { useNotebookStore } from '@/stores/notebookStore'
 import { getNotebookDataDir } from '@/utils/userFilesPath'
 import type { DeepLinkData } from '@/composables/useDeepLink'
+import type { CanvasNode } from '@/types/notebook'
 
 const props = defineProps<{
   visible: boolean
@@ -173,11 +176,26 @@ function handleToggleContext(nodeId: string) {
 }
 
 function handleToggleFavorite(nodeId: string) {
-  if (nodeData.value) {
-    const node = nodeData.value.canvas.nodes.find(n => n.id === nodeId)
-    if (node) {
-      node.isFavorite = !node.isFavorite
+  if (!nodeData.value) return
+
+  const node = nodeData.value.canvas.nodes.find(n => n.id === nodeId)
+  if (node) {
+    node.isFavorite = !node.isFavorite
+
+    const notebook = nodeData.value.notebook
+    const canvas = nodeData.value.canvas
+
+    // Ensure the notebook is set as current in store
+    notebookStore.setCurrentNotebook(notebook)
+
+    // Find and set the correct canvas index
+    const canvasIndex = notebook.canvases?.findIndex(c => c.id === canvas.id) ?? 0
+    if (canvasIndex >= 0) {
+      notebook.currentCanvasIndex = canvasIndex
     }
+
+    // Update in store to persist
+    notebookStore.updateNode(nodeId, { isFavorite: node.isFavorite })
   }
 }
 
@@ -213,6 +231,31 @@ async function handlePlay(nodeId: string) {
 function handleDelete(nodeId: string) {
   // Don't allow delete from popup
   console.log('Delete not allowed from popup:', nodeId)
+}
+
+function handleUpdateNode(nodeId: string, updates: Partial<CanvasNode>) {
+  if (!nodeData.value) return
+
+  const notebook = nodeData.value.notebook
+  const canvas = nodeData.value.canvas
+
+  // Update local nodeData
+  const node = canvas.nodes.find(n => n.id === nodeId)
+  if (node) {
+    Object.assign(node, updates)
+  }
+
+  // Ensure the notebook is set as current in store
+  notebookStore.setCurrentNotebook(notebook)
+
+  // Find and set the correct canvas index
+  const canvasIndex = notebook.canvases?.findIndex(c => c.id === canvas.id) ?? 0
+  if (canvasIndex >= 0) {
+    notebook.currentCanvasIndex = canvasIndex
+  }
+
+  // Update in store to persist
+  notebookStore.updateNode(nodeId, updates)
 }
 </script>
 

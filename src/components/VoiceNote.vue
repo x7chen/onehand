@@ -3,7 +3,7 @@
     ref="voiceNoteRef"
     class="voice-note"
     :data-node-id="node.id"
-    :class="{ active: isActive, selected: node.selectedAsContext, 'show-header': showHeader, 'is-resizing': isResizing }"
+    :class="{ active: isActive, selected: node.selectedAsContext, 'show-header': showHeader, 'is-resizing': isResizing, 'popup-mode': popupMode }"
     :style="nodeStyle"
     @mousedown="handleVoiceNoteMouseDown"
     @click="handleClick"
@@ -19,7 +19,7 @@
       <input
         type="checkbox"
         :checked="node.selectedAsContext"
-        :disabled="node.transcriptStatus !== 'done'"
+        :disabled="popupMode || node.transcriptStatus !== 'done'"
         @change="toggleContext"
         @click.stop
       />
@@ -99,7 +99,7 @@
         <span class="created-time-text">{{ formatCreatedTime }}</span>
       </span>
       <!-- 菜单按钮 -->
-      <button class="menu-btn" @click.stop="toggleMenu" :class="{ active: showMenu }">
+      <button v-if="!popupMode" class="menu-btn" @click.stop="toggleMenu" :class="{ active: showMenu }">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
           <path d="M6 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm12 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm-6 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
         </svg>
@@ -359,6 +359,7 @@ const props = defineProps<{
   isActive?: boolean
   activateOnHover?: boolean
   showHeader?: boolean
+  popupMode?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -403,6 +404,16 @@ const actionButtonsRef = ref<HTMLElement | null>(null)
 
 // 计算当前节点宽度下可见的按钮
 const visibleButtons = computed<ButtonType[]>(() => {
+  // popupMode 下只显示 favorite、copyLink、tag
+  if (props.popupMode) {
+    const buttons: ButtonType[] = ['favorite', 'tag']
+    // copyLink 需要 notebookId 和 canvasId
+    if (props.notebookId && props.canvasId) {
+      buttons.push('copyLink')
+    }
+    return buttons
+  }
+
   const width = props.node.width || DEFAULT_NODE_WIDTH
 
   // 计算可用于按钮的空间
@@ -1311,6 +1322,12 @@ watch(() => props.node.thinkingContent, async (newThinkingContent) => {
   opacity: 1;
   height: 32px;
   margin-bottom: 8px;
+}
+
+/* popupMode 下的 checkbox 禁用样式 */
+.voice-note.popup-mode .node-header input[type="checkbox"] {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .mic-icon-wrapper {
@@ -2268,12 +2285,12 @@ background-color: rgba(0, 0, 0, 1);
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 2000;
+  z-index: 3100;
 }
 
 .tag-popover {
   position: fixed;
-  z-index: 2001;
+  z-index: 3101;
   min-width: 180px;
   max-width: 280px;
   background: var(--bg-primary);
