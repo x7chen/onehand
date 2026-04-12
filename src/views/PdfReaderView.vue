@@ -155,6 +155,9 @@ const aiAnswerEnabled = ref(true)
 const showDynamicContextEditor = ref(false)
 const dynamicContextEditContent = ref('')
 
+// 初始化完成标志，防止 watch(currentCanvas) 在初始化时覆盖 lastPdfPage
+const isInitialized = ref(false)
+
 // 附图功能状态
 const includedPageImage = ref<{ imageBase64: string; pageNumber: number } | null>(null)
 
@@ -286,19 +289,19 @@ onMounted(async () => {
         const pdfPage = notebookStore.findNodePdfPage(nodeId)
         if (pdfPage !== null) {
           // 切换到该页面
-          notebookStore.switchToPdfPage(pdfPage)
           currentPageNumber.value = pdfPage
+          notebookStore.switchToPdfPage(pdfPage)
           // 激活该节点
           activeNodeId.value = nodeId
         }
         // 清除 URL 中的查询参数
         router.replace({ path: route.path, query: {} })
       } else {
-        // 没有指定节点时，使用当前画布的页面
-        const currentCanvas = notebook.canvases?.[notebook.currentCanvasIndex ?? 0]
-        if (currentCanvas?.pdfPage) {
-          currentPageNumber.value = currentCanvas.pdfPage
-        }
+        // 使用 lastPdfPage 恢复页面位置，优先级最高
+        // 注意：不调用 switchToPdfPage，因为目标页可能没有画布
+        // 让 PdfViewer 的 pendingPage 机制处理页面跳转
+        const lastPage = notebook.lastPdfPage || 1
+        currentPageNumber.value = lastPage
       }
     }
   }
@@ -313,9 +316,18 @@ onMounted(async () => {
       selectFirstNode()
     })
   }
+
+  // 初始化完成，允许 watch(currentCanvas) 响应变化
+  isInitialized.value = true
 })
 
 onUnmounted(() => {
+  // 保存最后查看的PDF页面
+  if (notebookStore.currentNotebook && currentPageNumber.value) {
+    notebookStore.currentNotebook.lastPdfPage = currentPageNumber.value
+    notebookStore.saveNotebook(notebookStore.currentNotebook)
+  }
+
   document.removeEventListener('mousemove', handleResize)
   document.removeEventListener('mouseup', stopResize)
   document.removeEventListener('click', handleClickOutsideEditing)
@@ -342,6 +354,12 @@ async function handlePageChange(page: number) {
   notebookStore.switchToPdfPage(page)
   // 切换页面后选中第一个节点
   selectFirstNode()
+
+  // 保存上次查看的PDF页面
+  if (notebookStore.currentNotebook) {
+    notebookStore.currentNotebook.lastPdfPage = page
+    notebookStore.saveNotebook(notebookStore.currentNotebook)
+  }
 
   // 如果附图勾选框是勾选状态，需要重新导出当前页面的图片
   if (includedPageImage.value && pdfViewerRef.value) {
@@ -385,7 +403,9 @@ watch(() => route.query.nodeId, (newNodeId) => {
 }, { immediate: false })
 
 // Watch for canvas changes (e.g., from deep link navigation) and update page
+// 只在初始化完成后才响应画布变化，避免覆盖 lastPdfPage
 watch(() => notebookStore.currentCanvas, (newCanvas) => {
+  if (!isInitialized.value) return
   if (newCanvas?.pdfPage && newCanvas.pdfPage !== currentPageNumber.value) {
     currentPageNumber.value = newCanvas.pdfPage
     // Navigate PdfViewer to the new page

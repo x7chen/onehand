@@ -13,6 +13,8 @@ export interface Notebook {
   pdfPath?: string
   /** 笔记本使用的模型配置ID，如果未设置则使用全局默认 */
   modelId?: string
+  /** PDF笔记本上次查看的页码（从1开始），用于恢复阅读位置 */
+  lastPdfPage?: number
 }
 
 export interface CanvasPage {
