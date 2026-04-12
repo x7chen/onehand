@@ -32,5 +32,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 获取应用图标 DataURL
   getIconDataUrl: () => ipcRenderer.invoke('get-icon-data-url'),
   // 获取系统语言
-  getSystemLocale: () => ipcRenderer.invoke('get-system-locale')
+  getSystemLocale: () => ipcRenderer.invoke('get-system-locale'),
+  // Vector Database API
+  initVectorDb: (dimension, maxElements) => ipcRenderer.invoke('init-vector-db', dimension, maxElements),
+  addVector: (entryKey, vector, metadata) => ipcRenderer.invoke('add-vector', entryKey, vector, metadata),
+  searchVectors: (queryVector, k) => ipcRenderer.invoke('search-vectors', queryVector, k),
+  deleteVector: (entryKey) => ipcRenderer.invoke('delete-vector', entryKey),
+  saveVectorDb: () => ipcRenderer.invoke('save-vector-db'),
+  loadVectorDb: () => ipcRenderer.invoke('load-vector-db'),
+  getVectorDbMetadata: () => ipcRenderer.invoke('get-vector-db-metadata'),
+  updateVectorDbMetadata: (metadata) => ipcRenderer.invoke('update-vector-db-metadata', metadata),
+  getVectorDbStatus: () => ipcRenderer.invoke('get-vector-db-status')
 })

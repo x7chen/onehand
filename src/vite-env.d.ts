@@ -54,6 +54,48 @@ interface ElectronAPI {
   getIconDataUrl: () => Promise<string | null>
   // 获取系统语言
   getSystemLocale: () => Promise<string>
+  // Vector Database API
+  initVectorDb: (dimension?: number, maxElements?: number) => Promise<{ success: boolean; dimension?: number; maxElements?: number; error?: string }>
+  loadVectorDb: () => Promise<{ success: boolean; entriesCount?: number; error?: string }>
+  addVector: (entryKey: string, vector: number[], metadata: {
+    notebookId: string
+    notebookName: string
+    canvasId: string
+    canvasName: string
+    nodeId: string
+    nodeTitle: string
+    fieldType: 'transcript' | 'agentResult'
+    textHash: string
+  }) => Promise<{ success: boolean; id?: number; error?: string }>
+  searchVectors: (queryVector: number[], k?: number) => Promise<{
+    success: boolean
+    results?: Array<{
+      entryKey: string
+      similarity: number
+      metadata: {
+        notebookId: string
+        canvasId: string
+        nodeId: string
+        fieldType: 'transcript' | 'agentResult'
+      }
+    }>
+    error?: string
+  }>
+  deleteVector: (entryKey: string) => Promise<{ success: boolean; error?: string }>
+  saveVectorDb: () => Promise<{ success: boolean; error?: string }>
+  getVectorDbMetadata: () => Promise<{ success: boolean; metadata?: any; error?: string }>
+  updateVectorDbMetadata: (metadata: any) => Promise<{ success: boolean; error?: string }>
+  getVectorDbStatus: () => Promise<{
+    success: boolean
+    status?: {
+      initialized: boolean
+      entriesCount: number
+      dimension: number
+      maxElements: number
+      hnswlibAvailable: boolean
+    }
+    error?: string
+  }>
 }
 
 interface Window {

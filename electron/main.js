@@ -19,6 +19,17 @@ try {
   console.warn('Failed to load sherpa-onnx:', e.message)
 }
 
+// HNSW Vector Database
+let hnswlib = null
+let vectorIndex = null
+let vectorDbMetadata = null
+try {
+  hnswlib = require('hnswlib-node')
+  // hnswlib-node loaded successfully
+} catch (e) {
+  // Failed to load hnswlib-node
+}
+
 let mainWindow = null
 
 // Deep link URL storage
@@ -28,6 +39,20 @@ let pendingDeepLinkUrl = null
 const getConfigPath = () => {
   const userDataPath = app.getPath('userData')
   return path.join(userDataPath, 'config.json')
+}
+
+// 向量数据库路径
+const getVectorDbDir = () => {
+  const userDataPath = app.getPath('userData')
+  return path.join(userDataPath, 'vector-db')
+}
+
+const getVectorDbIndexPath = () => {
+  return path.join(getVectorDbDir(), 'notebooks.hnsw')
+}
+
+const getVectorDbMetadataPath = () => {
+  return path.join(getVectorDbDir(), 'metadata.json')
 }
 
 // 笔记根目录（根据当前文件位置计算）
@@ -300,6 +325,20 @@ app.on('window-all-closed', () => {
       console.error('Error freeing recognizer:', e)
     }
     recognizer = null
+  }
+
+  // 保存向量数据库
+  if (vectorIndex && vectorDbMetadata) {
+    try {
+      const dbDir = getVectorDbDir()
+      if (!fs.existsSync(dbDir)) {
+        fs.mkdirSync(dbDir, { recursive: true })
+      }
+      vectorIndex.writeIndexSync(getVectorDbIndexPath())
+      fs.writeFileSync(getVectorDbMetadataPath(), JSON.stringify(vectorDbMetadata, null, 2))
+    } catch (e) {
+      // Error saving vector DB on exit
+    }
   }
 
   if (process.platform !== 'darwin') {
@@ -631,4 +670,265 @@ ipcMain.handle('get-icon-data-url', () => {
 // 获取系统语言
 ipcMain.handle('get-system-locale', () => {
   return app.getLocale()
+})
+
+// ========== Vector Database IPC Handlers ==========
+
+/**
+ * 初始化向量数据库
+ */
+ipcMain.handle('init-vector-db', async (event, dimension = 1536, maxElements = 100000) => {
+  try {
+    if (!hnswlib) {
+      return { success: false, error: 'hnswlib-node not available' }
+    }
+
+    // 确保向量数据库目录存在
+    const dbDir = getVectorDbDir()
+    if (!fs.existsSync(dbDir)) {
+      fs.mkdirSync(dbDir, { recursive: true })
+    }
+
+    const indexPath = getVectorDbIndexPath()
+    const metadataPath = getVectorDbMetadataPath()
+
+    // 检查现有元数据是否与新参数匹配
+    let shouldClearOld = false
+    if (fs.existsSync(metadataPath)) {
+      try {
+        const oldMetadata = JSON.parse(fs.readFileSync(metadataPath, 'utf-8'))
+        if (oldMetadata.dimension !== dimension || oldMetadata.maxElements !== maxElements) {
+          shouldClearOld = true
+        }
+      } catch (e) {
+        shouldClearOld = true
+      }
+    }
+
+    // 如果参数不匹配，删除旧索引文件
+    if (shouldClearOld) {
+      if (fs.existsSync(indexPath)) fs.unlinkSync(indexPath)
+      if (fs.existsSync(metadataPath)) fs.unlinkSync(metadataPath)
+    }
+
+    // 创建 HNSW 索引 - 分两步：构造函数和 initIndex
+    vectorIndex = new hnswlib.HierarchicalNSW('cosine', dimension)
+    vectorIndex.initIndex(maxElements)
+
+    // 初始化元数据
+    vectorDbMetadata = {
+      entries: {},
+      dimension: dimension,
+      maxElements: maxElements,
+      nextId: 0
+    }
+
+    // 尝试加载已有数据（仅在参数匹配时）
+    if (!shouldClearOld && fs.existsSync(indexPath) && fs.existsSync(metadataPath)) {
+      try {
+        vectorIndex.readIndexSync(indexPath)
+        const metadataData = fs.readFileSync(metadataPath, 'utf-8')
+        vectorDbMetadata = JSON.parse(metadataData)
+        // Vector DB loaded
+      } catch (loadError) {
+        // Failed to load existing vector DB
+      }
+    }
+
+    // Vector DB initialized successfully
+    return { success: true, dimension, maxElements }
+  } catch (error) {
+    // Failed to init vector DB
+    return { success: false, error: String(error) }
+  }
+})
+
+/**
+ * 添加向量到索引
+ */
+ipcMain.handle('add-vector', async (event, entryKey, vector, metadata) => {
+  try {
+    if (!vectorIndex || !vectorDbMetadata) {
+      return { success: false, error: 'Vector DB not initialized' }
+    }
+
+    // 检查是否已存在，如果存在则先删除旧数据
+    if (vectorDbMetadata.entries[entryKey]) {
+      const oldId = vectorDbMetadata.entries[entryKey].id
+      vectorIndex.markDelete(oldId)
+    }
+
+    // 使用 nextId 作为内部 ID
+    const id = vectorDbMetadata.nextId
+    vectorIndex.addPoint(vector, id)
+
+    // 更新元数据
+    vectorDbMetadata.entries[entryKey] = {
+      id,
+      ...metadata,
+      updatedAt: Date.now()
+    }
+    vectorDbMetadata.nextId++
+
+    return { success: true, id }
+  } catch (error) {
+    return { success: false, error: String(error) }
+  }
+})
+
+/**
+ * 搜索最相似的向量
+ */
+ipcMain.handle('search-vectors', async (event, queryVector, k = 10) => {
+  try {
+    if (!vectorIndex || !vectorDbMetadata) {
+      return { success: false, error: 'Vector DB not initialized' }
+    }
+
+    // 执行搜索
+    const searchResult = vectorIndex.searchKnn(queryVector, k)
+
+    // 将内部 ID 映射到元数据
+    const mappedResults = []
+    for (let i = 0; i < searchResult.neighbors.length; i++) {
+      const id = searchResult.neighbors[i]
+      const distance = searchResult.distances[i]
+      // 找到对应的元数据条目
+      for (const [key, entry] of Object.entries(vectorDbMetadata.entries)) {
+        if (entry.id === id) {
+          mappedResults.push({
+            entryKey: key,
+            similarity: 1 - distance, // cosine similarity
+            metadata: entry
+          })
+          break
+        }
+      }
+    }
+
+    return { success: true, results: mappedResults }
+  } catch (error) {
+    return { success: false, error: String(error) }
+  }
+})
+
+/**
+ * 删除向量
+ */
+ipcMain.handle('delete-vector', async (event, entryKey) => {
+  try {
+    if (!vectorIndex || !vectorDbMetadata) {
+      return { success: false, error: 'Vector DB not initialized' }
+    }
+
+    const entry = vectorDbMetadata.entries[entryKey]
+    if (entry) {
+      vectorIndex.markDelete(entry.id)
+      delete vectorDbMetadata.entries[entryKey]
+      return { success: true }
+    }
+
+    return { success: false, error: 'Entry not found' }
+  } catch (error) {
+    return { success: false, error: String(error) }
+  }
+})
+
+/**
+ * 持久化向量数据库
+ */
+ipcMain.handle('save-vector-db', async () => {
+  try {
+    if (!vectorIndex || !vectorDbMetadata) {
+      return { success: false, error: 'Vector DB not initialized' }
+    }
+
+    const dbDir = getVectorDbDir()
+    if (!fs.existsSync(dbDir)) {
+      fs.mkdirSync(dbDir, { recursive: true })
+    }
+
+    // 保存索引文件
+    vectorIndex.writeIndexSync(getVectorDbIndexPath())
+
+    // 保存元数据文件
+    fs.writeFileSync(getVectorDbMetadataPath(), JSON.stringify(vectorDbMetadata, null, 2))
+
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: String(error) }
+  }
+})
+
+/**
+ * 加载向量数据库
+ */
+ipcMain.handle('load-vector-db', async () => {
+  try {
+    if (!hnswlib) {
+      return { success: false, error: 'hnswlib-node not available' }
+    }
+
+    const indexPath = getVectorDbIndexPath()
+    const metadataPath = getVectorDbMetadataPath()
+
+    if (!fs.existsSync(indexPath) || !fs.existsSync(metadataPath)) {
+      return { success: false, error: 'No existing vector DB found' }
+    }
+
+    // 加载元数据以获取维度
+    const metadataData = fs.readFileSync(metadataPath, 'utf-8')
+    vectorDbMetadata = JSON.parse(metadataData)
+
+    // 创建索引并加载 - 分两步
+    vectorIndex = new hnswlib.HierarchicalNSW('cosine', vectorDbMetadata.dimension)
+    vectorIndex.readIndexSync(indexPath)
+
+    return { success: true, entriesCount: Object.keys(vectorDbMetadata.entries).length }
+  } catch (error) {
+    return { success: false, error: String(error) }
+  }
+})
+
+/**
+ * 获取向量数据库元数据
+ */
+ipcMain.handle('get-vector-db-metadata', async () => {
+  try {
+    return { success: true, metadata: vectorDbMetadata }
+  } catch (error) {
+    return { success: false, error: String(error) }
+  }
+})
+
+/**
+ * 更新向量数据库元数据
+ */
+ipcMain.handle('update-vector-db-metadata', async (event, metadata) => {
+  try {
+    vectorDbMetadata = metadata
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: String(error) }
+  }
+})
+
+/**
+ * 获取向量数据库状态
+ */
+ipcMain.handle('get-vector-db-status', async () => {
+  try {
+    return {
+      success: true,
+      status: {
+        initialized: vectorIndex !== null,
+        entriesCount: vectorDbMetadata ? Object.keys(vectorDbMetadata.entries).length : 0,
+        dimension: vectorDbMetadata?.dimension || 0,
+        maxElements: vectorDbMetadata?.maxElements || 0,
+        hnswlibAvailable: hnswlib !== null
+      }
+    }
+  } catch (error) {
+    return { success: false, error: String(error) }
+  }
 })

@@ -22,6 +22,11 @@ export interface LLMSettings {
   quickModelProfileId?: string  // 快速模型配置ID（用于纠正、翻译等简单任务）
   enabledProviders: string[]
   enabledModels: string[]
+  // Embedding 配置
+  embeddingModel?: string  // 默认 'text-embedding-3-small'
+  embeddingEnabled?: boolean  // 默认 true
+  embeddingProfileId?: string  // 嵌入模型使用的配置ID，默认使用当前激活的配置
+  embeddingDimension?: number  // 嵌入向量维度，默认 1536
 }
 
 export interface STTSettings {
@@ -85,7 +90,10 @@ export const defaultSettings: Settings = {
     ],
     activeProfileId: defaultProfileId,
     enabledProviders: ['custom'],
-    enabledModels: ['Qwen/Qwen3-235B-A22B-Instruct-2507']
+    enabledModels: ['Qwen/Qwen3-235B-A22B-Instruct-2507'],
+    embeddingModel: 'text-embedding-3-small',
+    embeddingEnabled: true,
+    embeddingDimension: 1536
   },
   stt: {
     provider: 'sherpa-onnx',

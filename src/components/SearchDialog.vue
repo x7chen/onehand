@@ -10,7 +10,7 @@
             ref="searchInput"
             v-model="searchQuery"
             type="text"
-            :placeholder="t('common.searchAllNotes')"
+            :placeholder="searchMode === 'semantic' ? t('common.semanticSearchPlaceholder') : t('common.searchAllNotes')"
             @input="handleSearch"
             @keyup.escape="close"
           />
@@ -20,11 +20,50 @@
             </svg>
           </button>
         </div>
+        <div class="search-mode-toggle">
+          <button
+            :class="['mode-btn', { active: searchMode === 'keyword' }]"
+            @click="setSearchMode('keyword')"
+            :title="t('common.keywordSearch')"
+          >
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+              <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+            </svg>
+          </button>
+          <button
+            :class="['mode-btn', { active: searchMode === 'semantic' }]"
+            @click="setSearchMode('semantic')"
+            :title="t('common.semanticSearch')"
+          >
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+            </svg>
+          </button>
+        </div>
         <button class="close-btn" @click="close" :title="t('common.close')">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
             <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
           </svg>
         </button>
+      </div>
+
+      <!-- Index status bar (semantic mode) -->
+      <div v-if="searchMode === 'semantic'" class="index-status-bar">
+        <div v-if="indexStatus.isIndexing" class="indexing-progress">
+          <div class="progress-bar">
+            <div class="progress-fill" :style="{ width: `${indexStatus.progress}%` }"></div>
+          </div>
+          <span class="progress-text">{{ t('common.indexingProgress', { progress: indexStatus.progress }) }}</span>
+        </div>
+        <div v-else-if="indexStatus.outdatedNodes > 0" class="update-hint">
+          <span>{{ t('common.indexNeedsUpdate', { count: indexStatus.outdatedNodes }) }}</span>
+          <button class="update-btn" @click="updateIndex">{{ t('common.updateIndex') }}</button>
+          <button v-if="skippedNodes.length > 0" class="view-btn" @click="showSkippedNodesDialog = true">{{ t('common.viewSkipped') }}</button>
+        </div>
+        <div v-else class="index-ready">
+          <span>{{ t('common.indexReady', { count: indexStatus.indexedNodes }) }}</span>
+          <button v-if="skippedNodes.length > 0" class="view-btn" @click="showSkippedNodesDialog = true">{{ t('common.viewSkipped') }}</button>
+        </div>
       </div>
 
       <div class="search-results" ref="resultsContainer">
@@ -58,9 +97,13 @@
                   <span class="separator">·</span>
                   <span class="node-title">{{ result.nodeTitle }}</span>
                 </template>
+                <template v-if="result.similarity">
+                  <span class="separator">·</span>
+                  <span class="similarity-score">{{ Math.round(result.similarity * 100) }}%</span>
+                </template>
               </div>
               <div class="result-text" :title="result.fullText">
-                <span class="text-line" v-html="result.highlightedText"></span>
+                <span class="text-line" v-html="result.highlightedText || escapeHtml(result.fullText.slice(0, 100)) + (result.fullText.length > 100 ? '...' : '')"></span>
               </div>
             </div>
             <button class="detail-btn" @click="openNodeDetail(result)" :title="t('voiceNote.viewDetails')">
@@ -75,7 +118,7 @@
           <svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor" class="placeholder-icon">
             <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
           </svg>
-          <p>{{ t('common.searchPlaceholder') }}</p>
+          <p>{{ searchMode === 'semantic' ? t('common.semanticSearchPlaceholder') : t('common.searchPlaceholder') }}</p>
         </div>
       </div>
     </div>
@@ -87,6 +130,13 @@
       @close="closeNodePopup"
       @navigate="handleNavigate"
     />
+
+    <!-- Skipped Nodes Dialog -->
+    <SkippedNodesDialog
+      :visible="showSkippedNodesDialog"
+      :skipped-nodes="skippedNodes"
+      @close="showSkippedNodesDialog = false"
+    />
   </div>
 </template>
 
@@ -95,10 +145,15 @@ import { ref, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import NodePopup from '@/components/NodePopup.vue'
+import SkippedNodesDialog from '@/components/SkippedNodesDialog.vue'
 import { useNotebookStore } from '@/stores/notebookStore'
+import { useVectorStore } from '@/stores/vectorStore'
 import { generateDeepLinkUrl } from '@/composables/useDeepLink'
 import type { DeepLinkData } from '@/composables/useDeepLink'
 import type { Notebook, CanvasPage, CanvasNode } from '@/types/notebook'
+import type { IndexStatus, SkippedIndexNode } from '@/types/embedding'
+import { keywordSearch, semanticSearch, checkIndexNeedsUpdate, type UnifiedSearchResult, type SearchMode } from '@/services/semanticSearch'
+import { updateIndex as updateVectorIndex } from '@/services/semanticSearch'
 
 const props = defineProps<{
   visible: boolean
@@ -119,9 +174,11 @@ interface SearchResult {
   fullText: string
   highlightedText: string
   matchIndex: number
+  similarity?: number
 }
 
 const notebookStore = useNotebookStore()
+const vectorStore = useVectorStore()
 const router = useRouter()
 const { t } = useI18n()
 const searchInput = ref<HTMLInputElement | null>(null)
@@ -131,6 +188,15 @@ const searchResults = ref<SearchResult[]>([])
 const isSearching = ref(false)
 const showNodePopup = ref(false)
 const selectedNodeUrl = ref('')
+const searchMode = ref<SearchMode>('keyword')
+const indexStatus = ref<IndexStatus>({
+  totalNodes: 0,
+  indexedNodes: 0,
+  outdatedNodes: 0,
+  isIndexing: false
+})
+const skippedNodes = ref<SkippedIndexNode[]>([])
+const showSkippedNodesDialog = ref(false)
 
 // Debounce timer
 let searchTimeout: ReturnType<typeof setTimeout> | null = null
@@ -140,6 +206,11 @@ watch(() => props.visible, async (isVisible) => {
   if (isVisible) {
     await nextTick()
     searchInput.value?.focus()
+
+    // 检查索引状态（仅在语义模式下）
+    if (searchMode.value === 'semantic') {
+      await checkAndUpdateIndexStatus()
+    }
   } else {
     // Reset state when closing
     searchQuery.value = ''
@@ -164,6 +235,38 @@ function clearSearch() {
   searchInput.value?.focus()
 }
 
+async function setSearchMode(mode: SearchMode) {
+  searchMode.value = mode
+
+  if (mode === 'semantic') {
+    // 初始化向量数据库并检查索引状态
+    if (!vectorStore.isInitialized) {
+      await vectorStore.initVectorDb()
+    }
+    await checkAndUpdateIndexStatus()
+  }
+
+  // 如果有查询，重新搜索
+  if (searchQuery.value.trim()) {
+    handleSearch()
+  }
+}
+
+async function checkAndUpdateIndexStatus() {
+  const status = await vectorStore.getIndexStatus()
+  indexStatus.value = status
+}
+
+async function updateIndex() {
+  const result = await updateVectorIndex((progress) => {
+    indexStatus.value.progress = progress
+    indexStatus.value.isIndexing = true
+  })
+  indexStatus.value.isIndexing = false
+  skippedNodes.value = result.skippedNodes
+  await checkAndUpdateIndexStatus()
+}
+
 function handleSearch() {
   if (searchTimeout) {
     clearTimeout(searchTimeout)
@@ -171,155 +274,41 @@ function handleSearch() {
 
   if (!searchQuery.value.trim()) {
     searchResults.value = []
+    isSearching.value = false
     return
   }
 
   isSearching.value = true
 
-  searchTimeout = setTimeout(() => {
-    performSearch()
+  searchTimeout = setTimeout(async () => {
+    await performSearch()
     isSearching.value = false
-  }, 300)
+  }, searchMode.value === 'semantic' ? 500 : 300) // 语义搜索稍微长一点延迟
 }
 
-function performSearch() {
-  const query = searchQuery.value.trim().toLowerCase()
+async function performSearch() {
+  const query = searchQuery.value.trim()
   if (!query) {
     searchResults.value = []
     return
   }
 
-  const results: SearchResult[] = []
-
-  for (const notebook of notebookStore.notebooks) {
-    if (!notebook.canvases) continue
-
-    for (const canvas of notebook.canvases) {
-      if (!canvas.nodes) continue
-
-      for (const node of canvas.nodes) {
-        // Search in transcript
-        if (node.transcript) {
-          const matches = findMatches(node.transcript, query)
-          for (const match of matches) {
-            results.push({
-              notebookId: notebook.id,
-              notebookName: notebook.name,
-              canvasId: canvas.id,
-              canvasName: getCanvasName(canvas, notebook),
-              nodeId: node.id,
-              nodeTitle: node.title || '',
-              fieldType: 'transcript',
-              fullText: node.transcript,
-              highlightedText: createHighlightedText(node.transcript, query, match.index),
-              matchIndex: match.index
-            })
-          }
-        }
-
-        // Search in agentResult
-        if (node.agentResult) {
-          const matches = findMatches(node.agentResult, query)
-          for (const match of matches) {
-            results.push({
-              notebookId: notebook.id,
-              notebookName: notebook.name,
-              canvasId: canvas.id,
-              canvasName: getCanvasName(canvas, notebook),
-              nodeId: node.id,
-              nodeTitle: node.title || '',
-              fieldType: 'agentResult',
-              fullText: node.agentResult,
-              highlightedText: createHighlightedText(node.agentResult, query, match.index),
-              matchIndex: match.index
-            })
-          }
-        }
-      }
-    }
-  }
-
-  // Sort by notebook name and canvas name
-  results.sort((a, b) => {
-    if (a.notebookName !== b.notebookName) {
-      return a.notebookName.localeCompare(b.notebookName)
-    }
-    if (a.canvasName !== b.canvasName) {
-      return a.canvasName.localeCompare(b.canvasName)
-    }
-    return a.matchIndex - b.matchIndex
-  })
-
-  searchResults.value = results
-}
-
-function findMatches(text: string, query: string): { index: number }[] {
-  const matches: { index: number }[] = []
-  const lowerText = text.toLowerCase()
-  const lowerQuery = query.toLowerCase()
-
-  // 检查查询是否包含英文字母
-  const hasEnglishLetters = /[a-zA-Z]/.test(query)
-
-  if (hasEnglishLetters) {
-    // 使用正则表达式匹配完整单词
-    const regex = new RegExp(`\\b${escapeRegExp(lowerQuery)}\\b`, 'gi')
-    let match: RegExpExecArray | null
-    while ((match = regex.exec(text)) !== null) {
-      matches.push({ index: match.index })
-    }
+  if (searchMode.value === 'semantic') {
+    // 语义搜索
+    const results = await semanticSearch(query)
+    searchResults.value = results.map(r => ({
+      ...r,
+      matchIndex: 0,
+      highlightedText: r.highlightedText || escapeHtml(r.fullText.slice(0, 100)) + (r.fullText.length > 100 ? '...' : '')
+    })) as SearchResult[]
   } else {
-    // 对于中文等非英文，使用普通匹配
-    let index = 0
-    while (true) {
-      index = lowerText.indexOf(lowerQuery, index)
-      if (index === -1) break
-      matches.push({ index })
-      index += 1
-    }
+    // 关键词搜索
+    const results = keywordSearch(query)
+    searchResults.value = results.map(r => ({
+      ...r,
+      matchIndex: r.matchIndex || 0
+    })) as SearchResult[]
   }
-
-  return matches
-}
-
-function escapeRegExp(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
-
-function createHighlightedText(text: string, query: string, matchIndex: number): string {
-  // CSS line-clamp: 2 大约可显示 70-90 个中文字符或 100 个英文字符
-  // 设置较小的长度确保匹配词在 CSS 截断范围内可见
-  const visibleLength = 80
-
-  // 计算显示片段的起始位置，让匹配词尽量在片段中间偏前
-  const halfVisible = visibleLength / 2
-  let start = Math.max(0, matchIndex - halfVisible * 0.6)
-  let end = Math.min(text.length, start + visibleLength)
-
-  // 如果末尾不够长，调整起始位置
-  if (end - start < visibleLength) {
-    start = Math.max(0, end - visibleLength)
-  }
-
-  const beforeMatch = escapeHtml(text.slice(start, matchIndex))
-  const matchedText = escapeHtml(text.slice(matchIndex, matchIndex + query.length))
-  const afterMatch = escapeHtml(text.slice(matchIndex + query.length, end))
-
-  let result = ''
-
-  // 如果截断了开头，添加省略号
-  if (start > 0) {
-    result += '...'
-  }
-
-  result += `${beforeMatch}<mark class="highlight">${matchedText}</mark>${afterMatch}`
-
-  // 如果截断了末尾，添加省略号
-  if (end < text.length) {
-    result += '...'
-  }
-
-  return result
 }
 
 function escapeHtml(text: string): string {
@@ -453,6 +442,37 @@ function handleNavigate(data: DeepLinkData) {
   color: var(--bg-primary);
 }
 
+.search-mode-toggle {
+  display: flex;
+  gap: 4px;
+  background: var(--bg-secondary);
+  border-radius: 6px;
+  padding: 4px;
+}
+
+.mode-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 28px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mode-btn:hover {
+  background: var(--border-color);
+}
+
+.mode-btn.active {
+  background: var(--color-primary);
+  color: white;
+}
+
 .close-btn {
   display: flex;
   align-items: center;
@@ -470,6 +490,82 @@ function handleNavigate(data: DeepLinkData) {
 .close-btn:hover {
   background: var(--bg-secondary);
   color: var(--text-primary);
+}
+
+/* Index status bar */
+.index-status-bar {
+  padding: 8px 16px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  font-size: 13px;
+}
+
+.indexing-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 4px;
+  background: var(--border-color);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--color-primary);
+  transition: width 0.3s;
+}
+
+.progress-text {
+  color: var(--text-secondary);
+}
+
+.update-hint {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-secondary);
+}
+
+.update-btn {
+  padding: 4px 12px;
+  border: none;
+  border-radius: 4px;
+  background: var(--color-primary);
+  color: white;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.update-btn:hover {
+  opacity: 0.9;
+}
+
+.index-ready {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-secondary);
+}
+
+.view-btn {
+  padding: 4px 12px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-primary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.view-btn:hover {
+  background: rgba(255, 152, 0, 0.3);
 }
 
 .search-results {
@@ -574,6 +670,11 @@ function handleNavigate(data: DeepLinkData) {
 }
 
 .node-title {
+  font-weight: 500;
+}
+
+.similarity-score {
+  color: var(--color-primary);
   font-weight: 500;
 }
 

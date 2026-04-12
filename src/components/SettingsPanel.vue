@@ -282,6 +282,51 @@
           </select>
           <p class="form-hint">{{ t('settings.quickModelHint') }}</p>
         </div>
+
+        <!-- 嵌入模型配置 -->
+        <div class="form-group">
+          <label>{{ t('settings.embeddingProfile') }}</label>
+          <select
+            :value="settingsStore.settings.llm.embeddingProfileId || ''"
+            @change="updateEmbeddingProfile(($event.target as HTMLSelectElement).value)"
+          >
+            <option value="">{{ t('settings.embeddingProfileDefault') }}</option>
+            <option
+              v-for="profile in settingsStore.settings.llm.profiles"
+              :key="profile.id"
+              :value="profile.id"
+            >
+              {{ profile.name || t('settings.defaultModel') }} ({{ profile.baseUrl.split('//')[1]?.split('/')[0] || profile.baseUrl }})
+            </option>
+          </select>
+          <p class="form-hint">{{ t('settings.embeddingProfileHint') }}</p>
+        </div>
+
+        <div class="form-group">
+          <label>{{ t('settings.embeddingDimension') }}</label>
+          <input
+            :value="settingsStore.settings.llm.embeddingDimension || 1536"
+            @input="updateEmbeddingDimension(parseInt(($event.target as HTMLInputElement).value) || 1536)"
+            type="number"
+            min="128"
+            max="4096"
+            step="1"
+          />
+          <p class="form-hint">{{ t('settings.embeddingDimensionHint') }}</p>
+        </div>
+
+        <div class="form-group">
+          <label>{{ t('settings.embeddingEnabled') }}</label>
+          <div class="toggle-switch">
+            <input
+              type="checkbox"
+              :checked="settingsStore.settings.llm.embeddingEnabled ?? true"
+              @change="updateEmbeddingEnabled(($event.target as HTMLInputElement).checked)"
+            />
+            <span class="toggle-label">{{ (settingsStore.settings.llm.embeddingEnabled ?? true) ? t('settings.enabled') : t('settings.disabled') }}</span>
+          </div>
+          <p class="form-hint">{{ t('settings.embeddingEnabledHint') }}</p>
+        </div>
       </section>
     </div>
   </div>
@@ -441,6 +486,36 @@ function updateQuickModelProfile(profileId: string) {
     llm: {
       ...settingsStore.settings.llm,
       quickModelProfileId: profileId || undefined
+    }
+  })
+}
+
+// 更新嵌入模型配置 Profile
+function updateEmbeddingProfile(profileId: string) {
+  settingsStore.updateSettings({
+    llm: {
+      ...settingsStore.settings.llm,
+      embeddingProfileId: profileId || undefined
+    }
+  })
+}
+
+// 更新嵌入维度
+function updateEmbeddingDimension(dimension: number) {
+  settingsStore.updateSettings({
+    llm: {
+      ...settingsStore.settings.llm,
+      embeddingDimension: dimension
+    }
+  })
+}
+
+// 更新嵌入功能启用状态
+function updateEmbeddingEnabled(enabled: boolean) {
+  settingsStore.updateSettings({
+    llm: {
+      ...settingsStore.settings.llm,
+      embeddingEnabled: enabled
     }
   })
 }
