@@ -1,13 +1,11 @@
 import { onMounted, onUnmounted } from 'vue'
-import { useNotebookStore } from '@/stores/notebookStore'
-import { parseDeepLinkUrl, findNodeByDeepLink } from './useDeepLink'
+import { parseDeepLinkUrl, findNodeByNodeId } from './useDeepLink'
 
 /**
  * Composable to handle paste events on edit boxes
  * Converts onehand:// URLs to markdown links when pasted
  */
 export function useLinkPaste() {
-  const notebookStore = useNotebookStore()
 
   async function handlePaste(event: ClipboardEvent) {
     const clipboardData = event.clipboardData
@@ -28,8 +26,8 @@ export function useLinkPaste() {
     event.preventDefault()
 
     // Parse the deep link
-    const linkData = parseDeepLinkUrl(pastedText)
-    if (!linkData) {
+    const nodeId = parseDeepLinkUrl(pastedText)
+    if (!nodeId) {
       // Invalid URL, paste as-is
       insertText(target as HTMLTextAreaElement | HTMLInputElement, pastedText)
       return
@@ -37,7 +35,7 @@ export function useLinkPaste() {
 
     // Find the node to get its title
     try {
-      const nodeData = await findNodeByDeepLink(linkData)
+      const nodeData = await findNodeByNodeId(nodeId)
       if (nodeData) {
         // Create markdown link with node title
         const title = nodeData.node.title || '笔记'

@@ -110,6 +110,7 @@
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { v4 as uuidv4 } from 'uuid'
 import { useNotebookStore } from '@/stores/notebookStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useContextStore } from '@/stores/contextStore'
@@ -474,7 +475,7 @@ function handleNodePositionChange(data: { nodeId: string; position: { x: number;
 function handleCreateNode(data: { type: 'text-note' | 'voice-note'; page: number; x: number; y: number }) {
   if (data.type === 'voice-note') return
 
-  const nodeId = `node-${Date.now()}`
+  const nodeId = uuidv4()
   const title = `第 ${data.page} 页笔记`
 
   const node: CanvasNode = {
@@ -498,7 +499,7 @@ function handleCreateNode(data: { type: 'text-note' | 'voice-note'; page: number
 }
 
 async function handleRecordingComplete(data: { audioBlob: Blob; duration: number; page: number; x: number; y: number }) {
-  const nodeId = `node-${Date.now()}`
+  const nodeId = uuidv4()
   const title = `第 ${data.page} 页录音`
 
   const node: CanvasNode = {
@@ -1032,7 +1033,7 @@ async function handleCopySelectedContext() {
  * 处理"分析当前页面"事件
  */
 async function handleAnalyzePage(data: { imageBase64: string; pageNumber: number; position: { x: number; y: number } }) {
-  const nodeId = `node-${Date.now()}`
+  const nodeId = uuidv4()
   const title = `第 ${data.pageNumber} 页分析`
 
   // 创建分析节点
@@ -1061,7 +1062,7 @@ async function handleAnalyzePage(data: { imageBase64: string; pageNumber: number
  * 处理"解释选中内容"事件
  */
 async function handleExplainSelection(data: { imageBase64: string; selectedText: string; pageNumber: number; position: { x: number; y: number } }) {
-  const nodeId = `node-${Date.now()}`
+  const nodeId = uuidv4()
   const title = data.selectedText.length > 10 ? data.selectedText.slice(0, 10) + '...' : data.selectedText
 
   // 创建分析节点

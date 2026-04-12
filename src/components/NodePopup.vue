@@ -65,10 +65,9 @@
 import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import VoiceNote from '@/components/VoiceNote.vue'
-import { parseDeepLinkUrl, findNodeByDeepLink, type NodePopupData } from '@/composables/useDeepLink'
+import { parseDeepLinkUrl, findNodeByNodeId, type NodePopupData } from '@/composables/useDeepLink'
 import { useNotebookStore } from '@/stores/notebookStore'
 import { getNotebookDataDir } from '@/utils/userFilesPath'
-import type { DeepLinkData } from '@/composables/useDeepLink'
 import type { CanvasNode } from '@/types/notebook'
 
 const props = defineProps<{
@@ -78,7 +77,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'close'): void
-  (e: 'navigate', data: DeepLinkData): void
+  (e: 'navigate', data: { notebookId: string; canvasId: string; nodeId: string }): void
 }>()
 
 const notebookStore = useNotebookStore()
@@ -124,7 +123,7 @@ async function loadNodeData(url: string) {
       return
     }
 
-    const result = await findNodeByDeepLink(linkData)
+    const result = await findNodeByNodeId(linkData)
     if (!result) {
       error.value = '找不到链接指向的笔记，可能已被删除'
       loading.value = false

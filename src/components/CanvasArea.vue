@@ -74,6 +74,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { v4 as uuidv4 } from 'uuid'
 import { useNotebookStore } from '@/stores/notebookStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import InfiniteCanvas from '@/components/InfiniteCanvas.vue'
@@ -370,7 +371,7 @@ async function handleLongPressEnd(isCancel = false) {
     const audioBlob = await simpleRecorder.stop()
     const extension = audioBlob.type === 'audio/wav' ? 'wav' : 'webm'
 
-    const nodeId = `node-${Date.now()}`
+    const nodeId = uuidv4()
     const audioPath = `audio/${nodeId}.${extension}`
 
     const notebook = notebookStore.currentNotebook
@@ -843,7 +844,7 @@ function handleMagicInputSave(text: string) {
     // 创建新节点
     const position = state.position || { x: 100, y: 100 }
     const node: CanvasNode = {
-      id: `node-${Date.now()}`,
+      id: uuidv4(),
       type: 'text-note',
       position,
       transcript: text,
@@ -877,7 +878,7 @@ function handleMagicInputCancel() {
 
 async function handleDropText(x: number, y: number, text: string) {
   const node: CanvasNode = {
-    id: `node-${Date.now()}`,
+    id: uuidv4(),
     type: 'text-note',
     position: { x, y },
     transcript: text,
@@ -903,7 +904,7 @@ async function handleDropImage(x: number, y: number, files: File[]) {
   await window.electronAPI.mkdir(imagesDir)
 
   for (const file of files) {
-    const nodeId = `node-${Date.now()}`
+    const nodeId = uuidv4()
     const ext = file.name.split('.').pop() || 'png'
     const imagePath = `images/${nodeId}.${ext}`
 
@@ -945,7 +946,7 @@ async function handleAskWithNewRecording() {
       const audioBlob = await simpleRecorder.stop()
       const extension = audioBlob.type === 'audio/wav' ? 'wav' : 'webm'
 
-      const nodeId = `node-${Date.now()}`
+      const nodeId = uuidv4()
       const audioPath = `audio/${nodeId}.${extension}`
 
       const notebook = notebookStore.currentNotebook

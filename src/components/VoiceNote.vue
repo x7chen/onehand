@@ -1088,8 +1088,7 @@ async function copyAgentResult() {
 
 // 复制笔记链接
 async function handleCopyLink() {
-  if (!props.notebookId || !props.canvasId) return
-  const url = `onehand://${props.notebookId}/${props.canvasId}/${props.node.id}`
+  const url = `onehand://${props.node.id}`
   try {
     await navigator.clipboard.writeText(url)
     console.log('Link copied:', url)

@@ -27,6 +27,7 @@
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^20.19.37",
+    "@types/uuid": "^11.0.0",
     "@vitejs/plugin-vue": "^4.6.2",
     "electron": "^28.0.0",
     "electron-builder": "^24.13.3",
@@ -44,7 +45,8 @@
     "mermaid": "^11.6.0",
     "pdfjs-dist": "^4.7.76",
     "sherpa-onnx": "^1.12.29",
+    "uuid": "^13.0.0",
     "vue-i18n": "^11.3.0",
-    "vue-tsc": "^3.2.5"
+    "vue-tsc": "^3.2.6"
   }
 }

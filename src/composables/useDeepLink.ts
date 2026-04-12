@@ -17,45 +17,34 @@ export interface NodePopupData {
 
 /**
  * Parse onehand:// URL
- * Format: onehand://notebook_id/canvas_id/node_id
+ * New format: onehand://node_uuid
  */
-export function parseDeepLinkUrl(url: string): DeepLinkData | null {
+export function parseDeepLinkUrl(url: string): string | null {
   if (!url || !url.startsWith('onehand://')) {
     return null
   }
 
-  try {
-    // Remove the protocol prefix
-    const path = url.replace('onehand://', '')
-    const parts = path.split('/').filter(p => p) // Remove empty parts
-
-    if (parts.length < 3) {
-      console.warn('Invalid deep link URL format:', url)
-      return null
-    }
-
-    return {
-      notebookId: parts[0],
-      canvasId: parts[1],
-      nodeId: parts[2]
-    }
-  } catch (error) {
-    console.error('Failed to parse deep link URL:', error)
+  const nodeId = url.replace('onehand://', '')
+  if (!nodeId) {
+    console.warn('Invalid deep link URL format:', url)
     return null
   }
+
+  return nodeId
 }
 
 /**
  * Generate a deep link URL for a node
+ * New format: onehand://node_uuid
  */
-export function generateDeepLinkUrl(notebookId: string, canvasId: string, nodeId: string): string {
-  return `onehand://${notebookId}/${canvasId}/${nodeId}`
+export function generateDeepLinkUrl(nodeId: string): string {
+  return `onehand://${nodeId}`
 }
 
 /**
- * Find a node by deep link data
+ * Find a node by its ID across all notebooks
  */
-export async function findNodeByDeepLink(data: DeepLinkData): Promise<NodePopupData | null> {
+export async function findNodeByNodeId(nodeId: string): Promise<NodePopupData | null> {
   const notebookStore = useNotebookStore()
 
   // Load notebooks if not loaded
@@ -63,40 +52,27 @@ export async function findNodeByDeepLink(data: DeepLinkData): Promise<NodePopupD
     await notebookStore.loadNotebooks()
   }
 
-  // Find the notebook
-  const notebook = notebookStore.notebooks.find(p => p.id === data.notebookId)
-  if (!notebook) {
-    console.warn('Notebook not found:', data.notebookId)
-    return null
-  }
+  // Search through all notebooks
+  for (const notebook of notebookStore.notebooks) {
+    if (!notebook.canvases) continue
 
-  // Try to find canvas by ID first
-  let canvas = notebook.canvases?.find(c => c.id === data.canvasId)
-
-  // If canvas not found by ID, search for the node in all canvases (fallback for PDF notebooks)
-  if (!canvas && notebook.canvases) {
-    for (const c of notebook.canvases) {
-      if (c.nodes.some(n => n.id === data.nodeId)) {
-        canvas = c
-        console.log('Found node in canvas:', c.id, 'pdfPage:', c.pdfPage)
-        break
+    for (const canvas of notebook.canvases) {
+      const node = canvas.nodes.find(n => n.id === nodeId)
+      if (node) {
+        return { notebook, canvas, node }
       }
     }
   }
 
-  if (!canvas) {
-    console.warn('Canvas not found:', data.canvasId)
-    return null
-  }
+  console.warn('Node not found:', nodeId)
+  return null
+}
 
-  // Find the node
-  const node = canvas.nodes.find(n => n.id === data.nodeId)
-  if (!node) {
-    console.warn('Node not found:', data.nodeId)
-    return null
-  }
-
-  return { notebook, canvas, node }
+/**
+ * Alias for findNodeByNodeId (for backward compatibility)
+ */
+export async function findNodeByDeepLink(data: DeepLinkData): Promise<NodePopupData | null> {
+  return findNodeByNodeId(data.nodeId)
 }
 
 /**
@@ -114,13 +90,13 @@ export function useDeepLink() {
     deepLinkUrl.value = url
     error.value = null
 
-    const data = parseDeepLinkUrl(url)
-    if (!data) {
+    const nodeId = parseDeepLinkUrl(url)
+    if (!nodeId) {
       error.value = '无效的链接格式'
       return
     }
 
-    const nodeData = await findNodeByDeepLink(data)
+    const nodeData = await findNodeByNodeId(nodeId)
     if (!nodeData) {
       error.value = '找不到链接指向的笔记，可能已被删除'
       return
@@ -133,15 +109,15 @@ export function useDeepLink() {
     if (nodeData.notebook.pdfPath && nodeData.canvas.pdfPage) {
       notebookStore.switchToPdfPage(nodeData.canvas.pdfPage)
       // PDF notebook - navigate to PdfReaderView with nodeId query
-      router.push(`/pdf/${data.notebookId}?nodeId=${data.nodeId}`)
+      router.push(`/pdf/${nodeData.notebook.id}?nodeId=${nodeId}`)
     } else {
-      // For non-PDF notebooks, find the canvas index by ID and switch
-      const canvasIndex = nodeData.notebook.canvases?.findIndex(c => c.id === data.canvasId) ?? 0
+      // For non-PDF notebooks, find the canvas index and switch
+      const canvasIndex = nodeData.notebook.canvases?.findIndex(c => c.id === nodeData.canvas.id) ?? 0
       if (canvasIndex >= 0) {
         nodeData.notebook.currentCanvasIndex = canvasIndex
       }
-      // Normal notebook - navigate to NodeListView with canvasId and nodeId query
-      router.push(`/multi-chat/${data.notebookId}?canvasId=${data.canvasId}&nodeId=${data.nodeId}`)
+      // Normal notebook - navigate to multi-chat with nodeId query
+      router.push(`/multi-chat/${nodeData.notebook.id}?nodeId=${nodeId}`)
     }
   }
 
@@ -176,6 +152,7 @@ export function useDeepLink() {
     handleDeepLink,
     parseDeepLinkUrl,
     generateDeepLinkUrl,
+    findNodeByNodeId,
     findNodeByDeepLink
   }
 }

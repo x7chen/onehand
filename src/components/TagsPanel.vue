@@ -219,11 +219,7 @@ function selectTag(tagGroup: TagGroup) {
 }
 
 function openNodeDetail(item: TaggedNodeItem) {
-  selectedNodeUrl.value = generateDeepLinkUrl(
-    item.notebookId,
-    item.canvasId,
-    item.nodeId
-  )
+  selectedNodeUrl.value = generateDeepLinkUrl(item.nodeId)
   showNodePopup.value = true
 }
 

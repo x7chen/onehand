@@ -152,11 +152,7 @@ function getCanvasName(canvas: CanvasPage, notebook: Notebook): string {
 }
 
 function openNodeDetail(item: FavoriteNodeItem) {
-  selectedNodeUrl.value = generateDeepLinkUrl(
-    item.notebookId,
-    item.canvasId,
-    item.nodeId
-  )
+  selectedNodeUrl.value = generateDeepLinkUrl(item.nodeId)
   showNodePopup.value = true
 }
 

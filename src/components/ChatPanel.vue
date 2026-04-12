@@ -182,6 +182,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { v4 as uuidv4 } from 'uuid'
 import { useNotebookStore } from '@/stores/notebookStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useQuickCommandStore } from '@/stores/quickCommandStore'
@@ -574,7 +575,7 @@ async function handleSendInput() {
   const text = inputText.value.trim()
   if (!text) return
 
-  const newNodeId = `node-${Date.now()}`
+  const newNodeId = uuidv4()
   const newNode: CanvasNode = {
     id: newNodeId,
     type: 'text-note',
@@ -1099,7 +1100,7 @@ async function handleMagicPadDrop(e: DragEvent) {
   const x = e.clientX - rect.left
   const y = e.clientY - rect.top
 
-  const newNodeId = `node-${Date.now()}`
+  const newNodeId = uuidv4()
 
   const newNode: CanvasNode = {
     id: newNodeId,
@@ -1144,7 +1145,7 @@ async function handleMagicPadImageDrop(files: File[]) {
   await window.electronAPI.mkdir(imagesDir)
 
   for (const file of files) {
-    const nodeId = `node-${Date.now()}`
+    const nodeId = uuidv4()
     const ext = file.name.split('.').pop() || 'png'
     const imagePath = `images/${nodeId}.${ext}`
 
@@ -1414,7 +1415,7 @@ async function stopVoiceRecording() {
 // 创建语音节点
 async function createVoiceNode(audioBlob: Blob, duration: number) {
   const extension = audioBlob.type === 'audio/wav' ? 'wav' : 'webm'
-  const nodeId = `node-${Date.now()}`
+  const nodeId = uuidv4()
   const audioPath = `audio/${nodeId}.${extension}`
 
   const notebook = notebookStore.currentNotebook
