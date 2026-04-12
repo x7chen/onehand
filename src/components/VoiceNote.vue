@@ -529,10 +529,11 @@ async function loadImage() {
     imageBlobUrl.value = null
   }
 
-  const notebook = notebookStore.currentNotebook
-  if (!notebook) return
+  // 使用 props.notebookId 或 currentNotebook
+  const notebookId = props.notebookId || notebookStore.currentNotebook?.id
+  if (!notebookId) return
 
-  const notebookDir = await getNotebookDataDir(notebook.id)
+  const notebookDir = await getNotebookDataDir(notebookId)
   const fullPath = `${notebookDir}/${props.node.imagePath}`
   const result = await window.electronAPI.readFile(fullPath, 'arraybuffer')
 
@@ -549,14 +550,15 @@ function handleImageLoad() {
 
 // 保存图片到笔记本目录并返回markdown链接
 async function saveImageToNotebook(file: File): Promise<string | null> {
-  const notebook = notebookStore.currentNotebook
-  if (!notebook) {
-    console.error('[VoiceNote] No current notebook')
+  // 使用 props.notebookId 或 currentNotebook
+  const notebookId = props.notebookId || notebookStore.currentNotebook?.id
+  if (!notebookId) {
+    console.error('[VoiceNote] No notebook id')
     return null
   }
 
   try {
-    const imagesDir = await getNotebookImagesDir(notebook.id)
+    const imagesDir = await getNotebookImagesDir(notebookId)
 
     // 确保images目录存在
     await window.electronAPI.mkdir(imagesDir)
@@ -1147,7 +1149,8 @@ onMounted(async () => {
     await loadImage()
   }
 
-  const notebookId = notebookStore.currentNotebook?.id
+  // 使用 props.notebookId 或 currentNotebook
+  const notebookId = props.notebookId || notebookStore.currentNotebook?.id
 
   if (props.node.transcript) {
     console.log('[VoiceNote] Rendering transcript...')
@@ -1187,7 +1190,7 @@ watch(() => props.node.transcript, async (newTranscript) => {
   transcriptDebounceTimer = window.setTimeout(async () => {
     let html = newTranscript ? await renderMarkdown(newTranscript) : ''
     // 处理相对路径图片
-    const notebookId = notebookStore.currentNotebook?.id
+    const notebookId = props.notebookId || notebookStore.currentNotebook?.id
     if (notebookId && html) {
       html = await processImagePaths(html, notebookId)
     }
@@ -1217,7 +1220,7 @@ watch(() => props.node.agentResult, async (newAgentResult) => {
       let html = await renderMarkdown(newAgentResult)
       // 处理相对路径图片（仅在非流式模式下，避免频繁处理）
       if (props.node.agentStatus !== 'processing') {
-        const notebookId = notebookStore.currentNotebook?.id
+        const notebookId = props.notebookId || notebookStore.currentNotebook?.id
         if (notebookId) {
           html = await processImagePaths(html, notebookId)
         }
