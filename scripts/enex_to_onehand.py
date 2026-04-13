@@ -6,9 +6,11 @@
 
 使用方法:
     python enex_to_onehand.py <input.enex> [output_dir] [options]
+    python enex_to_onehand.py <input_folder> [output_dir] -r [options]
 
 参数:
     input.enex    - 印象笔记导出的 enex 文件路径
+    input_folder  - 包含 enex 文件的文件夹路径（需配合 -r 使用）
     output_dir    - 输出目录，默认为当前目录下的 onehand_notebooks
 
 选项:
@@ -16,6 +18,7 @@
     -w, --by-week   按创建时间的星期（周一开始）分到不同画布页
     -d, --by-day    按创建时间的天分到不同画布页
     -i, --images    提取图片到单独的images文件夹，并转换为markdown图片引用
+    -r, --recursive 递归处理文件夹中的所有 enex 文件
 
 示例:
     python enex_to_onehand.py my_notes.enex
@@ -24,6 +27,10 @@
     python enex_to_onehand.py my_notes.enex ./output -w
     python enex_to_onehand.py my_notes.enex ./output -d
     python enex_to_onehand.py my_notes.enex ./output -i
+    python enex_to_onehand.py my_notes.enex ./output -m -i
+    python enex_to_onehand.py ./enex_folder -r
+    python enex_to_onehand.py ./enex_folder ./output -r -i
+    python enex_to_onehand.py ./enex_folder ./output -r -m -i
 """
 
 import xml.etree.ElementTree as ET
@@ -33,6 +40,7 @@ import sys
 import re
 import base64
 import hashlib
+import uuid
 import argparse
 from datetime import datetime, timedelta
 from html.parser import HTMLParser
@@ -264,8 +272,8 @@ def parse_evernote_time(time_str: str) -> int:
 
 
 def generate_id() -> str:
-    """生成唯一ID"""
-    return str(int(datetime.now().timestamp() * 1000))
+    """生成唯一ID（UUID格式）"""
+    return str(uuid.uuid4())
 
 
 def calculate_node_position(index: int, total: int) -> Dict[str, int]:
@@ -652,8 +660,8 @@ def create_onehand_notebook(notes: List[Dict], notebook_name: str, by_month: boo
     # 创建节点
     nodes = []
     for i, note in enumerate(notes):
-        # 使用笔记创建时间作为节点ID，确保唯一性
-        node_id = str(note['created']) + str(i)
+        # 使用 UUID 作为节点ID，确保唯一性
+        node_id = generate_id()
         position = calculate_node_position(i, len(notes))
 
         # 处理内容
@@ -738,7 +746,7 @@ def create_onehand_notebook_by_month(notes: List[Dict], notebook_name: str, note
         # 创建该月份的节点
         nodes = []
         for i, note in enumerate(month_notes):
-            node_id = str(note['created']) + str(i)
+            node_id = generate_id()
             position = calculate_node_position(i, len(month_notes))
 
             # 处理内容
@@ -843,7 +851,7 @@ def create_onehand_notebook_by_week(notes: List[Dict], notebook_name: str, noteb
         # 创建该星期的节点
         nodes = []
         for i, note in enumerate(week_notes):
-            node_id = str(note['created']) + str(i)
+            node_id = generate_id()
             position = calculate_node_position(i, len(week_notes))
 
             # 处理内容
@@ -928,7 +936,7 @@ def create_onehand_notebook_by_day(notes: List[Dict], notebook_name: str, notebo
         # 创建该天的节点
         nodes = []
         for i, note in enumerate(day_notes):
-            node_id = str(note['created']) + str(i)
+            node_id = generate_id()
             position = calculate_node_position(i, len(day_notes))
 
             # 处理内容
@@ -1085,9 +1093,11 @@ def main():
     python enex_to_onehand.py my_notes.enex ./output -d
     python enex_to_onehand.py my_notes.enex ./output -i
     python enex_to_onehand.py my_notes.enex ./output -m -i
+    python enex_to_onehand.py ./enex_folder -r
+    python enex_to_onehand.py ./enex_folder ./output -r -i
         """
     )
-    parser.add_argument('input', help='印象笔记导出的 enex 文件路径')
+    parser.add_argument('input', help='印象笔记导出的 enex 文件路径或包含 enex 文件的文件夹路径')
     parser.add_argument('output', nargs='?', default='./onehand_notebooks',
                         help='输出目录，默认为 ./onehand_notebooks')
     parser.add_argument('-m', '--by-month', action='store_true',
@@ -1098,40 +1108,93 @@ def main():
                         help='按创建时间的天分到不同画布页')
     parser.add_argument('-i', '--images', action='store_true',
                         help='提取图片到单独的images文件夹，并转换为markdown图片引用')
+    parser.add_argument('-r', '--recursive', action='store_true',
+                        help='递归处理文件夹中的所有 enex 文件')
 
     args = parser.parse_args()
 
+    # 检查输入路径是否存在
     if not os.path.exists(args.input):
-        print(f"错误: 文件不存在: {args.input}")
+        print(f"错误: 文件/文件夹不存在: {args.input}")
         sys.exit(1)
 
+    # 收集所有需要处理的 enex 文件
+    enex_files = []
+    if os.path.isfile(args.input):
+        if args.input.lower().endswith('.enex'):
+            enex_files.append(args.input)
+        else:
+            print(f"错误: 输入文件不是 .enex 文件: {args.input}")
+            sys.exit(1)
+    elif os.path.isdir(args.input):
+        # 处理文件夹
+        if args.recursive:
+            # 递归查找所有 enex 文件
+            for root, dirs, files in os.walk(args.input):
+                for file in sorted(files):
+                    if file.lower().endswith('.enex'):
+                        enex_files.append(os.path.join(root, file))
+        else:
+            # 只处理当前目录下的 enex 文件
+            for file in sorted(os.listdir(args.input)):
+                file_path = os.path.join(args.input, file)
+                if os.path.isfile(file_path) and file.lower().endswith('.enex'):
+                    enex_files.append(file_path)
+        
+        if not enex_files:
+            print(f"错误: 文件夹中没有找到 .enex 文件: {args.input}")
+            sys.exit(1)
+        
+        print(f"在文件夹 {args.input} 中找到 {len(enex_files)} 个 enex 文件")
+
     # 执行转换
-    try:
-        output_path = convert_enex_to_onehand(
-            args.input, args.output,
-            by_month=args.by_month,
-            by_week=args.by_week,
-            by_day=args.by_day,
-            extract_images=args.images
-        )
-        if output_path:
-            print(f"\n转换完成!")
-            print(f"请将生成的文件复制到 OneHand 用户数据目录:")
-            print(f"  Windows: %APPDATA%\\OneHand\\")
-            print(f"  macOS: ~/Library/Application Support/OneHand/")
-            print(f"\n文件说明:")
-            print(f"  - 笔记本文件 ({os.path.basename(output_path)}) 放入 notebooks/ 目录")
-            print(f"  - 标签文件 (tags.json) 放入用户数据根目录")
-            if args.images:
-                # 获取笔记本ID（文件名不含扩展名）
-                notebook_id = os.path.basename(output_path).replace('.json', '')
-                print(f"\n注意: 如果使用了 -i 参数提取图片，请将笔记本JSON文件和同名的图片文件夹一起复制:")
-                print(f"  笔记本文件: {os.path.basename(output_path)}")
-                print(f"  图片文件夹: {notebook_id}/")
-    except Exception as e:
-        print(f"转换失败: {e}")
-        import traceback
-        traceback.print_exc()
+    total_success = 0
+    total_failed = 0
+    
+    for enex_path in enex_files:
+        print(f"\n{'='*60}")
+        print(f"正在处理: {os.path.basename(enex_path)}")
+        print(f"{'='*60}")
+        
+        try:
+            output_path = convert_enex_to_onehand(
+                enex_path, args.output,
+                by_month=args.by_month,
+                by_week=args.by_week,
+                by_day=args.by_day,
+                extract_images=args.images
+            )
+            if output_path:
+                total_success += 1
+                print(f"\n✓ 转换成功: {os.path.basename(enex_path)}")
+                if args.images:
+                    notebook_id = os.path.basename(output_path).replace('.json', '')
+                    print(f"  笔记本文件: {os.path.basename(output_path)}")
+                    print(f"  图片文件夹: {notebook_id}/")
+        except Exception as e:
+            total_failed += 1
+            print(f"\n✗ 转换失败: {os.path.basename(enex_path)}")
+            print(f"  错误: {e}")
+            import traceback
+            traceback.print_exc()
+
+    # 打印总结
+    print(f"\n{'='*60}")
+    print(f"批量转换完成!")
+    print(f"成功: {total_success} 个, 失败: {total_failed} 个")
+    print(f"{'='*60}")
+    
+    if total_success > 0:
+        print(f"\n请将生成的文件复制到 OneHand 用户数据目录:")
+        print(f"  Windows: %APPDATA%\\OneHand\\")
+        print(f"  macOS: ~/Library/Application Support/OneHand/")
+        print(f"\n文件说明:")
+        print(f"  - 笔记本文件 (*.json) 放入 notebooks/ 目录")
+        print(f"  - 标签文件 (tags.json) 放入用户数据根目录")
+        if args.images:
+            print(f"\n注意: 如果使用了 -i 参数提取图片，请将笔记本JSON文件和同名的图片文件夹一起复制")
+
+    if total_failed > 0:
         sys.exit(1)
 
 
