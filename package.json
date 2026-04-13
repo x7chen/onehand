@@ -42,9 +42,10 @@
   },
   "dependencies": {
     "@langchain/textsplitters": "^1.0.0",
-    "@llm-tools/embedjs": "^0.1.31",
-    "@llm-tools/embedjs-libsql": "^0.1.31",
     "@libsql/client": "^0.15.15",
+    "@llm-tools/embedjs": "^0.1.31",
+    "@llm-tools/embedjs-interfaces": "^0.1.31",
+    "@llm-tools/embedjs-libsql": "^0.1.31",
     "debug": "^4.4.3",
     "highlight.js": "^11.11.1",
     "katex": "^0.16.25",
