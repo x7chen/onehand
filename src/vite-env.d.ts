@@ -19,6 +19,18 @@ interface SherpaOnnxConfig {
   decodingMethod?: 'greedy_search' | 'modified_beam_search'
 }
 
+/** NotebookNodeData - 用于索引的节点数据 */
+interface NotebookNodeData {
+  notebookId: string
+  notebookName: string
+  canvasId: string
+  canvasName: string
+  nodeId: string
+  nodeTitle: string
+  fieldType: 'transcript' | 'agentResult'
+  text: string
+}
+
 interface ElectronAPI {
   saveFile: (filePath: string, data: string) => Promise<{ success: boolean; error?: string }>
   saveFileBuffer: (filePath: string, data: ArrayBuffer) => Promise<{ success: boolean; error?: string }>
@@ -54,48 +66,74 @@ interface ElectronAPI {
   getIconDataUrl: () => Promise<string | null>
   // 获取系统语言
   getSystemLocale: () => Promise<string>
-  // Vector Database API
-  initVectorDb: (dimension?: number, maxElements?: number) => Promise<{ success: boolean; dimension?: number; maxElements?: number; error?: string }>
-  loadVectorDb: () => Promise<{ success: boolean; entriesCount?: number; error?: string }>
-  addVector: (entryKey: string, vector: number[], metadata: {
-    notebookId: string
-    notebookName: string
-    canvasId: string
-    canvasName: string
-    nodeId: string
-    nodeTitle: string
-    fieldType: 'transcript' | 'agentResult'
-    textHash: string
-  }) => Promise<{ success: boolean; id?: number; error?: string }>
-  searchVectors: (queryVector: number[], k?: number) => Promise<{
+  // Vector Database API (embedJs)
+  initVectorDb: (dimension?: number, maxElements?: number) => Promise<{ success: boolean; dimension?: number; error?: string }>
+  indexNodes: (nodes: NotebookNodeData[]) => Promise<{ success: boolean; entriesAdded?: number; failedCount?: number; failedNodes?: string[]; error?: string }>
+  semanticSearch: (query: string, topK?: number) => Promise<{
     success: boolean
     results?: Array<{
-      entryKey: string
-      similarity: number
+      pageContent: string
+      score: number
       metadata: {
         notebookId: string
+        notebookName: string
         canvasId: string
+        canvasName: string
         nodeId: string
+        nodeTitle: string
         fieldType: 'transcript' | 'agentResult'
+        source: string
+        textHash: string
       }
     }>
     error?: string
   }>
-  deleteVector: (entryKey: string) => Promise<{ success: boolean; error?: string }>
-  saveVectorDb: () => Promise<{ success: boolean; error?: string }>
-  getVectorDbMetadata: () => Promise<{ success: boolean; metadata?: any; error?: string }>
-  updateVectorDbMetadata: (metadata: any) => Promise<{ success: boolean; error?: string }>
+  resetVectorDb: () => Promise<{ success: boolean; error?: string }>
+  deleteLoader: (loaderId: string) => Promise<{ success: boolean; error?: string }>
   getVectorDbStatus: () => Promise<{
     success: boolean
     status?: {
       initialized: boolean
       entriesCount: number
-      dimension: number
-      maxElements: number
       hnswlibAvailable: boolean
     }
     error?: string
   }>
+  getLoaders: () => Promise<{
+    success: boolean
+    loaders?: Array<{
+      uniqueId: string
+      type: string
+      chunksProcessed: number
+    }>
+    error?: string
+  }>
+  getIndexedHashes: () => Promise<{
+    success: boolean
+    hashes: Record<string, string>  // source -> textHash
+    error?: string
+  }>
+  getIndexStatusFull: (currentNodes: Array<{ source: string; textHash: string }>) => Promise<{
+    success: boolean
+    totalNodes: number
+    indexedNodes: number
+    outdatedNodes: number
+    hashes?: Record<string, string>
+    error?: string
+  }>
+  indexNodesIncremental: (nodes: NotebookNodeData[]) => Promise<{
+    success: boolean
+    entriesAdded?: number
+    error?: string
+  }>
+  deleteIndexedNodes: (sources: string[]) => Promise<{
+    success: boolean
+    deletedCount?: number
+    error?: string
+  }>
+  // Index progress event
+  onIndexProgress: (callback: (data: { progress: number; total: number; indexed: number; failed: number }) => void) => void
+  removeIndexProgressListener: () => void
 }
 
 interface Window {

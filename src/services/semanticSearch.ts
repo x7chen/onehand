@@ -170,9 +170,8 @@ export async function checkIndexNeedsUpdate(): Promise<{
 
 /**
  * 更新索引
- * 返回 { indexedCount: number, skippedNodes: SkippedIndexNode[] }
  */
-export async function updateIndex(onProgress?: (progress: number) => void): Promise<{ indexedCount: number; skippedNodes: SkippedIndexNode[] }> {
+export async function updateIndex(onProgress?: (progress: number) => void): Promise<{ indexedCount: number }> {
   const vectorStore = useVectorStore()
 
   // 确保向量数据库已初始化
@@ -180,7 +179,7 @@ export async function updateIndex(onProgress?: (progress: number) => void): Prom
     const success = await vectorStore.initVectorDb()
     if (!success) {
       console.error('Failed to initialize vector database')
-      return { indexedCount: 0, skippedNodes: [] }
+      return { indexedCount: 0 }
     }
   }
 

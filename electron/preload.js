@@ -33,14 +33,23 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getIconDataUrl: () => ipcRenderer.invoke('get-icon-data-url'),
   // 获取系统语言
   getSystemLocale: () => ipcRenderer.invoke('get-system-locale'),
-  // Vector Database API
+  // Vector Database API (embedJs with LibSQL)
   initVectorDb: (dimension, maxElements) => ipcRenderer.invoke('init-vector-db', dimension, maxElements),
-  addVector: (entryKey, vector, metadata) => ipcRenderer.invoke('add-vector', entryKey, vector, metadata),
-  searchVectors: (queryVector, k) => ipcRenderer.invoke('search-vectors', queryVector, k),
-  deleteVector: (entryKey) => ipcRenderer.invoke('delete-vector', entryKey),
-  saveVectorDb: () => ipcRenderer.invoke('save-vector-db'),
-  loadVectorDb: () => ipcRenderer.invoke('load-vector-db'),
-  getVectorDbMetadata: () => ipcRenderer.invoke('get-vector-db-metadata'),
-  updateVectorDbMetadata: (metadata) => ipcRenderer.invoke('update-vector-db-metadata', metadata),
-  getVectorDbStatus: () => ipcRenderer.invoke('get-vector-db-status')
+  indexNodes: (nodes) => ipcRenderer.invoke('index-nodes', nodes),
+  indexNodesIncremental: (nodes) => ipcRenderer.invoke('index-nodes-incremental', nodes),
+  deleteIndexedNodes: (sources) => ipcRenderer.invoke('delete-indexed-nodes', sources),
+  semanticSearch: (query, topK) => ipcRenderer.invoke('semantic-search', query, topK),
+  resetVectorDb: () => ipcRenderer.invoke('reset-vector-db'),
+  deleteLoader: (loaderId) => ipcRenderer.invoke('delete-loader', loaderId),
+  getVectorDbStatus: () => ipcRenderer.invoke('get-vector-db-status'),
+  getLoaders: () => ipcRenderer.invoke('get-loaders'),
+  getIndexedHashes: () => ipcRenderer.invoke('get-indexed-hashes'),
+  getIndexStatusFull: (currentNodes) => ipcRenderer.invoke('get-index-status-full', currentNodes),
+  // Index progress event
+  onIndexProgress: (callback) => {
+    ipcRenderer.on('index-progress', (event, data) => callback(data))
+  },
+  removeIndexProgressListener: () => {
+    ipcRenderer.removeAllListeners('index-progress')
+  }
 })

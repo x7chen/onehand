@@ -3,10 +3,15 @@
  * 在构建前运行，确保模型文件存在
  */
 
-const fs = require('fs')
-const path = require('path')
-const https = require('https')
-const { execSync } = require('child_process')
+import fs from 'fs'
+import path from 'path'
+import https from 'https'
+import { execSync } from 'child_process'
+import { fileURLToPath } from 'url'
+import { dirname } from 'path'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
 
 // 模型配置
 const MODEL_CONFIG = {
@@ -128,7 +133,7 @@ function extractArchive(archivePath, destDir) {
         // 尝试使用 PowerShell
         console.log('Trying PowerShell extraction...')
         execSync(
-          `powershell -Command "& {\$tar = tar -xjf '${archivePath}' -C '${destDir}'; exit \$LASTEXITCODE}"`,
+          `powershell -Command "& {$tar = tar -xjf '${archivePath}' -C '${destDir}'; exit $LASTEXITCODE}"`,
           { stdio: 'inherit' }
         )
       }

@@ -1,15 +1,15 @@
 /**
  * Vector Store
  * 管理向量数据库状态，提供索引更新和搜索功能
+ * 使用 embedJs 框架
  */
 
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
-import type { VectorMetadataEntry, VectorDbMetadata, SemanticSearchResult, IndexStatus, NodeIndexData, SkippedIndexNode } from '@/types/embedding'
-import type { CanvasNode } from '@/types/notebook'
+import { ref, computed, onUnmounted } from 'vue'
+import md5 from 'md5'
+import type { SemanticSearchResult, IndexStatus, SkippedIndexNode } from '@/types/embedding'
 import { useNotebookStore } from './notebookStore'
 import { useSettingsStore } from './settingsStore'
-import { generateEmbedding, textHash, cosineSimilarity, normalizeVector } from '@/composables/useEmbedding'
 
 const DEFAULT_MAX_ELEMENTS = 100000
 
@@ -17,13 +17,30 @@ export const useVectorStore = defineStore('vector', () => {
   // 状态
   const isInitialized = ref(false)
   const isIndexing = ref(false)
-  const metadata = ref<VectorDbMetadata | null>(null)
   const indexProgress = ref(0)
+  const entriesCount = ref(0)
+
+  // 进度回调
+  let progressCallback: ((progress: number) => void) | null = null
+
+  // 设置进度事件监听
+  const setupProgressListener = () => {
+    window.electronAPI.onIndexProgress((data: { progress: number; total: number; indexed: number; failed: number }) => {
+      indexProgress.value = data.progress
+      if (progressCallback) {
+        progressCallback(data.progress)
+      }
+    })
+  }
+
+  // 移除进度事件监听
+  const removeProgressListener = () => {
+    window.electronAPI.removeIndexProgressListener()
+    progressCallback = null
+  }
 
   // 计算属性
-  const entriesCount = computed(() => {
-    return metadata.value ? Object.keys(metadata.value.entries).length : 0
-  })
+  const indexedCount = computed(() => entriesCount.value)
 
   /**
    * 初始化向量数据库
@@ -33,68 +50,28 @@ export const useVectorStore = defineStore('vector', () => {
       const settingsStore = useSettingsStore()
       const dimension = settingsStore.settings.llm.embeddingDimension || 1536
 
-      // 先检查状态
+      // 先检查 Electron 端的状态
       const statusResult = await window.electronAPI.getVectorDbStatus()
-      console.log('Vector DB status before init:', statusResult)
+      console.log('Vector DB status:', statusResult)
 
-      if (statusResult.success && statusResult.status?.initialized) {
-        // 检查维度和最大元素数是否匹配
-        const existingDimension = statusResult.status.dimension
-        const existingMaxElements = statusResult.status.maxElements
-        if (existingDimension !== dimension || existingMaxElements < DEFAULT_MAX_ELEMENTS) {
-          console.log(`Config mismatch: DB has dimension=${existingDimension}, maxElements=${existingMaxElements}. Config has dimension=${dimension}. Need to rebuild index.`)
-          // 参数变更需要重新初始化
-          const initResult = await window.electronAPI.initVectorDb(dimension, DEFAULT_MAX_ELEMENTS)
-          if (initResult.success) {
-            isInitialized.value = true
-            metadata.value = null // 清空旧元数据
-            return true
-          }
-        } else {
-          console.log('Vector DB already initialized with correct config')
-          isInitialized.value = true
-          const metadataResult = await window.electronAPI.getVectorDbMetadata()
-          if (metadataResult.success) {
-            metadata.value = metadataResult.metadata
-          }
-          return true
-        }
+      if (statusResult.success && statusResult.status?.hnswlibAvailable && statusResult.status?.initialized) {
+        console.log('Vector DB already initialized in Electron')
+        isInitialized.value = true
+        entriesCount.value = statusResult.status.entriesCount
+        return true
       }
 
-      // 尝试加载已有的数据库
-      const loadResult = await window.electronAPI.loadVectorDb()
-      console.log('loadVectorDb result:', loadResult)
-      if (loadResult.success) {
-        // 检查加载的参数是否与配置匹配
-        const loadedMetadata = await window.electronAPI.getVectorDbMetadata()
-        if (loadedMetadata.success && loadedMetadata.metadata) {
-          const loadedDimension = loadedMetadata.metadata.dimension
-          const loadedMaxElements = loadedMetadata.metadata.maxElements
-          if (loadedDimension !== dimension || loadedMaxElements < DEFAULT_MAX_ELEMENTS) {
-            console.log(`Loaded DB config mismatch: dimension=${loadedDimension}, maxElements=${loadedMaxElements}. Reinitializing...`)
-            const initResult = await window.electronAPI.initVectorDb(dimension, DEFAULT_MAX_ELEMENTS)
-            if (initResult.success) {
-              isInitialized.value = true
-              metadata.value = null
-              return true
-            }
-          } else {
-            isInitialized.value = true
-            metadata.value = loadedMetadata.metadata
-            console.log('Vector DB loaded:', loadResult.entriesCount, 'entries')
-            return true
-          }
-        }
-      }
-
-      // 创建新的数据库
+      // 需要初始化
+      console.log('Initializing vector DB with dimension:', dimension)
       const initResult = await window.electronAPI.initVectorDb(dimension, DEFAULT_MAX_ELEMENTS)
       console.log('initVectorDb result:', initResult)
+
       if (initResult.success) {
         isInitialized.value = true
-        const statusResult = await window.electronAPI.getVectorDbMetadata()
-        if (statusResult.success) {
-          metadata.value = statusResult.metadata
+        // 获取最新的状态
+        const newStatus = await window.electronAPI.getVectorDbStatus()
+        if (newStatus.success) {
+          entriesCount.value = newStatus.status?.entriesCount || 0
         }
         return true
       }
@@ -108,221 +85,243 @@ export const useVectorStore = defineStore('vector', () => {
   }
 
   /**
-   * 获取条目键
+   * 收集所有笔记本节点数据
    */
-  function getEntryKey(notebookId: string, nodeId: string, fieldType: 'transcript' | 'agentResult'): string {
-    return `${notebookId}:${nodeId}:${fieldType}`
-  }
+  function collectNodes(): NotebookNodeData[] {
+    const notebookStore = useNotebookStore()
+    const nodes: NotebookNodeData[] = []
 
-  /**
-   * 检查节点是否需要索引
-   */
-  function needsIndexing(notebookId: string, nodeId: string, fieldType: 'transcript' | 'agentResult', text: string): boolean {
-    if (!metadata.value) {
-      console.log(`needsIndexing: no metadata, needs index for ${notebookId}:${nodeId}:${fieldType}`)
-      return true
-    }
+    const MAX_CHARS = 20000  // 与 NotebookLoader 保持一致
 
-    const key = getEntryKey(notebookId, nodeId, fieldType)
-    const entry = metadata.value.entries[key]
+    for (const notebook of notebookStore.notebooks) {
+      if (!notebook.canvases) continue
 
-    if (!entry) {
-      console.log(`needsIndexing: no entry for ${key}, needs index`)
-      return true
-    }
+      for (const canvas of notebook.canvases) {
+        const canvasName = canvas.pdfPage
+          ? `第 ${canvas.pdfPage} 页`
+          : (notebook.canvases.length > 1 ? `第 ${(notebook.currentCanvasIndex ?? 0) + 1} 页` : '画布')
 
-    const currentHash = textHash(text)
-    const needsUpdate = currentHash !== entry.textHash
-    if (needsUpdate) {
-      console.log(`needsIndexing: hash mismatch for ${key}, current=${currentHash}, stored=${entry.textHash}`)
-    }
-    return needsUpdate
-  }
-
-  /**
-   * 索引单个节点字段
-   * 返回 { success: boolean, skipped?: SkippedIndexNode }
-   */
-  async function indexNodeField(
-    notebookId: string,
-    notebookName: string,
-    canvasId: string,
-    canvasName: string,
-    node: CanvasNode,
-    fieldType: 'transcript' | 'agentResult'
-  ): Promise<{ success: boolean; skipped?: SkippedIndexNode }> {
-    const text = fieldType === 'transcript' ? node.transcript : node.agentResult
-    if (!text || text.trim().length === 0) {
-      return { success: false }
-    }
-
-    // 检查文本长度，超出 token 限制则跳过
-    // 大多数嵌入模型限制 8192 tokens，约等于 ~20000 字符
-    const MAX_CHARS = 20000
-    if (text.length > MAX_CHARS) {
-      console.log(`Skipping indexing for ${notebookId}:${node.id}:${fieldType}: text too long (${text.length} chars > ${MAX_CHARS})`)
-      return {
-        success: false,
-        skipped: {
-          notebookId,
-          notebookName,
-          canvasId,
-          canvasName,
-          nodeId: node.id,
-          nodeTitle: node.title || '',
-          fieldType,
-          reason: `文本过长 (${text.length} 字符，超过 ${MAX_CHARS} 限制)`
-        }
-      }
-    }
-
-    const settingsStore = useSettingsStore()
-    // 获取嵌入模型使用的 profile
-    const embeddingProfileId = settingsStore.settings.llm.embeddingProfileId
-    const profile = embeddingProfileId
-      ? settingsStore.settings.llm.profiles.find(p => p.id === embeddingProfileId)
-      : settingsStore.activeProfile
-    if (!profile) {
-      console.error('No embedding profile available')
-      return { success: false }
-    }
-
-    try {
-      // 生成 embedding，使用 profile 中的模型
-      const embedding = await generateEmbedding(text, {
-        baseUrl: profile.baseUrl,
-        apiKey: profile.apiKey,
-        model: profile.model
-      })
-
-      // 规范化向量
-      const normalizedVector = normalizeVector(embedding)
-
-      // 添加到数据库
-      const entryKey = getEntryKey(notebookId, node.id, fieldType)
-      const result = await window.electronAPI.addVector(entryKey, normalizedVector, {
-        notebookId,
-        notebookName,
-        canvasId,
-        canvasName,
-        nodeId: node.id,
-        nodeTitle: node.title || '',
-        fieldType,
-        textHash: textHash(text)
-      })
-
-      console.log(`addVector result for ${entryKey}:`, result)
-
-      if (result.success && result.id !== undefined) {
-        // 更新本地元数据
-        if (metadata.value) {
-          metadata.value.entries[entryKey] = {
-            id: result.id,
-            notebookId,
-            canvasId,
-            nodeId: node.id,
-            fieldType,
-            textHash: textHash(text),
-            updatedAt: Date.now()
+        for (const node of canvas.nodes) {
+          // 添加 transcript（跳过过长文本）
+          if (node.transcript && node.transcript.trim().length > 0) {
+            if (node.transcript.length <= MAX_CHARS) {
+              nodes.push({
+                notebookId: notebook.id,
+                notebookName: notebook.name,
+                canvasId: canvas.id,
+                canvasName,
+                nodeId: node.id,
+                nodeTitle: node.title || '',
+                fieldType: 'transcript',
+                text: node.transcript
+              })
+            }
           }
-          console.log(`Metadata updated for ${entryKey}`)
-        } else {
-          console.warn('metadata.value is null, cannot update')
-        }
-        return { success: true }
-      }
 
-      console.warn(`addVector failed for ${entryKey}:`, result.error)
-      return { success: false }
-    } catch (error) {
-      console.error('Error indexing node field:', error)
-      return { success: false }
+          // 添加 agentResult（跳过过长文本）
+          if (node.agentResult && node.agentResult.trim().length > 0) {
+            if (node.agentResult.length <= MAX_CHARS) {
+              nodes.push({
+                notebookId: notebook.id,
+                notebookName: notebook.name,
+                canvasId: canvas.id,
+                canvasName,
+                nodeId: node.id,
+                nodeTitle: node.title || '',
+                fieldType: 'agentResult',
+                text: node.agentResult
+              })
+            }
+          }
+        }
+      }
     }
+
+    return nodes
   }
 
   /**
-   * 批量索引所有笔记本
-   * 返回 { indexedCount: number, skippedNodes: SkippedIndexNode[] }
+   * 批量索引所有笔记本（增量更新）
    */
-  async function indexAllNotebooks(onProgress?: (progress: number) => void): Promise<{ indexedCount: number; skippedNodes: SkippedIndexNode[] }> {
+  async function indexAllNotebooks(onProgress?: (progress: number) => void): Promise<{ indexedCount: number; failedCount?: number; failedNodes?: SkippedIndexNode[] }> {
     if (isIndexing.value) {
       console.warn('Already indexing')
-      return { indexedCount: 0, skippedNodes: [] }
+      return { indexedCount: 0 }
+    }
+
+    // 确保向量数据库已初始化
+    if (!isInitialized.value) {
+      const success = await initVectorDb()
+      if (!success) {
+        console.error('Failed to initialize vector database')
+        return { indexedCount: 0 }
+      }
     }
 
     isIndexing.value = true
     indexProgress.value = 0
 
-    const notebookStore = useNotebookStore()
-    const skippedNodes: SkippedIndexNode[] = []
-    let indexedCount = 0
-    let totalCount = 0
+    // 设置进度回调并开始监听
+    progressCallback = onProgress || null
+    setupProgressListener()
+    onProgress?.(0)
 
-    // 计算总数
-    for (const notebook of notebookStore.notebooks) {
-      if (!notebook.canvases) continue
-      for (const canvas of notebook.canvases) {
-        for (const node of canvas.nodes) {
-          if (node.transcript) totalCount++
-          if (node.agentResult) totalCount++
+    try {
+      const notebookStore = useNotebookStore()
+
+      // 收集当前所有节点的信息
+      const currentNodesInfo: Array<{ source: string; node: NotebookNodeData; textHash: string }> = []
+      const MAX_CHARS = 20000
+
+      for (const notebook of notebookStore.notebooks) {
+        if (!notebook.canvases) continue
+        for (const canvas of notebook.canvases) {
+          const canvasName = canvas.pdfPage
+            ? `第 ${canvas.pdfPage} 页`
+            : (notebook.canvases.length > 1 ? `第 ${(notebook.currentCanvasIndex ?? 0) + 1} 页` : '画布')
+
+          for (const node of canvas.nodes) {
+            if (node.transcript && node.transcript.trim().length > 0 && node.transcript.length <= MAX_CHARS) {
+              const source = `${notebook.id}:${canvas.id}:${node.id}:transcript`
+              currentNodesInfo.push({
+                source,
+                node: {
+                  notebookId: notebook.id,
+                  notebookName: notebook.name,
+                  canvasId: canvas.id,
+                  canvasName,
+                  nodeId: node.id,
+                  nodeTitle: node.title || '',
+                  fieldType: 'transcript',
+                  text: node.transcript
+                },
+                textHash: md5(node.transcript)
+              })
+            }
+            if (node.agentResult && node.agentResult.trim().length > 0 && node.agentResult.length <= MAX_CHARS) {
+              const source = `${notebook.id}:${canvas.id}:${node.id}:agentResult`
+              currentNodesInfo.push({
+                source,
+                node: {
+                  notebookId: notebook.id,
+                  notebookName: notebook.name,
+                  canvasId: canvas.id,
+                  canvasName,
+                  nodeId: node.id,
+                  nodeTitle: node.title || '',
+                  fieldType: 'agentResult',
+                  text: node.agentResult
+                },
+                textHash: md5(node.agentResult)
+              })
+            }
+          }
         }
       }
-    }
 
-    // 索引每个节点
-    for (const notebook of notebookStore.notebooks) {
-      if (!notebook.canvases) continue
+      // 让后端计算状态
+      const statusResult = await window.electronAPI.getIndexStatusFull(
+        currentNodesInfo.map(n => ({ source: n.source, textHash: n.textHash }))
+      )
 
-      const canvasName = notebook.canvases.length > 1 ? `第 ${(notebook.currentCanvasIndex ?? 0) + 1} 页` : '画布'
+      if (!statusResult.success || statusResult.outdatedNodes === 0) {
+        console.log('No changes to index')
+        removeProgressListener()
+        isIndexing.value = false
+        return { indexedCount: 0 }
+      }
 
-      for (const canvas of notebook.canvases) {
-        for (const node of canvas.nodes) {
-          // 索引 transcript
-          if (node.transcript && needsIndexing(notebook.id, node.id, 'transcript', node.transcript)) {
-            const result = await indexNodeField(
-              notebook.id,
-              notebook.name,
-              canvas.id,
-              canvasName,
-              node,
-              'transcript'
-            )
-            if (result.success) indexedCount++
-            else if (result.skipped) skippedNodes.push(result.skipped)
+      const indexedHashes = statusResult.hashes || {}
+      const indexedTextHashes = new Set(Object.values(indexedHashes))
+
+      // 找出需要更新的节点
+      const nodesToUpdate: NotebookNodeData[] = []
+      const sourcesToDelete: string[] = []
+
+      // 检查新增或修改的节点
+      for (const item of currentNodesInfo) {
+        if (indexedHashes[item.source]) {
+          // source 已索引，检查 hash 是否变化
+          if (indexedHashes[item.source] !== item.textHash) {
+            // 内容变化，需要先删除旧的再添加新的
+            sourcesToDelete.push(item.source)
+            nodesToUpdate.push(item.node)
           }
-
-          // 索引 agentResult
-          if (node.agentResult && needsIndexing(notebook.id, node.id, 'agentResult', node.agentResult)) {
-            const result = await indexNodeField(
-              notebook.id,
-              notebook.name,
-              canvas.id,
-              canvasName,
-              node,
-              'agentResult'
-            )
-            if (result.success) indexedCount++
-            else if (result.skipped) skippedNodes.push(result.skipped)
+        } else {
+          // source 未索引，检查是否是重复内容
+          if (!indexedTextHashes.has(item.textHash)) {
+            // 新内容，需要索引
+            nodesToUpdate.push(item.node)
           }
-
-          // 更新进度
-          indexProgress.value = Math.round((indexedCount / totalCount) * 100)
-          onProgress?.(indexProgress.value)
         }
       }
+
+      // 检查已删除的节点（source 在 indexedHashes 中但不在当前）
+      const currentSources = new Set(currentNodesInfo.map(n => n.source))
+      for (const [indexedSource, indexedHash] of Object.entries(indexedHashes)) {
+        if (!currentSources.has(indexedSource)) {
+          // 检查这个内容是否还有其他节点在使用
+          const stillExists = currentNodesInfo.some(n => n.textHash === indexedHash)
+          if (!stillExists) {
+            // 内容确实不存在了，需要删除
+            sourcesToDelete.push(indexedSource)
+          }
+        }
+      }
+
+      console.log(`Incremental update: ${nodesToUpdate.length} to index, ${sourcesToDelete.length} to delete`)
+
+      // 先删除需要删除的节点（包括变化内容的旧数据）
+      if (sourcesToDelete.length > 0) {
+        console.log('sourcesToDelete:', sourcesToDelete)
+        const deleteResult = await window.electronAPI.deleteIndexedNodes(sourcesToDelete)
+        console.log(`Delete result: ${deleteResult.deletedCount} deleted`)
+      }
+
+      // 索引变化的节点（基于 textHash 去重）
+      const nodesByTextHash = new Map<string, NotebookNodeData>()
+      for (const node of nodesToUpdate) {
+        const textHash = md5(node.text)
+        if (!nodesByTextHash.has(textHash)) {
+          nodesByTextHash.set(textHash, node)
+        }
+      }
+
+      if (nodesByTextHash.size > 0) {
+        const uniqueNodes = Array.from(nodesByTextHash.values())
+        console.log('uniqueNodes to index:', uniqueNodes.map(n => ({
+          source: `${n.notebookId}:${n.canvasId}:${n.nodeId}:${n.fieldType}`,
+          textPreview: n.text.substring(0, 30)
+        })))
+        const result = await window.electronAPI.indexNodesIncremental(uniqueNodes)
+        console.log('Electron API indexNodesIncremental result:', result)
+
+        if (result.success) {
+          const added = result.entriesAdded || 0
+          entriesCount.value = added
+          indexProgress.value = 100
+          onProgress?.(100)
+
+          const newStatus = await window.electronAPI.getVectorDbStatus()
+          if (newStatus.success) {
+            entriesCount.value = newStatus.status?.entriesCount || added
+          }
+
+          return { indexedCount: added }
+        } else {
+          console.error('Failed to index nodes:', result.error)
+          return { indexedCount: 0 }
+        }
+      }
+
+      return { indexedCount: 0 }
+    } catch (error) {
+      console.error('Error indexing notebooks:', error)
+      return { indexedCount: 0 }
+    } finally {
+      removeProgressListener()
+      isIndexing.value = false
     }
-
-    // 保存数据库
-    await window.electronAPI.saveVectorDb()
-
-    // 重新从主进程获取最新的 metadata
-    const metadataResult = await window.electronAPI.getVectorDbMetadata()
-    if (metadataResult.success && metadataResult.metadata) {
-      metadata.value = metadataResult.metadata
-    }
-
-    isIndexing.value = false
-    return { indexedCount, skippedNodes }
   }
 
   /**
@@ -333,79 +332,43 @@ export const useVectorStore = defineStore('vector', () => {
       await initVectorDb()
     }
 
-    const settingsStore = useSettingsStore()
-    // 获取嵌入模型使用的 profile
-    const embeddingProfileId = settingsStore.settings.llm.embeddingProfileId
-    const profile = embeddingProfileId
-      ? settingsStore.settings.llm.profiles.find(p => p.id === embeddingProfileId)
-      : settingsStore.activeProfile
-    if (!profile) {
-      console.error('No embedding profile available')
-      return []
-    }
-
     try {
-      // 生成查询 embedding，使用 profile 中的模型
-      const queryEmbedding = await generateEmbedding(query, {
-        baseUrl: profile.baseUrl,
-        apiKey: profile.apiKey,
-        model: profile.model
-      })
+      const result = await window.electronAPI.semanticSearch(query, topK)
 
-      const normalizedQuery = normalizeVector(queryEmbedding)
-
-      // 搜索向量数据库
-      const searchResult = await window.electronAPI.searchVectors(normalizedQuery, topK)
-
-      if (!searchResult.success || !searchResult.results) {
-        console.error('Search failed:', searchResult.error)
+      if (!result.success || !result.results) {
+        console.error('Search failed:', result.error)
         return []
       }
 
-      // 获取完整的文本内容
+      // 获取笔记本数据以补全信息
       const notebookStore = useNotebookStore()
-      const results: SemanticSearchResult[] = []
 
-      for (const item of searchResult.results) {
-        const notebook = notebookStore.notebooks.find(n => n.id === item.metadata.notebookId)
-        if (!notebook) continue
+      return result.results.map(r => {
+        const notebook = notebookStore.notebooks.find(n => n.id === r.metadata.notebookId)
+        const canvas = notebook?.canvases?.find(c => c.id === r.metadata.canvasId)
+        const node = canvas?.nodes.find(n => n.id === r.metadata.nodeId)
 
-        const canvas = notebook.canvases?.find(c => c.id === item.metadata.canvasId)
-        if (!canvas) continue
-
-        const node = canvas.nodes.find(n => n.id === item.metadata.nodeId)
-        if (!node) continue
-
-        const text = item.metadata.fieldType === 'transcript' ? node.transcript : node.agentResult
-        if (!text) continue
-
-        // 从元数据获取完整信息
-        const entryKey = getEntryKey(item.metadata.notebookId, item.metadata.nodeId, item.metadata.fieldType)
-        const fullMetadata = metadata.value?.entries[entryKey]
-
-        results.push({
-          notebookId: item.metadata.notebookId,
-          notebookName: notebook.name,
-          canvasId: item.metadata.canvasId,
-          canvasName: canvas.pdfPage ? `第 ${canvas.pdfPage} 页` : '画布',
-          nodeId: item.metadata.nodeId,
-          nodeTitle: node.title || '',
-          fieldType: item.metadata.fieldType,
-          fullText: text,
-          similarity: item.similarity,
-          metadata: fullMetadata || {
+        return {
+          notebookId: r.metadata.notebookId,
+          notebookName: r.metadata.notebookName,
+          canvasId: r.metadata.canvasId,
+          canvasName: r.metadata.canvasName,
+          nodeId: r.metadata.nodeId,
+          nodeTitle: r.metadata.nodeTitle,
+          fieldType: r.metadata.fieldType,
+          fullText: r.pageContent,
+          similarity: r.score,
+          metadata: {
             id: 0,
-            notebookId: item.metadata.notebookId,
-            canvasId: item.metadata.canvasId,
-            nodeId: item.metadata.nodeId,
-            fieldType: item.metadata.fieldType,
-            textHash: '',
+            notebookId: r.metadata.notebookId,
+            canvasId: r.metadata.canvasId,
+            nodeId: r.metadata.nodeId,
+            fieldType: r.metadata.fieldType,
+            textHash: r.metadata.textHash,
             updatedAt: Date.now()
           }
-        })
-      }
-
-      return results
+        }
+      })
     } catch (error) {
       console.error('Semantic search error:', error)
       return []
@@ -413,77 +376,78 @@ export const useVectorStore = defineStore('vector', () => {
   }
 
   /**
-   * 获取索引状态
+   * 获取索引状态（由后端统一计算）
    */
   async function getIndexStatus(): Promise<IndexStatus> {
     const notebookStore = useNotebookStore()
 
-    // 确保使用最新的 metadata
-    const metadataResult = await window.electronAPI.getVectorDbMetadata()
-    if (metadataResult.success && metadataResult.metadata) {
-      metadata.value = metadataResult.metadata
-    }
-
-    let totalNodes = 0
-    let indexedNodes = 0
-    let outdatedNodes = 0
+    // 收集当前所有节点的 source 和 textHash（不去重）
+    const currentNodes: Array<{ source: string; textHash: string }> = []
+    const MAX_CHARS = 20000
 
     for (const notebook of notebookStore.notebooks) {
       if (!notebook.canvases) continue
-
       for (const canvas of notebook.canvases) {
         for (const node of canvas.nodes) {
-          if (node.transcript) {
-            totalNodes++
-            if (!needsIndexing(notebook.id, node.id, 'transcript', node.transcript)) {
-              indexedNodes++
-            } else {
-              outdatedNodes++
-            }
+          if (node.transcript && node.transcript.trim().length > 0 && node.transcript.length <= MAX_CHARS) {
+            const source = `${notebook.id}:${canvas.id}:${node.id}:transcript`
+            currentNodes.push({ source, textHash: md5(node.transcript) })
           }
-          if (node.agentResult) {
-            totalNodes++
-            if (!needsIndexing(notebook.id, node.id, 'agentResult', node.agentResult)) {
-              indexedNodes++
-            } else {
-              outdatedNodes++
-            }
+          if (node.agentResult && node.agentResult.trim().length > 0 && node.agentResult.length <= MAX_CHARS) {
+            const source = `${notebook.id}:${canvas.id}:${node.id}:agentResult`
+            currentNodes.push({ source, textHash: md5(node.agentResult) })
           }
         }
       }
     }
 
-    console.log(`Index status: total=${totalNodes}, indexed=${indexedNodes}, outdated=${outdatedNodes}`)
+    // 让后端统一计算状态
+    const result = await window.electronAPI.getIndexStatusFull(currentNodes)
+    console.log('getIndexStatus - backend result:', result)
+
+    if (!result.success) {
+      // 计算去重后的数量
+      const uniqueTextHashes = new Set(currentNodes.map(n => n.textHash))
+      return {
+        totalNodes: uniqueTextHashes.size,
+        indexedNodes: 0,
+        outdatedNodes: uniqueTextHashes.size,
+        isIndexing: isIndexing.value,
+        progress: indexProgress.value
+      }
+    }
 
     return {
-      totalNodes,
-      indexedNodes,
-      outdatedNodes,
+      totalNodes: result.totalNodes,
+      indexedNodes: result.indexedNodes,
+      outdatedNodes: result.outdatedNodes,
       isIndexing: isIndexing.value,
       progress: indexProgress.value
     }
   }
 
   /**
-   * 保存向量数据库
+   * 重置向量数据库
    */
-  async function saveVectorDb(): Promise<boolean> {
-    const result = await window.electronAPI.saveVectorDb()
+  async function resetVectorDb(): Promise<boolean> {
+    const result = await window.electronAPI.resetVectorDb()
+    if (result.success) {
+      isInitialized.value = false
+      entriesCount.value = 0
+    }
     return result.success
   }
 
   return {
     isInitialized,
     isIndexing,
-    metadata,
     indexProgress,
     entriesCount,
+    indexedCount,
     initVectorDb,
-    needsIndexing,
-    indexNodeField,
     indexAllNotebooks,
     semanticSearch,
     getIndexStatus,
-    saveVectorDb
+    resetVectorDb
   }
 })

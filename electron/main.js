@@ -1,6 +1,11 @@
-const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron')
-const path = require('path')
-const fs = require('fs')
+import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron'
+import path from 'path'
+import fs from 'fs'
+import { fileURLToPath } from 'url'
+import { dirname } from 'path'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
 
 // Check for single instance lock (needed for deep link handling on Windows)
 const gotTheLock = app.requestSingleInstanceLock()
@@ -13,21 +18,20 @@ if (!gotTheLock) {
 // Sherpa-ONNX 相关
 let sherpaOnnx = null
 try {
-  sherpaOnnx = require('sherpa-onnx')
+  sherpaOnnx = await import('sherpa-onnx')
   console.log('Sherpa-ONNX loaded successfully')
 } catch (e) {
   console.warn('Failed to load sherpa-onnx:', e.message)
 }
 
-// HNSW Vector Database
-let hnswlib = null
-let vectorIndex = null
-let vectorDbMetadata = null
+// VectorDb Manager
+let vectorDbManager = null
 try {
-  hnswlib = require('hnswlib-node')
-  // hnswlib-node loaded successfully
+  const { VectorDbManager } = await import('./vectorDbManager.js')
+  vectorDbManager = new VectorDbManager(app.getPath('userData'))
+  console.log('VectorDbManager loaded successfully')
 } catch (e) {
-  // Failed to load hnswlib-node
+  console.warn('Failed to load VectorDbManager:', e.message)
 }
 
 let mainWindow = null
@@ -39,20 +43,6 @@ let pendingDeepLinkUrl = null
 const getConfigPath = () => {
   const userDataPath = app.getPath('userData')
   return path.join(userDataPath, 'config.json')
-}
-
-// 向量数据库路径
-const getVectorDbDir = () => {
-  const userDataPath = app.getPath('userData')
-  return path.join(userDataPath, 'vector-db')
-}
-
-const getVectorDbIndexPath = () => {
-  return path.join(getVectorDbDir(), 'notebooks.hnsw')
-}
-
-const getVectorDbMetadataPath = () => {
-  return path.join(getVectorDbDir(), 'metadata.json')
 }
 
 // 笔记根目录（根据当前文件位置计算）
@@ -286,6 +276,44 @@ function handleDeepLink(url) {
   mainWindow.webContents.send('deep-link', url)
 }
 
+// 获取 embedding 配置
+async function getEmbeddingConfig() {
+  try {
+    const configPath = getConfigPath()
+    if (!fs.existsSync(configPath)) {
+      return null
+    }
+    const configData = fs.readFileSync(configPath, 'utf-8')
+    const config = JSON.parse(configData)
+
+    // 从 settings 中获取 embedding 配置
+    const embeddingProfileId = config.llm?.embeddingProfileId
+    const profiles = config.llm?.profiles || []
+    let profile = embeddingProfileId
+      ? profiles.find(p => p.id === embeddingProfileId)
+      : profiles[0]
+
+    if (!profile) {
+      profile = profiles[0]
+    }
+
+    if (!profile) {
+      console.error('No embedding profile available')
+      return null
+    }
+
+    return {
+      baseUrl: profile.baseUrl,
+      apiKey: profile.apiKey,
+      model: profile.model,
+      dimensions: config.llm?.embeddingDimension || 1536
+    }
+  } catch (error) {
+    console.error('Failed to get embedding config:', error)
+    return null
+  }
+}
+
 app.whenReady().then(() => {
   createWindow()
 
@@ -325,20 +353,6 @@ app.on('window-all-closed', () => {
       console.error('Error freeing recognizer:', e)
     }
     recognizer = null
-  }
-
-  // 保存向量数据库
-  if (vectorIndex && vectorDbMetadata) {
-    try {
-      const dbDir = getVectorDbDir()
-      if (!fs.existsSync(dbDir)) {
-        fs.mkdirSync(dbDir, { recursive: true })
-      }
-      vectorIndex.writeIndexSync(getVectorDbIndexPath())
-      fs.writeFileSync(getVectorDbMetadataPath(), JSON.stringify(vectorDbMetadata, null, 2))
-    } catch (e) {
-      // Error saving vector DB on exit
-    }
   }
 
   if (process.platform !== 'darwin') {
@@ -672,188 +686,238 @@ ipcMain.handle('get-system-locale', () => {
   return app.getLocale()
 })
 
-// ========== Vector Database IPC Handlers ==========
+// ========== Vector Database IPC Handlers (embedJs) ==========
 
 /**
  * 初始化向量数据库
  */
 ipcMain.handle('init-vector-db', async (event, dimension = 1536, maxElements = 100000) => {
   try {
-    if (!hnswlib) {
-      return { success: false, error: 'hnswlib-node not available' }
+    if (!vectorDbManager) {
+      return { success: false, error: 'VectorDbManager not available' }
     }
 
-    // 确保向量数据库目录存在
-    const dbDir = getVectorDbDir()
-    if (!fs.existsSync(dbDir)) {
-      fs.mkdirSync(dbDir, { recursive: true })
+    // 读取用户配置，获取自定义路径
+    try {
+      const configPath = getConfigPath()
+      if (fs.existsSync(configPath)) {
+        const configData = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
+        const userFilesPath = configData?.general?.userFilesPath
+        if (userFilesPath && userFilesPath.trim() !== '') {
+          vectorDbManager.setCustomPath(userFilesPath.trim())
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to read user config for custom path:', e.message)
     }
 
-    const indexPath = getVectorDbIndexPath()
-    const metadataPath = getVectorDbMetadataPath()
+    // 获取 embedding 配置
+    const config = await getEmbeddingConfig()
+    if (!config) {
+      return { success: false, error: 'No embedding configuration found' }
+    }
 
-    // 检查现有元数据是否与新参数匹配
-    let shouldClearOld = false
-    if (fs.existsSync(metadataPath)) {
+    // 使用配置中的 dimension
+    const finalDimension = config.dimensions || dimension
+
+    const result = await vectorDbManager.init({
+      baseUrl: config.baseUrl,
+      apiKey: config.apiKey,
+      model: config.model,
+      dimensions: finalDimension
+    })
+
+    return { success: true, dimension: result.dimension, maxElements }
+  } catch (error) {
+    console.error('Failed to init vector DB:', error)
+    return { success: false, error: String(error) }
+  }
+})
+
+/**
+ * 索引笔记本节点（分批处理，发送进度更新，跳过失败的节点）
+ * 全量索引：删除所有旧数据后重新索引
+ */
+ipcMain.handle('index-nodes', async (event, nodes) => {
+  try {
+    if (!vectorDbManager || !vectorDbManager.isInitialized()) {
+      return { success: false, error: 'Vector DB not initialized' }
+    }
+
+    console.log(`index-nodes: received ${nodes.length} nodes from frontend`)
+
+    // 获取并删除所有已有的 loaders，确保干净的状态
+    const existingLoaders = await vectorDbManager.getLoaders()
+    for (const loader of existingLoaders) {
       try {
-        const oldMetadata = JSON.parse(fs.readFileSync(metadataPath, 'utf-8'))
-        if (oldMetadata.dimension !== dimension || oldMetadata.maxElements !== maxElements) {
-          shouldClearOld = true
+        await vectorDbManager.deleteByLoaderId(loader.uniqueId)
+      } catch (e) {
+        console.warn(`Failed to delete loader ${loader.uniqueId}:`, e.message || e)
+      }
+    }
+
+    // 使用时间戳作为本次索引的唯一ID，避免批次间的 loaderId 冲突
+    const sessionId = `NotebookLoader_${Date.now()}`
+
+    const BATCH_SIZE = 10  // 每批处理10个节点
+    const totalNodes = nodes.length
+    let totalIndexed = 0
+    let failedCount = 0
+    const failedNodes = []
+
+    event.sender.send('index-progress', { progress: 0, total: totalNodes, indexed: 0, failed: 0 })
+
+    for (let i = 0; i < totalNodes; i += BATCH_SIZE) {
+      const batch = nodes.slice(i, i + BATCH_SIZE)
+      const batchLoaderId = `${sessionId}_batch_${i}`
+
+      try {
+        const count = await vectorDbManager.indexNodesWithLoaderId(batch, batchLoaderId)
+        totalIndexed += count
+      } catch (batchError) {
+        console.warn(`Batch failed at index ${i}:`, batchError.message || batchError)
+        for (const node of batch) {
+          try {
+            const nodeLoaderId = `${node.notebookId}:${node.nodeId}:${node.fieldType}`
+            const count = await vectorDbManager.indexNodesWithLoaderId([node], nodeLoaderId)
+            totalIndexed += count
+          } catch (nodeError) {
+            console.warn(`Failed to index node ${node.nodeId} (${node.fieldType}):`, nodeError.message || nodeError)
+            failedCount++
+            failedNodes.push(`${node.nodeId}:${node.fieldType}`)
+          }
+        }
+      }
+
+      const progress = Math.round((Math.min(i + BATCH_SIZE, totalNodes) / totalNodes) * 100)
+      event.sender.send('index-progress', { progress, total: totalNodes, indexed: totalIndexed, failed: failedCount })
+    }
+
+    console.log(`Indexing complete: ${totalIndexed} indexed, ${failedCount} failed`)
+
+    const finalCount = await vectorDbManager.getEmbeddingsCount()
+    console.log(`Final embeddings count after indexing: ${finalCount}`)
+
+    return { success: true, entriesAdded: totalIndexed, failedCount, failedNodes }
+  } catch (error) {
+    console.error('Failed to index nodes:', error)
+    return { success: false, error: String(error) }
+  }
+})
+
+/**
+ * 增量索引：只索引传入的节点，不删除旧数据
+ * 使用 source 作为 loaderId 支持精确更新
+ */
+ipcMain.handle('index-nodes-incremental', async (event, nodes) => {
+  try {
+    if (!vectorDbManager || !vectorDbManager.isInitialized()) {
+      return { success: false, error: 'Vector DB not initialized' }
+    }
+
+    if (nodes.length === 0) {
+      return { success: true, entriesAdded: 0 }
+    }
+
+    let totalIndexed = 0
+    let skippedCount = 0
+    const BATCH_SIZE = 5
+
+    event.sender.send('index-progress', { progress: 0, total: nodes.length, indexed: 0, failed: 0 })
+
+    for (let i = 0; i < nodes.length; i += BATCH_SIZE) {
+      const batch = nodes.slice(i, i + BATCH_SIZE)
+
+      for (const node of batch) {
+        try {
+          const loaderId = `${node.notebookId}:${node.canvasId}:${node.nodeId}:${node.fieldType}`
+          const count = await vectorDbManager.indexNodesWithLoaderId([node], loaderId)
+          totalIndexed += count
+          if (count === 0) {
+            skippedCount++
+          }
+        } catch (nodeError) {
+          console.warn(`index-nodes-incremental: FAILED node ${node.nodeId}:`, nodeError.message || nodeError)
+        }
+      }
+
+      const progress = Math.round((Math.min(i + BATCH_SIZE, nodes.length) / nodes.length) * 100)
+      event.sender.send('index-progress', { progress, total: nodes.length, indexed: totalIndexed, failed: 0 })
+    }
+
+    const finalCount = await vectorDbManager.getEmbeddingsCount()
+
+    return { success: true, entriesAdded: totalIndexed, skippedCount }
+  } catch (error) {
+    console.error('Failed to index nodes incrementally:', error)
+    return { success: false, error: String(error) }
+  }
+})
+
+/**
+ * 删除指定 source 的索引数据
+ */
+ipcMain.handle('delete-indexed-nodes', async (event, sources) => {
+  try {
+    if (!vectorDbManager || !vectorDbManager.isInitialized()) {
+      return { success: false, error: 'Vector DB not initialized' }
+    }
+
+    let deletedCount = 0
+
+    for (const source of sources) {
+      try {
+        const deleted = await vectorDbManager.deleteBySource(source)
+        if (deleted) {
+          deletedCount++
         }
       } catch (e) {
-        shouldClearOld = true
+        console.warn(`Failed to delete source ${source}:`, e.message || e)
       }
     }
 
-    // 如果参数不匹配，删除旧索引文件
-    if (shouldClearOld) {
-      if (fs.existsSync(indexPath)) fs.unlinkSync(indexPath)
-      if (fs.existsSync(metadataPath)) fs.unlinkSync(metadataPath)
-    }
-
-    // 创建 HNSW 索引 - 分两步：构造函数和 initIndex
-    vectorIndex = new hnswlib.HierarchicalNSW('cosine', dimension)
-    vectorIndex.initIndex(maxElements)
-
-    // 初始化元数据
-    vectorDbMetadata = {
-      entries: {},
-      dimension: dimension,
-      maxElements: maxElements,
-      nextId: 0
-    }
-
-    // 尝试加载已有数据（仅在参数匹配时）
-    if (!shouldClearOld && fs.existsSync(indexPath) && fs.existsSync(metadataPath)) {
-      try {
-        vectorIndex.readIndexSync(indexPath)
-        const metadataData = fs.readFileSync(metadataPath, 'utf-8')
-        vectorDbMetadata = JSON.parse(metadataData)
-        // Vector DB loaded
-      } catch (loadError) {
-        // Failed to load existing vector DB
-      }
-    }
-
-    // Vector DB initialized successfully
-    return { success: true, dimension, maxElements }
+    return { success: true, deletedCount }
   } catch (error) {
-    // Failed to init vector DB
+    console.error('Failed to delete indexed nodes:', error)
     return { success: false, error: String(error) }
   }
 })
 
 /**
- * 添加向量到索引
+ * 语义搜索
  */
-ipcMain.handle('add-vector', async (event, entryKey, vector, metadata) => {
+ipcMain.handle('semantic-search', async (event, query, topK = 20) => {
   try {
-    if (!vectorIndex || !vectorDbMetadata) {
+    if (!vectorDbManager || !vectorDbManager.isInitialized()) {
       return { success: false, error: 'Vector DB not initialized' }
     }
 
-    // 检查是否已存在，如果存在则先删除旧数据
-    if (vectorDbMetadata.entries[entryKey]) {
-      const oldId = vectorDbMetadata.entries[entryKey].id
-      vectorIndex.markDelete(oldId)
-    }
+    const results = await vectorDbManager.search(query, topK)
 
-    // 使用 nextId 作为内部 ID
-    const id = vectorDbMetadata.nextId
-    vectorIndex.addPoint(vector, id)
+    // 转换结果格式
+    const formattedResults = results.map(r => ({
+      pageContent: r.pageContent,
+      score: r.score,
+      metadata: r.metadata
+    }))
 
-    // 更新元数据
-    vectorDbMetadata.entries[entryKey] = {
-      id,
-      ...metadata,
-      updatedAt: Date.now()
-    }
-    vectorDbMetadata.nextId++
-
-    return { success: true, id }
+    return { success: true, results: formattedResults }
   } catch (error) {
+    console.error('Semantic search error:', error)
     return { success: false, error: String(error) }
   }
 })
 
 /**
- * 搜索最相似的向量
+ * 重置向量数据库
  */
-ipcMain.handle('search-vectors', async (event, queryVector, k = 10) => {
+ipcMain.handle('reset-vector-db', async () => {
   try {
-    if (!vectorIndex || !vectorDbMetadata) {
-      return { success: false, error: 'Vector DB not initialized' }
+    if (!vectorDbManager) {
+      return { success: false, error: 'VectorDbManager not available' }
     }
 
-    // 执行搜索
-    const searchResult = vectorIndex.searchKnn(queryVector, k)
-
-    // 将内部 ID 映射到元数据
-    const mappedResults = []
-    for (let i = 0; i < searchResult.neighbors.length; i++) {
-      const id = searchResult.neighbors[i]
-      const distance = searchResult.distances[i]
-      // 找到对应的元数据条目
-      for (const [key, entry] of Object.entries(vectorDbMetadata.entries)) {
-        if (entry.id === id) {
-          mappedResults.push({
-            entryKey: key,
-            similarity: 1 - distance, // cosine similarity
-            metadata: entry
-          })
-          break
-        }
-      }
-    }
-
-    return { success: true, results: mappedResults }
-  } catch (error) {
-    return { success: false, error: String(error) }
-  }
-})
-
-/**
- * 删除向量
- */
-ipcMain.handle('delete-vector', async (event, entryKey) => {
-  try {
-    if (!vectorIndex || !vectorDbMetadata) {
-      return { success: false, error: 'Vector DB not initialized' }
-    }
-
-    const entry = vectorDbMetadata.entries[entryKey]
-    if (entry) {
-      vectorIndex.markDelete(entry.id)
-      delete vectorDbMetadata.entries[entryKey]
-      return { success: true }
-    }
-
-    return { success: false, error: 'Entry not found' }
-  } catch (error) {
-    return { success: false, error: String(error) }
-  }
-})
-
-/**
- * 持久化向量数据库
- */
-ipcMain.handle('save-vector-db', async () => {
-  try {
-    if (!vectorIndex || !vectorDbMetadata) {
-      return { success: false, error: 'Vector DB not initialized' }
-    }
-
-    const dbDir = getVectorDbDir()
-    if (!fs.existsSync(dbDir)) {
-      fs.mkdirSync(dbDir, { recursive: true })
-    }
-
-    // 保存索引文件
-    vectorIndex.writeIndexSync(getVectorDbIndexPath())
-
-    // 保存元数据文件
-    fs.writeFileSync(getVectorDbMetadataPath(), JSON.stringify(vectorDbMetadata, null, 2))
-
+    await vectorDbManager.reset()
     return { success: true }
   } catch (error) {
     return { success: false, error: String(error) }
@@ -861,53 +925,16 @@ ipcMain.handle('save-vector-db', async () => {
 })
 
 /**
- * 加载向量数据库
+ * 删除指定 loader 的数据
  */
-ipcMain.handle('load-vector-db', async () => {
+ipcMain.handle('delete-loader', async (event, loaderId) => {
   try {
-    if (!hnswlib) {
-      return { success: false, error: 'hnswlib-node not available' }
+    if (!vectorDbManager || !vectorDbManager.isInitialized()) {
+      return { success: false, error: 'Vector DB not initialized' }
     }
 
-    const indexPath = getVectorDbIndexPath()
-    const metadataPath = getVectorDbMetadataPath()
-
-    if (!fs.existsSync(indexPath) || !fs.existsSync(metadataPath)) {
-      return { success: false, error: 'No existing vector DB found' }
-    }
-
-    // 加载元数据以获取维度
-    const metadataData = fs.readFileSync(metadataPath, 'utf-8')
-    vectorDbMetadata = JSON.parse(metadataData)
-
-    // 创建索引并加载 - 分两步
-    vectorIndex = new hnswlib.HierarchicalNSW('cosine', vectorDbMetadata.dimension)
-    vectorIndex.readIndexSync(indexPath)
-
-    return { success: true, entriesCount: Object.keys(vectorDbMetadata.entries).length }
-  } catch (error) {
-    return { success: false, error: String(error) }
-  }
-})
-
-/**
- * 获取向量数据库元数据
- */
-ipcMain.handle('get-vector-db-metadata', async () => {
-  try {
-    return { success: true, metadata: vectorDbMetadata }
-  } catch (error) {
-    return { success: false, error: String(error) }
-  }
-})
-
-/**
- * 更新向量数据库元数据
- */
-ipcMain.handle('update-vector-db-metadata', async (event, metadata) => {
-  try {
-    vectorDbMetadata = metadata
-    return { success: true }
+    const result = await vectorDbManager.deleteByLoaderId(loaderId)
+    return { success: result }
   } catch (error) {
     return { success: false, error: String(error) }
   }
@@ -918,17 +945,129 @@ ipcMain.handle('update-vector-db-metadata', async (event, metadata) => {
  */
 ipcMain.handle('get-vector-db-status', async () => {
   try {
+    const initialized = vectorDbManager?.isInitialized() || false
+    const entriesCount = initialized ? await vectorDbManager.getEmbeddingsCount() : 0
+    console.log(`get-vector-db-status: initialized=${initialized}, entriesCount=${entriesCount}`)
+
+    // 如果已初始化，也获取 loaders 信息
+    if (initialized) {
+      const loaders = await vectorDbManager.getLoaders()
+    }
+
     return {
       success: true,
       status: {
-        initialized: vectorIndex !== null,
-        entriesCount: vectorDbMetadata ? Object.keys(vectorDbMetadata.entries).length : 0,
-        dimension: vectorDbMetadata?.dimension || 0,
-        maxElements: vectorDbMetadata?.maxElements || 0,
-        hnswlibAvailable: hnswlib !== null
+        initialized,
+        entriesCount,
+        dimension: 0,  // embedJs 不直接提供 dimension
+        maxElements: 0,
+        hnswlibAvailable: vectorDbManager !== null
       }
     }
   } catch (error) {
+    console.error('get-vector-db-status error:', error)
+    return { success: false, error: String(error) }
+  }
+})
+
+/**
+ * 获取已加载的 loaders 列表
+ */
+ipcMain.handle('get-loaders', async () => {
+  try {
+    if (!vectorDbManager || !vectorDbManager.isInitialized()) {
+      return { success: true, loaders: [] }
+    }
+
+    const loaders = await vectorDbManager.getLoaders()
+    return { success: true, loaders }
+  } catch (error) {
+    return { success: false, error: String(error) }
+  }
+})
+
+/**
+ * 获取所有已索引数据的 source 和 textHash
+ * 同时计算索引状态（后端统一计算，前端直接使用）
+ */
+ipcMain.handle('get-index-status-full', async (event, currentNodes) => {
+  try {
+    const uniqueTextHashes = new Set(currentNodes.map(n => n.textHash))
+    const totalNodes = uniqueTextHashes.size
+
+    if (!vectorDbManager) {
+      return {
+        success: true,
+        totalNodes,
+        indexedNodes: 0,
+        outdatedNodes: totalNodes,
+        hashes: {}
+      }
+    }
+
+    const indexedHashes = await vectorDbManager.getAllIndexedHashes()
+    const indexedHashesObj = Object.fromEntries(indexedHashes)
+
+    const indexedTextHashes = new Set(Object.values(indexedHashesObj))
+    const currentSources = new Set(currentNodes.map(n => n.source))
+    const currentNodesBySource = new Map(currentNodes.map(n => [n.source, n]))
+
+    let newSources = 0
+    let changedSources = 0
+
+    for (const [source, nodeInfo] of currentNodesBySource) {
+      if (indexedHashesObj[source]) {
+        const indexedHash = indexedHashesObj[source]
+        if (indexedHash !== nodeInfo.textHash) {
+          changedSources++
+        }
+      } else {
+        if (!indexedTextHashes.has(nodeInfo.textHash)) {
+          newSources++
+        }
+      }
+    }
+
+    for (const [indexedSource, indexedHash] of Object.entries(indexedHashesObj)) {
+      if (!currentSources.has(indexedSource)) {
+        const stillExists = currentNodes.some(n => n.textHash === indexedHash)
+        if (!stillExists) {
+          changedSources++
+        }
+      }
+    }
+
+    const indexedNodes = indexedHashes.size
+    const outdatedNodes = newSources + changedSources
+
+    return {
+      success: true,
+      totalNodes,
+      indexedNodes,
+      outdatedNodes,
+      hashes: indexedHashesObj
+    }
+  } catch (error) {
+    console.error('get-index-status-full error:', error)
+    return { success: false, error: String(error) }
+  }
+})
+
+/**
+ * 获取所有已索引数据的 source 和 textHash（用于增量更新计算）
+ * 用于检测内容变化
+ */
+ipcMain.handle('get-indexed-hashes', async () => {
+  try {
+    if (!vectorDbManager) {
+      return { success: false, hashes: {} }
+    }
+
+    const hashes = await vectorDbManager.getAllIndexedHashes()
+    // Map 转 Object 以便 IPC 传输
+    return { success: true, hashes: Object.fromEntries(hashes) }
+  } catch (error) {
+    console.error('get-indexed-hashes error:', error)
     return { success: false, error: String(error) }
   }
 })

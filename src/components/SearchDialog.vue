@@ -49,20 +49,24 @@
 
       <!-- Index status bar (semantic mode) -->
       <div v-if="searchMode === 'semantic'" class="index-status-bar">
-        <div v-if="indexStatus.isIndexing" class="indexing-progress">
+        <div v-if="vectorStore.isIndexing" class="indexing-progress">
           <div class="progress-bar">
-            <div class="progress-fill" :style="{ width: `${indexStatus.progress}%` }"></div>
+            <div class="progress-fill" :style="{ width: `${vectorStore.indexProgress}%` }"></div>
           </div>
-          <span class="progress-text">{{ t('common.indexingProgress', { progress: indexStatus.progress }) }}</span>
+          <span class="progress-text">{{ t('common.indexingProgress', { progress: vectorStore.indexProgress }) }}</span>
         </div>
         <div v-else-if="indexStatus.outdatedNodes > 0" class="update-hint">
           <span>{{ t('common.indexNeedsUpdate', { count: indexStatus.outdatedNodes }) }}</span>
           <button class="update-btn" @click="updateIndex">{{ t('common.updateIndex') }}</button>
-          <button v-if="skippedNodes.length > 0" class="view-btn" @click="showSkippedNodesDialog = true">{{ t('common.viewSkipped') }}</button>
+          <button v-if="hasFailedNodes" class="view-btn" @click="showSkippedDialog = true">
+            {{ t('common.viewSkipped') }} ({{ lastFailedCount }})
+          </button>
         </div>
         <div v-else class="index-ready">
           <span>{{ t('common.indexReady', { count: indexStatus.indexedNodes }) }}</span>
-          <button v-if="skippedNodes.length > 0" class="view-btn" @click="showSkippedNodesDialog = true">{{ t('common.viewSkipped') }}</button>
+          <button v-if="hasFailedNodes" class="view-btn" @click="showSkippedDialog = true">
+            {{ t('common.viewSkipped') }} ({{ lastFailedCount }})
+          </button>
         </div>
       </div>
 
@@ -133,15 +137,15 @@
 
     <!-- Skipped Nodes Dialog -->
     <SkippedNodesDialog
-      :visible="showSkippedNodesDialog"
-      :skipped-nodes="skippedNodes"
-      @close="showSkippedNodesDialog = false"
+      :visible="showSkippedDialog"
+      :skippedNodes="skippedNodes"
+      @close="closeSkippedDialog"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue'
+import { ref, watch, nextTick, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import NodePopup from '@/components/NodePopup.vue'
@@ -195,8 +199,17 @@ const indexStatus = ref<IndexStatus>({
   outdatedNodes: 0,
   isIndexing: false
 })
+
+// Skipped nodes state
+const showSkippedDialog = ref(false)
 const skippedNodes = ref<SkippedIndexNode[]>([])
-const showSkippedNodesDialog = ref(false)
+const lastFailedCount = ref(0)
+
+// Computed property for explicit debugging
+const hasFailedNodes = computed(() => {
+  console.log('Computing hasFailedNodes, lastFailedCount:', lastFailedCount.value)
+  return lastFailedCount.value > 0
+})
 
 // Debounce timer
 let searchTimeout: ReturnType<typeof setTimeout> | null = null
@@ -258,13 +271,56 @@ async function checkAndUpdateIndexStatus() {
 }
 
 async function updateIndex() {
-  const result = await updateVectorIndex((progress) => {
-    indexStatus.value.progress = progress
-    indexStatus.value.isIndexing = true
-  })
-  indexStatus.value.isIndexing = false
-  skippedNodes.value = result.skippedNodes
-  await checkAndUpdateIndexStatus()
+  if (vectorStore.isIndexing) {
+    console.warn('Already indexing')
+    return
+  }
+
+  try {
+    // 确保向量数据库已初始化
+    if (!vectorStore.isInitialized) {
+      const success = await vectorStore.initVectorDb()
+      if (!success) {
+        console.error('Failed to initialize vector database')
+        return
+      }
+    }
+
+    // 使用 vectorStore 的进度回调，同步更新本地状态
+    const result = await vectorStore.indexAllNotebooks((progress) => {
+      indexStatus.value.progress = progress
+    })
+
+    console.log('Index result:', result)
+    console.log('Index result.failedNodes:', result.failedNodes)
+    console.log('Index result.failedCount:', result.failedCount)
+
+    if (result.indexedCount > 0) {
+      indexStatus.value.indexedNodes += result.indexedCount
+      indexStatus.value.outdatedNodes = 0
+    }
+
+    // 存储失败的节点信息
+    console.log('Checking failed nodes condition...')
+    if (result.failedNodes && result.failedNodes.length > 0) {
+      lastFailedCount.value = result.failedNodes.length
+      skippedNodes.value = result.failedNodes
+      console.warn(`${result.failedNodes.length} nodes failed to index`)
+      console.log('Setting lastFailedCount to:', lastFailedCount.value)
+    } else {
+      lastFailedCount.value = 0
+      skippedNodes.value = []
+      console.log('No failed nodes, clearing lastFailedCount')
+    }
+  } catch (error) {
+    console.error('Update index error:', error)
+  } finally {
+    await checkAndUpdateIndexStatus()
+  }
+}
+
+function closeSkippedDialog() {
+  showSkippedDialog.value = false
 }
 
 function handleSearch() {
