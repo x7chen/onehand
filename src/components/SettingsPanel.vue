@@ -113,11 +113,24 @@
           <label>{{ t('settings.userFilesPath') }}</label>
           <div class="path-input-wrapper">
             <input
-              :value="settingsStore.settings.general.userFilesPath || defaultUserFilesPath"
+              v-if="isEditingPath"
+              ref="pathInputRef"
+              v-model="editingPath"
               type="text"
               :placeholder="defaultUserFilesPath"
-              readonly
+              class="path-edit-input"
+              @blur="savePathEdit"
+              @keyup.enter="savePathEdit"
+              @keyup.escape="cancelPathEdit"
             />
+            <div
+              v-else
+              class="path-display"
+              @dblclick="startPathEdit"
+              :title="t('settings.userFilesPathDblClickEdit')"
+            >
+              {{ settingsStore.settings.general.userFilesPath || defaultUserFilesPath }}
+            </div>
             <button
               type="button"
               class="browse-btn"
@@ -126,17 +139,6 @@
             >
               <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
                 <path d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V6h5.17l2 2H20v10z"/>
-              </svg>
-            </button>
-            <button
-              v-if="settingsStore.settings.general.userFilesPath"
-              type="button"
-              class="reset-btn"
-              @click="resetUserFilesPath"
-              :title="t('settings.resetToDefault')"
-            >
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                <path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/>
               </svg>
             </button>
           </div>
@@ -314,19 +316,6 @@
           />
           <p class="form-hint">{{ t('settings.embeddingDimensionHint') }}</p>
         </div>
-
-        <div class="form-group">
-          <label>{{ t('settings.embeddingEnabled') }}</label>
-          <div class="toggle-switch">
-            <input
-              type="checkbox"
-              :checked="settingsStore.settings.llm.embeddingEnabled ?? true"
-              @change="updateEmbeddingEnabled(($event.target as HTMLInputElement).checked)"
-            />
-            <span class="toggle-label">{{ (settingsStore.settings.llm.embeddingEnabled ?? true) ? t('settings.enabled') : t('settings.disabled') }}</span>
-          </div>
-          <p class="form-hint">{{ t('settings.embeddingEnabledHint') }}</p>
-        </div>
       </section>
     </div>
   </div>
@@ -354,6 +343,11 @@ const showApiKey = ref(false)
 const draggedProfileId = ref<string | null>(null)
 const colorInputRef = ref<HTMLInputElement | null>(null)
 const defaultUserFilesPath = ref('')
+
+// 用户文件路径编辑状态
+const isEditingPath = ref(false)
+const editingPath = ref('')
+const pathInputRef = ref<HTMLInputElement | null>(null)
 
 // 预定义主题颜色
 const predefinedThemes = computed(() => [
@@ -400,14 +394,34 @@ async function selectUserFilesPath() {
   }
 }
 
-// 重置用户文件目录为默认值
-function resetUserFilesPath() {
-  settingsStore.updateSettings({
-    general: {
-      ...settingsStore.settings.general,
-      userFilesPath: undefined
-    }
+// 开始编辑路径
+function startPathEdit() {
+  isEditingPath.value = true
+  editingPath.value = settingsStore.settings.general.userFilesPath || ''
+  nextTick(() => {
+    pathInputRef.value?.focus()
+    pathInputRef.value?.select()
   })
+}
+
+// 保存编辑的路径
+function savePathEdit() {
+  const trimmedPath = editingPath.value.trim()
+
+  if (trimmedPath === '' || trimmedPath === defaultUserFilesPath.value) {
+    // 如果为空或默认值，直接删除属性以使用默认路径
+    delete settingsStore.settings.general.userFilesPath
+  } else {
+    settingsStore.settings.general.userFilesPath = trimmedPath
+  }
+
+  settingsStore.saveSettings()
+  isEditingPath.value = false
+}
+
+// 取消编辑路径
+function cancelPathEdit() {
+  isEditingPath.value = false
 }
 
 onMounted(async () => {
@@ -510,15 +524,6 @@ function updateEmbeddingDimension(dimension: number) {
   })
 }
 
-// 更新嵌入功能启用状态
-function updateEmbeddingEnabled(enabled: boolean) {
-  settingsStore.updateSettings({
-    llm: {
-      ...settingsStore.settings.llm,
-      embeddingEnabled: enabled
-    }
-  })
-}
 </script>
 
 <style scoped>
@@ -891,12 +896,34 @@ function updateEmbeddingEnabled(enabled: boolean) {
   background: var(--bg-secondary);
 }
 
-.path-input-wrapper input[readonly] {
-  cursor: default;
+.path-display {
+  flex: 1;
+  padding: 10px 14px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--text-primary);
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.browse-btn,
-.reset-btn {
+.path-display:hover {
+  border-color: var(--color-primary);
+  background: var(--bg-hover);
+}
+
+.path-edit-input {
+  flex: 1;
+  padding-right: 12px;
+  background: var(--bg-secondary);
+}
+
+.browse-btn {
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: 6px;
@@ -909,8 +936,7 @@ function updateEmbeddingEnabled(enabled: boolean) {
   transition: all 0.2s;
 }
 
-.browse-btn:hover,
-.reset-btn:hover {
+.browse-btn:hover {
   background: var(--bg-hover);
   color: var(--color-primary);
 }
