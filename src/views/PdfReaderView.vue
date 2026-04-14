@@ -104,6 +104,16 @@
       :selected-count="selectedContextCount"
       @clear="clearContextSelection"
     />
+
+    <!-- MagicInput 弹出框 -->
+    <MagicInput
+      :is-open="magicInputState.isOpen"
+      :initial-text="magicInputInitialText"
+      :show-correct="!!quickModelConfig"
+      :node-id="magicInputState.nodeId"
+      @save="handleMagicInputSave"
+      @cancel="handleMagicInputCancel"
+    />
   </div>
 </template>
 
@@ -119,6 +129,7 @@ import CanvasHeader from '@/components/CanvasHeader.vue'
 import PdfViewer from '@/components/PdfViewer.vue'
 import ChatPanel from '@/components/ChatPanel.vue'
 import ContextToolbar from '@/components/ContextToolbar.vue'
+import MagicInput from '@/components/MagicInput.vue'
 import { transcribeWithSherpaOnnx } from '@/composables/useSherpaOnnx'
 import { chatWithLLM, buildFullContextMessages, buildImageAnalysisMessages } from '@/composables/useQwenAgent'
 import { extractImagePaths, loadEmbeddedImagesForTranscript, loadImageBase64 } from '@/utils/contextBuilder'
@@ -191,6 +202,43 @@ const isAllContextSelected = computed(() => {
 const currentModelConfig = computed(() => {
   const modelId = notebookStore.currentNotebook?.modelId || settingsStore.settings.llm.activeProfileId
   return settingsStore.settings.llm.profiles.find(p => p.id === modelId)
+})
+
+// 快速模型配置（用于纠正文本）
+const quickModelConfig = computed(() => {
+  const quickModelId = settingsStore.settings.llm.quickModelProfileId
+  if (!quickModelId) return null
+  return settingsStore.settings.llm.profiles.find(p => p.id === quickModelId)
+})
+
+// MagicInput 状态
+interface MagicInputState {
+  isOpen: boolean
+  mode: 'create' | 'transcript' | 'agent'
+  nodeId?: string
+  position?: { x: number; y: number }
+  pdfPage?: number
+}
+
+const magicInputState = ref<MagicInputState>({
+  isOpen: false,
+  mode: 'create'
+})
+
+// MagicInput 初始文本
+const magicInputInitialText = computed(() => {
+  if (!magicInputState.value.nodeId) return ''
+  const pdfPage = notebookStore.findNodePdfPage(magicInputState.value.nodeId)
+  if (pdfPage === null) return ''
+  const canvas = notebookStore.getCanvasByPdfPage(pdfPage)
+  const node = canvas?.nodes.find(n => n.id === magicInputState.value.nodeId)
+  if (!node) return ''
+  if (magicInputState.value.mode === 'transcript') {
+    return node.transcript || ''
+  } else if (magicInputState.value.mode === 'agent') {
+    return node.agentResult || ''
+  }
+  return ''
 })
 
 const currentPageNumber = ref(1)
@@ -476,27 +524,72 @@ function handleNodePositionChange(data: { nodeId: string; position: { x: number;
 function handleCreateNode(data: { type: 'text-note' | 'voice-note'; page: number; x: number; y: number }) {
   if (data.type === 'voice-note') return
 
-  const nodeId = uuidv4()
-  const title = `第 ${data.page} 页笔记`
+  // 打开 MagicInput 让用户输入文字
+  magicInputState.value = {
+    isOpen: true,
+    mode: 'create',
+    position: { x: data.x, y: data.y },
+    pdfPage: data.page
+  }
+}
 
-  const node: CanvasNode = {
-    id: nodeId,
-    type: data.type,
-    title,
-    position: { x: 0, y: 0 },
-    transcript: '',
-    transcriptStatus: 'done',
-    agentResult: null,
-    agentStatus: 'pending',
-    createdAt: Date.now(),
-    pdfPage: data.page,
-    pdfPosition: { x: data.x, y: data.y }
+// MagicInput 保存
+function handleMagicInputSave(text: string) {
+  const state = magicInputState.value
+
+  if (state.mode === 'create') {
+    // 创建新节点
+    const position = state.position || { x: 100, y: 100 }
+    const pdfPage = state.pdfPage || currentPageNumber.value
+    const nodeId = uuidv4()
+    const title = text.slice(0, 10)
+
+    const node: CanvasNode = {
+      id: nodeId,
+      type: 'text-note',
+      title,
+      position: { x: 0, y: 0 },
+      transcript: text,
+      transcriptStatus: 'done',
+      agentResult: null,
+      agentStatus: 'pending',
+      createdAt: Date.now(),
+      pdfPage,
+      pdfPosition: position
+    }
+
+    notebookStore.addNodeToPdfPage(node, pdfPage)
+    activeNodeId.value = nodeId
+
+    if (aiAnswerEnabled.value) {
+      callAIWithOptionalImage(nodeId, text, pdfPage)
+    }
+  } else if (state.mode === 'transcript' && state.nodeId) {
+    // 更新转写内容
+    const pdfPage = notebookStore.findNodePdfPage(state.nodeId)
+    const title = text.slice(0, 10)
+    if (pdfPage !== null) {
+      notebookStore.updateNodeInPdfPage(state.nodeId, pdfPage, { transcript: text, title })
+    } else {
+      notebookStore.updateNode(state.nodeId, { transcript: text, title })
+    }
+  } else if (state.mode === 'agent' && state.nodeId) {
+    // 更新AI回答
+    const pdfPage = notebookStore.findNodePdfPage(state.nodeId)
+    if (pdfPage !== null) {
+      notebookStore.updateNodeInPdfPage(state.nodeId, pdfPage, { agentResult: text, agentStatus: 'done' })
+    } else {
+      notebookStore.updateNode(state.nodeId, { agentResult: text, agentStatus: 'done' })
+    }
   }
 
-  editingNodeId.value = nodeId
-  editingText.value = ''
-  notebookStore.addNodeToPdfPage(node, data.page)
-  activeNodeId.value = nodeId
+  // 关闭弹出框
+  magicInputState.value = { isOpen: false, mode: 'create' }
+}
+
+// MagicInput 取消
+function handleMagicInputCancel() {
+  magicInputState.value = { isOpen: false, mode: 'create' }
 }
 
 async function handleRecordingComplete(data: { audioBlob: Blob; duration: number; page: number; x: number; y: number }) {
