@@ -1300,7 +1300,7 @@ async function handleIncludePageChange() {
 }
 
 .sidebar-tab.active {
-  background: var(--primary-color);
+  background: var(--color-primary);
   color: white;
 }
 
@@ -1365,7 +1365,7 @@ async function handleIncludePageChange() {
 }
 
 .thumbnail-item.current {
-  background: var(--primary-color);
+  background: var(--color-primary);
 }
 
 .thumbnail-item.current .thumbnail-label {
@@ -1407,7 +1407,7 @@ async function handleIncludePageChange() {
 }
 
 .tool-btn.active {
-  background: var(--primary-color);
+  background: var(--color-primary);
   color: white;
 }
 
@@ -1626,7 +1626,6 @@ async function handleIncludePageChange() {
   width: 16px;
   height: 16px;
   cursor: pointer;
-  accent-color: var(--primary-color);
 }
 
 .include-page-checkbox:hover {

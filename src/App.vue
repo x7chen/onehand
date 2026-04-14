@@ -365,4 +365,13 @@ body {
 :root.dark ::-webkit-scrollbar-thumb:hover {
   background: var(--text-secondary);
 }
+
+/* 全局 checkbox 主题颜色 */
+input[type="checkbox"] {
+  accent-color: var(--color-primary);
+}
+
+:root.dark input[type="checkbox"] {
+  accent-color: var(--color-primary);
+}
 </style>
