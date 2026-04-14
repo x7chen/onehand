@@ -19,8 +19,6 @@
       v-model="inputText"
       class="magic-input-textarea"
       :placeholder="t('common.inputContent')"
-      @keydown.enter.exact="handleEnterKey"
-      @keydown.shift.enter.exact.stop
       @dragstart="handleTextareaDragStart"
       @dragend="handleDragEnd"
       @dragover.prevent="handleDragOver"
@@ -80,6 +78,7 @@
         v-if="showCorrect && quickModelConfig"
         class="menu-btn correct-btn"
         :class="{ loading: isCorrecting }"
+        @mousedown.prevent
         @click="handleCorrectText"
         :disabled="!inputText.trim() || isCorrecting"
         :title="t('common.correctText')"
@@ -98,7 +97,7 @@
           <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
         </svg>
       </button>
-      <button class="menu-btn send-btn" @click="handleSave" :disabled="!inputText.trim()" :title="t('common.send')">
+      <button class="menu-btn confirm-btn" @click="handleSave" :disabled="!inputText.trim()" :title="t('common.confirm')">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
           <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
         </svg>
@@ -527,12 +526,39 @@ async function stopRecording() {
 
 // 纠正文本
 async function handleCorrectText() {
-  if (!quickModelConfig.value || !inputText.value.trim()) return
+  const textarea = textareaRef.value
+  if (!quickModelConfig.value) return
+
+  // 检查是否有选中的文本
+  let textToCorrect: string
+  let selectionStart = 0
+  let selectionEnd = 0
+
+  if (textarea) {
+    selectionStart = textarea.selectionStart
+    selectionEnd = textarea.selectionEnd
+    const selectedText = textarea.value.substring(selectionStart, selectionEnd)
+
+    if (selectedText.trim()) {
+      // 有选中文本，只纠正选中部分
+      textToCorrect = selectedText
+    } else {
+      // 没有选中文本，纠正整个内容
+      textToCorrect = inputText.value
+      selectionStart = 0
+      selectionEnd = inputText.value.length
+    }
+  } else {
+    textToCorrect = inputText.value
+    selectionEnd = inputText.value.length
+  }
+
+  if (!textToCorrect.trim()) return
 
   isCorrecting.value = true
 
   const messages = [
-    { role: 'user' as const, content: `Correct spelling errors and add missing or incorrect punctuation to the text: ${inputText.value}\n\nProvide only the corrected text without any additional explanation.` }
+    { role: 'user' as const, content: `Correct spelling errors and add missing or incorrect punctuation to the text: ${textToCorrect}\n\nProvide only the corrected text without any additional explanation.` }
   ]
 
   try {
@@ -543,10 +569,28 @@ async function handleCorrectText() {
       temperature: 0.3
     })
 
-    inputText.value = result.content.trim()
+    const correctedText = result.content.trim()
       .replace(/<\/?think>/gi, '')
       .replace(/<\|begin_of_box\|>/gi, '')
       .replace(/<\|end_of_box\|>/gi, '')
+
+    // 替换文本（选中部分或整个内容）
+    const beforeText = inputText.value.substring(0, selectionStart)
+    const afterText = inputText.value.substring(selectionEnd)
+    inputText.value = beforeText + correctedText + afterText
+
+    // 触发 v-model 更新
+    emit('update:modelValue', inputText.value)
+
+    // 恢复选取状态：选中纠正后的文本
+    if (textarea) {
+      nextTick(() => {
+        const newEnd = selectionStart + correctedText.length
+        textarea.selectionStart = selectionStart
+        textarea.selectionEnd = newEnd
+        textarea.focus()
+      })
+    }
   } catch (error) {
     console.error('Text correction failed:', error)
   } finally {
@@ -638,13 +682,6 @@ async function handleDrop(e: DragEvent) {
       })
     }
   }
-}
-
-// 处理 Enter 键
-function handleEnterKey(event: KeyboardEvent) {
-  if (event.isComposing) return
-  event.preventDefault()
-  handleSave()
 }
 
 // 保存
@@ -761,13 +798,13 @@ defineExpose({
   color: var(--color-primary);
 }
 
-.magic-input-menu-bar .send-btn:disabled {
+.magic-input-menu-bar .confirm-btn:disabled {
   background: var(--bg-primary-bg);
   color: var(--text-secondary);
   opacity: 0.6;
 }
 
-.magic-input-menu-bar .send-btn:disabled:hover {
+.magic-input-menu-bar .confirm-btn:disabled:hover {
   background: var(--bg-primary-bg);
   color: var(--text-secondary);
 }
