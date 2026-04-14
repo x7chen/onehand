@@ -1,6 +1,8 @@
 <template>
   <div ref="headerRef" class="canvas-header">
-    <button @click="$emit('back')" class="back-btn">
+    <!-- 左侧组件容器 -->
+    <div class="left-controls-group">
+      <button @click="$emit('back')" class="back-btn">
       <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
         <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
       </svg>
@@ -71,6 +73,7 @@
         <span v-if="allProfiles.length === 0" class="no-models-hint">{{ t('canvas.noModelConfig') }}</span>
       </div>
       <span v-else class="model-name">{{ currentModel ? (currentModel.name || t('settings.defaultModel')) : t('canvas.selectModel') }}</span>
+      </div>
     </div>
 
     <!-- 以下元素在宽度不足时隐藏 -->
@@ -94,6 +97,9 @@
         class="notebook-title-input"
         type="text"
       />
+
+      <!-- 右侧组件容器 -->
+      <div class="right-controls-group">
 
       <!-- 回到原点按钮 -->
       <button
@@ -246,6 +252,7 @@
         >
           {{ t('context.selectDynamicContext') }}
         </span>
+      </div>
       </div>
     </template>
 
@@ -657,20 +664,43 @@ onUnmounted(() => {
   color: var(--text-secondary);
 }
 
+/* 左侧组件容器 */
+.left-controls-group {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-right: auto;
+}
+
+/* 右侧组件容器 */
+.right-controls-group {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-left: auto;
+}
+
 .canvas-header h2,
 .notebook-title {
   font-size: 18px;
   color: var(--text-primary);
-  flex: 1;
+  flex: 0 0 auto;
+  max-width: 300px;
   text-align: center;
+  height: 32px;
+  box-sizing: border-box;
+  margin: 0 auto;
 }
 
 .notebook-title {
   cursor: pointer;
   transition: background 0.2s;
-  padding: 4px 8px;
+  padding: 5px 10px;
   border-radius: 4px;
   user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .notebook-title:hover {
@@ -684,10 +714,13 @@ onUnmounted(() => {
   background: var(--bg-secondary);
   border: 2px solid var(--color-primary);
   border-radius: 4px;
-  padding: 4px 8px;
+  padding: 5px 10px;
   text-align: center;
   outline: none;
   max-width: 300px;
+  margin: 0 auto;
+  height: 32px;
+  box-sizing: border-box;
 }
 
 /* 静态上下文显示 */
