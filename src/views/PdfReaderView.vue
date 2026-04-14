@@ -23,6 +23,7 @@
       @dynamic-context-drop="handleDynamicContextDrop"
       @copy-selected-context="handleCopySelectedContext"
       @select-model="handleSelectModel"
+      @update-notebook-name="handleUpdateNotebookName"
     />
 
     <div class="panel-container">
@@ -961,6 +962,15 @@ async function handleSelectModel(modelId: string) {
   if (!notebookStore.currentNotebook) return
 
   notebookStore.currentNotebook.modelId = modelId
+  await notebookStore.saveNotebook(notebookStore.currentNotebook)
+}
+
+// 更新笔记本名称
+async function handleUpdateNotebookName(name: string) {
+  if (!notebookStore.currentNotebook) return
+
+  notebookStore.currentNotebook.name = name
+  notebookStore.currentNotebook.updatedAt = Date.now()
   await notebookStore.saveNotebook(notebookStore.currentNotebook)
 }
 

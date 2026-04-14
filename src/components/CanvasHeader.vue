@@ -75,7 +75,25 @@
 
     <!-- 以下元素在宽度不足时隐藏 -->
     <template v-if="!isCompactMode">
-      <h2>{{ notebookName }}</h2>
+      <!-- 笔记本标题 - 双击可编辑 -->
+      <h2
+        v-if="!isEditingName"
+        @dblclick="startEditingName"
+        class="notebook-title"
+        :title="t('canvas.doubleClickToEdit')"
+      >
+        {{ notebookName }}
+      </h2>
+      <input
+        v-else
+        ref="nameInputRef"
+        v-model="editingName"
+        @blur="saveNameEdit"
+        @keydown.enter="saveNameEdit"
+        @keydown.escape="cancelNameEdit"
+        class="notebook-title-input"
+        type="text"
+      />
 
       <!-- 回到原点按钮 -->
       <button
@@ -284,7 +302,37 @@ const emit = defineEmits<{
   'select-dynamic-context': [contextId: string]
   'dynamic-context-drop': [text: string]
   'select-model': [modelId: string]
+  'update-notebook-name': [name: string]
 }>()
+
+// 笔记本名称编辑状态
+const isEditingName = ref(false)
+const editingName = ref('')
+const nameInputRef = ref<HTMLInputElement | null>(null)
+
+function startEditingName() {
+  editingName.value = props.notebookName
+  isEditingName.value = true
+  // 等待 DOM 更新后聚焦输入框
+  setTimeout(() => {
+    if (nameInputRef.value) {
+      nameInputRef.value.focus()
+      nameInputRef.value.select()
+    }
+  }, 0)
+}
+
+function saveNameEdit() {
+  const newName = editingName.value.trim()
+  if (newName && newName !== props.notebookName) {
+    emit('update-notebook-name', newName)
+  }
+  isEditingName.value = false
+}
+
+function cancelNameEdit() {
+  isEditingName.value = false
+}
 
 // 静态上下文选择器状态
 const showStaticContextSelector = ref(false)
@@ -609,11 +657,37 @@ onUnmounted(() => {
   color: var(--text-secondary);
 }
 
-.canvas-header h2 {
+.canvas-header h2,
+.notebook-title {
   font-size: 18px;
   color: var(--text-primary);
   flex: 1;
   text-align: center;
+}
+
+.notebook-title {
+  cursor: pointer;
+  transition: background 0.2s;
+  padding: 4px 8px;
+  border-radius: 4px;
+  user-select: none;
+}
+
+.notebook-title:hover {
+  background: var(--bg-secondary);
+}
+
+.notebook-title-input {
+  flex: 1;
+  font-size: 18px;
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+  border: 2px solid var(--color-primary);
+  border-radius: 4px;
+  padding: 4px 8px;
+  text-align: center;
+  outline: none;
+  max-width: 300px;
 }
 
 /* 静态上下文显示 */
