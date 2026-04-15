@@ -13,6 +13,69 @@
       </div>
     </div>
 
+    <!-- AI结果预览气泡 -->
+    <div v-if="showPreviewPopover" class="preview-popover-overlay" @click="closePreviewPopover"></div>
+    <div v-if="showPreviewPopover" class="preview-popover" :style="previewPopoverPosition">
+      <div class="preview-content">{{ previewText }}</div>
+      <div class="preview-actions">
+        <button class="menu-btn cancel-btn" @click="closePreviewPopover" :title="t('common.cancel')">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+          </svg>
+        </button>
+        <button class="menu-btn use-btn" @click="applyPreviewText" :title="t('common.use')">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- 修辞改写多级菜单 -->
+    <div v-if="showRewriteMenu" class="rewrite-menu-overlay" @click="closeRewriteMenu"></div>
+    <div v-if="showRewriteMenu" class="rewrite-menu-wrapper" :style="rewriteMenuPosition" @mousedown.prevent>
+      <div class="rewrite-menu-level">
+        <button
+          v-for="(item, key) in rewritePrompts"
+          :key="key"
+          class="rewrite-menu-item"
+          :class="{ active: expandedKey === key }"
+          @click="item.children ? (expandedKey = key, expandedChildren = item.children, expandedSubKey = null, expandedSubChildren = null) : selectRewritePrompt(item.prompt!)"
+        >
+          <span>{{ item.label }}</span>
+          <svg v-if="item.children" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+          </svg>
+        </button>
+      </div>
+      <!-- 第二级菜单 -->
+      <div v-if="expandedChildren" class="rewrite-menu-level level-2">
+        <button
+          v-for="(item, key) in expandedChildren"
+          :key="key"
+          class="rewrite-menu-item"
+          :class="{ active: expandedSubKey === key }"
+          @click="item.children ? (expandedSubKey = key, expandedSubChildren = item.children) : selectRewritePrompt(item.prompt!)"
+        >
+          <span>{{ item.label }}</span>
+          <svg v-if="item.children" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+          </svg>
+        </button>
+      </div>
+      <!-- 第三级菜单 -->
+      <div v-if="expandedSubChildren" class="rewrite-menu-level level-3">
+        <button
+          v-for="(item, key) in expandedSubChildren"
+          :key="key"
+          class="rewrite-menu-item"
+          @click="selectRewritePrompt(item.prompt!)"
+        >
+          <span>{{ item.label }}</span>
+        </button>
+      </div>
+    </div>
+
     <!-- 文本输入框 -->
     <textarea
       ref="textareaRef"
@@ -73,17 +136,17 @@
         </svg>
         <span v-if="isRecording" class="record-time">{{ recordingTimeDisplay }}</span>
       </button>
-      <!-- 纠正按钮 -->
+      <!-- 修辞改写按钮 -->
       <button
         v-if="showCorrect && quickModelConfig"
-        class="menu-btn correct-btn"
-        :class="{ loading: isCorrecting }"
+        class="menu-btn rewrite-btn"
+        :class="{ active: showRewriteMenu, loading: isRewriting }"
         @mousedown.prevent
-        @click="handleCorrectText"
-        :disabled="!inputText.trim() || isCorrecting"
-        :title="t('common.correctText')"
+        @click="openRewriteMenu($event)"
+        :disabled="!inputText.trim() || isRewriting"
+        :title="t('common.rewriteText')"
       >
-        <svg v-if="!isCorrecting" viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+        <svg v-if="!isRewriting" viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
           <path d="M14.06 9.02l.92.92L5.92 19H5v-.92l9.06-9.06M17.66 3c-.25 0-.51.1-.71.29l-1.83 1.83 3.75 3.75 1.83-1.83c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.2-.2-.45-.29-.7-.29zm-3.6 3.19L3 17.25V21h3.75L17.81 9.94l-3.75-3.75z"/>
         </svg>
         <svg v-else class="loading-spinner" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
@@ -118,6 +181,17 @@ import { transcribeWithSherpaOnnx } from '@/composables/useSherpaOnnx'
 import { chatWithLLM } from '@/composables/useQwenAgent'
 import { getNotebookImagesDir } from '@/utils/userFilesPath'
 import type { QuickCommand } from '@/types/quickCommand'
+import rewritePromptsRaw from '@/data/rewritePrompts.json'
+
+// 提示词菜单项类型定义
+interface PromptMenuItem {
+  label: string
+  prompt?: string
+  children?: Record<string, PromptMenuItem>
+}
+
+// 将JSON转换为正确类型
+const rewritePrompts = rewritePromptsRaw as Record<string, PromptMenuItem>
 
 const props = withDefaults(defineProps<{
   modelValue?: string
@@ -207,8 +281,77 @@ const recordingTimeDisplay = computed(() => {
   return `${seconds}s`
 })
 
-// 纠正相关
-const isCorrecting = ref(false)
+// 修辞改写相关
+const isRewriting = ref(false)
+const showRewriteMenu = ref(false)
+const expandedKey = ref<string | null>(null)
+const expandedChildren = ref<Record<string, PromptMenuItem> | null>(null)
+const expandedSubKey = ref<string | null>(null)
+const expandedSubChildren = ref<Record<string, PromptMenuItem> | null>(null)
+const savedSelectionRange = ref<{ start: number; end: number } | null>(null)
+const rewriteMenuPosition = ref<{ bottom: string; left: string }>({ bottom: '0px', left: '0px' })
+
+// 打开修辞菜单
+function openRewriteMenu(event: MouseEvent) {
+  // 保存当前选中状态
+  const textarea = textareaRef.value
+  if (textarea) {
+    savedSelectionRange.value = {
+      start: textarea.selectionStart,
+      end: textarea.selectionEnd
+    }
+  }
+  expandedKey.value = null
+  expandedChildren.value = null
+  expandedSubKey.value = null
+  expandedSubChildren.value = null
+
+  // 计算菜单位置（相对于视窗）
+  const btnRect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+
+  rewriteMenuPosition.value = {
+    bottom: `${window.innerHeight - btnRect.top + 8}px`,
+    left: `${btnRect.left}px`
+  }
+
+  showRewriteMenu.value = true
+}
+
+// 选择提示词并执行改写
+function selectRewritePrompt(prompt: string) {
+  showRewriteMenu.value = false
+  expandedKey.value = null
+  expandedChildren.value = null
+  expandedSubKey.value = null
+  expandedSubChildren.value = null
+  executeRewriteWithPrompt(prompt)
+}
+
+// 关闭修辞菜单并恢复选中状态
+function closeRewriteMenu() {
+  showRewriteMenu.value = false
+  expandedKey.value = null
+  expandedChildren.value = null
+  expandedSubKey.value = null
+  expandedSubChildren.value = null
+  // 恢复选中状态
+  if (savedSelectionRange.value) {
+    const textarea = textareaRef.value
+    if (textarea) {
+      nextTick(() => {
+        textarea.selectionStart = savedSelectionRange.value!.start
+        textarea.selectionEnd = savedSelectionRange.value!.end
+        textarea.focus()
+      })
+    }
+  }
+}
+
+// AI结果预览气泡相关
+const showPreviewPopover = ref(false)
+const previewText = ref('')
+const previewSelectionRange = ref<{ start: number; end: number }>({ start: 0, end: 0 })
+const previewPopoverPosition = ref<{ bottom: string; left: string; width: string }>({ bottom: '0px', left: '0px', width: '0px' })
 
 // 快速模型配置
 const quickModelConfig = computed(() => {
@@ -225,7 +368,7 @@ onMounted(() => {
   })
 })
 
-// 点击外部关闭快捷指令气泡
+// 点击外部关闭快捷指令气泡和修辞菜单
 function handleClickOutside(e: MouseEvent) {
   const target = e.target as HTMLElement
   if (!target.closest('.quick-command-popover') && !target.closest('.quick-btn')) {
@@ -234,6 +377,10 @@ function handleClickOutside(e: MouseEvent) {
   // 关闭编辑菜单
   if (!target.closest('.edit-menu') && !target.closest('.magic-input-textarea')) {
     showEditMenu.value = false
+  }
+  // 关闭修辞菜单
+  if (!target.closest('.rewrite-menu-wrapper') && !target.closest('.rewrite-btn')) {
+    closeRewriteMenu()
   }
 }
 
@@ -524,41 +671,57 @@ async function stopRecording() {
   recordingDuration.value = 0
 }
 
-// 纠正文本
-async function handleCorrectText() {
-  const textarea = textareaRef.value
+// 执行改写
+async function executeRewriteWithPrompt(promptTemplate: string) {
   if (!quickModelConfig.value) return
 
-  // 检查是否有选中的文本
-  let textToCorrect: string
+  // 使用保存的选中范围或当前选中范围
+  let textToRewrite: string
   let selectionStart = 0
   let selectionEnd = 0
 
-  if (textarea) {
-    selectionStart = textarea.selectionStart
-    selectionEnd = textarea.selectionEnd
-    const selectedText = textarea.value.substring(selectionStart, selectionEnd)
-
+  if (savedSelectionRange.value) {
+    selectionStart = savedSelectionRange.value.start
+    selectionEnd = savedSelectionRange.value.end
+    const selectedText = inputText.value.substring(selectionStart, selectionEnd)
     if (selectedText.trim()) {
-      // 有选中文本，只纠正选中部分
-      textToCorrect = selectedText
+      textToRewrite = selectedText
     } else {
-      // 没有选中文本，纠正整个内容
-      textToCorrect = inputText.value
+      textToRewrite = inputText.value
       selectionStart = 0
       selectionEnd = inputText.value.length
     }
   } else {
-    textToCorrect = inputText.value
-    selectionEnd = inputText.value.length
+    const textarea = textareaRef.value
+    if (textarea) {
+      selectionStart = textarea.selectionStart
+      selectionEnd = textarea.selectionEnd
+      const selectedText = textarea.value.substring(selectionStart, selectionEnd)
+      if (selectedText.trim()) {
+        textToRewrite = selectedText
+      } else {
+        textToRewrite = inputText.value
+        selectionStart = 0
+        selectionEnd = inputText.value.length
+      }
+    } else {
+      textToRewrite = inputText.value
+      selectionEnd = inputText.value.length
+    }
   }
 
-  if (!textToCorrect.trim()) return
+  if (!textToRewrite.trim()) return
 
-  isCorrecting.value = true
+  // 清除保存的选中范围
+  savedSelectionRange.value = null
+
+  isRewriting.value = true
+
+  // 替换提示词中的 {text} 占位符
+  const prompt = promptTemplate.replace('{text}', textToRewrite)
 
   const messages = [
-    { role: 'user' as const, content: `Correct spelling errors and add missing or incorrect punctuation to the text: ${textToCorrect}\n\nProvide only the corrected text without any additional explanation.` }
+    { role: 'user' as const, content: prompt }
   ]
 
   try {
@@ -566,36 +729,75 @@ async function handleCorrectText() {
       baseUrl: quickModelConfig.value.baseUrl,
       apiKey: quickModelConfig.value.apiKey,
       model: quickModelConfig.value.model,
-      temperature: 0.3
+      temperature: 0.7
     })
 
-    const correctedText = result.content.trim()
+    const rewrittenText = result.content.trim()
       .replace(/<\/?think>/gi, '')
       .replace(/<\|begin_of_box\|>/gi, '')
       .replace(/<\|end_of_box\|>/gi, '')
 
-    // 替换文本（选中部分或整个内容）
-    const beforeText = inputText.value.substring(0, selectionStart)
-    const afterText = inputText.value.substring(selectionEnd)
-    inputText.value = beforeText + correctedText + afterText
-
-    // 触发 v-model 更新
-    emit('update:modelValue', inputText.value)
-
-    // 恢复选取状态：选中纠正后的文本
-    if (textarea) {
-      nextTick(() => {
-        const newEnd = selectionStart + correctedText.length
-        textarea.selectionStart = selectionStart
-        textarea.selectionEnd = newEnd
-        textarea.focus()
-      })
-    }
+    showPreviewResult(rewrittenText, selectionStart, selectionEnd)
   } catch (error) {
-    console.error('Text correction failed:', error)
+    console.error('Text rewrite failed:', error)
   } finally {
-    isCorrecting.value = false
+    isRewriting.value = false
   }
+}
+
+// 显示预览结果
+function showPreviewResult(text: string, start: number, end: number) {
+  previewText.value = text
+  previewSelectionRange.value = { start, end }
+
+  // 计算气泡位置（相对于视窗）
+  const container = document.querySelector('.magic-input-core')
+  if (container) {
+    const containerRect = container.getBoundingClientRect()
+    const menuBar = container.querySelector('.magic-input-menu-bar')
+    if (menuBar) {
+      const menuBarRect = menuBar.getBoundingClientRect()
+      previewPopoverPosition.value = {
+        bottom: `${window.innerHeight - menuBarRect.top + 8}px`,
+        left: `${containerRect.left}px`,
+        width: `${containerRect.width}px`
+      }
+    }
+  }
+
+  showPreviewPopover.value = true
+}
+
+// 应用预览文本
+function applyPreviewText() {
+  const textarea = textareaRef.value
+  const { start, end } = previewSelectionRange.value
+
+  // 替换文本
+  const beforeText = inputText.value.substring(0, start)
+  const afterText = inputText.value.substring(end)
+  inputText.value = beforeText + previewText.value + afterText
+
+  // 触发 v-model 更新
+  emit('update:modelValue', inputText.value)
+
+  // 恢复选取状态：选中替换后的文本
+  if (textarea) {
+    nextTick(() => {
+      const newEnd = start + previewText.value.length
+      textarea.selectionStart = start
+      textarea.selectionEnd = newEnd
+      textarea.focus()
+    })
+  }
+
+  closePreviewPopover()
+}
+
+// 关闭预览气泡
+function closePreviewPopover() {
+  showPreviewPopover.value = false
+  previewText.value = ''
 }
 
 // 处理拖放
@@ -906,9 +1108,141 @@ defineExpose({
   background: var(--bg-secondary);
 }
 
-/* 纠正按钮加载动画 */
-.correct-btn .loading-spinner {
+/* 修辞改写按钮加载动画 */
+.rewrite-btn .loading-spinner {
   animation: spin 1s linear infinite;
+}
+
+/* AI结果预览气泡 */
+.preview-popover-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 999;
+}
+
+.preview-popover {
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  box-sizing: border-box;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 -2px 12px var(--shadow-color);
+  z-index: 1000;
+  max-height: 300px;
+  overflow: hidden;
+}
+
+.preview-popover::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--bg-primary);
+  opacity: 0.85;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 8px;
+  z-index: -1;
+}
+
+.preview-content {
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  margin-bottom: 12px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.preview-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.preview-actions .menu-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.preview-actions .menu-btn:hover {
+  background: var(--color-primary);
+  color: white;
+}
+
+/* 修辞改写多级菜单 */
+.rewrite-menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 999;
+}
+
+.rewrite-menu-wrapper {
+  position: fixed;
+  display: flex;
+  gap: 0;
+  z-index: 1000;
+}
+
+.rewrite-menu-level {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 2px 12px var(--shadow-color);
+  padding: 4px;
+  min-width: 80px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.rewrite-menu-level.level-2 {
+  margin-left: -1px;
+}
+
+.rewrite-menu-level.level-3 {
+  margin-left: -1px;
+}
+
+.rewrite-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: 4px;
+  width: 100%;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+
+.rewrite-menu-item:hover,
+.rewrite-menu-item.active {
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
 }
 
 @keyframes spin {
