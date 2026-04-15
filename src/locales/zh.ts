@@ -45,6 +45,7 @@ export default {
     stopRecording: '停止录音',
     rewriteText: '修辞改写',
     use: '使用',
+    regenerate: '重新生成',
     back: '返回',
     paste: '粘贴',
     copy: '复制',

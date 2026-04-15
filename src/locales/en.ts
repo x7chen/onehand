@@ -45,6 +45,7 @@ export default {
     stopRecording: 'Stop recording',
     rewriteText: 'Rewrite with Rhetoric',
     use: 'Use',
+    regenerate: 'Regenerate',
     back: 'Back',
     paste: 'Paste',
     copy: 'Copy',

@@ -15,9 +15,18 @@
 
     <!-- AI结果预览气泡 -->
     <div v-if="showPreviewPopover" class="preview-popover-overlay" @click="closePreviewPopover"></div>
-    <div v-if="showPreviewPopover" class="preview-popover" :style="previewPopoverPosition">
+    <div v-if="showPreviewPopover" class="preview-popover" :style="previewPopoverPosition" @mousedown.prevent>
       <div class="preview-content">{{ previewText }}</div>
       <div class="preview-actions">
+        <button class="menu-btn regenerate-btn" @click="regeneratePreview" :title="t('common.regenerate')" :disabled="isRegenerating">
+          <svg v-if="!isRegenerating" viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+            <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+          </svg>
+          <svg v-else class="loading-spinner" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <circle cx="12" cy="12" r="10" stroke-opacity="0.25"/>
+            <path d="M12 2a10 10 0 0 1 10 10" stroke-opacity="1"/>
+          </svg>
+        </button>
         <button class="menu-btn cancel-btn" @click="closePreviewPopover" :title="t('common.cancel')">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
             <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
@@ -352,6 +361,10 @@ const showPreviewPopover = ref(false)
 const previewText = ref('')
 const previewSelectionRange = ref<{ start: number; end: number }>({ start: 0, end: 0 })
 const previewPopoverPosition = ref<{ bottom: string; left: string; width: string }>({ bottom: '0px', left: '0px', width: '0px' })
+const isRegenerating = ref(false)
+const lastPromptTemplate = ref<string | null>(null)
+const lastTextToProcess = ref<string | null>(null)
+const lastSelectionRange = ref<{ start: number; end: number } | null>(null)
 
 // 快速模型配置
 const quickModelConfig = computed(() => {
@@ -672,7 +685,7 @@ async function stopRecording() {
 }
 
 // 执行改写
-async function executeRewriteWithPrompt(promptTemplate: string) {
+async function executeRewriteWithPrompt(promptTemplate: string, isRegenerate: boolean = false) {
   if (!quickModelConfig.value) return
 
   // 使用保存的选中范围或当前选中范围
@@ -712,10 +725,22 @@ async function executeRewriteWithPrompt(promptTemplate: string) {
 
   if (!textToRewrite.trim()) return
 
-  // 清除保存的选中范围
-  savedSelectionRange.value = null
+  // 保存选中范围用于重新生成
+  lastSelectionRange.value = { start: selectionStart, end: selectionEnd }
 
-  isRewriting.value = true
+  // 只在首次执行时清空保存的选中范围
+  if (!isRegenerate) {
+    savedSelectionRange.value = null
+  }
+
+  if (isRegenerate) {
+    isRegenerating.value = true
+  } else {
+    isRewriting.value = true
+    // 保存提示词和文本以便重新生成
+    lastPromptTemplate.value = promptTemplate
+    lastTextToProcess.value = textToRewrite
+  }
 
   // 替换提示词中的 {text} 占位符
   const prompt = promptTemplate.replace('{text}', textToRewrite)
@@ -741,7 +766,11 @@ async function executeRewriteWithPrompt(promptTemplate: string) {
   } catch (error) {
     console.error('Text rewrite failed:', error)
   } finally {
-    isRewriting.value = false
+    if (isRegenerate) {
+      isRegenerating.value = false
+    } else {
+      isRewriting.value = false
+    }
   }
 }
 
@@ -792,6 +821,50 @@ function applyPreviewText() {
   }
 
   closePreviewPopover()
+}
+
+// 重新生成预览文本
+async function regeneratePreview() {
+  if (!lastPromptTemplate.value || !lastTextToProcess.value || !quickModelConfig.value) return
+
+  isRegenerating.value = true
+
+  const prompt = lastPromptTemplate.value.replace('{text}', lastTextToProcess.value)
+
+  const messages = [
+    { role: 'user' as const, content: prompt }
+  ]
+
+  try {
+    const result = await chatWithLLM(messages, {
+      baseUrl: quickModelConfig.value.baseUrl,
+      apiKey: quickModelConfig.value.apiKey,
+      model: quickModelConfig.value.model,
+      temperature: 0.7
+    })
+
+    const rewrittenText = result.content.trim()
+      .replace(/<\/?think>/gi, '')
+      .replace(/<\|begin_of_box\|>/gi, '')
+      .replace(/<\|end_of_box\|>/gi, '')
+
+    previewText.value = rewrittenText
+
+    // 恢复原文的选中状态
+    if (lastSelectionRange.value) {
+      const textarea = textareaRef.value
+      if (textarea) {
+        nextTick(() => {
+          textarea.selectionStart = lastSelectionRange.value!.start
+          textarea.selectionEnd = lastSelectionRange.value!.end
+        })
+      }
+    }
+  } catch (error) {
+    console.error('Regenerate failed:', error)
+  } finally {
+    isRegenerating.value = false
+  }
 }
 
 // 关闭预览气泡
@@ -1184,6 +1257,20 @@ defineExpose({
 .preview-actions .menu-btn:hover {
   background: var(--color-primary);
   color: white;
+}
+
+.preview-actions .menu-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.preview-actions .menu-btn:disabled:hover {
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
+}
+
+.preview-actions .regenerate-btn .loading-spinner {
+  animation: spin 1s linear infinite;
 }
 
 /* 修辞改写多级菜单 */

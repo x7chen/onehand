@@ -1,9 +1,9 @@
 <template>
   <Teleport to="body">
     <Transition name="magic-input-fade">
-      <div v-if="visible" class="magic-input-overlay" @click="handleOverlayClick">
+      <div v-if="visible" class="magic-input-overlay" @mousedown="handleOverlayMouseDown" @mouseup="handleOverlayMouseUp">
         <div class="magic-input-container-wrapper">
-          <div class="magic-input-container" :class="{ shake: isShaking }" @click.stop>
+          <div class="magic-input-container" :class="{ shake: isShaking }" @mousedown.stop>
             <MagicInputCore
               ref="magicInputCoreRef"
               v-model="inputText"
@@ -71,6 +71,9 @@ const isShaking = ref(false)
 // 初始文本（用于检测变化）
 const initialTextSnapshot = ref('')
 
+// 记录 mouseDown 是否发生在 overlay 上
+const mouseDownOnOverlay = ref(false)
+
 // 监听 visible 变化
 watch(() => props.visible, (newVal) => {
   if (newVal) {
@@ -112,8 +115,21 @@ function triggerShake() {
   }, 500)
 }
 
-// 处理点击 overlay（非内容区域）
-function handleOverlayClick() {
+// 处理 overlay 的 mouseDown
+function handleOverlayMouseDown(e: MouseEvent) {
+  // 记录 mouseDown 是否发生在 overlay 上（而非 container 内）
+  mouseDownOnOverlay.value = true
+}
+
+// 处理 overlay 的 mouseUp
+function handleOverlayMouseUp(e: MouseEvent) {
+  // 只有当 mouseDown 也发生在 overlay 上时，才触发关闭
+  if (!mouseDownOnOverlay.value) {
+    mouseDownOnOverlay.value = false
+    return
+  }
+  mouseDownOnOverlay.value = false
+
   if (hasTextChanges()) {
     triggerShake()
     showToastMessage(t('common.unsavedChanges'))
