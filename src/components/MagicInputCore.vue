@@ -17,7 +17,9 @@
     <div v-if="showPreviewPopover" class="preview-popover-overlay" @click="closePreviewPopover"></div>
     <div v-if="showPreviewPopover" class="preview-popover" :style="previewPopoverPosition" @mousedown.prevent>
       <div class="preview-content">{{ previewText }}</div>
-      <div class="preview-actions">
+      <div class="preview-footer">
+        <span class="preview-menu-path">{{ selectedMenuPath }}</span>
+        <div class="preview-actions">
         <button class="menu-btn cancel-btn" @click="closePreviewPopover" :title="t('common.cancel')">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
             <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
@@ -42,6 +44,7 @@
             <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
           </svg>
         </button>
+        </div>
       </div>
     </div>
 
@@ -54,7 +57,7 @@
           :key="key"
           class="rewrite-menu-item"
           :class="{ active: expandedKey === key }"
-          @click="item.children ? (expandedKey = key, expandedChildren = item.children, expandedSubKey = null, expandedSubChildren = null) : selectRewritePrompt(item.prompt!)"
+          @click="item.children ? (expandedKey = key, expandedChildren = item.children, expandedSubKey = null, expandedSubChildren = null) : selectRewritePrompt(item.prompt!, item.label)"
         >
           <span>{{ item.label }}</span>
           <svg v-if="item.children" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
@@ -69,7 +72,7 @@
           :key="key"
           class="rewrite-menu-item"
           :class="{ active: expandedSubKey === key }"
-          @click="item.children ? (expandedSubKey = key, expandedSubChildren = item.children) : selectRewritePrompt(item.prompt!)"
+          @click="item.children ? (expandedSubKey = key, expandedSubChildren = item.children) : selectRewritePrompt(item.prompt!, rewritePrompts[expandedKey!].label + ' > ' + item.label)"
         >
           <span>{{ item.label }}</span>
           <svg v-if="item.children" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
@@ -83,7 +86,7 @@
           v-for="(item, key) in expandedSubChildren"
           :key="key"
           class="rewrite-menu-item"
-          @click="selectRewritePrompt(item.prompt!)"
+          @click="selectRewritePrompt(item.prompt!, rewritePrompts[expandedKey!].label + ' > ' + expandedChildren![expandedSubKey!].label + ' > ' + item.label)"
         >
           <span>{{ item.label }}</span>
         </button>
@@ -304,6 +307,7 @@ const expandedSubKey = ref<string | null>(null)
 const expandedSubChildren = ref<Record<string, PromptMenuItem> | null>(null)
 const savedSelectionRange = ref<{ start: number; end: number } | null>(null)
 const rewriteMenuPosition = ref<{ bottom: string; left: string }>({ bottom: '0px', left: '0px' })
+const selectedMenuPath = ref<string>('') // 保存选择的菜单路径
 
 // 打开修辞菜单
 function openRewriteMenu(event: MouseEvent) {
@@ -332,7 +336,16 @@ function openRewriteMenu(event: MouseEvent) {
 }
 
 // 选择提示词并执行改写
-function selectRewritePrompt(prompt: string) {
+function selectRewritePrompt(prompt: string, path?: string) {
+  // 保存菜单路径
+  if (path) {
+    selectedMenuPath.value = path
+  } else if (expandedKey.value) {
+    // 从第一级菜单直接选择
+    const level1Label = rewritePrompts[expandedKey.value]?.label || ''
+    selectedMenuPath.value = level1Label
+  }
+
   showRewriteMenu.value = false
   expandedKey.value = null
   expandedChildren.value = null
@@ -1300,16 +1313,35 @@ defineExpose({
   line-height: 1.5;
   white-space: pre-wrap;
   word-wrap: break-word;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   overflow-y: auto;
   flex: 1;
   min-height: 0;
+}
+
+.preview-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.preview-menu-path {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-primary) !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 1;
+  min-width: 0;
 }
 
 .preview-actions {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
+  flex-shrink: 0;
 }
 
 .preview-actions .menu-btn {
