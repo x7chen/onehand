@@ -740,11 +740,15 @@ async function executeRewriteWithPrompt(promptTemplate: string, isRegenerate: bo
 
   if (isRegenerate) {
     isRegenerating.value = true
+    // 重新生成时清空预览文本
+    previewText.value = ''
   } else {
     isRewriting.value = true
     // 保存提示词和文本以便重新生成
     lastPromptTemplate.value = promptTemplate
     lastTextToProcess.value = textToRewrite
+    // 先显示预览弹出框（空内容）
+    showPreviewResult('', selectionStart, selectionEnd)
   }
 
   // 替换提示词中的 {text} 占位符
@@ -754,22 +758,39 @@ async function executeRewriteWithPrompt(promptTemplate: string, isRegenerate: bo
     { role: 'user' as const, content: prompt }
   ]
 
+  // 用于过滤 think 标签
+  let buffer = ''
+
   try {
-    const result = await chatWithLLM(messages, {
+    await chatWithLLM(messages, {
       baseUrl: quickModelConfig.value.baseUrl,
       apiKey: quickModelConfig.value.apiKey,
       model: quickModelConfig.value.model,
       temperature: 0.7
+    }, (chunk: string) => {
+      // 流式更新预览文本
+      buffer += chunk
+      // 过滤 think 标签后再显示
+      const displayText = buffer
+        .replace(/<\/?think>/gi, '')
+        .replace(/<\|begin_of_box\|>/gi, '')
+        .replace(/<\|end_of_box\|>/gi, '')
+      previewText.value = displayText
     })
 
-    const rewrittenText = result.content.trim()
+    // 最终结果过滤
+    const rewrittenText = buffer.trim()
       .replace(/<\/?think>/gi, '')
       .replace(/<\|begin_of_box\|>/gi, '')
       .replace(/<\|end_of_box\|>/gi, '')
 
-    showPreviewResult(rewrittenText, selectionStart, selectionEnd)
+    previewText.value = rewrittenText
   } catch (error) {
     console.error('Text rewrite failed:', error)
+    // 失败时关闭预览弹出框
+    if (!isRegenerate) {
+      closePreviewPopover()
+    }
   } finally {
     if (isRegenerate) {
       isRegenerating.value = false
@@ -864,6 +885,8 @@ async function regeneratePreview() {
   if (!lastPromptTemplate.value || !lastTextToProcess.value || !quickModelConfig.value) return
 
   isRegenerating.value = true
+  // 清空当前预览文本
+  previewText.value = ''
 
   const prompt = lastPromptTemplate.value.replace('{text}', lastTextToProcess.value)
 
@@ -871,15 +894,28 @@ async function regeneratePreview() {
     { role: 'user' as const, content: prompt }
   ]
 
+  // 用于过滤 think 标签
+  let buffer = ''
+
   try {
-    const result = await chatWithLLM(messages, {
+    await chatWithLLM(messages, {
       baseUrl: quickModelConfig.value.baseUrl,
       apiKey: quickModelConfig.value.apiKey,
       model: quickModelConfig.value.model,
       temperature: 0.7
+    }, (chunk: string) => {
+      // 流式更新预览文本
+      buffer += chunk
+      // 过滤 think 标签后再显示
+      const displayText = buffer
+        .replace(/<\/?think>/gi, '')
+        .replace(/<\|begin_of_box\|>/gi, '')
+        .replace(/<\|end_of_box\|>/gi, '')
+      previewText.value = displayText
     })
 
-    const rewrittenText = result.content.trim()
+    // 最终结果过滤
+    const rewrittenText = buffer.trim()
       .replace(/<\/?think>/gi, '')
       .replace(/<\|begin_of_box\|>/gi, '')
       .replace(/<\|end_of_box\|>/gi, '')
