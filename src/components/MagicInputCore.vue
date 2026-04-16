@@ -18,6 +18,11 @@
     <div v-if="showPreviewPopover" class="preview-popover" :style="previewPopoverPosition" @mousedown.prevent>
       <div class="preview-content">{{ previewText }}</div>
       <div class="preview-actions">
+        <button class="menu-btn cancel-btn" @click="closePreviewPopover" :title="t('common.cancel')">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+          </svg>
+        </button>
         <button class="menu-btn regenerate-btn" @click="regeneratePreview" :title="t('common.regenerate')" :disabled="isRegenerating">
           <svg v-if="!isRegenerating" viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
             <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
@@ -27,9 +32,9 @@
             <path d="M12 2a10 10 0 0 1 10 10" stroke-opacity="1"/>
           </svg>
         </button>
-        <button class="menu-btn cancel-btn" @click="closePreviewPopover" :title="t('common.cancel')">
+        <button class="menu-btn append-btn" @click="appendPreviewText" :title="t('common.append')">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
           </svg>
         </button>
         <button class="menu-btn use-btn" @click="applyPreviewText" :title="t('common.use')">
@@ -823,6 +828,37 @@ function applyPreviewText() {
   closePreviewPopover()
 }
 
+// 追加预览文本
+function appendPreviewText() {
+  const textarea = textareaRef.value
+  const { start, end } = previewSelectionRange.value
+
+  // 判断是否有选取内容
+  const hasSelection = start !== end
+  const appendPosition = hasSelection ? end : inputText.value.length
+
+  // 追加文本（如果有选取内容则追加到选取内容之后，否则追加到整个文本最后）
+  const beforeText = inputText.value.substring(0, appendPosition)
+  const afterText = inputText.value.substring(appendPosition)
+  inputText.value = beforeText + previewText.value + afterText
+
+  // 触发 v-model 更新
+  emit('update:modelValue', inputText.value)
+
+  // 恢复选取状态：选中追加的文本
+  if (textarea) {
+    nextTick(() => {
+      const newStart = appendPosition
+      const newEnd = appendPosition + previewText.value.length
+      textarea.selectionStart = newStart
+      textarea.selectionEnd = newEnd
+      textarea.focus()
+    })
+  }
+
+  closePreviewPopover()
+}
+
 // 重新生成预览文本
 async function regeneratePreview() {
   if (!lastPromptTemplate.value || !lastTextToProcess.value || !quickModelConfig.value) return
@@ -1286,6 +1322,7 @@ defineExpose({
 .rewrite-menu-wrapper {
   position: fixed;
   display: flex;
+  align-items: flex-end;
   gap: 0;
   z-index: 1000;
 }
