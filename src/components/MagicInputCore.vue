@@ -177,11 +177,16 @@
           <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
         </svg>
       </button>
-      <button class="menu-btn confirm-btn" @click="handleSave" :disabled="!inputText.trim()" :title="t('common.confirm')">
+      <button v-if="!sendMode" class="menu-btn confirm-btn" @click="handleSave" :disabled="!inputText.trim()" :title="t('common.confirm')">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
           <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
         </svg>
         <span class="btn-text">{{ t('common.save') }}</span>
+      </button>
+      <button v-else class="menu-btn send-btn" @click="handleSend" :disabled="!inputText.trim()" :title="t('common.send')">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+          <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+        </svg>
       </button>
     </div>
   </div>
@@ -215,12 +220,14 @@ const props = withDefaults(defineProps<{
   initialText?: string
   showCorrect?: boolean
   showCancel?: boolean
+  sendMode?: boolean
   nodeId?: string
 }>(), {
   modelValue: '',
   initialText: '',
   showCorrect: true,
   showCancel: false,
+  sendMode: false,
   nodeId: undefined
 })
 
@@ -229,6 +236,7 @@ const emit = defineEmits<{
   'save': [text: string]
   'cancel': []
   'input': []
+  'send': [text: string]
 }>()
 
 const { t } = useI18n()
@@ -1052,6 +1060,14 @@ function handleSave() {
   }
 }
 
+// 发送
+function handleSend() {
+  const text = inputText.value.trim()
+  if (text) {
+    emit('send', text)
+  }
+}
+
 // 取消
 function handleCancel() {
   if (isRecording.value) {
@@ -1169,6 +1185,21 @@ defineExpose({
   color: var(--text-secondary);
 }
 
+.magic-input-menu-bar .send-btn:hover {
+  background: var(--color-primary);
+  color: white;
+}
+
+.magic-input-menu-bar .send-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.magic-input-menu-bar .send-btn:disabled:hover {
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
+}
+
 .magic-input-menu-bar .record-btn {
   display: flex;
   align-items: center;
@@ -1228,7 +1259,7 @@ defineExpose({
 
 /* 右键编辑菜单 */
 .edit-menu-overlay {
-  position: absolute;
+  position: fixed;
   top: 0;
   left: 0;
   right: 0;
@@ -1237,7 +1268,7 @@ defineExpose({
 }
 
 .edit-menu {
-  position: absolute;
+  position: fixed;
   background: var(--bg-primary);
   border: 1px solid var(--border-color);
   border-radius: 6px;

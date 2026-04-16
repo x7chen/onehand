@@ -61,100 +61,20 @@
         @dragover.prevent
         @drop="handleMagicPadDrop"
       >
-        <!-- 快捷指令气泡 -->
-        <div v-if="showQuickCommandSelector && isInputMode" class="quick-command-popover-input">
-          <div
-            v-for="cmd in quickCommandStore.quickCommands"
-            :key="cmd.id"
-            class="quick-command-item"
-            :style="{ backgroundColor: cmd.color + '20', borderColor: cmd.color }"
-            @click="insertQuickCommand(cmd)"
-          >
-            <span class="quick-command-name" :style="{ color: 'var(--text-primary)' }">{{ cmd.name }}</span>
-          </div>
-        </div>
-
         <!-- 虚线提示框（正常模式） -->
         <div v-if="!isInputMode" class="magic-pad-hint"></div>
 
-        <!-- 输入模式容器 -->
+        <!-- 输入模式 - 使用 MagicInputCore -->
         <div v-else class="magic-pad-input-mode">
-          <textarea
-            ref="inputTextareaRef"
+          <MagicInputCore
+            ref="magicInputCoreRef"
             v-model="inputText"
-            class="magic-pad-input"
-            :placeholder="t('common.inputContent')"
-            @keydown.enter.exact="handleSendInputEnter"
-            @keydown.shift.enter.exact.stop
-            @keydown.escape="handleCancelInput"
-            @dragstart="handleInputDragStart"
-            @dragend="handleInputDragEnd"
-            @dragover.prevent="handleInputDragOver"
-            @drop.prevent="handleInputDrop"
-            @contextmenu.prevent="handleTextareaContextMenu"
-          ></textarea>
-          <!-- 右键编辑菜单 -->
-          <Teleport to="body">
-            <div v-if="showEditMenu" class="edit-menu-overlay" @click="showEditMenu = false"></div>
-            <div v-if="showEditMenu" class="edit-menu" :style="editMenuStyle" @click.stop>
-              <button class="edit-menu-item" @click="handleCopy" v-if="hasSelection">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                  <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
-                </svg>
-                <span>{{ t('common.copy') }}</span>
-              </button>
-              <button class="edit-menu-item" @click="handlePaste">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                  <path d="M19 2h-4.18C14.4.84 13.3 0 12 0c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm7 18H5V4h2v3h10V4h2v16z"/>
-                </svg>
-                <span>{{ t('common.paste') }}</span>
-              </button>
-            </div>
-          </Teleport>
-          <!-- 菜单栏 -->
-          <div class="input-menu-bar">
-            <button v-if="quickCommandStore.quickCommands.length > 0" class="menu-btn quick-btn" @click="toggleQuickCommandSelector" :class="{ active: showQuickCommandSelector }" :title="t('quickCommand.title')">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                <path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/>
-              </svg>
-            </button>
-            <button class="menu-btn record-btn" :class="{ active: isInputRecording }" @click="toggleInputRecording" :title="isInputRecording ? t('common.stopRecording') : t('common.startRecording')">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm6 6c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-              </svg>
-              <span v-if="isInputRecording" class="record-time">{{ inputRecordingTimeDisplay }}</span>
-            </button>
-            <!-- 纠正按钮 -->
-            <button
-              v-if="quickModelConfig"
-              class="menu-btn correct-btn"
-              :class="{ loading: isCorrecting }"
-              @click="handleCorrectText"
-              :disabled="!inputText.trim() || isCorrecting"
-              :title="t('common.correctText')"
-            >
-              <!-- 正常状态：铅笔图标 -->
-              <svg v-if="!isCorrecting" viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                <path d="M14.06 9.02l.92.92L5.92 19H5v-.92l9.06-9.06M17.66 3c-.25 0-.51.1-.71.29l-1.83 1.83 3.75 3.75 1.83-1.83c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.2-.2-.45-.29-.7-.29zm-3.6 3.19L3 17.25V21h3.75L17.81 9.94l-3.75-3.75z"/>
-              </svg>
-              <!-- 加载状态：渐隐未闭合圆圈 -->
-              <svg v-else class="loading-spinner" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-                <circle cx="12" cy="12" r="10" stroke-opacity="0.25"/>
-                <path d="M12 2a10 10 0 0 1 10 10" stroke-opacity="1"/>
-              </svg>
-            </button>
-            <div class="menu-spacer"></div>
-            <button class="menu-btn cancel-btn" @click="handleCancelInput" :title="t('common.cancel')">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-              </svg>
-            </button>
-            <button class="menu-btn send-btn" @click="handleSendInput" :disabled="!inputText.trim()" :title="t('common.send')">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-              </svg>
-            </button>
-          </div>
+            :show-correct="!!quickModelConfig"
+            :show-cancel="true"
+            :send-mode="true"
+            @send="handleSendInput"
+            @cancel="handleCancelInput"
+          />
         </div>
       </div>
     </div>
@@ -189,6 +109,7 @@ import { useQuickCommandStore } from '@/stores/quickCommandStore'
 import VoiceNote from '@/components/VoiceNote.vue'
 import RecordingIndicator from '@/components/RecordingIndicator.vue'
 import MagicInput from '@/components/MagicInput.vue'
+import MagicInputCore from '@/components/MagicInputCore.vue'
 import { chatWithLLM, buildFullContextMessages, buildImageAnalysisMessages } from '@/composables/useQwenAgent'
 import { loadEmbeddedImagesForTranscript } from '@/utils/contextBuilder'
 import { createAudioWorkletRecorder } from '@/utils/audioWorkletRecorder'
@@ -196,7 +117,6 @@ import { transcribeWithSherpaOnnx } from '@/composables/useSherpaOnnx'
 import { getNotebookAudioDir, getNotebookImagesDir, getNotebookDataDir, getPdfDir } from '@/utils/userFilesPath'
 import type { CanvasNode } from '@/types/notebook'
 import type { ContextFile } from '@/types/context'
-import type { QuickCommand } from '@/types/quickCommand'
 
 const props = defineProps<{
   activeNode: CanvasNode | null
@@ -260,34 +180,13 @@ onMounted(() => {
   quickCommandStore.loadQuickCommands()
 })
 
-// 快捷指令选择器
-const showQuickCommandSelector = ref(false)
-
-// 点击外部关闭快捷指令气泡
-function handleClickOutside(e: MouseEvent) {
-  const target = e.target as HTMLElement
-  if (!target.closest('.quick-command-popover-input') && !target.closest('.quick-btn')) {
-    showQuickCommandSelector.value = false
-  }
-}
-
-onMounted(() => {
-  document.addEventListener('click', handleClickOutside)
-})
-
 onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside)
   // 清理调整高度事件监听器
   if (isResizingMagicPad) {
     document.removeEventListener('mousemove', handleResizeMagicPadMove)
     document.removeEventListener('mouseup', handleResizeMagicPadEnd)
   }
 })
-
-// 切换快捷指令选择器
-function toggleQuickCommandSelector() {
-  showQuickCommandSelector.value = !showQuickCommandSelector.value
-}
 
 // Get notebookId and canvasId from notebookStore
 const notebookId = computed(() => notebookStore.currentNotebook?.id)
@@ -307,16 +206,7 @@ const LONG_PRESS_DURATION = 500
 // 输入模式相关
 const isInputMode = ref(false)
 const inputText = ref('')
-const inputTextareaRef = ref<HTMLTextAreaElement | null>(null)
-
-// 输入模式拖拽相关
-const dragCaretPosition = ref<number | null>(null)
-const internalDragSelection = ref<{ start: number; end: number; text: string } | null>(null)
-
-// 右键编辑菜单
-const showEditMenu = ref(false)
-const editMenuStyle = ref<{ top: string; left: string }>({ top: '0px', left: '0px' })
-const hasSelection = ref(false)
+const magicInputCoreRef = ref<InstanceType<typeof MagicInputCore> | null>(null)
 
 // MagicPad 高度调整
 const magicPadHeight = ref(120)
@@ -478,56 +368,12 @@ const recordingPosition = ref({ x: 0, y: 0 })
 const recordingStartPosition = ref<{ x: number; y: number } | null>(null)
 let recordingTimer: number | null = null
 
-// 输入模式录音相关（文字输入用）
-const inputRecorder = createAudioWorkletRecorder()
-const isInputRecording = ref(false)
-const inputRecordingDuration = ref(0)
-let inputRecordingTimer: number | null = null
-const INPUT_RECORDING_TIMEOUT = 30000 // 30秒超时
-const inputRecordingTimeDisplay = computed(() => {
-  const seconds = Math.floor(inputRecordingDuration.value / 1000)
-  return `${seconds}s`
-})
-
 // 快速模型配置
 const quickModelConfig = computed(() => {
   const quickModelId = settingsStore.settings.llm.quickModelProfileId
   if (!quickModelId) return null
   return settingsStore.settings.llm.profiles.find(p => p.id === quickModelId)
 })
-
-// 纠正状态
-const isCorrecting = ref(false)
-
-// 纠正文本函数
-async function handleCorrectText() {
-  if (!quickModelConfig.value || !inputText.value.trim()) return
-
-  isCorrecting.value = true
-
-  const messages = [
-    { role: 'user' as const, content: `Correct spelling errors and add missing or incorrect punctuation to the text: ${inputText.value}\n\nProvide only the corrected text without any additional explanation.`,}
-  ]
-
-  try {
-    const result = await chatWithLLM(messages, {
-      baseUrl: quickModelConfig.value.baseUrl,
-      apiKey: quickModelConfig.value.apiKey,
-      model: quickModelConfig.value.model,
-      temperature: 0.3  // 低温度确保一致性
-    })
-
-    // 用纠正后的内容覆盖输入框
-    inputText.value = result.content.trim()
-    .replace(/<\/?think>/gi, '')
-    .replace(/<\|begin_of_box\|>/gi, '')
-    .replace(/<\|end_of_box\|>/gi, '')
-  } catch (error) {
-    console.error('Text correction failed:', error)
-  } finally {
-    isCorrecting.value = false
-  }
-}
 
 // 当选中节点变化时，重置自动滚动状态
 watch(() => props.activeNode, () => {
@@ -542,37 +388,19 @@ function handleMagicPadDblClick(e: MouseEvent) {
   isInputMode.value = true
   inputText.value = ''
   nextTick(() => {
-    inputTextareaRef.value?.focus()
+    magicInputCoreRef.value?.textareaRef?.focus()
   })
 }
 
 // 输入模式 - 取消
 function handleCancelInput() {
-  // 停止录音
-  if (isInputRecording.value) {
-    inputRecorder.stop().catch(console.error)
-    isInputRecording.value = false
-    if (inputRecordingTimer) {
-      clearInterval(inputRecordingTimer)
-      inputRecordingTimer = null
-    }
-    inputRecordingDuration.value = 0
-  }
   isInputMode.value = false
   inputText.value = ''
-  showQuickCommandSelector.value = false
-}
-
-// 处理 Enter 键发送（检查输入法组合状态）
-function handleSendInputEnter(event: KeyboardEvent) {
-  if (event.isComposing) return
-  event.preventDefault()
-  handleSendInput()
 }
 
 // 输入模式 - 发送
-async function handleSendInput() {
-  const text = inputText.value.trim()
+async function handleSendInput(sendText?: string) {
+  const text = (sendText || inputText.value).trim()
   if (!text) return
 
   const newNodeId = uuidv4()
@@ -600,7 +428,6 @@ async function handleSendInput() {
   // 重置输入模式
   isInputMode.value = false
   inputText.value = ''
-  showQuickCommandSelector.value = false
 
   // 触发 AI 回答
   if (props.aiAnswerEnabled) {
@@ -610,391 +437,6 @@ async function handleSendInput() {
     } else {
       await handleAgentResponseForText(newNodeId, text)
     }
-  }
-}
-
-// 输入模式 - 插入快捷指令
-function insertQuickCommand(cmd: QuickCommand) {
-  const textarea = inputTextareaRef.value
-  if (textarea) {
-    const start = textarea.selectionStart
-    const end = textarea.selectionEnd
-    const text = inputText.value
-    inputText.value = text.substring(0, start) + cmd.content + text.substring(end)
-    nextTick(() => {
-      textarea.selectionStart = textarea.selectionEnd = start + cmd.content.length
-      textarea.focus()
-    })
-  } else {
-    inputText.value += cmd.content
-  }
-  showQuickCommandSelector.value = false
-}
-
-// 右键菜单处理
-function handleTextareaContextMenu(e: MouseEvent) {
-  const textarea = inputTextareaRef.value
-  const selection = textarea ? textarea.value.substring(textarea.selectionStart, textarea.selectionEnd) : ''
-
-  hasSelection.value = selection.length > 0
-  editMenuStyle.value = {
-    top: `${e.clientY}px`,
-    left: `${e.clientX}px`
-  }
-  showEditMenu.value = true
-}
-
-// 输入模式 - 拖拽开始
-function handleInputDragStart(e: DragEvent) {
-  const textarea = inputTextareaRef.value
-  if (!textarea) return
-
-  const start = textarea.selectionStart
-  const end = textarea.selectionEnd
-  const selectedText = textarea.value.substring(start, end)
-
-  if (selectedText && e.dataTransfer) {
-    e.dataTransfer.setData('text/plain', selectedText)
-    e.dataTransfer.setData('application/x-magic-pad-input', 'true')
-    e.dataTransfer.effectAllowed = 'move'
-
-    internalDragSelection.value = {
-      start: Math.min(start, end),
-      end: Math.max(start, end),
-      text: selectedText
-    }
-  }
-}
-
-// 输入模式 - 拖拽结束
-function handleInputDragEnd() {
-  dragCaretPosition.value = null
-  internalDragSelection.value = null
-}
-
-// 输入模式 - 拖拽悬停
-function handleInputDragOver(e: DragEvent) {
-  e.preventDefault()
-  const textarea = inputTextareaRef.value
-  if (!textarea) return
-
-  const position = getInputCaretPositionFromPoint(e.clientX, e.clientY, textarea)
-  if (position !== null) {
-    dragCaretPosition.value = position
-    textarea.selectionStart = textarea.selectionEnd = position
-    textarea.focus()
-  }
-}
-
-// 根据鼠标坐标计算 textarea 中的字符位置
-function getInputCaretPositionFromPoint(x: number, y: number, textarea: HTMLTextAreaElement): number | null {
-  const mirror = document.createElement('div')
-  const style = window.getComputedStyle(textarea)
-  const rect = textarea.getBoundingClientRect()
-
-  mirror.style.cssText = `
-    position: fixed;
-    left: ${rect.left}px;
-    top: ${rect.top}px;
-    width: ${rect.width}px;
-    height: ${rect.height}px;
-    font-family: ${style.fontFamily};
-    font-size: ${style.fontSize};
-    line-height: ${style.lineHeight};
-    letter-spacing: ${style.letterSpacing};
-    white-space: pre-wrap;
-    word-wrap: break-word;
-    overflow: hidden;
-    overflow-y: auto;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-    padding: ${style.padding};
-    border: ${style.border};
-    box-sizing: border-box;
-    z-index: 9999;
-    opacity: 0;
-  `
-
-  const styleSheet = document.createElement('style')
-  styleSheet.textContent = 'textarea-caret-mirror::-webkit-scrollbar { display: none; }'
-  document.head.appendChild(styleSheet)
-
-  mirror.textContent = textarea.value
-  document.body.appendChild(mirror)
-  mirror.scrollTop = textarea.scrollTop
-
-  try {
-    let position: number | null = null
-
-    if (document.caretRangeFromPoint) {
-      const range = document.caretRangeFromPoint(x, y)
-      if (range && range.startContainer === mirror) {
-        position = range.startOffset
-      } else if (range && range.startContainer.nodeType === Node.TEXT_NODE) {
-        position = findInputTextOffset(mirror, range.startContainer, range.startOffset)
-      }
-    }
-
-    if (position === null && document.caretPositionFromPoint) {
-      const caretPos = document.caretPositionFromPoint(x, y)
-      if (caretPos && caretPos.offsetNode === mirror) {
-        position = caretPos.offset
-      } else if (caretPos && caretPos.offsetNode.nodeType === Node.TEXT_NODE) {
-        position = findInputTextOffset(mirror, caretPos.offsetNode, caretPos.offset)
-      }
-    }
-
-    return position
-  } finally {
-    mirror.remove()
-    styleSheet.remove()
-  }
-}
-
-// 在镜像元素中找到文本节点的偏移
-function findInputTextOffset(mirror: HTMLElement, textNode: Node, localOffset: number): number {
-  let offset = 0
-  for (const child of mirror.childNodes) {
-    if (child === textNode) {
-      return offset + localOffset
-    }
-    if (child.nodeType === Node.TEXT_NODE) {
-      offset += (child as Text).length
-    }
-  }
-  return offset + localOffset
-}
-
-// 复制选中文本
-async function handleCopy() {
-  const textarea = inputTextareaRef.value
-  if (textarea) {
-    const selectedText = textarea.value.substring(textarea.selectionStart, textarea.selectionEnd)
-    if (selectedText) {
-      try {
-        await navigator.clipboard.writeText(selectedText)
-      } catch (error) {
-        console.error('Copy failed:', error)
-      }
-    }
-  }
-  showEditMenu.value = false
-}
-
-// 粘贴文本
-async function handlePaste() {
-  try {
-    const clipboardText = await navigator.clipboard.readText()
-    if (clipboardText) {
-      const textarea = inputTextareaRef.value
-      if (textarea) {
-        const start = textarea.selectionStart
-        const end = textarea.selectionEnd
-        const text = inputText.value
-        inputText.value = text.substring(0, start) + clipboardText + text.substring(end)
-        nextTick(() => {
-          textarea.selectionStart = textarea.selectionEnd = start + clipboardText.length
-          textarea.focus()
-        })
-      } else {
-        inputText.value += clipboardText
-      }
-    }
-  } catch (error) {
-    console.error('Paste failed:', error)
-  }
-  showEditMenu.value = false
-}
-
-// 输入模式 - 切换录音
-async function toggleInputRecording() {
-  if (isInputRecording.value) {
-    // 结束录音
-    await stopInputRecording()
-  } else {
-    // 开始录音
-    try {
-      await inputRecorder.start()
-      isInputRecording.value = true
-      inputRecordingDuration.value = 0
-
-      // 开始计时
-      inputRecordingTimer = window.setInterval(() => {
-        inputRecordingDuration.value += 100
-        // 30秒超时自动停止
-        if (inputRecordingDuration.value >= INPUT_RECORDING_TIMEOUT) {
-          stopInputRecording()
-        }
-      }, 100)
-    } catch (error) {
-      console.error('Failed to start input recording:', error)
-      isInputRecording.value = false
-    }
-  }
-}
-
-// 输入模式 - 停止录音并转写
-async function stopInputRecording() {
-  if (!isInputRecording.value) return
-
-  try {
-    const audioBlob = await inputRecorder.stop()
-    isInputRecording.value = false
-
-    if (inputRecordingTimer) {
-      clearInterval(inputRecordingTimer)
-      inputRecordingTimer = null
-    }
-
-    // 转写音频
-    const settings = settingsStore.settings
-    if (!settings.stt.sherpaOnnx) {
-      console.error('Sherpa-ONNX not configured')
-      return
-    }
-
-    const transcriptResult = await transcribeWithSherpaOnnx(audioBlob, settings.stt.sherpaOnnx)
-
-    if (transcriptResult.success && transcriptResult.text) {
-      // 追加文字到输入框
-      const textarea = inputTextareaRef.value
-      if (textarea) {
-        const start = textarea.selectionStart
-        const end = textarea.selectionEnd
-        const text = inputText.value
-        const insertText = transcriptResult.text
-
-        // 在光标位置插入文字
-        inputText.value = text.substring(0, start) + insertText + text.substring(end)
-
-        nextTick(() => {
-          textarea.selectionStart = textarea.selectionEnd = start + insertText.length
-          textarea.focus()
-        })
-      } else {
-        // 没有textarea时直接追加
-        inputText.value += transcriptResult.text
-      }
-    }
-  } catch (error) {
-    console.error('Failed to stop input recording:', error)
-    isInputRecording.value = false
-    if (inputRecordingTimer) {
-      clearInterval(inputRecordingTimer)
-      inputRecordingTimer = null
-    }
-  }
-
-  inputRecordingDuration.value = 0
-}
-
-// 输入模式 - 处理拖放（文字追加、图片转为链接）
-async function handleInputDrop(e: DragEvent) {
-  const textarea = inputTextareaRef.value
-
-  // 处理文字拖拽
-  const text = e.dataTransfer?.getData('text/plain')
-  if (text && text.trim()) {
-    if (textarea) {
-      const insertPosition = dragCaretPosition.value ?? textarea.selectionStart
-      const currentText = inputText.value
-
-      // 判断是否是内部拖拽
-      const isInternalDrag = internalDragSelection.value !== null
-
-      if (isInternalDrag && internalDragSelection.value) {
-        // 内部拖拽: 先删除选中内容,再插入到目标位置
-        const { start: deleteStart, end: deleteEnd } = internalDragSelection.value
-
-        let adjustedInsertPos = insertPosition
-        if (insertPosition > deleteEnd) {
-          adjustedInsertPos = insertPosition - (deleteEnd - deleteStart)
-        } else if (insertPosition >= deleteStart && insertPosition <= deleteEnd) {
-          adjustedInsertPos = deleteStart
-        }
-
-        const beforeDelete = currentText.substring(0, deleteStart)
-        const afterDelete = currentText.substring(deleteEnd)
-        const textAfterDelete = beforeDelete + afterDelete
-
-        inputText.value = textAfterDelete.substring(0, adjustedInsertPos) + text + textAfterDelete.substring(adjustedInsertPos)
-
-        nextTick(() => {
-          textarea.selectionStart = textarea.selectionEnd = adjustedInsertPos + text.length
-          textarea.focus()
-        })
-
-        internalDragSelection.value = null
-      } else {
-        // 外部拖拽: 直接插入到目标位置
-        inputText.value = currentText.substring(0, insertPosition) + text + currentText.substring(insertPosition)
-        nextTick(() => {
-          textarea.selectionStart = textarea.selectionEnd = insertPosition + text.length
-          textarea.focus()
-        })
-      }
-
-      dragCaretPosition.value = null
-    } else {
-      inputText.value += text
-    }
-    return
-  }
-
-  // 处理图片文件拖拽
-  if (!e.dataTransfer?.files.length) return
-
-  const files = Array.from(e.dataTransfer.files)
-  const imageFiles = files.filter(f => f.type.startsWith('image/'))
-
-  if (imageFiles.length === 0) return
-
-  for (const file of imageFiles) {
-    const markdownLink = await saveImageToNotebook(file)
-    if (markdownLink) {
-      const textarea = inputTextareaRef.value
-      if (textarea) {
-        const insertPosition = dragCaretPosition.value ?? textarea.selectionStart
-        const text = inputText.value
-        inputText.value = text.substring(0, insertPosition) + markdownLink + text.substring(insertPosition)
-        nextTick(() => {
-          textarea.selectionStart = textarea.selectionEnd = insertPosition + markdownLink.length
-          textarea.focus()
-        })
-      }
-    }
-  }
-
-  dragCaretPosition.value = null
-}
-
-// 保存图片到笔记本目录并返回markdown链接
-async function saveImageToNotebook(file: File): Promise<string | null> {
-  const notebook = notebookStore.currentNotebook
-  if (!notebook) {
-    console.error('[ChatPanel] No current notebook')
-    return null
-  }
-
-  try {
-    const imagesDir = await getNotebookImagesDir(notebook.id)
-
-    await window.electronAPI.mkdir(imagesDir)
-
-    const ext = file.name.split('.').pop() || 'png'
-    const imageId = `img-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-    const filename = `${imageId}.${ext}`
-    const imagePath = `${imagesDir}/${filename}`
-    const relativePath = `images/${filename}`
-
-    const arrayBuffer = await file.arrayBuffer()
-    await window.electronAPI.saveFileBuffer(imagePath, arrayBuffer)
-
-    console.log('[ChatPanel] Image saved:', relativePath)
-    return `\n![${file.name}](${relativePath})\n`
-  } catch (error) {
-    console.error('[ChatPanel] Failed to save image:', error)
-    return null
   }
 }
 
