@@ -1,5 +1,5 @@
 <template>
-  <div class="magic-input-core">
+  <div ref="coreRootRef" class="magic-input-core">
     <!-- 快捷指令气泡 -->
     <div v-if="showQuickCommandSelector" class="quick-command-popover">
       <div
@@ -247,6 +247,7 @@ const notebookStore = useNotebookStore()
 // 输入文本
 const inputText = ref(props.modelValue || props.initialText || '')
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
+const coreRootRef = ref<HTMLElement | null>(null) // 根元素引用，用于定位预览框
 
 // 监听外部值变化
 watch(() => props.modelValue, (newVal) => {
@@ -826,8 +827,8 @@ function showPreviewResult(text: string, start: number, end: number) {
   previewText.value = text
   previewSelectionRange.value = { start, end }
 
-  // 计算气泡位置（相对于视窗）
-  const container = document.querySelector('.magic-input-core')
+  // 计算气泡位置（使用组件自身的根元素）
+  const container = coreRootRef.value
   if (container) {
     const containerRect = container.getBoundingClientRect()
     const menuBar = container.querySelector('.magic-input-menu-bar')
@@ -1316,6 +1317,7 @@ defineExpose({
   position: fixed;
   display: flex;
   flex-direction: column;
+  background: var(--bg-primary);
   padding: 12px;
   box-sizing: border-box;
   border: 1px solid var(--border-color);
@@ -1326,17 +1328,6 @@ defineExpose({
   overflow: hidden;
 }
 
-.preview-popover::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: var(--bg-primary);
-  opacity: 0.85;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border-radius: 8px;
-  z-index: -1;
-}
 
 .preview-content {
   color: var(--text-primary);
