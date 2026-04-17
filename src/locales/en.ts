@@ -78,6 +78,8 @@ export default {
   },
   settings: {
     title: 'Settings',
+    generalTab: 'General',
+    modelTab: 'Model',
     llmConfig: 'LLM Configuration',
     provider: 'Provider',
     openaiCompatible: 'OpenAI Compatible API',

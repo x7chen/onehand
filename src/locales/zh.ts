@@ -78,6 +78,8 @@ export default {
   },
   settings: {
     title: '设置',
+    generalTab: '通用',
+    modelTab: '模型',
     llmConfig: '大模型配置',
     provider: '服务提供商',
     openaiCompatible: 'OpenAI兼容API',
