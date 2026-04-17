@@ -62,7 +62,9 @@
         @drop="handleMagicPadDrop"
       >
         <!-- 虚线提示框（正常模式） -->
-        <div v-if="!isInputMode" class="magic-pad-hint"></div>
+        <div v-if="!isInputMode" class="magic-pad-hint">
+          <span class="magic-pad-hint-text">{{ t('canvas.magicPadHint') }}</span>
+        </div>
 
         <!-- 输入模式 - 使用 MagicInputCore -->
         <div v-else class="magic-pad-input-mode">
@@ -1264,6 +1266,14 @@ async function handleAgentResponseForVoice(nodeId: string, transcript: string, p
 .magic-pad:hover .magic-pad-hint {
   border-color: var(--border-color);
   opacity: 1;
+}
+
+.magic-pad-hint-text {
+  font-weight: 500;
+  white-space: nowrap;
+  user-select: none;
+  color: var(--border-color);
+  opacity: 0.6;
 }
 
 /* 输入模式容器 */

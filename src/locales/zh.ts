@@ -217,6 +217,8 @@ export default {
     llmConfigError: '模型配置错误，请检查设置',
     insertBefore: '在此页前插入',
     insertAfter: '在此页后插入',
+    emptyHint: '双击开始输入 · 长按开始录音 · 拖拽文字创建笔记',
+    magicPadHint: '双击开始输入 · 长按开始录音 · 拖拽文字创建笔记',
   },
   voiceNote: {
     recording: '录音中',

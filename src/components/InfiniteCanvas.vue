@@ -118,6 +118,14 @@
     >
       {{ t('canvas.dragToAsk', { count: draggedTextLength }) }}
     </div>
+
+    <!-- 空白画布引导提示 -->
+    <div
+      v-if="isCurrentCanvasEmpty && !isDraggingText"
+      class="empty-canvas-hint"
+    >
+      {{ t('canvas.emptyHint') }}
+    </div>
   </div>
 </template>
 
@@ -661,6 +669,30 @@ defineExpose({
   z-index: 9999;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   white-space: nowrap;
+}
+
+/* 空白画布引导提示 */
+.empty-canvas-hint {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: transparent;
+  color: var(--text-secondary);
+  padding: 16px 24px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  pointer-events: none;
+  z-index: 5;
+  white-space: nowrap;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+  user-select: none;
+}
+
+.infinite-canvas:hover .empty-canvas-hint {
+  opacity: 0.85;
 }
 
 /* 边缘翻页区域 */

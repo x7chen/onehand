@@ -217,6 +217,8 @@ export default {
     llmConfigError: 'Model configuration error, please check settings',
     insertBefore: 'Insert before this page',
     insertAfter: 'Insert after this page',
+    emptyHint: 'Double-click to input · Long press to record · Drag text to create note',
+    magicPadHint: 'Double-click to input · Long press to record · Drag text to create note',
   },
   voiceNote: {
     recording: 'Recording',
