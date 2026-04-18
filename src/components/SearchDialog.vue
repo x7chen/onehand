@@ -70,7 +70,49 @@
         </div>
       </div>
 
-      <div class="search-results" ref="resultsContainer">
+      <!-- 搜索历史区域 -->
+      <div v-if="!searchQuery && recentHistory.length > 0" class="search-history-section">
+        <div class="search-history-list">
+          <div
+            v-for="(item, index) in allHistoryList"
+            :key="item.timestamp"
+            class="search-history-item"
+            @click="selectHistoryItem(item)"
+          >
+            <div class="history-item-content">
+              <div class="history-query">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" class="history-icon">
+                  <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                </svg>
+                <span class="history-query-text">{{ item.query }}</span>
+                <span class="history-separator">·</span>
+                <span class="history-time">{{ searchHistoryStore.formatTime(item.timestamp) }}</span>
+                <span class="history-mode-badge" :class="item.searchMode">
+                  {{ item.searchMode === 'keyword' ? t('common.keywordSearch') : t('common.semanticSearch') }}
+                </span>
+              </div>
+            </div>
+            <button class="remove-history-btn" @click.stop="removeHistoryItemFromList(index)" :title="t('common.removeHistory')">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div class="search-history-header">
+          <button v-if="searchHistoryStore.historyItems.length > 5" class="more-history-btn" @click="toggleShowAll">
+            {{ showAllHistory ? t('common.collapse') : t('common.more') }}
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" class="more-icon" :class="{ 'is-expanded': showAllHistory }">
+              <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
+            </svg>
+          </button>
+          <button class="clear-history-btn" @click="handleClearHistory" :title="t('common.clearHistory')">
+            {{ t('common.clearHistory') }}
+          </button>
+        </div>
+      </div>
+
+      <div class="search-results" ref="resultsContainer" v-if="searchQuery || recentHistory.length === 0">
         <div v-if="isSearching" class="searching-state">
           <div class="loading-spinner"></div>
           <p>{{ t('common.searching') }}</p>
@@ -118,7 +160,7 @@
           </div>
         </div>
 
-        <div v-else class="search-placeholder">
+        <div v-else-if="!searchQuery && recentHistory.length === 0" class="search-placeholder">
           <svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor" class="placeholder-icon">
             <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
           </svg>
@@ -145,19 +187,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick, computed } from 'vue'
+import { ref, watch, nextTick, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import NodePopup from '@/components/NodePopup.vue'
 import SkippedNodesDialog from '@/components/SkippedNodesDialog.vue'
 import { useNotebookStore } from '@/stores/notebookStore'
 import { useVectorStore } from '@/stores/vectorStore'
+import { useSearchHistoryStore } from '@/stores/searchHistoryStore'
 import { generateDeepLinkUrl } from '@/composables/useDeepLink'
 import type { DeepLinkData } from '@/composables/useDeepLink'
 import type { Notebook, CanvasPage, CanvasNode } from '@/types/notebook'
 import type { IndexStatus, SkippedIndexNode } from '@/types/embedding'
 import { keywordSearch, semanticSearch, checkIndexNeedsUpdate, type UnifiedSearchResult, type SearchMode } from '@/services/semanticSearch'
 import { updateIndex as updateVectorIndex } from '@/services/semanticSearch'
+import type { SearchHistoryItem } from '@/stores/searchHistoryStore'
 
 const props = defineProps<{
   visible: boolean
@@ -183,6 +227,7 @@ interface SearchResult {
 
 const notebookStore = useNotebookStore()
 const vectorStore = useVectorStore()
+const searchHistoryStore = useSearchHistoryStore()
 const router = useRouter()
 const { t } = useI18n()
 const searchInput = ref<HTMLInputElement | null>(null)
@@ -211,8 +256,24 @@ const hasFailedNodes = computed(() => {
   return lastFailedCount.value > 0
 })
 
+// Search history
+const recentHistory = computed(() => searchHistoryStore.recentHistory)
+const showAllHistory = ref(false)
+
+const allHistoryList = computed(() => {
+  if (showAllHistory.value) {
+    return searchHistoryStore.historyItems
+  }
+  return searchHistoryStore.recentHistory
+})
+
 // Debounce timer
 let searchTimeout: ReturnType<typeof setTimeout> | null = null
+
+// Load search history on mount
+onMounted(async () => {
+  await searchHistoryStore.loadHistory()
+})
 
 // Focus input when dialog opens
 watch(() => props.visible, async (isVisible) => {
@@ -246,6 +307,28 @@ function clearSearch() {
   searchQuery.value = ''
   searchResults.value = []
   searchInput.value?.focus()
+}
+
+// Search history functions
+function selectHistoryItem(item: SearchHistoryItem) {
+  searchQuery.value = item.query
+  searchMode.value = item.searchMode
+  searchInput.value?.focus()
+  handleSearch()
+}
+
+function removeHistoryItemFromList(index: number) {
+  const actualIndex = showAllHistory.value ? index : index
+  searchHistoryStore.removeHistoryItem(actualIndex)
+}
+
+async function handleClearHistory() {
+  await searchHistoryStore.clearHistory()
+  showAllHistory.value = false
+}
+
+function toggleShowAll() {
+  showAllHistory.value = !showAllHistory.value
 }
 
 async function setSearchMode(mode: SearchMode) {
@@ -348,6 +431,9 @@ async function performSearch() {
     searchResults.value = []
     return
   }
+
+  // Save to search history
+  await searchHistoryStore.addHistoryItem(query, searchMode.value)
 
   if (searchMode.value === 'semantic') {
     // 语义搜索
@@ -554,6 +640,154 @@ function handleNavigate(data: DeepLinkData) {
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border-color);
   font-size: 13px;
+}
+
+/* Search history section */
+.search-history-section {
+  padding: 4px 24px;
+  background: transparent;
+  max-height: 400px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.search-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.search-history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-color);
+}
+
+.search-history-title {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.clear-history-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.clear-history-btn:hover {
+  background: var(--border-color);
+  color: var(--text-primary);
+}
+
+.search-history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.search-history-item:hover {
+  background: var(--bg-secondary);
+}
+
+.history-item-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.history-query {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.history-icon {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.history-query-text {
+  flex: 0 1 auto;
+  max-width: 400px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-separator {
+  color: var(--text-secondary);
+  opacity: 0.5;
+}
+
+.history-time {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.history-mode-badge {
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--border-color);
+  color: var(--text-secondary);
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.history-mode-badge.keyword {
+  background: rgba(255, 152, 0, 0.2);
+  color: var(--color-primary);
+}
+
+.history-mode-badge.semantic {
+  background: rgba(76, 175, 80, 0.2);
+  color: #4caf50;
+}
+
+.remove-history-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+  opacity: 0;
+  padding: 4px;
+}
+
+.search-history-item:hover .remove-history-btn {
+  opacity: 1;
+}
+
+.remove-history-btn:hover {
+  background: rgba(244, 67, 54, 0.1);
+  color: #f44336;
 }
 
 .indexing-progress {
@@ -774,5 +1008,34 @@ function handleNavigate(data: DeepLinkData) {
 .detail-btn:hover {
   background: var(--color-primary);
   color: white;
+}
+
+/* More history button */
+.more-history-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.more-history-btn:hover {
+  background: var(--border-color);
+  color: var(--color-primary);
+}
+
+.more-icon {
+  opacity: 0.7;
+  transition: transform 0.2s;
+}
+
+.more-icon.is-expanded {
+  transform: rotate(180deg);
 }
 </style>

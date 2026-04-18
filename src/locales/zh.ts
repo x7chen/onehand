@@ -65,6 +65,11 @@ export default {
     noSkippedNodes: '暂无无法建立索引的笔记',
     transcript: '转录文本',
     agentResult: 'AI 回复',
+    searchHistory: '搜索历史',
+    clearHistory: '清空历史',
+    removeHistory: '删除记录',
+    more: '更多',
+    collapse: '收起',
   },
   nav: {
     notebooks: '笔记本',

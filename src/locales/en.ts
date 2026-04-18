@@ -65,6 +65,11 @@ export default {
     noSkippedNodes: 'No notes that cannot be indexed',
     transcript: 'Transcript',
     agentResult: 'AI Response',
+    searchHistory: 'Search History',
+    clearHistory: 'Clear History',
+    removeHistory: 'Remove Record',
+    more: 'More',
+    collapse: 'Collapse',
   },
   nav: {
     notebooks: 'Notebooks',
