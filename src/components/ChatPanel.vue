@@ -1156,13 +1156,13 @@ async function handleAgentResponseForVoice(nodeId: string, transcript: string, p
   display: flex;
   flex-direction: column;
   background: var(--bg-primary);
-  border-left: 1px solid var(--border-color);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .chat-panel.is-active {
   border-top: 3px solid var(--color-primary);
-  border-left: 1px solid var(--border-color);
 }
 
 .chat-header {

@@ -635,6 +635,8 @@ function scrollToNode(nodeId: string) {
   min-width: 298px;
   flex-shrink: 0;
   position: relative;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
 }
 
 :root.dark .node-list-panel {
