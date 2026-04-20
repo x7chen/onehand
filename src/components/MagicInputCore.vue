@@ -105,6 +105,7 @@
       @drop.prevent="handleDrop"
       @contextmenu.prevent="handleTextareaContextMenu"
       @input="handleInput"
+      @keydown="handleKeydown"
     ></textarea>
 
     <!-- 右键编辑菜单 -->
@@ -290,6 +291,21 @@ function handleInput() {
   })
   emit('update:modelValue', inputText.value)
   emit('input')
+}
+
+// 处理键盘事件
+function handleKeydown(e: KeyboardEvent) {
+  if (e.key === 'Enter') {
+    if (props.sendMode) {
+      // 发送模式：Enter 发送消息
+      if (!e.shiftKey) {
+        e.preventDefault()
+        handleSend()
+      }
+      // Shift+Enter 换行（默认行为）
+    }
+    // 非发送模式（MagicInputDialog）：Enter 换行（默认行为）
+  }
 }
 
 // 快捷指令
