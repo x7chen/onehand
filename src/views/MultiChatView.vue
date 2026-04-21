@@ -36,10 +36,13 @@
         v-if="!isLeftPanelCollapsed"
         ref="nodePanelRef"
         :nodes="displayNodes"
+        :notebook-name="showAllNotebooks ? t('canvas.allNotebooks') : (notebookStore.currentNotebook?.name || '')"
         :active-node-id="currentActiveNodeId"
         :playing-node-id="playingNodeId"
         :panel-width="leftPanelWidth"
         @delete="handleDeleteNode"
+        @batch-delete="handleBatchDeleteNodes"
+        @batch-select-context="handleBatchSelectContext"
         @play="handlePlayNode"
         @toggle-context="handleToggleContext"
         @retry-transcription="handleRetryTranscription"
@@ -629,6 +632,24 @@ function handleDeleteNode(nodeId: string) {
   if (activeNodeIdRight.value === nodeId) {
     activeNodeIdRight.value = null
   }
+}
+
+// 批量删除节点
+function handleBatchDeleteNodes(nodeIds: string[]) {
+  for (const nodeId of nodeIds) {
+    notebookStore.removeNode(nodeId)
+    if (activeNodeIdLeft.value === nodeId) {
+      activeNodeIdLeft.value = null
+    }
+    if (activeNodeIdRight.value === nodeId) {
+      activeNodeIdRight.value = null
+    }
+  }
+}
+
+// 批量选择上下文
+async function handleBatchSelectContext(nodeIds: string[], selected: boolean) {
+  await notebookStore.batchUpdateContextSelection(nodeIds, selected)
 }
 
 async function handlePlayNode(nodeId: string) {

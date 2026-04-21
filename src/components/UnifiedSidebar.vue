@@ -1,5 +1,5 @@
 <template>
-  <aside class="unified-sidebar" @dragover="handleSidebarDragOver" @drop="handleSidebarDrop">
+  <aside class="unified-sidebar" @dragover="handleSidebarDragOver" @drop="handleSidebarDrop" @click="openMenuNotebookId = null">
     <div class="sidebar-header">
       <h1 class="logo">OneHand</h1>
     </div>
@@ -61,8 +61,10 @@
             v-for="notebook in sortedNotebooks"
             :key="notebook.id"
             class="notebook-item"
-            :class="{ active: activeNotebookId === notebook.id }"
+            :class="{ active: activeNotebookId === notebook.id, renaming: renamingNotebookId === notebook.id }"
             @click="handleNotebookClick(notebook.id)"
+            @mouseenter="hoveredNotebookId = notebook.id"
+            @mouseleave="hoveredNotebookId = null"
           >
             <svg v-if="notebook.pdfPath" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
               <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
@@ -70,7 +72,49 @@
             <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
               <path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z"/>
             </svg>
-            <span>{{ notebook.name }}</span>
+            <!-- 重命名输入框 -->
+            <input
+              v-if="renamingNotebookId === notebook.id"
+              type="text"
+              class="rename-input"
+              v-model="renameInputValue"
+              :placeholder="t('notebook.renamePlaceholder')"
+              @click.stop
+              @keyup.enter="confirmRename(notebook)"
+              @keyup.escape="cancelRename"
+              @blur="confirmRename(notebook)"
+              ref="renameInput"
+            />
+            <span v-else>{{ notebook.name }}</span>
+            <!-- 菜单按钮 -->
+            <div v-show="renamingNotebookId !== notebook.id" class="notebook-menu-wrapper">
+              <button
+                class="notebook-menu-btn"
+                :class="{ visible: hoveredNotebookId === notebook.id || openMenuNotebookId === notebook.id }"
+                @click="toggleMenu(notebook.id, $event)"
+              >
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                  <circle cx="12" cy="5" r="2"/>
+                  <circle cx="12" cy="12" r="2"/>
+                  <circle cx="12" cy="19" r="2"/>
+                </svg>
+              </button>
+              <!-- 下拉菜单 -->
+              <div v-if="openMenuNotebookId === notebook.id" class="notebook-menu-dropdown">
+                <button class="menu-item rename" @click="startRename(notebook, $event)">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.9959.9959 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                  </svg>
+                  <span>{{ t('notebook.renameNotebook') }}</span>
+                </button>
+                <button class="menu-item delete" @click="handleDeleteNotebook(notebook)">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                    <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                  </svg>
+                  <span>{{ t('common.delete') }}</span>
+                </button>
+              </div>
+            </div>
           </button>
 
           <!-- 新建笔记本 -->
@@ -178,9 +222,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { useNotebookStore } from '@/stores/notebookStore'
 import SearchDialog from '@/components/SearchDialog.vue'
 import CreateNotebookDialog from '@/components/CreateNotebookDialog.vue'
 import type { Notebook } from '@/types/notebook'
@@ -208,9 +253,25 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const settingsStore = useSettingsStore()
+const notebookStore = useNotebookStore()
 
 // 笔记本列表展开状态
 const isNotebooksExpanded = ref(true)
+
+// 悬停的笔记本（用于显示菜单）
+const hoveredNotebookId = ref<string | null>(null)
+
+// 打开的菜单笔记本ID
+const openMenuNotebookId = ref<string | null>(null)
+
+// 正在重命名的笔记本ID
+const renamingNotebookId = ref<string | null>(null)
+
+// 重命名输入值
+const renameInputValue = ref('')
+
+// 输入框引用
+const renameInput = ref<HTMLInputElement | null>(null)
 
 // 搜索对话框状态
 const showSearchDialog = ref(false)
@@ -289,6 +350,54 @@ function handleAllNotebooksClick() {
 function handleNotebookClick(notebookId: string) {
   emit('select-tab', 'notebooks')
   emit('select-notebook', notebookId)
+}
+
+// 删除笔记本
+async function handleDeleteNotebook(notebook: Notebook) {
+  const confirmed = confirm(t('notebook.deleteConfirmMessage', { name: notebook.name }))
+  if (confirmed) {
+    await notebookStore.deleteNotebook(notebook.id)
+    openMenuNotebookId.value = null
+    // 如果删除的是当前选中的笔记本，清除选中状态
+    if (props.activeNotebookId === notebook.id) {
+      emit('select-notebook', null)
+    }
+  }
+}
+
+// 显示菜单
+function toggleMenu(notebookId: string, event: MouseEvent) {
+  event.stopPropagation()
+  openMenuNotebookId.value = openMenuNotebookId.value === notebookId ? null : notebookId
+}
+
+// 开始重命名
+function startRename(notebook: Notebook, event: MouseEvent) {
+  event.stopPropagation()
+  renamingNotebookId.value = notebook.id
+  renameInputValue.value = notebook.name
+  openMenuNotebookId.value = null
+  nextTick(() => {
+    if (renameInput.value) {
+      renameInput.value.focus()
+      renameInput.value.select()
+    }
+  })
+}
+
+// 确认重命名
+async function confirmRename(notebook: Notebook) {
+  const newName = renameInputValue.value.trim()
+  if (newName && newName !== notebook.name) {
+    notebook.name = newName
+    await notebookStore.saveNotebook(notebook)
+  }
+  renamingNotebookId.value = null
+}
+
+// 取消重命名
+function cancelRename() {
+  renamingNotebookId.value = null
 }
 
 // 创建笔记本
@@ -446,14 +555,101 @@ function handleTrashDrop(e: DragEvent) {
   color: var(--color-primary);
 }
 
-.notebook-item svg {
-  flex-shrink: 0;
+.notebook-item.renaming {
+  background: var(--bg-tertiary);
+}
+
+.rename-input {
+  flex: 1;
+  min-width: 0;
+  padding: 2px 6px;
+  border: 1px solid var(--color-primary);
+  border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+}
+
+.rename-input::placeholder {
+  color: var(--text-secondary);
 }
 
 .notebook-item span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* 笔记本菜单按钮 */
+.notebook-menu-wrapper {
+  position: relative;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.notebook-menu-btn {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  opacity: 0;
+}
+
+.notebook-menu-btn.visible {
+  opacity: 1;
+}
+
+.notebook-menu-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.notebook-menu-dropdown {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  margin-top: 4px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px var(--shadow-color);
+  z-index: 100;
+  min-width: 120px;
+  padding: 4px 0;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+}
+
+.menu-item:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.menu-item.delete:hover {
+  background: rgba(255, 68, 68, 0.1);
+  color: var(--color-error);
 }
 
 .all-notebooks {

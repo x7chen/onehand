@@ -159,6 +159,27 @@ export const useNotebookStore = defineStore('notebook', () => {
   const notebooks = ref<Notebook[]>([])
   const currentNotebook = ref<Notebook | null>(null)
 
+  // 节点 ID 到笔记本的映射缓存（用于批量操作时快速查找）
+  let nodeToNotebookMap: Map<string, Notebook> | null = null
+
+  // 获取节点到笔记本的映射（懒加载）
+  function getNodeToNotebookMap(): Map<string, Notebook> {
+    if (!nodeToNotebookMap) {
+      nodeToNotebookMap = new Map()
+      for (const notebook of notebooks.value) {
+        for (const node of notebook.nodes || []) {
+          nodeToNotebookMap.set(node.id, notebook)
+        }
+      }
+    }
+    return nodeToNotebookMap
+  }
+
+  // 清除映射缓存（当笔记本结构变化时调用）
+  function clearNodeToNotebookMap() {
+    nodeToNotebookMap = null
+  }
+
   const notebookList = computed(() => notebooks.value)
 
   // 获取当前画布 ID
@@ -284,6 +305,8 @@ export const useNotebookStore = defineStore('notebook', () => {
       // 按更新时间排序
       loadedNotebooks.sort((a, b) => (b.updatedAt || b.createdAt) - (a.updatedAt || a.createdAt))
       notebooks.value = loadedNotebooks
+      // 清除节点映射缓存，下次批量操作时会重建
+      clearNodeToNotebookMap()
     } catch (error) {
       console.error('Failed to load notebooks:', error)
     }
@@ -660,6 +683,10 @@ export const useNotebookStore = defineStore('notebook', () => {
 
     currentNotebook.value.nodes.push(node)
     saveNotebook(currentNotebook.value)
+    // 更新映射缓存
+    if (nodeToNotebookMap) {
+      nodeToNotebookMap.set(node.id, currentNotebook.value)
+    }
   }
 
   // 更新节点
@@ -675,12 +702,40 @@ export const useNotebookStore = defineStore('notebook', () => {
     }
   }
 
+  // 批量更新节点上下文选择状态（支持跨笔记本）
+  async function batchUpdateContextSelection(nodeIds: string[], selected: boolean) {
+    const map = getNodeToNotebookMap()
+    const changedNotebooks = new Set<Notebook>()
+
+    for (const nodeId of nodeIds) {
+      const notebook = map.get(nodeId)
+      if (notebook) {
+        const node = notebook.nodes?.find(n => n.id === nodeId)
+        if (node && node.selectedAsContext !== selected) {
+          node.selectedAsContext = selected
+          changedNotebooks.add(notebook)
+        }
+      }
+    }
+
+    // 并行保存所有有变化的笔记本
+    if (changedNotebooks.size > 0) {
+      await Promise.all(
+        Array.from(changedNotebooks).map(notebook => saveNotebook(notebook))
+      )
+    }
+  }
+
   // 删除节点
   function removeNode(nodeId: string) {
     if (!currentNotebook.value?.nodes) return
 
     currentNotebook.value.nodes = currentNotebook.value.nodes.filter(n => n.id !== nodeId)
     saveNotebook(currentNotebook.value)
+    // 更新映射缓存
+    if (nodeToNotebookMap) {
+      nodeToNotebookMap.delete(nodeId)
+    }
 
     // 删除节点后检查当前页是否为空，如果是则自动删除
     checkAndRemoveEmptyPage()
@@ -909,6 +964,7 @@ export const useNotebookStore = defineStore('notebook', () => {
     updateCurrentViewport,
     addNode,
     updateNode,
+    batchUpdateContextSelection,
     removeNode,
     // PDF 页面画布管理
     getOrCreateCanvasForPdfPage,

@@ -188,6 +188,7 @@ const emit = defineEmits<{
   'toggle-context': [nodeId: string]
   'toggle-favorite': [nodeId: string]
   'activate': [nodeId: string]
+  'visible-nodes-change': [nodes: CanvasNode[]]
 }>()
 
 const { t } = useI18n()
@@ -535,15 +536,24 @@ onMounted(() => {
   const today = new Date()
   selectedDate.value = today
   document.addEventListener('click', handlePickerClickOutside)
+  emit('visible-nodes-change', rangeNotes.value)
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', handlePickerClickOutside)
 })
 
+// 监听可见节点变化
+watch(rangeNotes, (notes) => {
+  emit('visible-nodes-change', notes)
+}, { immediate: true })
+
 defineExpose({
   scrollToNode: () => {
     // 日历视图不需要滚动到节点
+  },
+  getVisibleNodes: () => {
+    return rangeNotes.value
   }
 })
 </script>
