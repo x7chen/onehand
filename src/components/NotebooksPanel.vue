@@ -148,17 +148,11 @@ const viewMode = computed({
 })
 
 function getTotalNodesCount(notebook: Notebook): number {
-  if (notebook.canvases && notebook.canvases.length > 0) {
-    return notebook.canvases.reduce((total, canvas) => total + (canvas.nodes?.length || 0), 0)
-  }
-  return notebook.canvas?.nodes?.length || 0
+  return notebook.nodes?.length || 0
 }
 
 function getCanvasesCount(notebook: Notebook): number {
-  if (notebook.canvases && notebook.canvases.length > 0) {
-    return notebook.canvases.length
-  }
-  return notebook.canvas ? 1 : 0
+  return notebook.canvases?.length || 0
 }
 
 function formatDate(timestamp: number): string {

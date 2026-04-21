@@ -25,12 +25,12 @@
     >
       <template #nodes>
         <VoiceNote
-          v-for="node in notebookStore.currentCanvas?.nodes"
+          v-for="node in notebookStore.currentCanvasNodes"
           :key="node.id"
           :ref="(el) => { if (el) voiceNoteRefs[node.id] = el }"
           :node="node"
           :notebook-id="notebookStore.currentNotebook?.id"
-          :canvas-id="notebookStore.currentCanvas?.id"
+          :canvas-id="notebookStore.currentCanvasId || undefined"
           :is-playing="playingNodeId === node.id"
           :global-hide-ai-result="globalHideAiResult"
           :is-active="activeNodeId === node.id"
@@ -134,7 +134,7 @@ const quickModelConfig = computed(() => {
 // MagicInput 初始文本
 const magicInputInitialText = computed(() => {
   if (!magicInputState.value.nodeId) return ''
-  const node = notebookStore.currentCanvas?.nodes.find(n => n.id === magicInputState.value.nodeId)
+  const node = notebookStore.currentCanvasNodes.find(n => n.id === magicInputState.value.nodeId)
   if (!node) return ''
   if (magicInputState.value.mode === 'transcript') {
     return node.transcript || ''
@@ -175,7 +175,7 @@ const magicInputState = ref<MagicInputState>({
 watch(activeNodeId, (newNodeId) => {
   if (!newNodeId) return
 
-  const node = notebookStore.currentCanvas?.nodes.find(n => n.id === newNodeId)
+  const node = notebookStore.currentCanvasNodes.find(n => n.id === newNodeId)
   if (!node) return
 
   nextTick(() => {
@@ -248,7 +248,7 @@ const currentAudio = ref<HTMLAudioElement | null>(null)
 const playingNodeId = ref<string | null>(null)
 
 const selectedContextCount = computed(() =>
-  notebookStore.currentCanvas?.nodes.filter(n => n.selectedAsContext).length || 0
+  notebookStore.currentCanvasNodes.filter(n => n.selectedAsContext).length
 )
 
 // 初始化 viewport
@@ -319,7 +319,7 @@ function handleInsertAfter() {
 // 选中当前画布的第一个节点
 function selectFirstNode() {
   nextTick(() => {
-    const nodes = notebookStore.currentCanvas?.nodes || []
+    const nodes = notebookStore.currentCanvasNodes
     if (nodes.length > 0) {
       // 按创建时间排序，选中最早的节点
       const sortedNodes = [...nodes].sort((a, b) => a.createdAt - b.createdAt)
@@ -487,7 +487,7 @@ async function handleAgentResponse(nodeId: string, transcript: string) {
   try {
     notebookStore.updateNode(nodeId, { agentStatus: 'processing', thinkingStatus: 'pending' })
 
-    const node = notebookStore.currentCanvas?.nodes.find(n => n.id === nodeId)
+    const node = notebookStore.currentCanvasNodes.find(n => n.id === nodeId)
     if (!node) return
 
     // 加载当前节点的内嵌图片（如果尚未加载）
@@ -502,7 +502,7 @@ async function handleAgentResponse(nodeId: string, transcript: string) {
       }
     }
 
-    const selectedNodes = notebookStore.currentCanvas?.nodes.filter(n => n.selectedAsContext && n.id !== nodeId) || []
+    const selectedNodes = notebookStore.currentCanvasNodes.filter(n => n.selectedAsContext && n.id !== nodeId)
 
     const staticContextContent = props.staticContextFiles
       .map(f => f.content)
@@ -568,7 +568,7 @@ function handleDeleteNode(nodeId: string) {
 }
 
 async function handlePlayNode(nodeId: string) {
-  const node = notebookStore.currentCanvas?.nodes.find(n => n.id === nodeId)
+  const node = notebookStore.currentCanvasNodes.find(n => n.id === nodeId)
   if (!node?.audioPath) return
 
   if (playingNodeId.value === nodeId && currentAudio.value) {
@@ -624,7 +624,7 @@ async function handlePlayNode(nodeId: string) {
 }
 
 async function handleToggleContext(nodeId: string) {
-  const node = notebookStore.currentCanvas?.nodes.find(n => n.id === nodeId)
+  const node = notebookStore.currentCanvasNodes.find(n => n.id === nodeId)
   if (node && node.transcriptStatus === 'done') {
     const newSelectedState = !node.selectedAsContext
     notebookStore.updateNode(nodeId, {
@@ -653,30 +653,30 @@ async function handleToggleContext(nodeId: string) {
 }
 
 function clearContextSelection() {
-  if (!notebookStore.currentNotebook || !notebookStore.currentCanvas) return
+  if (!notebookStore.currentNotebook) return
 
-  for (const node of notebookStore.currentCanvas.nodes) {
-    node.selectedAsContext = false
+  for (const node of notebookStore.currentCanvasNodes) {
+    notebookStore.updateNode(node.id, { selectedAsContext: false }, true)
   }
   notebookStore.saveNotebook(notebookStore.currentNotebook)
 }
 
 function handleRetryTranscription(nodeId: string) {
-  const node = notebookStore.currentCanvas?.nodes.find(n => n.id === nodeId)
+  const node = notebookStore.currentCanvasNodes.find(n => n.id === nodeId)
   if (node) {
     handleTranscription(node)
   }
 }
 
 function handleRetryAgent(nodeId: string) {
-  const node = notebookStore.currentCanvas?.nodes.find(n => n.id === nodeId)
+  const node = notebookStore.currentCanvasNodes.find(n => n.id === nodeId)
   if (node && node.transcript) {
     handleAgentResponse(nodeId, node.transcript)
   }
 }
 
 function handleRegenerateAgent(nodeId: string) {
-  const node = notebookStore.currentCanvas?.nodes.find(n => n.id === nodeId)
+  const node = notebookStore.currentCanvasNodes.find(n => n.id === nodeId)
   if (node && node.transcript) {
     handleAgentResponse(nodeId, node.transcript)
   }
@@ -687,7 +687,7 @@ function handleCopyLink(nodeId: string) {
 }
 
 function handleToggleFavorite(nodeId: string) {
-  const node = notebookStore.currentCanvas?.nodes.find(n => n.id === nodeId)
+  const node = notebookStore.currentCanvasNodes.find(n => n.id === nodeId)
   if (node) {
     notebookStore.updateNode(nodeId, {
       isFavorite: !node.isFavorite
@@ -696,7 +696,7 @@ function handleToggleFavorite(nodeId: string) {
 }
 
 async function handleAutoLayout() {
-  const nodes = notebookStore.currentCanvas?.nodes
+  const nodes = notebookStore.currentCanvasNodes
   if (!nodes || nodes.length === 0) return
 
   const layoutNodes = nodes.filter(n => n.type === 'voice-note' || n.type === 'text-note')
@@ -814,7 +814,7 @@ function handleUpdateNode(nodeId: string, updates: Partial<CanvasNode>) {
 
 // 编辑转写内容
 function handleEditTranscript(nodeId: string) {
-  const node = notebookStore.currentCanvas?.nodes.find(n => n.id === nodeId)
+  const node = notebookStore.currentCanvasNodes.find(n => n.id === nodeId)
   if (node) {
     magicInputState.value = {
       isOpen: true,
@@ -826,7 +826,7 @@ function handleEditTranscript(nodeId: string) {
 
 // 编辑AI回答
 function handleEditAgent(nodeId: string) {
-  const node = notebookStore.currentCanvas?.nodes.find(n => n.id === nodeId)
+  const node = notebookStore.currentCanvasNodes.find(n => n.id === nodeId)
   if (node) {
     magicInputState.value = {
       isOpen: true,

@@ -170,14 +170,11 @@ export const useTagStore = defineStore('tag', () => {
     const allTagNames = new Set<string>()
 
     for (const notebook of notebooks) {
-      if (!notebook.canvases) continue
-      for (const canvas of notebook.canvases) {
-        if (!canvas.nodes) continue
-        for (const node of canvas.nodes) {
-          if (node.tags && Array.isArray(node.tags)) {
-            for (const tagName of node.tags) {
-              allTagNames.add(tagName)
-            }
+      if (!notebook.nodes) continue
+      for (const node of notebook.nodes) {
+        if (node.tags && Array.isArray(node.tags)) {
+          for (const tagName of node.tags) {
+            allTagNames.add(tagName)
           }
         }
       }

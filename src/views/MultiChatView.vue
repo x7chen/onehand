@@ -2,7 +2,6 @@
   <div class="multi-chat-view">
     <!-- 顶部工具栏 -->
     <CanvasHeader
-      :notebook-name="notebookStore.currentNotebook?.name || ''"
       :static-context-files="staticContextFiles"
       :all-static-context-files="contextStore.staticContextFiles"
       :all-dynamic-context-files="contextStore.dynamicContextFiles"
@@ -15,6 +14,8 @@
       :notebook-model-id="notebookStore.currentNotebook?.modelId"
       :all-profiles="settingsStore.settings.llm.profiles"
       :active-profile-id="settingsStore.settings.llm.activeProfileId"
+      :all-notebooks="notebookStore.notebooks"
+      :current-notebook-id="showAllNotebooks ? null : (notebookStore.currentNotebook?.id || null)"
       @back="goBack"
       @toggle-all-context="handleToggleAllContext"
       @invert-selection="handleInvertSelection"
@@ -24,7 +25,8 @@
       @dynamic-context-drop="handleDynamicContextDrop"
       @copy-selected-context="handleCopySelectedContext"
       @select-model="handleSelectModel"
-      @update-notebook-name="handleUpdateNotebookName"
+      @select-notebook="handleSelectNotebook"
+      @create-notebook="handleCreateNotebook"
     />
 
     <!-- 主内容区域 -->
@@ -33,7 +35,7 @@
       <NodeListPanel
         v-if="!isLeftPanelCollapsed"
         ref="nodePanelRef"
-        :nodes="notebookStore.currentCanvas?.nodes || []"
+        :nodes="displayNodes"
         :active-node-id="currentActiveNodeId"
         :playing-node-id="playingNodeId"
         :panel-width="leftPanelWidth"
@@ -204,8 +206,24 @@ const isLeftPanelCollapsed = ref(false)
 // 右侧 ChatPanel 折叠状态（默认折叠）
 const isRightChatPanelCollapsed = ref(true)
 
+// "全部"选择状态
+const showAllNotebooks = ref(false)
+
 // NodeListPanel 组件引用
 const nodePanelRef = ref<InstanceType<typeof NodeListPanel> | null>(null)
+
+// 计算要显示的节点
+const displayNodes = computed(() => {
+  if (showAllNotebooks.value) {
+    // 显示所有笔记本的所有节点
+    return notebookStore.notebooks.flatMap(nb =>
+      nb.nodes || []
+    )
+  } else {
+    // 显示当前笔记本的所有节点
+    return notebookStore.currentNotebook?.nodes || []
+  }
+})
 
 // 拖拽调整宽度相关
 const isResizingLeft = ref(false)
@@ -222,15 +240,15 @@ const activeNodeIdRight = ref<string | null>(null)
 // 导航模式标志
 const isNavigating = ref(false)
 
-// 两个面板各自的激活节点（通过 ID 从 store 中查找）
+// 两个面板各自的激活节点（通过 ID 从 displayNodes 中查找）
 const activeNodeLeft = computed(() => {
   if (!activeNodeIdLeft.value) return null
-  return notebookStore.currentCanvas?.nodes.find(n => n.id === activeNodeIdLeft.value) || null
+  return displayNodes.value.find(n => n.id === activeNodeIdLeft.value) || null
 })
 
 const activeNodeRight = computed(() => {
   if (!activeNodeIdRight.value) return null
-  return notebookStore.currentCanvas?.nodes.find(n => n.id === activeNodeIdRight.value) || null
+  return displayNodes.value.find(n => n.id === activeNodeIdRight.value) || null
 })
 
 // 当前激活节点 ID（用于 NodeListPanel 高亮）
@@ -264,12 +282,12 @@ const dynamicContextFile = computed(() => {
 
 // 选中的上下文数量
 const selectedContextCount = computed(() => {
-  return notebookStore.currentCanvas?.nodes.filter(n => n.selectedAsContext && n.transcriptStatus === 'done').length || 0
+  return displayNodes.value.filter(n => n.selectedAsContext && n.transcriptStatus === 'done').length
 })
 
 // 已完成节点数量
 const completedNodesCount = computed(() => {
-  return notebookStore.currentCanvas?.nodes.filter(n => n.transcriptStatus === 'done').length || 0
+  return displayNodes.value.filter(n => n.transcriptStatus === 'done').length
 })
 
 // 是否全选
@@ -315,9 +333,9 @@ watch(() => route.query.nodeId, (newNodeId) => {
   }
 }, { immediate: false })
 
-// 选中当前画布的前两个节点
+// 选中当前笔记本的前两个节点
 function selectFirstNodes() {
-  const nodes = notebookStore.currentCanvas?.nodes || []
+  const nodes = displayNodes.value
   if (nodes.length > 0) {
     const sortedNodes = [...nodes].sort((a, b) => a.createdAt - b.createdAt)
     activeNodeIdLeft.value = sortedNodes[0].id
@@ -358,32 +376,38 @@ onMounted(async () => {
   const notebookId = route.params.notebookId as string
   if (notebookId) {
     await notebookStore.loadNotebooks()
-    const notebook = notebookStore.notebooks.find(p => p.id === notebookId)
-    if (notebook) {
-      notebookStore.setCurrentNotebook(notebook)
 
-      const canvasId = route.query.canvasId as string
-      const nodeId = route.query.nodeId as string
+    if (notebookId === 'all') {
+      // 显示所有笔记本的节点
+      showAllNotebooks.value = true
+    } else {
+      const notebook = notebookStore.notebooks.find(p => p.id === notebookId)
+      if (notebook) {
+        notebookStore.setCurrentNotebook(notebook)
 
-      if (nodeId) {
-        isNavigating.value = true
-      }
+        const canvasId = route.query.canvasId as string
+        const nodeId = route.query.nodeId as string
 
-      if (canvasId && notebook.canvases) {
-        const canvasIndex = notebook.canvases.findIndex(c => c.id === canvasId)
-        if (canvasIndex >= 0 && notebook.currentCanvasIndex !== canvasIndex) {
-          notebook.currentCanvasIndex = canvasIndex
+        if (nodeId) {
+          isNavigating.value = true
         }
-      }
 
-      if (nodeId) {
-        await nextTick()
-        activeNodeIdLeft.value = nodeId
-        scrollToNode(nodeId)
-        router.replace({ path: route.path, query: {} })
-        setTimeout(() => {
-          isNavigating.value = false
-        }, 100)
+        if (canvasId && notebook.canvases) {
+          const canvasIndex = notebook.canvases.findIndex(c => c.id === canvasId)
+          if (canvasIndex >= 0 && notebook.currentCanvasIndex !== canvasIndex) {
+            notebook.currentCanvasIndex = canvasIndex
+          }
+        }
+
+        if (nodeId) {
+          await nextTick()
+          activeNodeIdLeft.value = nodeId
+          scrollToNode(nodeId)
+          router.replace({ path: route.path, query: {} })
+          setTimeout(() => {
+            isNavigating.value = false
+          }, 100)
+        }
       }
     }
   }
@@ -516,30 +540,7 @@ function handleKeyDown(event: KeyboardEvent) {
     return
   }
 
-  const nodes = notebookStore.currentCanvas?.nodes || []
-
-  // 左右键：画布翻页
-  if (event.key === 'ArrowLeft') {
-    event.preventDefault()
-    if (notebookStore.hasPrevPage) {
-      notebookStore.goToPrevPage()
-      nextTick(() => {
-        selectFirstNodes()
-      })
-    }
-    return
-  }
-
-  if (event.key === 'ArrowRight') {
-    event.preventDefault()
-    if (notebookStore.hasNextPage) {
-      notebookStore.goToNextPage()
-      nextTick(() => {
-        selectFirstNodes()
-      })
-    }
-    return
-  }
+  const nodes = displayNodes.value
 
   // Tab 键：切换激活面板
   if (event.key === 'Tab') {
@@ -631,7 +632,7 @@ function handleDeleteNode(nodeId: string) {
 }
 
 async function handlePlayNode(nodeId: string) {
-  const node = notebookStore.currentCanvas?.nodes.find(n => n.id === nodeId)
+  const node = displayNodes.value.find(n => n.id === nodeId)
   if (!node?.audioPath) return
 
   if (playingNodeId.value === nodeId && currentAudio.value) {
@@ -668,7 +669,7 @@ async function handlePlayNode(nodeId: string) {
 }
 
 async function handleToggleContext(nodeId: string) {
-  const node = notebookStore.currentCanvas?.nodes.find(n => n.id === nodeId)
+  const node = displayNodes.value.find(n => n.id === nodeId)
   if (node) {
     const newSelectedState = !node.selectedAsContext
     notebookStore.updateNode(nodeId, { selectedAsContext: newSelectedState })
@@ -697,14 +698,14 @@ function handleRetryTranscription(nodeId: string) {
 }
 
 function handleRetryAgentLeft(nodeId: string) {
-  const node = notebookStore.currentCanvas?.nodes.find(n => n.id === nodeId)
+  const node = displayNodes.value.find(n => n.id === nodeId)
   if (node && node.transcript) {
     handleAgentResponse(nodeId, node.transcript)
   }
 }
 
 function handleRetryAgentRight(nodeId: string) {
-  const node = notebookStore.currentCanvas?.nodes.find(n => n.id === nodeId)
+  const node = displayNodes.value.find(n => n.id === nodeId)
   if (node && node.transcript) {
     handleAgentResponse(nodeId, node.transcript)
   }
@@ -712,14 +713,14 @@ function handleRetryAgentRight(nodeId: string) {
 
 // NodeListPanel 的 retry-agent，根据当前激活面板处理
 function handleRetryAgent(nodeId: string) {
-  const node = notebookStore.currentCanvas?.nodes.find(n => n.id === nodeId)
+  const node = displayNodes.value.find(n => n.id === nodeId)
   if (node && node.transcript) {
     handleAgentResponse(nodeId, node.transcript)
   }
 }
 
 function handleRegenerateAgent(nodeId: string) {
-  const node = notebookStore.currentCanvas?.nodes.find(n => n.id === nodeId)
+  const node = displayNodes.value.find(n => n.id === nodeId)
   if (node && node.transcript) {
     handleAgentResponse(nodeId, node.transcript)
   }
@@ -731,7 +732,7 @@ async function handleAgentResponse(nodeId: string, transcript: string) {
   try {
     notebookStore.updateNode(nodeId, { agentStatus: 'processing' })
 
-    const node = notebookStore.currentCanvas?.nodes.find(n => n.id === nodeId)
+    const node = displayNodes.value.find(n => n.id === nodeId)
     if (!node) return
 
     let currentEmbeddedImages = node.embeddedImages
@@ -745,7 +746,7 @@ async function handleAgentResponse(nodeId: string, transcript: string) {
       }
     }
 
-    const selectedNodes = notebookStore.currentCanvas?.nodes.filter(n => n.selectedAsContext && n.id !== nodeId) || []
+    const selectedNodes = displayNodes.value.filter(n => n.selectedAsContext && n.id !== nodeId)
 
     const staticContextContent = staticContextFiles.value
       .map(f => f.content)
@@ -807,7 +808,7 @@ async function handleAgentResponse(nodeId: string, transcript: string) {
 }
 
 function handleToggleFavorite(nodeId: string) {
-  const node = notebookStore.currentCanvas?.nodes.find(n => n.id === nodeId)
+  const node = displayNodes.value.find(n => n.id === nodeId)
   if (node) {
     notebookStore.updateNode(nodeId, { isFavorite: !node.isFavorite })
   }
@@ -907,18 +908,9 @@ async function handleSelectModel(modelId: string) {
   await notebookStore.saveNotebook(notebookStore.currentNotebook)
 }
 
-// 更新笔记本名称
-async function handleUpdateNotebookName(name: string) {
-  if (!notebookStore.currentNotebook) return
-
-  notebookStore.currentNotebook.name = name
-  notebookStore.currentNotebook.updatedAt = Date.now()
-  await notebookStore.saveNotebook(notebookStore.currentNotebook)
-}
-
 // 上下文选择操作
 function handleToggleAllContext() {
-  const nodes = notebookStore.currentCanvas?.nodes || []
+  const nodes = displayNodes.value
   if (isAllContextSelected.value) {
     nodes.forEach(node => {
       if (node.selectedAsContext) {
@@ -935,7 +927,7 @@ function handleToggleAllContext() {
 }
 
 function handleInvertSelection() {
-  const nodes = notebookStore.currentCanvas?.nodes || []
+  const nodes = displayNodes.value
   nodes.forEach(node => {
     if (node.transcriptStatus === 'done') {
       notebookStore.updateNode(node.id, { selectedAsContext: !node.selectedAsContext })
@@ -944,7 +936,7 @@ function handleInvertSelection() {
 }
 
 function clearContextSelection() {
-  const nodes = notebookStore.currentCanvas?.nodes || []
+  const nodes = displayNodes.value
   nodes.forEach(node => {
     if (node.selectedAsContext) {
       notebookStore.updateNode(node.id, { selectedAsContext: false })
@@ -954,7 +946,7 @@ function clearContextSelection() {
 
 // 复制已选中节点的内容到剪贴板
 async function handleCopySelectedContext() {
-  const nodes = notebookStore.currentCanvas?.nodes || []
+  const nodes = displayNodes.value
   const selectedNodes = nodes
     .filter(n => n.selectedAsContext && n.transcript)
     .sort((a, b) => a.createdAt - b.createdAt)
@@ -974,6 +966,57 @@ async function handleCopySelectedContext() {
     console.log(`已复制 ${selectedNodes.length} 个笔记的内容到剪贴板`)
   } catch (error) {
     console.error('复制失败:', error)
+  }
+}
+
+// 选择笔记本
+function handleSelectNotebook(notebookId: string | null) {
+  showAllNotebooks.value = notebookId === null
+
+  if (notebookId) {
+    const notebook = notebookStore.notebooks.find(nb => nb.id === notebookId)
+    if (notebook) {
+      notebookStore.setCurrentNotebook(notebook)
+      // 根据笔记本类型跳转到不同视图
+      if (notebook.pdfPath) {
+        router.push(`/pdf/${notebookId}`)
+      } else {
+        router.push(`/multi-chat/${notebookId}`)
+      }
+    }
+  }
+}
+
+// 创建笔记本
+async function handleCreateNotebook(data: {
+  name: string
+  pdfPath?: string
+  staticContextIds: string[]
+  dynamicContextId?: string
+}) {
+  const notebook = await notebookStore.createNotebook(data.name, undefined, data.pdfPath)
+
+  // 设置上下文
+  if (data.staticContextIds.length > 0 || data.dynamicContextId) {
+    const contextData: { staticContextIds?: string[]; dynamicContextId?: string } = {}
+    if (data.staticContextIds.length > 0) {
+      contextData.staticContextIds = data.staticContextIds
+    }
+    if (data.dynamicContextId) {
+      contextData.dynamicContextId = data.dynamicContextId
+    }
+    notebook.context = contextData
+    await notebookStore.saveNotebook(notebook)
+  }
+
+  notebookStore.setCurrentNotebook(notebook)
+  showAllNotebooks.value = false
+
+  // 根据笔记本类型跳转到不同视图
+  if (notebook.pdfPath) {
+    router.push(`/pdf/${notebook.id}`)
+  } else {
+    router.push(`/multi-chat/${notebook.id}`)
   }
 }
 </script>

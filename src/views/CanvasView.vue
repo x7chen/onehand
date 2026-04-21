@@ -1,7 +1,6 @@
 <template>
   <div class="canvas-view">
     <CanvasHeader
-      :notebook-name="notebookStore.currentNotebook?.name || ''"
       :static-context-files="staticContextFiles"
       :all-static-context-files="contextStore.staticContextFiles"
       :all-dynamic-context-files="contextStore.dynamicContextFiles"
@@ -13,6 +12,8 @@
       :notebook-model-id="notebookStore.currentNotebook?.modelId"
       :all-profiles="settingsStore.settings.llm.profiles"
       :active-profile-id="settingsStore.settings.llm.activeProfileId"
+      :all-notebooks="notebookStore.notebooks"
+      :current-notebook-id="notebookStore.currentNotebook?.id || null"
       @back="goBack"
       @reset-viewport="handleResetViewport"
       @auto-layout="handleAutoLayout"
@@ -24,7 +25,8 @@
       @dynamic-context-drop="handleDynamicContextDrop"
       @copy-selected-context="handleCopySelectedContext"
       @select-model="handleSelectModel"
-      @update-notebook-name="handleUpdateNotebookName"
+      @select-notebook="handleSelectNotebook"
+      @create-notebook="handleCreateNotebook"
     />
 
     <CanvasArea
@@ -113,12 +115,12 @@ const dynamicContextFile = computed(() => {
 
 // 已选择上下文数量
 const selectedContextCount = computed(() =>
-  notebookStore.currentCanvas?.nodes.filter(n => n.selectedAsContext).length || 0
+  notebookStore.currentCanvasNodes.filter(n => n.selectedAsContext).length
 )
 
 // 已完成节点数量
 const completedNodesCount = computed(() =>
-  notebookStore.currentCanvas?.nodes.filter(n => n.transcriptStatus === 'done').length || 0
+  notebookStore.currentCanvasNodes.filter(n => n.transcriptStatus === 'done').length
 )
 
 // 是否全选
@@ -176,7 +178,7 @@ function handleKeyDown(event: KeyboardEvent) {
 
   // 上下键：节点导航
   if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
-    const nodes = notebookStore.currentCanvas?.nodes || []
+    const nodes = notebookStore.currentCanvasNodes
     if (!nodes || nodes.length === 0) return
 
     event.preventDefault()
@@ -203,7 +205,7 @@ function handleKeyDown(event: KeyboardEvent) {
 
 // 选中当前画布的第一个节点
 function selectFirstNode() {
-  const nodes = notebookStore.currentCanvas?.nodes || []
+  const nodes = notebookStore.currentCanvasNodes
   if (nodes.length > 0) {
     const sortedNodes = [...nodes].sort((a, b) => a.createdAt - b.createdAt)
     canvasAreaRef.value?.setActiveNodeId(sortedNodes[0].id)
@@ -224,16 +226,17 @@ function handleAutoLayout() {
 }
 
 function handleToggleAllContext() {
-  if (!notebookStore.currentNotebook || !notebookStore.currentCanvas) return
+  if (!notebookStore.currentNotebook) return
 
+  const nodes = notebookStore.currentCanvasNodes
   if (isAllContextSelected.value) {
-    for (const node of notebookStore.currentCanvas.nodes) {
-      node.selectedAsContext = false
+    for (const node of nodes) {
+      notebookStore.updateNode(node.id, { selectedAsContext: false }, true)
     }
   } else {
-    for (const node of notebookStore.currentCanvas.nodes) {
+    for (const node of nodes) {
       if (node.transcriptStatus === 'done') {
-        node.selectedAsContext = true
+        notebookStore.updateNode(node.id, { selectedAsContext: true }, true)
       }
     }
   }
@@ -241,11 +244,12 @@ function handleToggleAllContext() {
 }
 
 function handleInvertSelection() {
-  if (!notebookStore.currentNotebook || !notebookStore.currentCanvas) return
+  if (!notebookStore.currentNotebook) return
 
-  for (const node of notebookStore.currentCanvas.nodes) {
+  const nodes = notebookStore.currentCanvasNodes
+  for (const node of nodes) {
     if (node.transcriptStatus === 'done') {
-      node.selectedAsContext = !node.selectedAsContext
+      notebookStore.updateNode(node.id, { selectedAsContext: !node.selectedAsContext }, true)
     }
   }
   notebookStore.saveNotebook(notebookStore.currentNotebook)
@@ -253,9 +257,7 @@ function handleInvertSelection() {
 
 // 复制已选中节点的内容到剪贴板
 async function handleCopySelectedContext() {
-  if (!notebookStore.currentCanvas) return
-
-  const selectedNodes = notebookStore.currentCanvas.nodes
+  const selectedNodes = notebookStore.currentCanvasNodes
     .filter(n => n.selectedAsContext && n.transcript)
     .sort((a, b) => a.createdAt - b.createdAt)
 
@@ -372,13 +374,55 @@ async function handleSelectModel(modelId: string) {
   await notebookStore.saveNotebook(notebookStore.currentNotebook)
 }
 
-// 更新笔记本名称
-async function handleUpdateNotebookName(name: string) {
-  if (!notebookStore.currentNotebook) return
+// 选择笔记本
+function handleSelectNotebook(notebookId: string | null) {
+  if (notebookId === null) {
+    // 选择"全部笔记本"，跳转到首页
+    router.push('/')
+  } else {
+    const notebook = notebookStore.notebooks.find(nb => nb.id === notebookId)
+    if (notebook) {
+      notebookStore.setCurrentNotebook(notebook)
+      // 根据笔记本类型跳转到不同视图
+      if (notebook.pdfPath) {
+        router.push(`/pdf/${notebookId}`)
+      } else {
+        router.push(`/canvas/${notebookId}`)
+      }
+    }
+  }
+}
 
-  notebookStore.currentNotebook.name = name
-  notebookStore.currentNotebook.updatedAt = Date.now()
-  await notebookStore.saveNotebook(notebookStore.currentNotebook)
+// 创建笔记本
+async function handleCreateNotebook(data: {
+  name: string
+  pdfPath?: string
+  staticContextIds: string[]
+  dynamicContextId?: string
+}) {
+  const notebook = await notebookStore.createNotebook(data.name, undefined, data.pdfPath)
+
+  // 设置上下文
+  if (data.staticContextIds.length > 0 || data.dynamicContextId) {
+    const contextData: { staticContextIds?: string[]; dynamicContextId?: string } = {}
+    if (data.staticContextIds.length > 0) {
+      contextData.staticContextIds = data.staticContextIds
+    }
+    if (data.dynamicContextId) {
+      contextData.dynamicContextId = data.dynamicContextId
+    }
+    notebook.context = contextData
+    await notebookStore.saveNotebook(notebook)
+  }
+
+  notebookStore.setCurrentNotebook(notebook)
+
+  // 根据笔记本类型跳转到不同视图
+  if (notebook.pdfPath) {
+    router.push(`/pdf/${notebook.id}`)
+  } else {
+    router.push(`/canvas/${notebook.id}`)
+  }
 }
 </script>
 

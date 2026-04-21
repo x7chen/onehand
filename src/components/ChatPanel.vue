@@ -16,7 +16,7 @@
         <VoiceNote
           :node="activeNode"
           :notebook-id="notebookId"
-          :canvas-id="canvasId"
+          :canvas-id="canvasId || undefined"
           :is-active="true"
           :global-hide-ai-result="false"
           :show-header="true"
@@ -192,7 +192,7 @@ onUnmounted(() => {
 
 // Get notebookId and canvasId from notebookStore
 const notebookId = computed(() => notebookStore.currentNotebook?.id)
-const canvasId = computed(() => notebookStore.currentCanvas?.id)
+const canvasId = computed(() => notebookStore.currentCanvasId)
 
 // 获取当前笔记本使用的模型配置
 const currentModelConfig = computed(() => {
@@ -634,7 +634,8 @@ async function handleAgentResponseForText(nodeId: string, transcript: string) {
     }
 
     const canvas = pdfPage ? notebookStore.getCanvasByPdfPage(pdfPage) : notebookStore.currentCanvas
-    const node = canvas?.nodes.find(n => n.id === nodeId)
+    const canvasNodes = pdfPage ? notebookStore.getNodesByPdfPage(pdfPage) : notebookStore.currentCanvasNodes
+    const node = canvasNodes.find(n => n.id === nodeId)
 
     // 加载当前节点的内嵌图片（如果尚未加载）
     let currentEmbeddedImages = node?.embeddedImages
@@ -652,7 +653,7 @@ async function handleAgentResponseForText(nodeId: string, transcript: string) {
       }
     }
 
-    const selectedNodes = canvas?.nodes.filter(n => n.selectedAsContext && n.id !== nodeId) || []
+    const selectedNodes = canvasNodes.filter(n => n.selectedAsContext && n.id !== nodeId)
 
     const staticContextContent = props.staticContextFiles
       .map(f => f.content)
@@ -975,12 +976,7 @@ function updateNodeWithPage(nodeId: string, updates: Partial<CanvasNode>) {
 }
 
 function findNodeById(nodeId: string): CanvasNode | undefined {
-  if (!notebookStore.currentNotebook?.canvases) return undefined
-  for (const canvas of notebookStore.currentNotebook.canvases) {
-    const node = canvas.nodes.find(n => n.id === nodeId)
-    if (node) return node
-  }
-  return undefined
+  return notebookStore.currentNotebook?.nodes?.find(n => n.id === nodeId)
 }
 
 // 重新生成 AI 回答
@@ -1043,7 +1039,10 @@ async function handleAgentResponseForVoice(nodeId: string, transcript: string, p
     const canvas = pdfPage !== undefined && pdfPage !== null
       ? notebookStore.getCanvasByPdfPage(pdfPage)
       : notebookStore.currentCanvas
-    const node = canvas?.nodes.find(n => n.id === nodeId)
+    const canvasNodes = pdfPage !== undefined && pdfPage !== null
+      ? notebookStore.getNodesByPdfPage(pdfPage)
+      : notebookStore.currentCanvasNodes
+    const node = canvasNodes.find(n => n.id === nodeId)
 
     // 加载当前节点的内嵌图片（如果尚未加载）
     let currentEmbeddedImages = node?.embeddedImages
@@ -1061,7 +1060,7 @@ async function handleAgentResponseForVoice(nodeId: string, transcript: string, p
       }
     }
 
-    const selectedNodes = canvas?.nodes.filter(n => n.selectedAsContext && n.id !== nodeId) || []
+    const selectedNodes = canvasNodes.filter(n => n.selectedAsContext && n.id !== nodeId)
 
     const staticContextContent = props.staticContextFiles
       .map(f => f.content)

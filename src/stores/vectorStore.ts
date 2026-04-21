@@ -94,44 +94,46 @@ export const useVectorStore = defineStore('vector', () => {
     const MAX_CHARS = 20000  // 与 NotebookLoader 保持一致
 
     for (const notebook of notebookStore.notebooks) {
-      if (!notebook.canvases) continue
+      if (!notebook.canvases || !notebook.nodes) continue
 
-      for (const canvas of notebook.canvases) {
+      for (const node of notebook.nodes) {
+        // 找到节点所属的画布
+        const canvas = notebook.canvases.find(c => c.id === node.canvasId)
+        if (!canvas) continue
+
         const canvasName = canvas.pdfPage
           ? `第 ${canvas.pdfPage} 页`
-          : (notebook.canvases.length > 1 ? `第 ${(notebook.currentCanvasIndex ?? 0) + 1} 页` : '画布')
+          : (notebook.canvases.length > 1 ? `第 ${notebook.canvases.indexOf(canvas) + 1} 页` : '画布')
 
-        for (const node of canvas.nodes) {
-          // 添加 transcript（跳过过长文本）
-          if (node.transcript && node.transcript.trim().length > 0) {
-            if (node.transcript.length <= MAX_CHARS) {
-              nodes.push({
-                notebookId: notebook.id,
-                notebookName: notebook.name,
-                canvasId: canvas.id,
-                canvasName,
-                nodeId: node.id,
-                nodeTitle: node.title || '',
-                fieldType: 'transcript',
-                text: node.transcript
-              })
-            }
+        // 添加 transcript（跳过过长文本）
+        if (node.transcript && node.transcript.trim().length > 0) {
+          if (node.transcript.length <= MAX_CHARS) {
+            nodes.push({
+              notebookId: notebook.id,
+              notebookName: notebook.name,
+              canvasId: canvas.id,
+              canvasName,
+              nodeId: node.id,
+              nodeTitle: node.title || '',
+              fieldType: 'transcript',
+              text: node.transcript
+            })
           }
+        }
 
-          // 添加 agentResult（跳过过长文本）
-          if (node.agentResult && node.agentResult.trim().length > 0) {
-            if (node.agentResult.length <= MAX_CHARS) {
-              nodes.push({
-                notebookId: notebook.id,
-                notebookName: notebook.name,
-                canvasId: canvas.id,
-                canvasName,
-                nodeId: node.id,
-                nodeTitle: node.title || '',
-                fieldType: 'agentResult',
-                text: node.agentResult
-              })
-            }
+        // 添加 agentResult（跳过过长文本）
+        if (node.agentResult && node.agentResult.trim().length > 0) {
+          if (node.agentResult.length <= MAX_CHARS) {
+            nodes.push({
+              notebookId: notebook.id,
+              notebookName: notebook.name,
+              canvasId: canvas.id,
+              canvasName,
+              nodeId: node.id,
+              nodeTitle: node.title || '',
+              fieldType: 'agentResult',
+              text: node.agentResult
+            })
           }
         }
       }
@@ -174,47 +176,49 @@ export const useVectorStore = defineStore('vector', () => {
       const MAX_CHARS = 20000
 
       for (const notebook of notebookStore.notebooks) {
-        if (!notebook.canvases) continue
-        for (const canvas of notebook.canvases) {
+        if (!notebook.canvases || !notebook.nodes) continue
+        for (const node of notebook.nodes) {
+          // 找到节点所属的画布
+          const canvas = notebook.canvases.find(c => c.id === node.canvasId)
+          if (!canvas) continue
+
           const canvasName = canvas.pdfPage
             ? `第 ${canvas.pdfPage} 页`
-            : (notebook.canvases.length > 1 ? `第 ${(notebook.currentCanvasIndex ?? 0) + 1} 页` : '画布')
+            : (notebook.canvases.length > 1 ? `第 ${notebook.canvases.indexOf(canvas) + 1} 页` : '画布')
 
-          for (const node of canvas.nodes) {
-            if (node.transcript && node.transcript.trim().length > 0 && node.transcript.length <= MAX_CHARS) {
-              const source = `${notebook.id}:${canvas.id}:${node.id}:transcript`
-              currentNodesInfo.push({
-                source,
-                node: {
-                  notebookId: notebook.id,
-                  notebookName: notebook.name,
-                  canvasId: canvas.id,
-                  canvasName,
-                  nodeId: node.id,
-                  nodeTitle: node.title || '',
-                  fieldType: 'transcript',
-                  text: node.transcript
-                },
-                textHash: md5(node.transcript)
-              })
-            }
-            if (node.agentResult && node.agentResult.trim().length > 0 && node.agentResult.length <= MAX_CHARS) {
-              const source = `${notebook.id}:${canvas.id}:${node.id}:agentResult`
-              currentNodesInfo.push({
-                source,
-                node: {
-                  notebookId: notebook.id,
-                  notebookName: notebook.name,
-                  canvasId: canvas.id,
-                  canvasName,
-                  nodeId: node.id,
-                  nodeTitle: node.title || '',
-                  fieldType: 'agentResult',
-                  text: node.agentResult
-                },
-                textHash: md5(node.agentResult)
-              })
-            }
+          if (node.transcript && node.transcript.trim().length > 0 && node.transcript.length <= MAX_CHARS) {
+            const source = `${notebook.id}:${canvas.id}:${node.id}:transcript`
+            currentNodesInfo.push({
+              source,
+              node: {
+                notebookId: notebook.id,
+                notebookName: notebook.name,
+                canvasId: canvas.id,
+                canvasName,
+                nodeId: node.id,
+                nodeTitle: node.title || '',
+                fieldType: 'transcript',
+                text: node.transcript
+              },
+              textHash: md5(node.transcript)
+            })
+          }
+          if (node.agentResult && node.agentResult.trim().length > 0 && node.agentResult.length <= MAX_CHARS) {
+            const source = `${notebook.id}:${canvas.id}:${node.id}:agentResult`
+            currentNodesInfo.push({
+              source,
+              node: {
+                notebookId: notebook.id,
+                notebookName: notebook.name,
+                canvasId: canvas.id,
+                canvasName,
+                nodeId: node.id,
+                nodeTitle: node.title || '',
+                fieldType: 'agentResult',
+                text: node.agentResult
+              },
+              textHash: md5(node.agentResult)
+            })
           }
         }
       }
@@ -345,8 +349,7 @@ export const useVectorStore = defineStore('vector', () => {
 
       return result.results.map(r => {
         const notebook = notebookStore.notebooks.find(n => n.id === r.metadata.notebookId)
-        const canvas = notebook?.canvases?.find(c => c.id === r.metadata.canvasId)
-        const node = canvas?.nodes.find(n => n.id === r.metadata.nodeId)
+        const node = notebook?.nodes?.find(n => n.id === r.metadata.nodeId)
 
         return {
           notebookId: r.metadata.notebookId,
@@ -386,17 +389,19 @@ export const useVectorStore = defineStore('vector', () => {
     const MAX_CHARS = 20000
 
     for (const notebook of notebookStore.notebooks) {
-      if (!notebook.canvases) continue
-      for (const canvas of notebook.canvases) {
-        for (const node of canvas.nodes) {
-          if (node.transcript && node.transcript.trim().length > 0 && node.transcript.length <= MAX_CHARS) {
-            const source = `${notebook.id}:${canvas.id}:${node.id}:transcript`
-            currentNodes.push({ source, textHash: md5(node.transcript) })
-          }
-          if (node.agentResult && node.agentResult.trim().length > 0 && node.agentResult.length <= MAX_CHARS) {
-            const source = `${notebook.id}:${canvas.id}:${node.id}:agentResult`
-            currentNodes.push({ source, textHash: md5(node.agentResult) })
-          }
+      if (!notebook.canvases || !notebook.nodes) continue
+      for (const node of notebook.nodes) {
+        // 找到节点所属的画布
+        const canvas = notebook.canvases.find(c => c.id === node.canvasId)
+        if (!canvas) continue
+
+        if (node.transcript && node.transcript.trim().length > 0 && node.transcript.length <= MAX_CHARS) {
+          const source = `${notebook.id}:${canvas.id}:${node.id}:transcript`
+          currentNodes.push({ source, textHash: md5(node.transcript) })
+        }
+        if (node.agentResult && node.agentResult.trim().length > 0 && node.agentResult.length <= MAX_CHARS) {
+          const source = `${notebook.id}:${canvas.id}:${node.id}:agentResult`
+          currentNodes.push({ source, textHash: md5(node.agentResult) })
         }
       }
     }

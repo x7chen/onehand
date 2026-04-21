@@ -8,6 +8,51 @@
       </svg>
     </button>
 
+    <!-- 笔记本选择器 -->
+    <div
+      ref="notebookSelectorRef"
+      class="notebook-selector"
+      @click="toggleNotebookSelector"
+      :class="{ 'active': showNotebookSelector }"
+      :title="t('canvas.selectNotebook')"
+    >
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" class="notebook-icon">
+        <path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z"/>
+      </svg>
+      <div v-if="showNotebookSelector" class="notebook-dropdown">
+        <span
+          class="notebook-option"
+          :class="{ selected: currentNotebookId === null }"
+          @click.stop="selectNotebook(null)"
+        >
+          {{ t('canvas.allNotebooks') }}
+        </span>
+        <span
+          v-for="nb in allNotebooks"
+          :key="nb.id"
+          class="notebook-option"
+          :class="{ selected: currentNotebookId === nb.id }"
+          @click.stop="selectNotebook(nb.id)"
+        >
+          {{ nb.name }}
+        </span>
+        <div class="dropdown-divider"></div>
+        <span
+          class="notebook-option create-option"
+          @click.stop="showCreateNotebookDialog = true"
+        >
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+          </svg>
+          {{ t('notebook.newNotebook') }}
+        </span>
+      </div>
+      <span v-else class="notebook-name">
+        {{ currentNotebookId ? currentNotebook?.name : t('canvas.allNotebooks') }}
+      </span>
+    </div>
+
+    
     <!-- 静态上下文显示（左侧） -->
     <div
       ref="staticContextDisplayRef"
@@ -78,26 +123,6 @@
 
     <!-- 以下元素在宽度不足时隐藏 -->
     <template v-if="!isCompactMode">
-      <!-- 笔记本标题 - 双击可编辑 -->
-      <h2
-        v-if="!isEditingName"
-        @dblclick="startEditingName"
-        class="notebook-title"
-        :title="t('canvas.doubleClickToEdit')"
-      >
-        {{ notebookName }}
-      </h2>
-      <input
-        v-else
-        ref="nameInputRef"
-        v-model="editingName"
-        @blur="saveNameEdit"
-        @keydown.enter="saveNameEdit"
-        @keydown.escape="cancelNameEdit"
-        class="notebook-title-input"
-        type="text"
-      />
-
       <!-- 右侧组件容器 -->
       <div class="right-controls-group">
 
@@ -261,6 +286,15 @@
       :visible="showSearchDialog"
       @close="showSearchDialog = false"
     />
+
+    <!-- 创建笔记本对话框 -->
+    <CreateNotebookDialog
+      :visible="showCreateNotebookDialog"
+      :static-context-files="allStaticContextFiles"
+      :dynamic-context-files="allDynamicContextFiles"
+      @close="showCreateNotebookDialog = false"
+      @create="handleCreateNotebook"
+    />
   </div>
 </template>
 
@@ -268,13 +302,14 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import SearchDialog from '@/components/SearchDialog.vue'
+import CreateNotebookDialog from '@/components/CreateNotebookDialog.vue'
 import type { ContextFile } from '@/types/context'
 import type { LLMProfile } from '@/types/settings'
+import type { Notebook } from '@/types/notebook'
 
 const { t } = useI18n()
 
 const props = withDefaults(defineProps<{
-  notebookName: string
   staticContextFiles: ContextFile[]
   allStaticContextFiles: ContextFile[]
   allDynamicContextFiles: ContextFile[]
@@ -287,12 +322,16 @@ const props = withDefaults(defineProps<{
   notebookModelId?: string
   allProfiles: LLMProfile[]
   activeProfileId: string
+  allNotebooks: Notebook[]
+  currentNotebookId: string | null
 }>(), {
   showViewportControls: true,
   selectedContextCount: 0,
   notebookModelId: undefined,
   allProfiles: () => [],
-  activeProfileId: ''
+  activeProfileId: '',
+  allNotebooks: () => [],
+  currentNotebookId: null
 })
 
 const emit = defineEmits<{
@@ -309,37 +348,27 @@ const emit = defineEmits<{
   'select-dynamic-context': [contextId: string]
   'dynamic-context-drop': [text: string]
   'select-model': [modelId: string]
-  'update-notebook-name': [name: string]
+  'select-notebook': [notebookId: string | null]
+  'create-notebook': [data: {
+    name: string
+    pdfPath?: string
+    staticContextIds: string[]
+    dynamicContextId?: string
+  }]
 }>()
 
-// 笔记本名称编辑状态
-const isEditingName = ref(false)
-const editingName = ref('')
-const nameInputRef = ref<HTMLInputElement | null>(null)
+// 创建笔记本对话框状态
+const showCreateNotebookDialog = ref(false)
 
-function startEditingName() {
-  editingName.value = props.notebookName
-  isEditingName.value = true
-  // 等待 DOM 更新后聚焦输入框
-  setTimeout(() => {
-    if (nameInputRef.value) {
-      nameInputRef.value.focus()
-      nameInputRef.value.select()
-    }
-  }, 0)
-}
+// 当前笔记本
+const currentNotebook = computed(() => {
+  if (!props.currentNotebookId) return null
+  return props.allNotebooks.find(nb => nb.id === props.currentNotebookId)
+})
 
-function saveNameEdit() {
-  const newName = editingName.value.trim()
-  if (newName && newName !== props.notebookName) {
-    emit('update-notebook-name', newName)
-  }
-  isEditingName.value = false
-}
-
-function cancelNameEdit() {
-  isEditingName.value = false
-}
+// 笔记本选择器状态
+const showNotebookSelector = ref(false)
+const notebookSelectorRef = ref<HTMLElement | null>(null)
 
 // 静态上下文选择器状态
 const showStaticContextSelector = ref(false)
@@ -375,20 +404,37 @@ function checkCompactMode() {
   }
 }
 
+function toggleNotebookSelector() {
+  showNotebookSelector.value = !showNotebookSelector.value
+  // 关闭其他选择器
+  if (showNotebookSelector.value) {
+    showStaticContextSelector.value = false
+    showDynamicContextSelector.value = false
+    showModelSelector.value = false
+  }
+}
+
+function selectNotebook(notebookId: string | null) {
+  emit('select-notebook', notebookId)
+  showNotebookSelector.value = false
+}
+
 function toggleStaticContextSelector() {
   showStaticContextSelector.value = !showStaticContextSelector.value
   // 关闭另一个选择器
   if (showStaticContextSelector.value) {
     showDynamicContextSelector.value = false
+    showNotebookSelector.value = false
   }
 }
 
 function toggleDynamicContextSelector() {
   showDynamicContextSelector.value = !showDynamicContextSelector.value
-  // 关闭另一个选择器
+  // 关闭其他选择器
   if (showDynamicContextSelector.value) {
     showStaticContextSelector.value = false
     showModelSelector.value = false
+    showNotebookSelector.value = false
   }
 }
 
@@ -398,6 +444,7 @@ function toggleModelSelector() {
   if (showModelSelector.value) {
     showStaticContextSelector.value = false
     showDynamicContextSelector.value = false
+    showNotebookSelector.value = false
   }
 }
 
@@ -407,6 +454,11 @@ function selectModel(profileId: string) {
 }
 
 function handleClickOutside(e: MouseEvent) {
+  if (showNotebookSelector.value &&
+      notebookSelectorRef.value &&
+      !notebookSelectorRef.value.contains(e.target as Node)) {
+    showNotebookSelector.value = false
+  }
   if (showStaticContextSelector.value &&
       staticContextDisplayRef.value &&
       !staticContextDisplayRef.value.contains(e.target as Node)) {
@@ -458,6 +510,17 @@ function handleDynamicContextDrop(e: DragEvent) {
   emit('dynamic-context-drop', text.trim())
 }
 
+// 处理创建笔记本
+function handleCreateNotebook(data: {
+  name: string
+  pdfPath?: string
+  staticContextIds: string[]
+  dynamicContextId?: string
+}) {
+  emit('create-notebook', data)
+  showCreateNotebookDialog.value = false
+}
+
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
 
@@ -506,6 +569,83 @@ onUnmounted(() => {
 
 .back-btn:hover {
   background: var(--border-color);
+}
+
+/* 笔记本选择器 */
+.notebook-selector {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--bg-secondary);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+  min-width: 80px;
+  max-width: 150px;
+}
+
+.notebook-selector:hover {
+  background: var(--border-color);
+}
+
+.notebook-selector.active {
+  background: var(--border-color);
+}
+
+.notebook-icon {
+  flex-shrink: 0;
+  color: var(--color-primary);
+}
+
+.notebook-name {
+  font-size: 13px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100px;
+}
+
+.notebook-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 4px;
+  min-width: 120px;
+  max-width: 200px;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.notebook-option {
+  display: block;
+  padding: 6px 12px;
+  font-size: 13px;
+  color: var(--text-primary);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.notebook-option:hover {
+  background: var(--bg-secondary);
+}
+
+.notebook-option.selected {
+  background: var(--color-primary)20;
+  color: var(--color-primary);
+  font-weight: 500;
 }
 
 /* 回到原点按钮 */
@@ -678,49 +818,6 @@ onUnmounted(() => {
   align-items: center;
   gap: 16px;
   margin-left: auto;
-}
-
-.canvas-header h2,
-.notebook-title {
-  font-size: 18px;
-  color: var(--text-primary);
-  flex: 0 0 auto;
-  max-width: 300px;
-  text-align: center;
-  height: 32px;
-  box-sizing: border-box;
-  margin: 0 auto;
-}
-
-.notebook-title {
-  cursor: pointer;
-  transition: background 0.2s;
-  padding: 5px 10px;
-  border-radius: 4px;
-  user-select: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.notebook-title:hover {
-  background: var(--bg-secondary);
-}
-
-.notebook-title-input {
-  flex: 1;
-  font-size: 18px;
-  color: var(--text-primary);
-  background: var(--bg-secondary);
-  border: 2px solid var(--color-primary);
-  border-radius: 4px;
-  padding: 5px 10px;
-  text-align: center;
-  outline: none;
-  max-width: 300px;
-  margin: 0 auto;
-  height: 32px;
-  box-sizing: border-box;
 }
 
 /* 静态上下文显示 */
@@ -976,5 +1073,24 @@ onUnmounted(() => {
   color: var(--text-secondary);
   font-style: italic;
   padding: 6px 12px;
+}
+
+/* 笔记本下拉分隔线 */
+.dropdown-divider {
+  height: 1px;
+  background: var(--border-color);
+  margin: 4px 8px;
+}
+
+/* 创建笔记本选项 */
+.create-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-primary);
+}
+
+.create-option:hover {
+  background: var(--color-primary)20;
 }
 </style>

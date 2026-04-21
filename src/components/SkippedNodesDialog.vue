@@ -93,7 +93,7 @@ function closeNodePopup() {
   selectedNodeUrl.value = ''
 }
 
-function handleNavigate(data: { notebookId: string; canvasId: string; nodeId: string }) {
+function handleNavigate(data: { notebookId: string; canvasId?: string; nodeId: string }) {
   const notebook = notebookStore.notebooks.find(p => p.id === data.notebookId)
   if (notebook) {
     notebookStore.setCurrentNotebook(notebook)

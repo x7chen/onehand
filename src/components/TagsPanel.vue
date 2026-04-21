@@ -146,35 +146,34 @@ async function loadTaggedNodes() {
   const tagMap = new Map<string, TagGroup>()
 
   for (const notebook of notebookStore.notebooks) {
-    if (!notebook.canvases) continue
+    if (!notebook.canvases || !notebook.nodes) continue
 
-    for (const canvas of notebook.canvases) {
-      if (!canvas.nodes) continue
+    for (const node of notebook.nodes) {
+      if (node.tags && node.tags.length > 0) {
+        const canvas = notebook.canvases.find(c => c.id === node.canvasId)
+        if (!canvas) continue
 
-      for (const node of canvas.nodes) {
-        if (node.tags && node.tags.length > 0) {
-          const fullText = node.transcript || node.agentResult || ''
+        const fullText = node.transcript || node.agentResult || ''
 
-          for (const tagName of node.tags) {
-            if (!tagMap.has(tagName)) {
-              const tag = tagStore.getTagByName(tagName)
-              tagMap.set(tagName, {
-                tagName,
-                tagColor: tag?.color || '#66bb6a',
-                nodes: []
-              })
-            }
-
-            tagMap.get(tagName)!.nodes.push({
-              notebookId: notebook.id,
-              notebookName: notebook.name,
-              canvasId: canvas.id,
-              canvasName: getCanvasName(canvas, notebook),
-              nodeId: node.id,
-              nodeTitle: node.title || '',
-              fullText
+        for (const tagName of node.tags) {
+          if (!tagMap.has(tagName)) {
+            const tag = tagStore.getTagByName(tagName)
+            tagMap.set(tagName, {
+              tagName,
+              tagColor: tag?.color || '#66bb6a',
+              nodes: []
             })
           }
+
+          tagMap.get(tagName)!.nodes.push({
+            notebookId: notebook.id,
+            notebookName: notebook.name,
+            canvasId: canvas.id,
+            canvasName: getCanvasName(canvas, notebook),
+            nodeId: node.id,
+            nodeTitle: node.title || '',
+            fullText
+          })
         }
       }
     }

@@ -226,6 +226,12 @@ export default {
     insertAfter: 'Insert after this page',
     emptyHint: 'Double-click to input · Long press to record · Drag text to create note',
     magicPadHint: 'Double-click to input · Long press to record · Drag text to create note',
+    allNotebooks: 'All notebooks',
+    allCanvases: 'All canvases',
+    selectNotebook: 'Select notebook',
+    selectCanvas: 'Select canvas',
+    canvasN: 'Canvas {n}',
+    pageN: 'Page {n}',
   },
   voiceNote: {
     recording: 'Recording',

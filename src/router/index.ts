@@ -15,11 +15,6 @@ const router = createRouter({
       component: () => import('../views/CanvasView.vue')
     },
     {
-      path: '/node-list/:notebookId',
-      name: 'node-list',
-      component: () => import('../views/NodeListView.vue')
-    },
-    {
       path: '/pdf/:notebookId',
       name: 'pdf',
       component: () => import('../views/PdfReaderView.vue')

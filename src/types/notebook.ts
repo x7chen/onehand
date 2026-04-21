@@ -5,9 +5,13 @@ export interface Notebook {
   name: string
   createdAt: number
   updatedAt: number
-  /** @deprecated 使用 canvases 数组替代 */
-  canvas?: Canvas
-  canvases?: CanvasPage[]
+  /** 笔记本下的所有节点（扁平化存储，节点通过 canvasId 属性指向所属画布） */
+  nodes?: CanvasNode[]
+  /** 画布元信息（不含节点） */
+  canvases?: CanvasInfo[]
+  /** 当前画布 ID */
+  currentCanvasId?: string
+  /** @deprecated 使用 currentCanvasId 替代 */
   currentCanvasIndex?: number
   context?: NotebookContext
   pdfPath?: string
@@ -17,17 +21,20 @@ export interface Notebook {
   lastPdfPage?: number
 }
 
-export interface CanvasPage {
+/** 画布元信息（不含节点） */
+export interface CanvasInfo {
   id: string
   type: 'infinite' | 'pdf'
   viewport: Viewport
-  nodes: CanvasNode[]
   createdAt: number
   pdfPage?: number
 }
 
-/** @deprecated 使用 CanvasPage 替代 */
-export interface Canvas extends CanvasPage {}
+/** @deprecated 使用 CanvasInfo 替代，保留用于数据迁移兼容 */
+export interface CanvasPage extends CanvasInfo {
+  /** @deprecated 节点已移至 Notebook.nodes */
+  nodes?: CanvasNode[]
+}
 
 export interface Viewport {
   x: number
@@ -41,6 +48,8 @@ export interface CanvasNode {
   title?: string
   position: { x: number; y: number }
   width?: number  // 节点宽度，默认为 CSS 变量 --node-width
+  /** 所属画布 ID */
+  canvasId?: string
   audioPath?: string
   imagePath?: string
   imageBase64?: string  // 图片节点的base64编码，用于AI上下文

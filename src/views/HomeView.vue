@@ -20,8 +20,7 @@
 
         <button
           class="nav-item"
-          :class="{ active: activeTab === 'notebooks' }"
-          @click="activeTab = 'notebooks'"
+          @click="handleNotebooksClick"
         >
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5">
             <rect x="4" y="4" width="16" height="16" rx="2"/>
@@ -109,12 +108,6 @@
 
     <!-- 右侧内容区域 -->
     <main class="main-content">
-      <NotebooksPanel
-        v-if="activeTab === 'notebooks'"
-        @newNotebook="showNewNotebookDialog = true"
-        @dragStart="handleNotebookDragStart"
-        @dragEnd="handleNotebookDragEnd"
-      />
       <ContextsPanel
         v-if="activeTab === 'contexts'"
         @newContext="showNewContextDialog = true"
@@ -247,81 +240,6 @@
       </div>
     </div>
 
-    <!-- New Notebook Dialog -->
-    <div v-if="showNewNotebookDialog" class="dialog-overlay" @click="showNewNotebookDialog = false">
-      <div class="dialog" @click.stop>
-        <h3>{{ t('notebook.newNotebook') }}</h3>
-        <input
-          v-model="newNotebookName"
-          type="text"
-          :placeholder="t('notebook.notebookNamePlaceholder')"
-          @keydown.enter="handleCreateNotebookEnter"
-          ref="notebookNameInput"
-        />
-
-        <!-- PDF 文件选择（可选） -->
-        <div class="form-group">
-          <label>{{ t('notebook.pdfFile') }}：</label>
-          <div class="pdf-file-selector">
-            <input
-              v-model="newNotebookPdfName"
-              type="text"
-              :placeholder="t('notebook.pdfFilePlaceholder')"
-              readonly
-              @click="selectPdfFile"
-              class="pdf-input"
-            />
-            <button v-if="newNotebookPdfPath" @click="clearPdfFile" class="clear-pdf-btn" :title="t('common.clear')">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-              </svg>
-            </button>
-            <button @click="selectPdfFile" class="browse-btn">{{ t('common.browse') }}</button>
-          </div>
-        </div>
-
-        <!-- 选择静态上下文（标签方式） -->
-        <div class="form-group">
-          <label>{{ t('notebook.staticContext') }}：</label>
-          <div v-if="contextStore.staticContextFiles.length > 0" class="context-tags-selector">
-            <span
-              v-for="file in contextStore.staticContextFiles"
-              :key="file.id"
-              class="context-tag-selectable"
-              :class="{ selected: newNotebookStaticContexts.includes(file.id) }"
-              :style="{
-                backgroundColor: newNotebookStaticContexts.includes(file.id) ? file.color + '40' : 'var(--bg-secondary)',
-                borderColor: newNotebookStaticContexts.includes(file.id) ? file.color : 'var(--border-color)',
-                color: newNotebookStaticContexts.includes(file.id) ? file.color : 'var(--text-secondary)'
-              }"
-              @click="toggleStaticContextSelection(file.id)"
-            >
-              {{ file.name }}
-            </span>
-          </div>
-          <div v-else class="no-context-hint">
-            <span>{{ t('notebook.noStaticContext') }}</span>
-          </div>
-        </div>
-
-        <!-- 选择动态上下文 -->
-        <div class="form-group">
-          <label>{{ t('notebook.dynamicContext') }}：</label>
-          <select v-model="newNotebookDynamicContext">
-            <option value="">{{ t('notebook.noDynamicContext') }}</option>
-            <option v-for="file in contextStore.dynamicContextFiles" :key="file.id" :value="file.id">
-              {{ file.name }}
-            </option>
-          </select>
-        </div>
-
-        <div class="dialog-actions">
-          <button @click="showNewNotebookDialog = false" class="cancel-btn">{{ t('common.cancel') }}</button>
-          <button @click="createNotebook" class="confirm-btn">{{ t('common.create') }}</button>
-        </div>
-      </div>
-    </div>
-
     <!-- Delete Confirmation Dialog -->
     <div v-if="showDeleteConfirm" class="dialog-overlay" @click="showDeleteConfirm = false">
       <div class="dialog confirm-dialog" @click.stop>
@@ -330,18 +248,6 @@
         <div class="dialog-actions">
           <button @click="showDeleteConfirm = false" class="cancel-btn">{{ t('common.cancel') }}</button>
           <button @click="deleteContextFile" class="delete-btn confirm-delete">{{ t('common.delete') }}</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- 笔记本删除确认对话框 -->
-    <div v-if="showNotebookDeleteConfirm" class="dialog-overlay" @click="showNotebookDeleteConfirm = false">
-      <div class="dialog confirm-dialog" @click.stop>
-        <h3>{{ t('notebook.deleteConfirmTitle') }}</h3>
-        <p>{{ t('notebook.deleteConfirmMessage', { name: notebookToDelete?.name }) }}</p>
-        <div class="dialog-actions">
-          <button @click="showNotebookDeleteConfirm = false" class="cancel-btn">{{ t('common.cancel') }}</button>
-          <button @click="confirmDeleteNotebook" class="delete-btn confirm-delete">{{ t('common.delete') }}</button>
         </div>
       </div>
     </div>
@@ -368,22 +274,22 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useNotebookStore } from '@/stores/notebookStore'
 import { useContextStore } from '@/stores/contextStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useQuickCommandStore } from '@/stores/quickCommandStore'
 import SearchDialog from '@/components/SearchDialog.vue'
-import NotebooksPanel from '@/components/NotebooksPanel.vue'
 import ContextsPanel from '@/components/ContextsPanel.vue'
 import FavoritesPanel from '@/components/FavoritesPanel.vue'
 import TagsPanel from '@/components/TagsPanel.vue'
 import SettingsPanel from '@/components/SettingsPanel.vue'
 import type { ContextFile, ContextType } from '@/types/context'
 import { CONTEXT_COLORS, type ContextColor } from '@/types/context'
-import type { Notebook } from '@/types/notebook'
 import type { QuickCommand } from '@/types/quickCommand'
 
+const router = useRouter()
 const notebookStore = useNotebookStore()
 const contextStore = useContextStore()
 const settingsStore = useSettingsStore()
@@ -393,7 +299,7 @@ const { t } = useI18n()
 const contextColors = computed(() => CONTEXT_COLORS)
 
 // 当前激活的 tab
-const activeTab = ref<'notebooks' | 'contexts' | 'favorites' | 'tags' | 'settings' | 'search'>('notebooks')
+const activeTab = ref<'contexts' | 'favorites' | 'tags' | 'settings' | 'search'>('contexts')
 
 // 对话框状态
 const showNewContextDialog = ref(false)
@@ -405,26 +311,15 @@ const newContextContent = ref('')
 const showEditContextDialog = ref(false)
 const editingContext = ref<ContextFile | undefined>(undefined)
 
-const showNewNotebookDialog = ref(false)
-const newNotebookName = ref('')
-const newNotebookPdfPath = ref('')
-const newNotebookPdfName = ref('')
-const newNotebookStaticContexts = ref<string[]>([])
-const newNotebookDynamicContext = ref('')
-const notebookNameInput = ref<HTMLInputElement | null>(null)
-
 const showDeleteConfirm = ref(false)
 const contextToDelete = ref<string | null>(null)
 const shouldCloseEditDialogAfterDelete = ref(false)
 
 // 拖拽删除相关
 const isDragOverTrash = ref(false)
-const draggedNotebook = ref<Notebook | null>(null)
 const draggedContext = ref<ContextFile | null>(null)
 const draggedProfileId = ref<string | null>(null)
 const draggedQuickCommand = ref<QuickCommand | null>(null)
-const showNotebookDeleteConfirm = ref(false)
-const notebookToDelete = ref<Notebook | null>(null)
 const showQuickCommandDeleteConfirm = ref(false)
 const quickCommandToDelete = ref<QuickCommand | null>(null)
 
@@ -482,6 +377,11 @@ onMounted(() => {
 // 搜索点击处理
 function handleSearchClick() {
   showSearchDialog.value = true
+}
+
+// 笔记本点击处理 - 跳转到 MultiChatView 打开全部笔记本
+function handleNotebooksClick() {
+  router.push('/multi-chat/all')
 }
 
 // Context file management
@@ -549,95 +449,7 @@ async function deleteContextFile() {
   }
 }
 
-// Notebook management
-// 处理 Enter 键创建笔记本（检查输入法组合状态）
-function handleCreateNotebookEnter(event: KeyboardEvent) {
-  if (event.isComposing) return
-  event.preventDefault()
-  createNotebook()
-}
-
-async function createNotebook() {
-  let notebookName = newNotebookName.value.trim()
-  if (!notebookName && newNotebookPdfPath.value) {
-    const fileName = newNotebookPdfPath.value.split(/[/\\]/).pop() || ''
-    notebookName = fileName.replace(/\.pdf$/i, '') || 'PDF 笔记本'
-  }
-
-  if (!notebookName) return
-
-  const context = {
-    staticContextIds: newNotebookStaticContexts.value.length > 0 ? newNotebookStaticContexts.value : undefined,
-    dynamicContextId: newNotebookDynamicContext.value || undefined
-  }
-
-  const pdfPath = newNotebookPdfPath.value || undefined
-
-  const notebook = await notebookStore.createNotebook(
-    notebookName,
-    (context.staticContextIds || context.dynamicContextId) ? context : undefined,
-    pdfPath
-  )
-
-  showNewNotebookDialog.value = false
-  newNotebookName.value = ''
-  newNotebookPdfPath.value = ''
-  newNotebookPdfName.value = ''
-  newNotebookStaticContexts.value = []
-  newNotebookDynamicContext.value = ''
-
-  // 切换到笔记本 tab
-  activeTab.value = 'notebooks'
-}
-
-function toggleStaticContextSelection(contextId: string) {
-  const index = newNotebookStaticContexts.value.indexOf(contextId)
-  if (index === -1) {
-    newNotebookStaticContexts.value.push(contextId)
-  } else {
-    newNotebookStaticContexts.value.splice(index, 1)
-  }
-}
-
-function clearPdfFile() {
-  newNotebookPdfPath.value = ''
-  newNotebookPdfName.value = ''
-}
-
-async function selectPdfFile() {
-  try {
-    const result = await window.electronAPI.showOpenDialog({
-      title: '选择 PDF 文件',
-      filters: [{ name: 'PDF 文件', extensions: ['pdf'] }],
-      properties: ['openFile']
-    })
-    if (result.canceled || !result.filePaths || result.filePaths.length === 0) return
-    newNotebookPdfPath.value = result.filePaths[0]
-    const fileName = result.filePaths[0].split(/[/\\]/).pop()
-    newNotebookPdfName.value = fileName || result.filePaths[0]
-  } catch (error) {
-    console.error('Failed to select PDF file:', error)
-  }
-}
-
 // 拖拽删除功能
-function handleNotebookDragStart(e: DragEvent, notebook: Notebook) {
-  draggedNotebook.value = notebook
-  if (e.dataTransfer) {
-    e.dataTransfer.effectAllowed = 'move'
-    e.dataTransfer.setData('text/plain', notebook.id)
-    const target = e.target as HTMLElement
-    target.style.opacity = '0.5'
-  }
-}
-
-function handleNotebookDragEnd(e: DragEvent) {
-  const target = e.target as HTMLElement
-  target.style.opacity = '1'
-  draggedNotebook.value = null
-  isDragOverTrash.value = false
-}
-
 function handleContextDragStart(e: DragEvent, context: ContextFile) {
   draggedContext.value = context
   if (e.dataTransfer) {
@@ -716,21 +528,9 @@ function handleTrashDrop(e: DragEvent) {
     return
   }
 
-  const notebookId = e.dataTransfer?.getData('text/plain')
-  if (notebookId && draggedNotebook.value) {
-    notebookToDelete.value = draggedNotebook.value
-    showNotebookDeleteConfirm.value = true
-  } else if (draggedContext.value) {
+  if (draggedContext.value) {
     contextToDelete.value = draggedContext.value.id
     showDeleteConfirm.value = true
-  }
-}
-
-async function confirmDeleteNotebook() {
-  if (notebookToDelete.value) {
-    await notebookStore.deleteNotebook(notebookToDelete.value.id)
-    showNotebookDeleteConfirm.value = false
-    notebookToDelete.value = null
   }
 }
 
@@ -977,66 +777,6 @@ async function confirmDeleteQuickCommand() {
   cursor: pointer;
 }
 
-.pdf-file-selector {
-  display: flex;
-  gap: 8px;
-  align-items: stretch;
-}
-
-.pdf-input {
-  flex: 1;
-  padding: 10px 12px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  font-size: 14px;
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  cursor: pointer;
-  height: 38px;
-  box-sizing: border-box;
-}
-
-.pdf-input:focus {
-  outline: none;
-  border-color: var(--color-primary);
-}
-
-.clear-pdf-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 38px;
-  height: 38px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.2s;
-  box-sizing: border-box;
-}
-
-.clear-pdf-btn:hover {
-  background: var(--color-error);
-  border-color: var(--color-error);
-  color: white;
-}
-
-.browse-btn {
-  padding: 0 12px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  cursor: pointer;
-  color: var(--text-primary);
-  height: 38px;
-  box-sizing: border-box;
-}
-
-.browse-btn:hover {
-  background: var(--border-color);
-}
-
 .content-input {
   width: 100%;
   min-height: 300px;
@@ -1054,48 +794,6 @@ async function confirmDeleteQuickCommand() {
 
 .name-input {
   margin-bottom: 12px;
-}
-
-.context-tags-selector {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 12px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  min-height: 44px;
-}
-
-.context-tag-selectable {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 10px;
-  border-radius: 12px;
-  border: 1px solid;
-  font-size: 13px;
-  font-weight: 500;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: all 0.2s;
-  user-select: none;
-}
-
-.context-tag-selectable:hover {
-  transform: scale(1.05);
-}
-
-.context-tag-selectable.selected {
-  font-weight: 600;
-}
-
-.no-context-hint {
-  padding: 12px;
-  color: var(--text-secondary);
-  font-size: 13px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
 }
 
 .dialog-actions {

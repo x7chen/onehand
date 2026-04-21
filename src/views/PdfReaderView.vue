@@ -1,7 +1,6 @@
 <template>
   <div class="pdf-reader-view">
     <CanvasHeader
-      :notebook-name="notebookStore.currentNotebook?.name || ''"
       :static-context-files="staticContextFiles"
       :all-static-context-files="contextStore.staticContextFiles"
       :all-dynamic-context-files="contextStore.dynamicContextFiles"
@@ -14,6 +13,8 @@
       :notebook-model-id="notebookStore.currentNotebook?.modelId"
       :all-profiles="settingsStore.settings.llm.profiles"
       :active-profile-id="settingsStore.settings.llm.activeProfileId"
+      :all-notebooks="notebookStore.notebooks"
+      :current-notebook-id="showAllNotebooks ? null : (notebookStore.currentNotebook?.id || null)"
       @back="goBack"
       @toggle-all-context="handleToggleAllContext"
       @invert-selection="handleInvertSelection"
@@ -23,7 +24,8 @@
       @dynamic-context-drop="handleDynamicContextDrop"
       @copy-selected-context="handleCopySelectedContext"
       @select-model="handleSelectModel"
-      @update-notebook-name="handleUpdateNotebookName"
+      @select-notebook="handleSelectNotebook"
+      @create-notebook="handleCreateNotebook"
     />
 
     <div class="panel-container">
@@ -146,6 +148,9 @@ const contextStore = useContextStore()
 const leftPanelWidth = ref(800)
 const pdfViewerRef = ref<InstanceType<typeof PdfViewer> | null>(null)
 
+// "全部"选择状态
+const showAllNotebooks = ref(false)
+
 const isResizing = ref(false)
 let savePanelRatioTimer: number | null = null
 
@@ -154,8 +159,9 @@ const activeNode = computed(() => {
   if (!activeNodeId.value) return null
   const pdfPage = notebookStore.findNodePdfPage(activeNodeId.value)
   if (pdfPage === null) return null
-  const canvas = notebookStore.getCanvasByPdfPage(pdfPage)
-  return canvas?.nodes.find(n => n.id === activeNodeId.value) || null
+  const canvasId = notebookStore.getCanvasByPdfPage(pdfPage)?.id
+  if (!canvasId) return null
+  return notebookStore.getCanvasNodes(canvasId).find(n => n.id === activeNodeId.value) || null
 })
 const currentAudio = ref<HTMLAudioElement | null>(null)
 const playingNodeId = ref<string | null>(null)
@@ -230,8 +236,8 @@ const magicInputInitialText = computed(() => {
   if (!magicInputState.value.nodeId) return ''
   const pdfPage = notebookStore.findNodePdfPage(magicInputState.value.nodeId)
   if (pdfPage === null) return ''
-  const canvas = notebookStore.getCanvasByPdfPage(pdfPage)
-  const node = canvas?.nodes.find(n => n.id === magicInputState.value.nodeId)
+  const nodes = notebookStore.getNodesByPdfPage(pdfPage)
+  const node = nodes.find(n => n.id === magicInputState.value.nodeId)
   if (!node) return ''
   if (magicInputState.value.mode === 'transcript') {
     return node.transcript || ''
@@ -251,9 +257,9 @@ const currentPdfPageNodes = computed(() => {
 
 // 当前选中画布的节点（用于 ChatPanel 组件，保持兼容）
 const currentPageNodes = computed(() => {
-  return notebookStore.currentCanvas?.nodes
+  return notebookStore.currentCanvasNodes
     .filter(n => n.pdfPage === currentPageNumber.value)
-    .sort((a, b) => a.createdAt - b.createdAt) || []
+    .sort((a, b) => a.createdAt - b.createdAt)
 })
 
 function getFullPdfPath(): string {
@@ -697,7 +703,8 @@ function handleSaveEdit(nodeId: string, text: string) {
 function handleCancelEdit(nodeId: string) {
   const pdfPage = notebookStore.findNodePdfPage(nodeId)
   const canvas = pdfPage !== null ? notebookStore.getCanvasByPdfPage(pdfPage) : null
-  const node = canvas?.nodes.find(n => n.id === nodeId)
+  const nodes = pdfPage !== null ? notebookStore.getNodesByPdfPage(pdfPage) : notebookStore.currentCanvasNodes
+  const node = nodes.find(n => n.id === nodeId)
   if (node && !node.transcript) {
     notebookStore.removeNodeAuto(nodeId)
     activeNodeId.value = null
@@ -717,8 +724,8 @@ function handleClickOutsideEditing(e: MouseEvent) {
   }
 
   const pdfPage = notebookStore.findNodePdfPage(editingNodeId.value)
-  const canvas = pdfPage !== null ? notebookStore.getCanvasByPdfPage(pdfPage) : null
-  const node = canvas?.nodes.find(n => n.id === editingNodeId.value)
+  const nodes = pdfPage !== null ? notebookStore.getNodesByPdfPage(pdfPage) : notebookStore.currentCanvasNodes
+  const node = nodes.find(n => n.id === editingNodeId.value)
   if (node) {
     if (editingText.value.trim()) {
       notebookStore.updateNodeAuto(editingNodeId.value, { transcript: editingText.value.trim() })
@@ -756,7 +763,7 @@ async function handleAgentResponse(nodeId: string, transcript: string, pdfPage: 
   try {
     notebookStore.updateNodeInPdfPage(nodeId, pdfPage, { agentStatus: 'processing' })
 
-    const node = notebookStore.getCanvasByPdfPage(pdfPage)?.nodes.find(n => n.id === nodeId)
+    const node = notebookStore.getNodesByPdfPage(pdfPage).find(n => n.id === nodeId)
     if (!node) return
 
     // 加载当前节点的内嵌图片（如果尚未加载）
@@ -848,7 +855,8 @@ function handleDeleteNode(nodeId: string) {
 async function handlePlayNode(nodeId: string) {
   const pdfPage = notebookStore.findNodePdfPage(nodeId)
   const canvas = pdfPage !== null ? notebookStore.getCanvasByPdfPage(pdfPage) : null
-  const node = canvas?.nodes.find(n => n.id === nodeId)
+  const nodes = pdfPage !== null ? notebookStore.getNodesByPdfPage(pdfPage) : notebookStore.currentCanvasNodes
+  const node = nodes.find(n => n.id === nodeId)
   if (!node?.audioPath) return
 
   if (playingNodeId.value === nodeId && currentAudio.value) {
@@ -887,7 +895,8 @@ async function handlePlayNode(nodeId: string) {
 async function handleToggleContext(nodeId: string) {
   const pdfPage = notebookStore.findNodePdfPage(nodeId)
   const canvas = pdfPage !== null ? notebookStore.getCanvasByPdfPage(pdfPage) : null
-  const node = canvas?.nodes.find(n => n.id === nodeId)
+  const nodes = pdfPage !== null ? notebookStore.getNodesByPdfPage(pdfPage) : notebookStore.currentCanvasNodes
+  const node = nodes.find(n => n.id === nodeId)
   if (node) {
     const newSelectedState = !node.selectedAsContext
     notebookStore.updateNodeAuto(nodeId, { selectedAsContext: newSelectedState })
@@ -924,7 +933,8 @@ async function handleToggleContext(nodeId: string) {
 async function handleRetryTranscription(nodeId: string) {
   const pdfPage = notebookStore.findNodePdfPage(nodeId)
   const canvas = pdfPage !== null ? notebookStore.getCanvasByPdfPage(pdfPage) : null
-  const node = canvas?.nodes.find(n => n.id === nodeId)
+  const nodes = pdfPage !== null ? notebookStore.getNodesByPdfPage(pdfPage) : notebookStore.currentCanvasNodes
+  const node = nodes.find(n => n.id === nodeId)
   if (!node || !node.audioPath || pdfPage === null) return
 
   notebookStore.updateNodeInPdfPage(nodeId, pdfPage, { transcriptStatus: 'processing' })
@@ -963,7 +973,8 @@ async function handleRetryTranscription(nodeId: string) {
 function handleToggleFavorite(nodeId: string) {
   const pdfPage = notebookStore.findNodePdfPage(nodeId)
   const canvas = pdfPage !== null ? notebookStore.getCanvasByPdfPage(pdfPage) : null
-  const node = canvas?.nodes.find(n => n.id === nodeId)
+  const nodes = pdfPage !== null ? notebookStore.getNodesByPdfPage(pdfPage) : notebookStore.currentCanvasNodes
+  const node = nodes.find(n => n.id === nodeId)
   if (node) {
     notebookStore.updateNodeAuto(nodeId, { isFavorite: !node.isFavorite })
   }
@@ -1058,15 +1069,6 @@ async function handleSelectModel(modelId: string) {
   await notebookStore.saveNotebook(notebookStore.currentNotebook)
 }
 
-// 更新笔记本名称
-async function handleUpdateNotebookName(name: string) {
-  if (!notebookStore.currentNotebook) return
-
-  notebookStore.currentNotebook.name = name
-  notebookStore.currentNotebook.updatedAt = Date.now()
-  await notebookStore.saveNotebook(notebookStore.currentNotebook)
-}
-
 function handleToggleAllContext() {
   // 获取所有画布的节点
   const allNodes = notebookStore.getAllNodes()
@@ -1127,6 +1129,56 @@ async function handleCopySelectedContext() {
     console.log(`已复制 ${selectedNodes.length} 个笔记的内容到剪贴板`)
   } catch (error) {
     console.error('复制失败:', error)
+  }
+}
+
+// 选择笔记本
+function handleSelectNotebook(notebookId: string | null) {
+  showAllNotebooks.value = notebookId === null
+
+  if (notebookId) {
+    const notebook = notebookStore.notebooks.find(nb => nb.id === notebookId)
+    if (notebook) {
+      notebookStore.setCurrentNotebook(notebook)
+      if (notebook.pdfPath) {
+        router.push(`/pdf/${notebookId}`)
+      } else {
+        router.push(`/multi-chat/${notebookId}`)
+      }
+    }
+  }
+}
+
+// 创建笔记本
+async function handleCreateNotebook(data: {
+  name: string
+  pdfPath?: string
+  staticContextIds: string[]
+  dynamicContextId?: string
+}) {
+  const notebook = await notebookStore.createNotebook(data.name, undefined, data.pdfPath)
+
+  // 设置上下文
+  if (data.staticContextIds.length > 0 || data.dynamicContextId) {
+    const contextData: { staticContextIds?: string[]; dynamicContextId?: string } = {}
+    if (data.staticContextIds.length > 0) {
+      contextData.staticContextIds = data.staticContextIds
+    }
+    if (data.dynamicContextId) {
+      contextData.dynamicContextId = data.dynamicContextId
+    }
+    notebook.context = contextData
+    await notebookStore.saveNotebook(notebook)
+  }
+
+  notebookStore.setCurrentNotebook(notebook)
+  showAllNotebooks.value = false
+
+  // 根据笔记本类型跳转到不同视图
+  if (notebook.pdfPath) {
+    router.push(`/pdf/${notebook.id}`)
+  } else {
+    router.push(`/multi-chat/${notebook.id}`)
   }
 }
 

@@ -1,17 +1,17 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useNotebookStore } from '@/stores/notebookStore'
-import type { CanvasNode, CanvasPage, Notebook } from '@/types/notebook'
+import type { CanvasNode, CanvasInfo, Notebook } from '@/types/notebook'
 
 export interface DeepLinkData {
   notebookId: string
-  canvasId: string
+  canvasId?: string
   nodeId: string
 }
 
 export interface NodePopupData {
   notebook: Notebook
-  canvas: CanvasPage
+  canvas?: CanvasInfo
   node: CanvasNode
 }
 
@@ -54,13 +54,12 @@ export async function findNodeByNodeId(nodeId: string): Promise<NodePopupData | 
 
   // Search through all notebooks
   for (const notebook of notebookStore.notebooks) {
-    if (!notebook.canvases) continue
+    if (!notebook.nodes) continue
 
-    for (const canvas of notebook.canvases) {
-      const node = canvas.nodes.find(n => n.id === nodeId)
-      if (node) {
-        return { notebook, canvas, node }
-      }
+    const node = notebook.nodes.find(n => n.id === nodeId)
+    if (node) {
+      const canvas = notebook.canvases?.find(c => c.id === node.canvasId)
+      return { notebook, canvas, node }
     }
   }
 
@@ -106,17 +105,17 @@ export function useDeepLink() {
     notebookStore.setCurrentNotebook(nodeData.notebook)
 
     // For PDF notebooks, switch to the correct PDF page
-    if (nodeData.notebook.pdfPath && nodeData.canvas.pdfPage) {
+    if (nodeData.notebook.pdfPath && nodeData.canvas?.pdfPage) {
       notebookStore.switchToPdfPage(nodeData.canvas.pdfPage)
       // PDF notebook - navigate to PdfReaderView with nodeId query
       router.push(`/pdf/${nodeData.notebook.id}?nodeId=${nodeId}`)
-    } else {
-      // For non-PDF notebooks, find the canvas index and switch
-      const canvasIndex = nodeData.notebook.canvases?.findIndex(c => c.id === nodeData.canvas.id) ?? 0
-      if (canvasIndex >= 0) {
-        nodeData.notebook.currentCanvasIndex = canvasIndex
-      }
+    } else if (nodeData.canvas) {
+      // For non-PDF notebooks, switch to the correct canvas
+      notebookStore.switchToCanvas(nodeData.canvas.id)
       // Normal notebook - navigate to multi-chat with nodeId query
+      router.push(`/multi-chat/${nodeData.notebook.id}?nodeId=${nodeId}`)
+    } else {
+      // No canvas info - just navigate to the notebook
       router.push(`/multi-chat/${nodeData.notebook.id}?nodeId=${nodeId}`)
     }
   }

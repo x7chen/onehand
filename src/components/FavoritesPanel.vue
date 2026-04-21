@@ -106,25 +106,24 @@ async function loadFavorites() {
   const results: FavoriteNodeItem[] = []
 
   for (const notebook of notebookStore.notebooks) {
-    if (!notebook.canvases) continue
+    if (!notebook.canvases || !notebook.nodes) continue
 
-    for (const canvas of notebook.canvases) {
-      if (!canvas.nodes) continue
+    for (const node of notebook.nodes) {
+      if (node.isFavorite) {
+        const canvas = notebook.canvases.find(c => c.id === node.canvasId)
+        if (!canvas) continue
 
-      for (const node of canvas.nodes) {
-        if (node.isFavorite) {
-          const fullText = node.transcript || node.agentResult || ''
+        const fullText = node.transcript || node.agentResult || ''
 
-          results.push({
-            notebookId: notebook.id,
-            notebookName: notebook.name,
-            canvasId: canvas.id,
-            canvasName: getCanvasName(canvas, notebook),
-            nodeId: node.id,
-            nodeTitle: node.title || '',
-            fullText
-          })
-        }
+        results.push({
+          notebookId: notebook.id,
+          notebookName: notebook.name,
+          canvasId: canvas.id,
+          canvasName: getCanvasName(canvas, notebook),
+          nodeId: node.id,
+          nodeTitle: node.title || '',
+          fullText
+        })
       }
     }
   }

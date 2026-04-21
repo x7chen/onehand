@@ -45,48 +45,48 @@ export function keywordSearch(query: string): UnifiedSearchResult[] {
   const hasEnglishLetters = /[a-zA-Z]/.test(query)
 
   for (const notebook of notebookStore.notebooks) {
-    if (!notebook.canvases) continue
+    if (!notebook.canvases || !notebook.nodes) continue
 
-    for (const canvas of notebook.canvases) {
-      if (!canvas.nodes) continue
+    for (const node of notebook.nodes) {
+      // 找到节点所属的画布
+      const canvas = notebook.canvases.find(c => c.id === node.canvasId)
+      if (!canvas) continue
 
-      for (const node of canvas.nodes) {
-        // Search in transcript
-        if (node.transcript) {
-          const matches = findMatches(node.transcript, query, hasEnglishLetters)
-          for (const match of matches) {
-            results.push({
-              notebookId: notebook.id,
-              notebookName: notebook.name,
-              canvasId: canvas.id,
-              canvasName: getCanvasName(canvas, notebook),
-              nodeId: node.id,
-              nodeTitle: node.title || '',
-              fieldType: 'transcript',
-              fullText: node.transcript,
-              highlightedText: createHighlightedText(node.transcript, query, match.index),
-              matchIndex: match.index
-            })
-          }
+      // Search in transcript
+      if (node.transcript) {
+        const matches = findMatches(node.transcript, query, hasEnglishLetters)
+        for (const match of matches) {
+          results.push({
+            notebookId: notebook.id,
+            notebookName: notebook.name,
+            canvasId: canvas.id,
+            canvasName: getCanvasName(canvas, notebook),
+            nodeId: node.id,
+            nodeTitle: node.title || '',
+            fieldType: 'transcript',
+            fullText: node.transcript,
+            highlightedText: createHighlightedText(node.transcript, query, match.index),
+            matchIndex: match.index
+          })
         }
+      }
 
-        // Search in agentResult
-        if (node.agentResult) {
-          const matches = findMatches(node.agentResult, query, hasEnglishLetters)
-          for (const match of matches) {
-            results.push({
-              notebookId: notebook.id,
-              notebookName: notebook.name,
-              canvasId: canvas.id,
-              canvasName: getCanvasName(canvas, notebook),
-              nodeId: node.id,
-              nodeTitle: node.title || '',
-              fieldType: 'agentResult',
-              fullText: node.agentResult,
-              highlightedText: createHighlightedText(node.agentResult, query, match.index),
-              matchIndex: match.index
-            })
-          }
+      // Search in agentResult
+      if (node.agentResult) {
+        const matches = findMatches(node.agentResult, query, hasEnglishLetters)
+        for (const match of matches) {
+          results.push({
+            notebookId: notebook.id,
+            notebookName: notebook.name,
+            canvasId: canvas.id,
+            canvasName: getCanvasName(canvas, notebook),
+            nodeId: node.id,
+            nodeTitle: node.title || '',
+            fieldType: 'agentResult',
+            fullText: node.agentResult,
+            highlightedText: createHighlightedText(node.agentResult, query, match.index),
+            matchIndex: match.index
+          })
         }
       }
     }

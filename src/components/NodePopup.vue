@@ -46,7 +46,7 @@
         <VoiceNote
           :node="nodeData.node"
           :notebook-id="nodeData.notebook.id"
-          :canvas-id="nodeData.canvas.id"
+          :canvas-id="nodeData.canvas?.id"
           :show-header="true"
           :is-active="false"
           :popup-mode="true"
@@ -77,7 +77,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'close'): void
-  (e: 'navigate', data: { notebookId: string; canvasId: string; nodeId: string }): void
+  (e: 'navigate', data: { notebookId: string; canvasId?: string; nodeId: string }): void
 }>()
 
 const notebookStore = useNotebookStore()
@@ -157,7 +157,7 @@ function handleNavigate() {
 
   emit('navigate', {
     notebookId: nodeData.value.notebook.id,
-    canvasId: nodeData.value.canvas.id,
+    canvasId: nodeData.value.canvas?.id,
     nodeId: nodeData.value.node.id
   })
 }
@@ -177,21 +177,14 @@ function handleToggleContext(nodeId: string) {
 function handleToggleFavorite(nodeId: string) {
   if (!nodeData.value) return
 
-  const node = nodeData.value.canvas.nodes.find(n => n.id === nodeId)
+  const node = nodeData.value.node
   if (node) {
     node.isFavorite = !node.isFavorite
 
     const notebook = nodeData.value.notebook
-    const canvas = nodeData.value.canvas
 
     // Ensure the notebook is set as current in store
     notebookStore.setCurrentNotebook(notebook)
-
-    // Find and set the correct canvas index
-    const canvasIndex = notebook.canvases?.findIndex(c => c.id === canvas.id) ?? 0
-    if (canvasIndex >= 0) {
-      notebook.currentCanvasIndex = canvasIndex
-    }
 
     // Update in store to persist
     notebookStore.updateNode(nodeId, { isFavorite: node.isFavorite })
@@ -201,7 +194,7 @@ function handleToggleFavorite(nodeId: string) {
 async function handlePlay(nodeId: string) {
   if (!nodeData.value) return
 
-  const node = nodeData.value.canvas.nodes.find(n => n.id === nodeId)
+  const node = nodeData.value.node
   if (!node?.audioPath) return
 
   if (currentAudio.value) {
@@ -236,22 +229,15 @@ function handleUpdateNode(nodeId: string, updates: Partial<CanvasNode>) {
   if (!nodeData.value) return
 
   const notebook = nodeData.value.notebook
-  const canvas = nodeData.value.canvas
 
   // Update local nodeData
-  const node = canvas.nodes.find(n => n.id === nodeId)
+  const node = nodeData.value.node
   if (node) {
     Object.assign(node, updates)
   }
 
   // Ensure the notebook is set as current in store
   notebookStore.setCurrentNotebook(notebook)
-
-  // Find and set the correct canvas index
-  const canvasIndex = notebook.canvases?.findIndex(c => c.id === canvas.id) ?? 0
-  if (canvasIndex >= 0) {
-    notebook.currentCanvasIndex = canvasIndex
-  }
 
   // Update in store to persist
   notebookStore.updateNode(nodeId, updates)

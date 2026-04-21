@@ -226,6 +226,12 @@ export default {
     insertAfter: '在此页后插入',
     emptyHint: '双击开始输入 · 长按开始录音 · 拖拽文字创建笔记',
     magicPadHint: '双击开始输入 · 长按开始录音 · 拖拽文字创建笔记',
+    allNotebooks: '全部笔记本',
+    allCanvases: '全部画布',
+    selectNotebook: '选择笔记本',
+    selectCanvas: '选择画布',
+    canvasN: '画布 {n}',
+    pageN: '第 {n} 页',
   },
   voiceNote: {
     recording: '录音中',
