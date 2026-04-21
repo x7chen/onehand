@@ -2,14 +2,16 @@
   <div ref="headerRef" class="canvas-header">
     <!-- 左侧组件容器 -->
     <div class="left-controls-group">
-      <button @click="$emit('back')" class="back-btn">
+      <!-- 返回按钮（仅在非隐藏导航模式下显示） -->
+      <button v-if="!hideNavigation" @click="$emit('back')" class="back-btn">
       <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
         <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
       </svg>
     </button>
 
-    <!-- 笔记本选择器 -->
+    <!-- 笔记本选择器（仅在非隐藏导航模式下显示） -->
     <div
+      v-if="!hideNavigation"
       ref="notebookSelectorRef"
       class="notebook-selector"
       @click="toggleNotebookSelector"
@@ -324,6 +326,7 @@ const props = withDefaults(defineProps<{
   activeProfileId: string
   allNotebooks: Notebook[]
   currentNotebookId: string | null
+  hideNavigation?: boolean
 }>(), {
   showViewportControls: true,
   selectedContextCount: 0,
@@ -331,7 +334,8 @@ const props = withDefaults(defineProps<{
   allProfiles: () => [],
   activeProfileId: '',
   allNotebooks: () => [],
-  currentNotebookId: null
+  currentNotebookId: null,
+  hideNavigation: false
 })
 
 const emit = defineEmits<{
