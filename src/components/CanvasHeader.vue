@@ -184,34 +184,6 @@
         <span class="ai-icon-text">AI</span>
       </button>
 
-      <!-- 节点上下文选择器 -->
-      <div class="context-toolbar-group">
-        <button
-          @click="$emit('copy-selected-context')"
-          class="context-action-btn copy-btn"
-          :class="{ disabled: selectedContextCount === 0 }"
-          :title="selectedContextCount > 0 ? t('canvas.copySelectedNotes', { count: selectedContextCount }) : t('canvas.noNotesSelected')"
-          :disabled="selectedContextCount === 0"
-        >
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-            <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
-          </svg>
-        </button>
-        <button @click="$emit('toggle-all-context')" class="context-action-btn" :title="isAllContextSelected ? t('canvas.clearSelection') : t('canvas.selectAllCompleted')">
-          <svg v-if="!isAllContextSelected" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-            <path d="M19 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.11 0 2-.9 2-2V5c0-1.1-.89-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-          </svg>
-          <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-          </svg>
-        </button>
-        <button @click="$emit('invert-selection')" class="context-action-btn" :title="t('canvas.invertSelection')">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-            <path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z"/>
-          </svg>
-        </button>
-      </div>
-
       <!-- 搜索按钮 -->
       <button
         class="search-btn"
@@ -318,9 +290,7 @@ const props = withDefaults(defineProps<{
   dynamicContextFile?: ContextFile
   globalHideAiResult: boolean
   aiAnswerEnabled: boolean
-  isAllContextSelected: boolean
   showViewportControls?: boolean
-  selectedContextCount?: number
   notebookModelId?: string
   allProfiles: LLMProfile[]
   activeProfileId: string
@@ -329,7 +299,6 @@ const props = withDefaults(defineProps<{
   hideNavigation?: boolean
 }>(), {
   showViewportControls: true,
-  selectedContextCount: 0,
   notebookModelId: undefined,
   allProfiles: () => [],
   activeProfileId: '',
@@ -344,9 +313,6 @@ const emit = defineEmits<{
   'auto-layout': []
   'update:globalHideAiResult': [value: boolean]
   'update:aiAnswerEnabled': [value: boolean]
-  'toggle-all-context': []
-  'invert-selection': []
-  'copy-selected-context': []
   'open-dynamic-context-editor': []
   'toggle-static-context': [contextId: string]
   'select-dynamic-context': [contextId: string]
@@ -766,46 +732,6 @@ onUnmounted(() => {
 .search-btn:hover {
   background: var(--border-color);
   color: var(--text-primary);
-}
-
-.context-toolbar-group {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px;
-  background: var(--bg-secondary);
-  border-radius: 6px;
-}
-
-.context-action-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
-  border-radius: 4px;
-  background: transparent;
-  cursor: pointer;
-  color: var(--text-secondary);
-  transition: all 0.2s;
-}
-
-.context-action-btn:hover {
-  background: var(--border-color);
-  color: var(--text-primary);
-}
-
-.context-action-btn.disabled,
-.context-action-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.context-action-btn.disabled:hover,
-.context-action-btn:disabled:hover {
-  background: transparent;
-  color: var(--text-secondary);
 }
 
 /* 左侧组件容器 */
