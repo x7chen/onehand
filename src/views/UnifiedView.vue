@@ -2,6 +2,8 @@
   <div class="unified-view">
     <!-- 左侧标签栏 -->
     <UnifiedSidebar
+      v-show="!isSidebarCollapsed"
+      :style="{ width: sidebarWidth + 'px' }"
       :all-notebooks="notebookStore.notebooks"
       :active-tab="activeTab"
       :active-notebook-id="activeNotebookId"
@@ -13,8 +15,18 @@
     />
 
     <!-- 可拖动分隔线 -->
-    <div class="sidebar-resizer" @mousedown="startResizeSidebar">
+    <div
+      class="sidebar-resizer"
+      :class="{ collapsed: isSidebarCollapsed }"
+      @mousedown="startResizeSidebar"
+      @dblclick="toggleSidebar"
+    >
       <div class="resizer-line"></div>
+      <div v-if="isSidebarCollapsed" class="collapsed-indicator">
+        <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
+          <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/>
+        </svg>
+      </div>
     </div>
 
     <!-- 右侧内容区域 -->
@@ -268,6 +280,8 @@ const quickCommandToDelete = ref<QuickCommand | null>(null)
 // 侧边栏宽度拖拽
 const sidebarWidth = ref(180)
 const isResizingSidebar = ref(false)
+const isSidebarCollapsed = ref(false)
+const savedSidebarWidth = ref(180)
 
 // 静态上下文文件
 const staticContextFiles = computed(() => {
@@ -349,6 +363,7 @@ async function handleCreateNotebook(data: {
 
 // 侧边栏拖拽调整
 function startResizeSidebar(e: MouseEvent) {
+  if (isSidebarCollapsed.value) return
   isResizingSidebar.value = true
   document.addEventListener('mousemove', handleResizeSidebar)
   document.addEventListener('mouseup', stopResizeSidebar)
@@ -371,6 +386,16 @@ function stopResizeSidebar() {
   document.removeEventListener('mouseup', stopResizeSidebar)
   document.body.style.cursor = ''
   document.body.style.userSelect = ''
+}
+
+// 双击切换侧边栏显示/隐藏
+function toggleSidebar() {
+  isSidebarCollapsed.value = !isSidebarCollapsed.value
+  if (isSidebarCollapsed.value) {
+    savedSidebarWidth.value = sidebarWidth.value
+  } else {
+    sidebarWidth.value = savedSidebarWidth.value
+  }
 }
 
 // Context file management
@@ -495,7 +520,7 @@ async function confirmDeleteQuickCommand() {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: background 0.2s;
+  transition: background 0.2s, width 0.2s;
 }
 
 .sidebar-resizer:hover {
@@ -507,11 +532,32 @@ async function confirmDeleteQuickCommand() {
   height: 40px;
   background: var(--border-color);
   border-radius: 1px;
-  transition: background 0.2s;
+  transition: background 0.2s, opacity 0.2s;
 }
 
 .sidebar-resizer:hover .resizer-line {
   background: var(--color-primary);
+}
+
+.sidebar-resizer.collapsed {
+  width: 12px;
+  cursor: pointer;
+}
+
+.sidebar-resizer.collapsed .resizer-line {
+  opacity: 0;
+}
+
+.sidebar-resizer.collapsed .collapsed-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  transition: color 0.2s;
+}
+
+.sidebar-resizer.collapsed:hover .collapsed-indicator {
+  color: var(--color-primary);
 }
 
 /* 主内容区域样式 */
