@@ -2,19 +2,42 @@
   <div class="node-calendar-view">
     <!-- 日历区域 -->
     <div class="calendar-section">
-      <!-- 月份导航 -->
-      <div class="calendar-header">
-        <button class="month-nav-btn" @click="prevMonth" :title="t('nodeList.prevMonth')">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-            <polyline points="15 18 9 12 15 6"></polyline>
-          </svg>
-        </button>
-        <span class="month-title">{{ monthTitle }}</span>
-        <button class="month-nav-btn" @click="nextMonth" :title="t('nodeList.nextMonth')">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-            <polyline points="9 18 15 12 9 6"></polyline>
-          </svg>
-        </button>
+      <!-- 年月选择器（同一行） -->
+      <div class="year-month-selector">
+        <div class="selector-wrapper">
+          <button ref="yearBtnRef" class="selector-btn" @click="toggleYearPicker">
+            {{ currentYear }}年
+          </button>
+          <!-- 年份选择器气泡 -->
+          <div v-if="showYearPicker" class="picker-popover year-popover">
+            <button
+              v-for="year in yearOptions"
+              :key="year"
+              class="picker-option"
+              :class="{ selected: year === currentYear }"
+              @click="selectYear(year)"
+            >
+              {{ year }}年
+            </button>
+          </div>
+        </div>
+        <div class="selector-wrapper">
+          <button ref="monthBtnRef" class="selector-btn" @click="toggleMonthPicker">
+            {{ currentMonth + 1 }}月
+          </button>
+          <!-- 月份选择器气泡 -->
+          <div v-if="showMonthPicker" class="picker-popover month-popover">
+            <button
+              v-for="month in 12"
+              :key="month"
+              class="picker-option"
+              :class="{ selected: month === currentMonth + 1 }"
+              @click="selectMonth(month - 1)"
+            >
+              {{ month }}月
+            </button>
+          </div>
+        </div>
         <button class="today-btn" @click="goToToday" :title="t('nodeList.today')">
           {{ t('nodeList.today') }}
         </button>
@@ -51,17 +74,53 @@
     <!-- 笔记列表区域 -->
     <div class="notes-section">
       <div class="notes-header">
-        <span v-if="selectedDate">
-          {{ formatSelectedDate }}
+        <!-- 时间范围选择器 -->
+        <div class="range-selector">
+          <button
+            class="range-btn"
+            :class="{ active: viewRange === 'day' }"
+            @click="viewRange = 'day'"
+          >
+            {{ t('nodeList.rangeDay') }}
+          </button>
+          <button
+            class="range-btn"
+            :class="{ active: viewRange === 'week' }"
+            @click="viewRange = 'week'"
+          >
+            {{ t('nodeList.rangeWeek') }}
+          </button>
+          <button
+            class="range-btn"
+            :class="{ active: viewRange === 'month' }"
+            @click="viewRange = 'month'"
+          >
+            {{ t('nodeList.rangeMonth') }}
+          </button>
+          <button
+            class="range-btn"
+            :class="{ active: viewRange === 'year' }"
+            @click="viewRange = 'year'"
+          >
+            {{ t('nodeList.rangeYear') }}
+          </button>
+        </div>
+        <!-- 日期范围显示 -->
+        <span v-if="selectedDate" class="range-title">
+          {{ formatRangeTitle }}
         </span>
         <span v-else class="select-hint">
           {{ t('nodeList.selectDate') }}
         </span>
+        <!-- 笔记个数（靠右对齐） -->
+        <span class="notes-count">
+          {{ rangeNotes.length }} {{ t('notebook.notes') }}
+        </span>
       </div>
       <div class="notes-list-container">
-        <div v-if="selectedDateNotes.length > 0" class="notes-list">
+        <div v-if="rangeNotes.length > 0" class="notes-list">
           <div
-            v-for="node in selectedDateNotes"
+            v-for="node in rangeNotes"
             :key="node.id"
             class="note-item"
             :class="{ active: activeNodeId === node.id }"
@@ -114,7 +173,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { CanvasNode } from '@/types/notebook'
 
@@ -133,10 +192,46 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 
-// 当前显示的月份
-const currentMonth = ref(new Date())
+// 当前显示的年份
+const currentYear = ref(new Date().getFullYear())
+// 当前显示的月份 (0-11)
+const currentMonth = ref(new Date().getMonth())
 // 选中的日期
 const selectedDate = ref<Date | null>(null)
+// 时间范围选择 (day/week/month/year)
+const viewRange = ref<'day' | 'week' | 'month' | 'year'>('day')
+
+// 年份/月份选择器弹窗
+const showYearPicker = ref(false)
+const showMonthPicker = ref(false)
+const yearBtnRef = ref<HTMLElement | null>(null)
+const monthBtnRef = ref<HTMLElement | null>(null)
+
+// 切换年份选择器
+function toggleYearPicker() {
+  showYearPicker.value = !showYearPicker.value
+  if (showYearPicker.value) {
+    showMonthPicker.value = false
+  }
+}
+
+// 切换月份选择器
+function toggleMonthPicker() {
+  showMonthPicker.value = !showMonthPicker.value
+  if (showMonthPicker.value) {
+    showYearPicker.value = false
+  }
+}
+
+// 年份选项（过去12年，不显示未来）
+const yearOptions = computed(() => {
+  const thisYear = new Date().getFullYear()
+  const years: number[] = []
+  for (let y = thisYear; y >= thisYear - 11; y--) {
+    years.push(y)
+  }
+  return years
+})
 
 // 星期标签
 const weekDays = computed(() => {
@@ -144,20 +239,27 @@ const weekDays = computed(() => {
   return locale
 })
 
-// 月份标题
-const monthTitle = computed(() => {
-  const year = currentMonth.value.getFullYear()
-  const month = currentMonth.value.getMonth() + 1
-  return `${year}年${month}月`
-})
-
-// 格式化选中的日期
-const formatSelectedDate = computed(() => {
+// 格式化范围标题
+const formatRangeTitle = computed(() => {
   if (!selectedDate.value) return ''
   const year = selectedDate.value.getFullYear()
   const month = selectedDate.value.getMonth() + 1
   const day = selectedDate.value.getDate()
-  return `${year}年${month}月${day}日`
+
+  switch (viewRange.value) {
+    case 'day':
+      return `${year}年${month}月${day}日`
+    case 'week':
+      const weekStart = getWeekStart(selectedDate.value)
+      const weekEnd = getWeekEnd(selectedDate.value)
+      return `${weekStart.getMonth() + 1}月${weekStart.getDate()}日 - ${weekEnd.getMonth() + 1}月${weekEnd.getDate()}日`
+    case 'month':
+      return `${year}年${month}月`
+    case 'year':
+      return `${year}年`
+    default:
+      return ''
+  }
 })
 
 // 按日期分组的节点
@@ -176,8 +278,8 @@ const nodesByDate = computed(() => {
 
 // 计算日历网格的天数
 const calendarDays = computed(() => {
-  const year = currentMonth.value.getFullYear()
-  const month = currentMonth.value.getMonth()
+  const year = currentYear.value
+  const month = currentMonth.value
 
   // 获取当月第一天
   const firstDay = new Date(year, month, 1)
@@ -210,13 +312,61 @@ const calendarDays = computed(() => {
   return days
 })
 
-// 选中日期的笔记
-const selectedDateNotes = computed(() => {
+// 根据时间范围获取笔记
+const rangeNotes = computed(() => {
   if (!selectedDate.value) return []
-  const key = `${selectedDate.value.getFullYear()}-${selectedDate.value.getMonth()}-${selectedDate.value.getDate()}`
-  const notes = nodesByDate.value.get(key) || []
-  return notes.sort((a, b) => a.createdAt - b.createdAt)
+
+  let startDate: Date
+  let endDate: Date
+
+  switch (viewRange.value) {
+    case 'day':
+      startDate = new Date(selectedDate.value)
+      startDate.setHours(0, 0, 0, 0)
+      endDate = new Date(selectedDate.value)
+      endDate.setHours(23, 59, 59, 999)
+      break
+    case 'week':
+      startDate = getWeekStart(selectedDate.value)
+      endDate = getWeekEnd(selectedDate.value)
+      break
+    case 'month':
+      startDate = new Date(selectedDate.value.getFullYear(), selectedDate.value.getMonth(), 1)
+      endDate = new Date(selectedDate.value.getFullYear(), selectedDate.value.getMonth() + 1, 0, 23, 59, 59, 999)
+      break
+    case 'year':
+      startDate = new Date(selectedDate.value.getFullYear(), 0, 1)
+      endDate = new Date(selectedDate.value.getFullYear(), 11, 31, 23, 59, 59, 999)
+      break
+    default:
+      return []
+  }
+
+  return props.nodes
+    .filter(node => {
+      const nodeDate = new Date(node.createdAt)
+      return nodeDate >= startDate && nodeDate <= endDate
+    })
+    .sort((a, b) => a.createdAt - b.createdAt)
 })
+
+// 获取一周的开始（周日）
+function getWeekStart(date: Date): Date {
+  const d = new Date(date)
+  const day = d.getDay()
+  d.setDate(d.getDate() - day)
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+
+// 获取一周的结束（周六）
+function getWeekEnd(date: Date): Date {
+  const d = new Date(date)
+  const day = d.getDay()
+  d.setDate(d.getDate() + (6 - day))
+  d.setHours(23, 59, 59, 999)
+  return d
+}
 
 // 判断是否是今天
 function isToday(day: Date | null) {
@@ -238,7 +388,7 @@ function isSelected(day: Date | null) {
 // 判断是否是其他月份的日期
 function isOtherMonth(day: Date | null) {
   if (!day) return false
-  return day.getMonth() !== currentMonth.value.getMonth()
+  return day.getMonth() !== currentMonth.value
 }
 
 // 判断是否有笔记
@@ -255,30 +405,71 @@ function getNotesCount(day: Date | null) {
   return nodesByDate.value.get(key)?.length || 0
 }
 
+// 上一年
+function prevYear() {
+  currentYear.value--
+}
+
+// 下一年
+function nextYear() {
+  currentYear.value++
+}
+
+// 选择年份
+function selectYear(year: number) {
+  if (year !== currentYear.value) {
+    currentYear.value = year
+    // 年份变化时重置为1号
+    selectedDate.value = new Date(year, currentMonth.value, 1)
+  }
+  showYearPicker.value = false
+}
+
 // 上个月
 function prevMonth() {
-  const newMonth = new Date(currentMonth.value)
-  newMonth.setMonth(newMonth.getMonth() - 1)
-  currentMonth.value = newMonth
+  if (currentMonth.value === 0) {
+    currentMonth.value = 11
+    currentYear.value--
+  } else {
+    currentMonth.value--
+  }
 }
 
 // 下个月
 function nextMonth() {
-  const newMonth = new Date(currentMonth.value)
-  newMonth.setMonth(newMonth.getMonth() + 1)
-  currentMonth.value = newMonth
+  if (currentMonth.value === 11) {
+    currentMonth.value = 0
+    currentYear.value++
+  } else {
+    currentMonth.value++
+  }
+}
+
+// 选择月份
+function selectMonth(month: number) {
+  if (month !== currentMonth.value) {
+    currentMonth.value = month
+    // 月份变化时重置为1号
+    selectedDate.value = new Date(currentYear.value, month, 1)
+  }
+  showMonthPicker.value = false
 }
 
 // 回到今天
 function goToToday() {
-  currentMonth.value = new Date()
-  selectedDate.value = new Date()
+  const today = new Date()
+  currentYear.value = today.getFullYear()
+  currentMonth.value = today.getMonth()
+  selectedDate.value = today
 }
 
 // 选择日期
 function selectDate(day: Date | null) {
   if (!day) return
   selectedDate.value = day
+  // 更新日历显示的年月
+  currentYear.value = day.getFullYear()
+  currentMonth.value = day.getMonth()
 }
 
 // 切换上下文勾选
@@ -318,12 +509,36 @@ function getNoteTitle(node: CanvasNode) {
   return t('nodeList.noTitle')
 }
 
-// 初始化时选中今天（如果有笔记）
+// 点击外部关闭选择器
+function handlePickerClickOutside(e: MouseEvent) {
+  const target = e.target as HTMLElement
+  if (
+    showYearPicker.value &&
+    yearBtnRef.value &&
+    !yearBtnRef.value.contains(target) &&
+    !target.closest('.year-popover')
+  ) {
+    showYearPicker.value = false
+  }
+  if (
+    showMonthPicker.value &&
+    monthBtnRef.value &&
+    !monthBtnRef.value.contains(target) &&
+    !target.closest('.month-popover')
+  ) {
+    showMonthPicker.value = false
+  }
+}
+
+// 初始化时选中今天
 onMounted(() => {
   const today = new Date()
-  if (hasNotes(today)) {
-    selectedDate.value = today
-  }
+  selectedDate.value = today
+  document.addEventListener('click', handlePickerClickOutside)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handlePickerClickOutside)
 })
 
 defineExpose({
@@ -348,7 +563,8 @@ defineExpose({
   border-bottom: 1px solid var(--border-color);
 }
 
-.calendar-header {
+/* 年月选择器（同一行） */
+.year-month-selector {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -356,35 +572,30 @@ defineExpose({
   margin-bottom: 12px;
 }
 
-.month-nav-btn {
-  width: 28px;
-  height: 28px;
-  border: none;
+.selector-wrapper {
+  position: relative;
+}
+
+.selector-btn {
+  padding: 4px 12px;
+  border: 1px solid var(--border-color);
   border-radius: 4px;
-  background: var(--bg-secondary);
+  background: transparent;
   color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   transition: all 0.2s;
 }
 
-.month-nav-btn:hover {
+.selector-btn:hover {
   background: var(--bg-hover);
+  border-color: var(--color-primary);
   color: var(--color-primary);
 }
 
-.month-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text-primary);
-  min-width: 100px;
-  text-align: center;
-}
-
 .today-btn {
-  padding: 4px 12px;
+  padding: 4px 8px;
   border: 1px solid var(--border-color);
   border-radius: 4px;
   background: transparent;
@@ -397,6 +608,52 @@ defineExpose({
 .today-btn:hover {
   background: var(--color-primary);
   border-color: var(--color-primary);
+  color: white;
+}
+
+/* 气泡选择器 */
+.picker-popover {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.year-popover {
+  width: 200px;
+}
+
+.month-popover {
+  width: 200px;
+}
+
+.picker-option {
+  padding: 6px 10px;
+  border: none;
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex: 0 0 calc(33.33% - 4px);
+  text-align: center;
+}
+
+.picker-option:hover {
+  background: var(--bg-hover);
+}
+
+.picker-option.selected {
+  background: var(--color-primary);
   color: white;
 }
 
@@ -499,10 +756,55 @@ defineExpose({
   color: var(--text-primary);
   font-weight: 500;
   border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* 时间范围选择器 */
+.range-selector {
+  display: flex;
+  gap: 2px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 2px;
+}
+
+.range-btn {
+  padding: 4px 8px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.range-btn:hover {
+  color: var(--text-primary);
+}
+
+.range-btn.active {
+  background: var(--color-primary);
+  color: white;
+}
+
+.range-title {
+  font-weight: 500;
+  color: var(--text-primary);
 }
 
 .select-hint {
   color: var(--text-secondary);
+}
+
+.notes-count {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  margin-left: auto;
 }
 
 .notes-list-container {

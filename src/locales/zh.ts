@@ -307,7 +307,13 @@ export default {
     noNotesOnDate: '该日期没有笔记',
     prevMonth: '上月',
     nextMonth: '下月',
+    prevYear: '上一年',
+    nextYear: '下一年',
     today: '今天',
     hasNotes: '有 {count} 个笔记',
+    rangeDay: '日',
+    rangeWeek: '周',
+    rangeMonth: '月',
+    rangeYear: '年',
   },
 }

@@ -307,7 +307,13 @@ export default {
     noNotesOnDate: 'No notes on this date',
     prevMonth: 'Previous month',
     nextMonth: 'Next month',
+    prevYear: 'Previous year',
+    nextYear: 'Next year',
     today: 'Today',
     hasNotes: '{count} notes',
+    rangeDay: 'Day',
+    rangeWeek: 'Week',
+    rangeMonth: 'Month',
+    rangeYear: 'Year',
   },
 }
