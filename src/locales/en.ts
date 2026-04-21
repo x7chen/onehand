@@ -292,4 +292,16 @@ export default {
     tagNNotes: '{count} notes',
     selectTagToView: 'Select a tag to view notes',
   },
+  nodeList: {
+    cardView: 'Card view',
+    listView: 'List view',
+    calendarView: 'Calendar view',
+    noTitle: 'No title',
+    selectDate: 'Select a date to view notes',
+    noNotesOnDate: 'No notes on this date',
+    prevMonth: 'Previous month',
+    nextMonth: 'Next month',
+    today: 'Today',
+    hasNotes: '{count} notes',
+  },
 }

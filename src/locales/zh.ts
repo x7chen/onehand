@@ -292,4 +292,16 @@ export default {
     tagNNotes: '{count} 个笔记',
     selectTagToView: '选择标签查看笔记',
   },
+  nodeList: {
+    cardView: '卡片视图',
+    listView: '列表视图',
+    calendarView: '日历视图',
+    noTitle: '无标题',
+    selectDate: '选择日期查看笔记',
+    noNotesOnDate: '该日期没有笔记',
+    prevMonth: '上月',
+    nextMonth: '下月',
+    today: '今天',
+    hasNotes: '有 {count} 个笔记',
+  },
 }

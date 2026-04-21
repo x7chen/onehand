@@ -6,33 +6,80 @@
     @mouseenter="isPanelHovered = true"
     @mouseleave="isPanelHovered = false"
   >
-    <div ref="nodeContainerRef" class="node-container" @scroll="handleScroll">
-      <div
-        class="masonry-viewport"
-        :style="{ height: totalHeight + 'px' }"
-      >
-        <template v-for="item in visibleNodes" :key="item.node.id">
-          <div
-            class="masonry-item"
-            :style="{
-              position: 'absolute',
-              top: item.top + 'px',
-              left: item.left + 'px',
-              width: item.width + 'px'
-            }"
-            :data-node-id="item.node.id"
-          >
-            <VoiceNoteSmall
-              :ref="(el) => { if (el) voiceNoteRefs[item.node.id] = el }"
-              :node="item.node"
-              :is-active="activeNodeId === item.node.id"
-              @toggle-context="$emit('toggle-context', $event)"
-              @toggle-favorite="$emit('toggle-favorite', $event)"
-              @activate="handleNodeActivate"
-            />
-          </div>
-        </template>
+    <!-- 视图切换头部 -->
+    <div class="view-header">
+      <div class="view-toggle-group">
+        <button
+          class="view-toggle-btn"
+          :class="{ active: viewMode === 'card' }"
+          @click="viewMode = 'card'"
+          :title="t('nodeList.cardView')"
+        >
+          <!-- 卡片图标 -->
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M4 4h7v7H4zm0 9h7v7H4zm9-9h7v7h-7zm0 9h7v7h-7z"/>
+          </svg>
+        </button>
+        <button
+          class="view-toggle-btn"
+          :class="{ active: viewMode === 'list' }"
+          @click="viewMode = 'list'"
+          :title="t('nodeList.listView')"
+        >
+          <!-- 列表图标 -->
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
+          </svg>
+        </button>
+        <button
+          class="view-toggle-btn"
+          :class="{ active: viewMode === 'calendar' }"
+          @click="viewMode = 'calendar'"
+          :title="t('nodeList.calendarView')"
+        >
+          <!-- 日历图标 -->
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM9 10H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2zm-8 4H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2z"/>
+          </svg>
+        </button>
       </div>
+    </div>
+
+    <!-- 视图内容区域 -->
+    <div class="view-content">
+      <!-- 卡片视图 -->
+      <NodeCardView
+        v-if="viewMode === 'card'"
+        ref="cardViewRef"
+        :nodes="nodes"
+        :active-node-id="activeNodeId"
+        :panel-width="panelWidth"
+        @toggle-context="$emit('toggle-context', $event)"
+        @toggle-favorite="$emit('toggle-favorite', $event)"
+        @activate="handleNodeActivate"
+      />
+
+      <!-- 列表视图 -->
+      <NodeListView
+        v-if="viewMode === 'list'"
+        ref="listViewRef"
+        :nodes="nodes"
+        :active-node-id="activeNodeId"
+        @toggle-context="$emit('toggle-context', $event)"
+        @toggle-favorite="$emit('toggle-favorite', $event)"
+        @activate="handleNodeActivate"
+      />
+
+      <!-- 日历视图 -->
+      <NodeCalendarView
+        v-if="viewMode === 'calendar'"
+        ref="calendarViewRef"
+        :nodes="nodes"
+        :active-node-id="activeNodeId"
+        @toggle-context="$emit('toggle-context', $event)"
+        @toggle-favorite="$emit('toggle-favorite', $event)"
+        @activate="handleNodeActivate"
+      />
     </div>
 
     <!-- 左边缘翻页按钮（上一页 + 插入） -->
@@ -109,19 +156,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, shallowRef, computed, watch, nextTick, onMounted, onUnmounted, triggerRef } from 'vue'
+import { ref, computed, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import VoiceNoteSmall from '@/components/VoiceNoteSmall.vue'
 import { useNotebookStore } from '@/stores/notebookStore'
+import { useSettingsStore } from '@/stores/settingsStore'
+import NodeCardView from '@/components/NodeCardView.vue'
+import NodeListView from '@/components/NodeListView.vue'
+import NodeCalendarView from '@/components/NodeCalendarView.vue'
 import type { CanvasNode } from '@/types/notebook'
-
-interface VirtualNodeItem {
-  node: CanvasNode
-  top: number
-  left: number
-  width: number
-  height: number
-}
 
 const props = withDefaults(defineProps<{
   nodes: CanvasNode[]
@@ -133,6 +175,7 @@ const props = withDefaults(defineProps<{
 })
 
 const notebookStore = useNotebookStore()
+const settingsStore = useSettingsStore()
 const { t } = useI18n()
 
 const emit = defineEmits<{
@@ -142,8 +185,18 @@ const emit = defineEmits<{
 }>()
 
 const panelRef = ref<HTMLElement | null>(null)
-const nodeContainerRef = ref<HTMLElement | null>(null)
-const voiceNoteRefs = ref<Record<string, any>>({})
+const cardViewRef = ref<InstanceType<typeof NodeCardView> | null>(null)
+const listViewRef = ref<InstanceType<typeof NodeListView> | null>(null)
+const calendarViewRef = ref<InstanceType<typeof NodeCalendarView> | null>(null)
+
+// 视图模式：从设置中读取
+const viewMode = computed({
+  get: () => settingsStore.settings.general.nodeListViewMode || 'card',
+  set: (value) => {
+    settingsStore.settings.general.nodeListViewMode = value
+    settingsStore.saveSettings()
+  }
+})
 
 // 翻页相关状态
 const isPanelHovered = ref(false)
@@ -203,427 +256,29 @@ function showPageIndicatorTemporarily() {
   }, 1500)
 }
 
-const NODE_MIN_WIDTH = 250
-const COLUMN_GAP = 6
-const CONTAINER_PADDING = 24
-const BUFFER_SIZE = 5
-const SCROLL_THRESHOLD = 100
-
-const nodeHeights = ref<Record<string, number>>({})
-const measuredNodes = ref<Set<string>>(new Set())
-const virtualItems = shallowRef<Map<string, VirtualNodeItem>>(new Map())
-const scrollTop = ref(0)
-const containerHeight = ref(600)
-
-// 防止布局计算冲突的标志
-let isLayoutCalculating = false
-// 是否正在处理翻页（翻页期间不响应选中状态变化触发的布局更新）
-let isPageChanging = false
-// 测量定时器
-let measureTimer: ReturnType<typeof setTimeout> | null = null
-
-const sortedNodes = computed(() => {
-  return [...props.nodes].sort((a, b) => a.createdAt - b.createdAt)
-})
-
-const columnCount = computed(() => {
-  const panelWidth = props.panelWidth - CONTAINER_PADDING * 2
-  for (let cols = 3; cols >= 1; cols--) {
-    const availableWidth = panelWidth - (cols - 1) * COLUMN_GAP
-    const nodeWidth = availableWidth / cols
-    if (nodeWidth >= NODE_MIN_WIDTH) {
-      return cols
-    }
-  }
-  return 1
-})
-
-const columnWidth = computed(() => {
-  const availableWidth = props.panelWidth - CONTAINER_PADDING * 2 - (columnCount.value - 1) * COLUMN_GAP
-  return availableWidth / columnCount.value
-})
-
-const totalHeight = computed(() => {
-  let maxHeight = 0
-  virtualItems.value.forEach(item => {
-    const bottom = item.top + item.height
-    if (bottom > maxHeight) {
-      maxHeight = bottom
-    }
-  })
-  return maxHeight + CONTAINER_PADDING
-})
-
-const visibleNodes = computed(() => {
-  const viewTop = scrollTop.value - SCROLL_THRESHOLD
-  const viewBottom = scrollTop.value + containerHeight.value + SCROLL_THRESHOLD
-  const result: VirtualNodeItem[] = []
-
-  virtualItems.value.forEach(item => {
-    const itemBottom = item.top + item.height
-    if (itemBottom >= viewTop && item.top <= viewBottom) {
-      result.push(item)
-    }
-  })
-
-  return result.sort((a, b) => a.top - b.top)
-})
-
-function calculateLayout() {
-  isLayoutCalculating = true
-  try {
-    const nodes = sortedNodes.value
-    const cols = columnCount.value
-    const colWidth = columnWidth.value
-    const items = new Map<string, VirtualNodeItem>()
-
-    if (!nodes.length) {
-      virtualItems.value = items
-      triggerRef(virtualItems)
-      return
-    }
-
-    // 每列当前的累积高度（下一个节点应该放置的 top 位置）
-    const colHeights = new Array(cols).fill(CONTAINER_PADDING)
-
-    for (const node of nodes) {
-      // 找最短的列
-      let minCol = 0
-      let minHeight = colHeights[0]
-
-      for (let i = 1; i < cols; i++) {
-        if (colHeights[i] < minHeight) {
-          minHeight = colHeights[i]
-          minCol = i
-        }
-      }
-
-      const estimatedHeight = nodeHeights.value[node.id] || 200
-      const left = CONTAINER_PADDING + minCol * (colWidth + COLUMN_GAP)
-
-      // 当前节点的 top 就是该列当前的高度
-      items.set(node.id, {
-        node,
-        top: colHeights[minCol],
-        left,
-        width: colWidth,
-        height: estimatedHeight
-      })
-
-      // 更新该列的累积高度
-      colHeights[minCol] += estimatedHeight + COLUMN_GAP
-    }
-
-    virtualItems.value = items
-    triggerRef(virtualItems)
-  } finally {
-    isLayoutCalculating = false
-  }
-}
-
-function updateMeasuredHeights(forceLayout = false) {
-  if (!nodeContainerRef.value) return
-
-  const container = nodeContainerRef.value.querySelector('.masonry-viewport')
-  if (!container) return
-
-  let hasChanges = false
-  const items = container.querySelectorAll('.masonry-item')
-
-  items.forEach(item => {
-    const nodeId = item.getAttribute('data-node-id')
-    if (nodeId) {
-      const height = (item as HTMLElement).offsetHeight
-      // 只有高度变化超过阈值才记录变化，避免选中状态变化（边框等）导致的小幅高度变化触发布局
-      const oldHeight = nodeHeights.value[nodeId]
-      const heightDiff = Math.abs((oldHeight || 0) - height)
-      if (!oldHeight || heightDiff > 5) {
-        nodeHeights.value[nodeId] = height
-        measuredNodes.value.add(nodeId)
-        hasChanges = true
-      }
-    }
-  })
-
-  // 只有强制布局或非翻页期间且有变化时才重新计算布局
-  if ((forceLayout || !isPageChanging) && hasChanges) {
-    calculateLayout()
-  }
-}
-
-// 延迟测量高度，确保节点完全渲染
-function scheduleMeasureHeights(delay = 50) {
-  if (measureTimer) {
-    clearTimeout(measureTimer)
-  }
-  measureTimer = setTimeout(() => {
-    measureTimer = null
-    updateMeasuredHeights(true)
-    // 如果还在翻页状态，继续延迟测量
-    if (isPageChanging) {
-      scheduleMeasureHeights(100)
-    }
-  }, delay)
-}
-
-watch(visibleNodes, () => {
-  // 如果正在计算布局或翻页，跳过
-  if (isLayoutCalculating || isPageChanging) return
-  nextTick(() => {
-    updateMeasuredHeights()
-  })
-})
-
-function handleScroll() {
-  if (!nodeContainerRef.value) return
-  const newScrollTop = nodeContainerRef.value.scrollTop
-  if (Math.abs(newScrollTop - scrollTop.value) > 5) {
-    scrollTop.value = newScrollTop
-  }
-}
-
 function handleNodeActivate(nodeId: string) {
   emit('activate', nodeId)
 }
 
-let scrollAnimationFrameId: number | null = null
-let scrollTimer: ReturnType<typeof setTimeout> | null = null
-let scrollRetryCount = 0
-
-watch(() => props.activeNodeId, (newNodeId) => {
-  if (!newNodeId) return
-
-  if (scrollAnimationFrameId !== null) {
-    cancelAnimationFrame(scrollAnimationFrameId)
-    scrollAnimationFrameId = null
-  }
-  if (scrollTimer !== null) {
-    clearTimeout(scrollTimer)
-    scrollTimer = null
-  }
-  scrollRetryCount = 0
-
-  nextTick(() => {
-    tryScrollToNode(newNodeId)
-  })
-})
-
-function tryScrollToNode(nodeId: string) {
-  const container = panelRef.value?.querySelector('.node-container') as HTMLElement
-  if (!container) {
-    scheduleScrollToNode(nodeId)
-    return
-  }
-
-  const nodeEl = container.querySelector(`[data-node-id="${nodeId}"]`) as HTMLElement
-  if (nodeEl) {
-    scrollNodeToVisible(nodeEl)
-  } else {
-    const item = virtualItems.value.get(nodeId)
-    if (item) {
-      scrollToVisibleByVirtualItem(container, item)
-    }
-    scheduleScrollToNode(nodeId)
-  }
-}
-
-function scrollToVisibleByVirtualItem(container: HTMLElement, item: { top: number; height: number }) {
-  const viewTop = container.scrollTop + 4
-  const viewBottom = container.scrollTop + container.clientHeight - 4
-  const itemTop = item.top
-  const itemBottom = itemTop + (item.height || 200)
-
-  if (itemTop >= viewTop && itemBottom <= viewBottom) {
-    return
-  }
-
-  let scrollTo: number
-  if (itemTop < viewTop) {
-    scrollTo = itemTop - 10
-  } else {
-    scrollTo = itemBottom - container.clientHeight + 10
-  }
-
-  container.scrollTo({
-    top: Math.max(0, scrollTo),
-    behavior: 'smooth'
-  })
-}
-
-function scheduleScrollToNode(nodeId: string) {
-  scrollAnimationFrameId = requestAnimationFrame(() => {
-    scrollAnimationFrameId = null
-    const container = panelRef.value?.querySelector('.node-container') as HTMLElement
-    if (!container) return
-
-    const nodeEl = container.querySelector(`[data-node-id="${nodeId}"]`) as HTMLElement
-    if (!nodeEl) {
-      if (scrollRetryCount < 10) {
-        scrollRetryCount++
-        scrollTimer = setTimeout(() => {
-          scheduleScrollToNode(nodeId)
-        }, 100)
-      }
-      return
-    }
-    scrollNodeToVisible(nodeEl)
-  })
-}
-
-function scrollNodeToVisible(nodeEl: HTMLElement) {
-  const container = panelRef.value?.querySelector('.node-container') as HTMLElement
-  if (!container) return
-
-  const containerRect = container.getBoundingClientRect()
-  const nodeRect = nodeEl.getBoundingClientRect()
-
-  const nodeTop = nodeRect.top - containerRect.top + container.scrollTop
-  const nodeBottom = nodeTop + nodeRect.height
-
-  const viewTop = container.scrollTop + 4
-  const viewBottom = container.scrollTop + container.clientHeight - 4
-
-  if (nodeTop >= viewTop && nodeBottom <= viewBottom) {
-    return
-  }
-
-  let scrollTo: number
-  if (nodeTop < viewTop) {
-    scrollTo = nodeTop - 10
-  } else {
-    scrollTo = nodeBottom - container.clientHeight + 10
-  }
-
-  container.scrollTo({
-    top: Math.max(0, scrollTo),
-    behavior: 'smooth'
-  })
-}
-
-// 记录上一次的节点 ID 集合，用于判断是否是翻页
-let lastNodeIds = new Set<string>()
-
-watch(() => props.nodes, (nodes) => {
-  // 计算当前节点 ID 集合
-  const currentNodeIds = new Set(nodes.map(n => n.id))
-
-  // 检查是否是翻页（节点 ID 集合完全不同）
-  let isPageChange = false
-  if (currentNodeIds.size !== lastNodeIds.size) {
-    isPageChange = true
-  } else {
-    // 检查是否有任何 ID 不同
-    for (const id of currentNodeIds) {
-      if (!lastNodeIds.has(id)) {
-        isPageChange = true
-        break
-      }
-    }
-  }
-
-  // 更新记录
-  lastNodeIds = currentNodeIds
-
-  // 只有翻页时才重置所有状态
-  if (isPageChange) {
-    // 标记正在翻页，防止期间触发布局更新
-    isPageChanging = true
-    measuredNodes.value.clear()
-    nodeHeights.value = {}
-    scrollTop.value = 0
-    voiceNoteRefs.value = {}
-    // 重置滚动位置
-    if (nodeContainerRef.value) {
-      nodeContainerRef.value.scrollTop = 0
-    }
-    // 先清空 virtualItems，确保旧节点不显示
-    virtualItems.value = new Map()
-    triggerRef(virtualItems)
-  }
-
-  // 立即计算初始布局
-  calculateLayout()
-
-  // 延迟测量高度，确保节点完全渲染
-  scheduleMeasureHeights(isPageChange ? 100 : 50)
-
-  // 翻页时需要多次测量确保稳定
-  if (isPageChange) {
-    // 多次延迟测量，确保异步内容加载完成后也能正确布局
-    setTimeout(() => {
-      updateMeasuredHeights(true)
-      // 翻页完成后重置标志
-      isPageChanging = false
-    }, 300)
-  }
-})
-
-watch(() => props.panelWidth, () => {
-  measuredNodes.value.clear()
-  calculateLayout()
-  scheduleMeasureHeights(100)
-})
-
-let resizeObserver: ResizeObserver | null = null
-
-onMounted(() => {
-  calculateLayout()
-  if (nodeContainerRef.value) {
-    containerHeight.value = nodeContainerRef.value.clientHeight
-    resizeObserver = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        if (entry.target === nodeContainerRef.value) {
-          containerHeight.value = entry.contentRect.height
-        }
-      }
-    })
-    if (nodeContainerRef.value) {
-      resizeObserver.observe(nodeContainerRef.value)
-    }
-  }
-  // 初始渲染后延迟测量高度
-  scheduleMeasureHeights(100)
-})
-
 onUnmounted(() => {
-  if (resizeObserver) {
-    resizeObserver.disconnect()
-    resizeObserver = null
-  }
   if (pageIndicatorTimer) {
     clearTimeout(pageIndicatorTimer)
     pageIndicatorTimer = null
   }
-  if (measureTimer) {
-    clearTimeout(measureTimer)
-    measureTimer = null
-  }
-  if (scrollTimer) {
-    clearTimeout(scrollTimer)
-    scrollTimer = null
-  }
-  if (scrollAnimationFrameId !== null) {
-    cancelAnimationFrame(scrollAnimationFrameId)
-    scrollAnimationFrameId = null
-  }
 })
 
 defineExpose({
-  updateNodeHeights: updateMeasuredHeights,
-  scrollToNode
+  updateNodeHeights: () => {
+    cardViewRef.value?.updateNodeHeights()
+  },
+  scrollToNode: (nodeId: string) => {
+    if (viewMode.value === 'card') {
+      cardViewRef.value?.scrollToNode(nodeId)
+    } else if (viewMode.value === 'list') {
+      listViewRef.value?.scrollToNode(nodeId)
+    }
+  }
 })
-
-// 滚动到指定节点
-function scrollToNode(nodeId: string) {
-  const item = virtualItems.value.get(nodeId)
-  if (!item || !nodeContainerRef.value) return
-
-  const targetTop = item.top - CONTAINER_PADDING
-  nodeContainerRef.value.scrollTo({
-    top: targetTop,
-    behavior: 'smooth'
-  })
-}
 </script>
 
 <style scoped>
@@ -643,27 +298,53 @@ function scrollToNode(nodeId: string) {
   background: var(--bg-primary);
 }
 
-.node-container {
+/* 视图切换头部 */
+.view-header {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: center;
+}
+
+.view-toggle-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 2px;
+}
+
+.view-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+}
+
+.view-toggle-btn:hover {
+  color: var(--text-primary);
+}
+
+.view-toggle-btn.active {
+  background: var(--color-primary);
+  color: white;
+}
+
+/* 视图内容区域 */
+.view-content {
   flex: 1;
-  overflow-y: auto;
-  position: relative;
-}
-
-.masonry-viewport {
-  position: relative;
-  width: 100%;
-}
-
-.masonry-item {
-  box-sizing: border-box;
-}
-
-.masonry-item :deep(.voice-note-small) {
-  position: relative !important;
-  left: 0 !important;
-  top: 0 !important;
-  margin: 0;
-  width: 100% !important;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 /* 翻页区域 */

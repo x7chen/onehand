@@ -185,13 +185,6 @@ function handleClick() {
   justify-content: space-between;
   height: 24px;
   padding: 0 6px;
-  background: rgba(0, 0, 0, 0.03);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-}
-
-:root.dark .small-header {
-  background: rgba(255, 255, 255, 0.05);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .small-header-left {
