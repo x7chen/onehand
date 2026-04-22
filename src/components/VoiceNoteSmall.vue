@@ -169,6 +169,7 @@ function handleClick() {
   cursor: pointer;
   display: flex;
   flex-direction: column;
+  user-select: none;
 }
 
 :root.dark .voice-note-small {

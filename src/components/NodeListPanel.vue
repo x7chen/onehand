@@ -54,6 +54,7 @@
         @toggle-context="$emit('toggle-context', $event)"
         @toggle-favorite="$emit('toggle-favorite', $event)"
         @activate="handleNodeActivate"
+        @batch-select-context="handleBatchSelectContext"
       />
 
       <!-- 列表视图 -->
@@ -65,6 +66,7 @@
         @toggle-context="$emit('toggle-context', $event)"
         @toggle-favorite="$emit('toggle-favorite', $event)"
         @activate="handleNodeActivate"
+        @batch-select-context="handleBatchSelectContext"
       />
 
       <!-- 日历视图 -->
@@ -77,6 +79,7 @@
         @toggle-favorite="$emit('toggle-favorite', $event)"
         @activate="handleNodeActivate"
         @visible-nodes-change="handleVisibleNodesChange"
+        @batch-select-context="handleBatchSelectContext"
       />
     </div>
 
@@ -229,6 +232,10 @@ function handleVisibleNodesChange(nodes: CanvasNode[]) {
 
 function handleNodeActivate(nodeId: string) {
   emit('activate', nodeId)
+}
+
+function handleBatchSelectContext(nodeIds: string[], selected: boolean) {
+  emit('batch-select-context', nodeIds, selected)
 }
 
 defineExpose({

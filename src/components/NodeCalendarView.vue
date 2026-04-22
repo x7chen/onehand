@@ -117,7 +117,7 @@
           {{ rangeNotes.length }} {{ t('notebook.notes') }}
         </span>
       </div>
-      <div class="notes-list-container">
+      <div ref="notesListContainerRef" class="notes-list-container">
         <div v-if="rangeNotes.length > 0" class="notes-list">
           <div
             v-for="node in rangeNotes"
@@ -189,9 +189,21 @@ const emit = defineEmits<{
   'toggle-favorite': [nodeId: string]
   'activate': [nodeId: string]
   'visible-nodes-change': [nodes: CanvasNode[]]
+  'batch-select-context': [nodeIds: string[], selected: boolean]
 }>()
 
 const { t } = useI18n()
+
+// 拖拽多选状态
+const isDragSelecting = ref(false)
+const dragSelectedIds = ref<Set<string>>(new Set())
+const dragStartY = ref(0)
+const dragStartX = ref(0)
+const isSelecting = ref(true) // true表示选取，false表示取消选取
+const isDragStarted = ref(false) // 是否已进入拖拽模式
+const startNodeId = ref<string | null>(null) // 开始时的节点ID
+
+const DRAG_THRESHOLD = 5 // 拖拽阈值，超过此距离才进入拖拽模式
 
 // 当前显示的年份
 const currentYear = ref(new Date().getFullYear())
@@ -201,6 +213,9 @@ const currentMonth = ref(new Date().getMonth())
 const selectedDate = ref<Date | null>(null)
 // 时间范围选择 (day/week/month/year)
 const viewRange = ref<'day' | 'week' | 'month' | 'year'>('day')
+
+// 笔记列表容器引用
+const notesListContainerRef = ref<HTMLElement | null>(null)
 
 // 年份/月份选择器弹窗
 const showYearPicker = ref(false)
@@ -531,16 +546,147 @@ function handlePickerClickOutside(e: MouseEvent) {
   }
 }
 
+// 拖拽多选：开始拖拽
+function handleDragStart(e: MouseEvent) {
+  // 只响应左键，排除checkbox、favorite按钮等交互元素
+  if (e.button !== 0) return
+  const target = e.target as HTMLElement
+  if (target.closest('.note-checkbox, .note-favorite-btn, .note-ai-indicator')) return
+
+  isDragSelecting.value = true
+  isDragStarted.value = false
+  dragSelectedIds.value.clear()
+  dragStartX.value = e.clientX
+  dragStartY.value = e.clientY
+
+  // 记录起始位置的节点
+  const node = getNodeAtPosition(e.clientX, e.clientY)
+  startNodeId.value = node?.id || null
+
+  document.addEventListener('mousemove', handleDragMove)
+  document.addEventListener('mouseup', handleDragEnd)
+}
+
+// 拖拽多选：移动时处理经过的节点
+function handleDragMove(e: MouseEvent) {
+  if (!isDragSelecting.value) return
+
+  const deltaX = e.clientX - dragStartX.value
+  const deltaY = e.clientY - dragStartY.value
+  const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
+
+  // 只有超过阈值才进入拖拽选择模式
+  if (!isDragStarted.value && distance > DRAG_THRESHOLD) {
+    isDragStarted.value = true
+    dragSelectedIds.value.clear()
+  }
+
+  if (!isDragStarted.value) return
+
+  // 根据当前方向更新选择模式
+  if (e.clientY < dragStartY.value) {
+    // 从下到上（向上拖）：取消选取
+    isSelecting.value = false
+  } else {
+    // 从上到下（向下拖）：选取
+    isSelecting.value = true
+  }
+
+  // 处理起始位置的节点（根据当前方向决定）
+  const startNode = getNodeAtPosition(dragStartX.value, dragStartY.value)
+  if (startNode && startNode.transcriptStatus === 'done' && !dragSelectedIds.value.has(startNode.id)) {
+    dragSelectedIds.value.add(startNode.id)
+    if (isSelecting.value && !startNode.selectedAsContext) {
+      emit('batch-select-context', [startNode.id], true)
+    } else if (!isSelecting.value && startNode.selectedAsContext) {
+      emit('batch-select-context', [startNode.id], false)
+    }
+  }
+
+  // 处理当前位置的节点
+  processNodeAtPosition(e.clientX, e.clientY)
+}
+
+// 拖拽多选：结束拖拽
+function handleDragEnd(e: MouseEvent) {
+  // 如果没有进入拖拽模式，视为点击，只激活笔记
+  if (!isDragStarted.value && startNodeId.value) {
+    emit('activate', startNodeId.value)
+  }
+
+  isDragSelecting.value = false
+  isDragStarted.value = false
+  dragSelectedIds.value.clear()
+  startNodeId.value = null
+  document.removeEventListener('mousemove', handleDragMove)
+  document.removeEventListener('mouseup', handleDragEnd)
+}
+
+// 获取指定位置的节点
+function getNodeAtPosition(x: number, y: number): CanvasNode | null {
+  const container = notesListContainerRef.value
+  if (!container) return null
+
+  const elements = document.elementsFromPoint(x, y)
+  for (const el of elements) {
+    const noteItem = (el as HTMLElement).closest('.note-item')
+    if (noteItem && container.contains(noteItem)) {
+      const nodeId = noteItem.getAttribute('data-node-id')
+      if (nodeId) {
+        return props.nodes.find(n => n.id === nodeId) || null
+      }
+      break
+    }
+  }
+  return null
+}
+
+// 拖拽多选：处理指定位置的节点
+function processNodeAtPosition(x: number, y: number) {
+  const node = getNodeAtPosition(x, y)
+  if (!node) return
+
+  const nodeId = node.id
+  // 检查节点是否可选中（转录完成）
+  if (node.transcriptStatus !== 'done') return
+
+  if (!dragSelectedIds.value.has(nodeId)) {
+    dragSelectedIds.value.add(nodeId)
+
+    if (isSelecting.value) {
+      // 选取模式：选中未选中的节点
+      if (!node.selectedAsContext) {
+        emit('batch-select-context', [nodeId], true)
+      }
+    } else {
+      // 取消模式：取消已选中的节点
+      if (node.selectedAsContext) {
+        emit('batch-select-context', [nodeId], false)
+      }
+    }
+  }
+}
+
 // 初始化时选中今天
 onMounted(() => {
   const today = new Date()
   selectedDate.value = today
   document.addEventListener('click', handlePickerClickOutside)
   emit('visible-nodes-change', rangeNotes.value)
+  // 添加拖拽多选事件监听
+  if (notesListContainerRef.value) {
+    notesListContainerRef.value.addEventListener('mousedown', handleDragStart)
+  }
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', handlePickerClickOutside)
+  // 移除拖拽多选事件监听
+  if (notesListContainerRef.value) {
+    notesListContainerRef.value.removeEventListener('mousedown', handleDragStart)
+  }
+  document.removeEventListener('mousemove', handleDragMove)
+  document.removeEventListener('mouseup', handleDragEnd)
 })
 
 // 监听可见节点变化
@@ -842,6 +988,7 @@ defineExpose({
   padding: 8px 12px;
   cursor: pointer;
   transition: background-color 0.2s;
+  user-select: none;
 }
 
 .note-item:hover {
