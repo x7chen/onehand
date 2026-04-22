@@ -49,7 +49,7 @@
       </div>
 
       <!-- 日历网格 -->
-      <div class="calendar-grid">
+      <div ref="calendarGridRef" class="calendar-grid">
         <button
           v-for="(day, index) in calendarDays"
           :key="index"
@@ -58,11 +58,14 @@
             'empty': !day,
             'today': isToday(day),
             'selected': isSelected(day),
+            'in-range': isInCustomRange(day),
+            'drag-selecting': isDragSelectingDay(day),
             'has-notes': hasNotes(day),
             'other-month': isOtherMonth(day)
           }"
-          :disabled="!day"
-          @click="selectDate(day)"
+          :data-day-index="index"
+          @mousedown="handleDateDragStart(day, $event)"
+          @mouseup="handleDateDragEnd"
           :title="day && hasNotes(day) ? t('nodeList.hasNotes', { count: getNotesCount(day) }) : ''"
         >
           <span class="day-number">{{ day?.getDate() }}</span>
@@ -79,30 +82,36 @@
           <button
             class="range-btn"
             :class="{ active: viewRange === 'day' }"
-            @click="viewRange = 'day'"
+            @click="setViewRange('day')"
           >
             {{ t('nodeList.rangeDay') }}
           </button>
           <button
             class="range-btn"
             :class="{ active: viewRange === 'week' }"
-            @click="viewRange = 'week'"
+            @click="setViewRange('week')"
           >
             {{ t('nodeList.rangeWeek') }}
           </button>
           <button
             class="range-btn"
             :class="{ active: viewRange === 'month' }"
-            @click="viewRange = 'month'"
+            @click="setViewRange('month')"
           >
             {{ t('nodeList.rangeMonth') }}
           </button>
           <button
             class="range-btn"
             :class="{ active: viewRange === 'year' }"
-            @click="viewRange = 'year'"
+            @click="setViewRange('year')"
           >
             {{ t('nodeList.rangeYear') }}
+          </button>
+          <button
+            v-if="viewRange === 'custom'"
+            class="range-btn active"
+          >
+            {{ t('nodeList.rangeCustom') }}
           </button>
         </div>
         <!-- 日期范围显示 -->
@@ -211,11 +220,21 @@ const currentYear = ref(new Date().getFullYear())
 const currentMonth = ref(new Date().getMonth())
 // 选中的日期
 const selectedDate = ref<Date | null>(null)
-// 时间范围选择 (day/week/month/year)
-const viewRange = ref<'day' | 'week' | 'month' | 'year'>('day')
+// 时间范围选择 (day/week/month/year/custom)
+const viewRange = ref<'day' | 'week' | 'month' | 'year' | 'custom'>('day')
+// 自定义日期范围
+const customRangeStart = ref<Date | null>(null)
+const customRangeEnd = ref<Date | null>(null)
 
 // 笔记列表容器引用
 const notesListContainerRef = ref<HTMLElement | null>(null)
+// 日历网格容器引用
+const calendarGridRef = ref<HTMLElement | null>(null)
+
+// 日期拖拽选择状态
+const isDateDragSelecting = ref(false)
+const dateDragStartDay = ref<Date | null>(null)
+const dateDragEndDay = ref<Date | null>(null)
 
 // 年份/月份选择器弹窗
 const showYearPicker = ref(false)
@@ -257,6 +276,17 @@ const weekDays = computed(() => {
 
 // 格式化范围标题
 const formatRangeTitle = computed(() => {
+  if (viewRange.value === 'custom' && customRangeStart.value && customRangeEnd.value) {
+    const startMonth = customRangeStart.value.getMonth() + 1
+    const startDay = customRangeStart.value.getDate()
+    const endMonth = customRangeEnd.value.getMonth() + 1
+    const endDay = customRangeEnd.value.getDate()
+    if (customRangeStart.value.getFullYear() !== customRangeEnd.value.getFullYear()) {
+      return `${customRangeStart.value.getFullYear()}年${startMonth}月${startDay}日 - ${customRangeEnd.value.getFullYear()}年${endMonth}月${endDay}日`
+    }
+    return `${startMonth}月${startDay}日 - ${endMonth}月${endDay}日`
+  }
+
   if (!selectedDate.value) return ''
   const year = selectedDate.value.getFullYear()
   const month = selectedDate.value.getMonth() + 1
@@ -330,6 +360,20 @@ const calendarDays = computed(() => {
 
 // 根据时间范围获取笔记
 const rangeNotes = computed(() => {
+  // 自定义范围
+  if (viewRange.value === 'custom' && customRangeStart.value && customRangeEnd.value) {
+    const startDate = new Date(customRangeStart.value)
+    startDate.setHours(0, 0, 0, 0)
+    const endDate = new Date(customRangeEnd.value)
+    endDate.setHours(23, 59, 59, 999)
+    return props.nodes
+      .filter(node => {
+        const nodeDate = new Date(node.createdAt)
+        return nodeDate >= startDate && nodeDate <= endDate
+      })
+      .sort((a, b) => a.createdAt - b.createdAt)
+  }
+
   if (!selectedDate.value) return []
 
   let startDate: Date
@@ -393,12 +437,38 @@ function isToday(day: Date | null) {
          day.getDate() === today.getDate()
 }
 
-// 判断是否是选中的日期
+// 判断是否是选中的日期（只在非自定义范围模式下生效）
 function isSelected(day: Date | null) {
-  if (!day || !selectedDate.value) return false
-  return day.getFullYear() === selectedDate.value.getFullYear() &&
-         day.getMonth() === selectedDate.value.getMonth() &&
-         day.getDate() === selectedDate.value.getDate()
+  if (!day) return false
+  // 自定义范围时，不单独高亮某个日期
+  if (viewRange.value === 'custom') return false
+  if (!selectedDate.value) return false
+  return isSameDay(day, selectedDate.value)
+}
+
+// 判断是否在自定义范围内（包括开始和结束）
+function isInCustomRange(day: Date | null) {
+  if (!day || viewRange.value !== 'custom' || !customRangeStart.value || !customRangeEnd.value) return false
+  const dayTime = new Date(day.getFullYear(), day.getMonth(), day.getDate()).getTime()
+  const startTime = new Date(customRangeStart.value.getFullYear(), customRangeStart.value.getMonth(), customRangeStart.value.getDate()).getTime()
+  const endTime = new Date(customRangeEnd.value.getFullYear(), customRangeEnd.value.getMonth(), customRangeEnd.value.getDate()).getTime()
+  return dayTime >= startTime && dayTime <= endTime
+}
+
+// 判断是否正在被拖拽选择
+function isDragSelectingDay(day: Date | null) {
+  if (!day || !isDateDragSelecting.value || !dateDragStartDay.value || !dateDragEndDay.value) return false
+  const dayTime = day.getTime()
+  const startTime = dateDragStartDay.value.getTime()
+  const endTime = dateDragEndDay.value.getTime()
+  return dayTime >= Math.min(startTime, endTime) && dayTime <= Math.max(startTime, endTime)
+}
+
+// 判断两个日期是否是同一天
+function isSameDay(d1: Date, d2: Date) {
+  return d1.getFullYear() === d2.getFullYear() &&
+         d1.getMonth() === d2.getMonth() &&
+         d1.getDate() === d2.getDate()
 }
 
 // 判断是否是其他月份的日期
@@ -477,15 +547,89 @@ function goToToday() {
   currentYear.value = today.getFullYear()
   currentMonth.value = today.getMonth()
   selectedDate.value = today
+  // 清除自定义范围
+  customRangeStart.value = null
+  customRangeEnd.value = null
+  viewRange.value = 'day'
 }
 
-// 选择日期
-function selectDate(day: Date | null) {
-  if (!day) return
-  selectedDate.value = day
-  // 更新日历显示的年月
-  currentYear.value = day.getFullYear()
-  currentMonth.value = day.getMonth()
+// 设置时间范围模式
+function setViewRange(range: 'day' | 'week' | 'month' | 'year') {
+  viewRange.value = range
+  // 清除自定义范围
+  customRangeStart.value = null
+  customRangeEnd.value = null
+}
+
+// 日期拖拽：开始
+function handleDateDragStart(day: Date | null, e: MouseEvent) {
+  if (!day || e.button !== 0) return
+  isDateDragSelecting.value = true
+  dateDragStartDay.value = day
+  dateDragEndDay.value = day
+  document.addEventListener('mousemove', handleDateDragMove)
+  document.addEventListener('mouseup', handleDateDragEnd)
+}
+
+// 日期拖拽：移动
+function handleDateDragMove(e: MouseEvent) {
+  if (!isDateDragSelecting.value || !calendarGridRef.value) return
+
+  // 找到鼠标下的日期元素
+  const elements = document.elementsFromPoint(e.clientX, e.clientY)
+  for (const el of elements) {
+    const dayEl = (el as HTMLElement).closest('.calendar-day')
+    if (dayEl && calendarGridRef.value.contains(dayEl)) {
+      const index = parseInt(dayEl.getAttribute('data-day-index') || '0')
+      const day = calendarDays.value[index]
+      if (day) {
+        dateDragEndDay.value = day
+      }
+      break
+    }
+  }
+}
+
+// 日期拖拽：结束
+function handleDateDragEnd() {
+  if (isDateDragSelecting.value && dateDragStartDay.value && dateDragEndDay.value) {
+    // 判断是否是真正的拖拽（开始和结束日期不同）
+    const startTime = new Date(dateDragStartDay.value.getFullYear(), dateDragStartDay.value.getMonth(), dateDragStartDay.value.getDate()).getTime()
+    const endTime = new Date(dateDragEndDay.value.getFullYear(), dateDragEndDay.value.getMonth(), dateDragEndDay.value.getDate()).getTime()
+
+    if (startTime !== endTime) {
+      // 有拖拽，设置自定义范围
+      if (startTime <= endTime) {
+        customRangeStart.value = dateDragStartDay.value
+        customRangeEnd.value = dateDragEndDay.value
+      } else {
+        customRangeStart.value = dateDragEndDay.value
+        customRangeEnd.value = dateDragStartDay.value
+      }
+
+      viewRange.value = 'custom'
+      selectedDate.value = customRangeStart.value
+      // 更新日历显示的年月
+      currentYear.value = customRangeStart.value.getFullYear()
+      currentMonth.value = customRangeStart.value.getMonth()
+    } else {
+      // 单击，只选中日期，不切换模式
+      selectedDate.value = dateDragStartDay.value
+      // 清除自定义范围
+      customRangeStart.value = null
+      customRangeEnd.value = null
+      viewRange.value = 'day'
+      // 更新日历显示的年月
+      currentYear.value = dateDragStartDay.value.getFullYear()
+      currentMonth.value = dateDragStartDay.value.getMonth()
+    }
+  }
+
+  isDateDragSelecting.value = false
+  dateDragStartDay.value = null
+  dateDragEndDay.value = null
+  document.removeEventListener('mousemove', handleDateDragMove)
+  document.removeEventListener('mouseup', handleDateDragEnd)
 }
 
 // 切换上下文勾选
@@ -673,7 +817,7 @@ onMounted(() => {
   selectedDate.value = today
   document.addEventListener('click', handlePickerClickOutside)
   emit('visible-nodes-change', rangeNotes.value)
-  // 添加拖拽多选事件监听
+  // 添加笔记列表拖拽多选事件监听
   if (notesListContainerRef.value) {
     notesListContainerRef.value.addEventListener('mousedown', handleDragStart)
   }
@@ -681,12 +825,15 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener('click', handlePickerClickOutside)
-  // 移除拖拽多选事件监听
+  // 移除笔记列表拖拽多选事件监听
   if (notesListContainerRef.value) {
     notesListContainerRef.value.removeEventListener('mousedown', handleDragStart)
   }
   document.removeEventListener('mousemove', handleDragMove)
   document.removeEventListener('mouseup', handleDragEnd)
+  // 移除日期拖拽事件监听
+  document.removeEventListener('mousemove', handleDateDragMove)
+  document.removeEventListener('mouseup', handleDateDragEnd)
 })
 
 // 监听可见节点变化
@@ -880,6 +1027,32 @@ defineExpose({
 
 .calendar-day.has-notes {
   font-weight: 500;
+}
+
+/* 自定义范围内的日期 */
+.calendar-day.in-range {
+  background: var(--color-primary);
+  border-radius: 4px;
+}
+
+.calendar-day.in-range .day-number {
+  color: white;
+}
+
+/* 拖拽选择过程中的日期 */
+.calendar-day.drag-selecting {
+  background: var(--color-primary);
+  border-radius: 4px;
+}
+
+.calendar-day.drag-selecting .day-number {
+  color: white;
+}
+
+/* 范围内的笔记指示器显示白色 */
+.calendar-day.in-range.has-notes .day-notes-indicator,
+.calendar-day.drag-selecting.has-notes .day-notes-indicator {
+  background: white;
 }
 
 .day-number {

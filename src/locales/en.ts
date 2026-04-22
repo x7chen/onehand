@@ -321,5 +321,6 @@ export default {
     rangeWeek: 'Week',
     rangeMonth: 'Month',
     rangeYear: 'Year',
+    rangeCustom: 'Custom',
   },
 }

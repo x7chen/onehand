@@ -321,5 +321,6 @@ export default {
     rangeWeek: '周',
     rangeMonth: '月',
     rangeYear: '年',
+    rangeCustom: '自',
   },
 }
