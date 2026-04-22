@@ -8,10 +8,9 @@ import md5 from 'md5'
 export interface NotebookNodeData {
   notebookId: string
   notebookName: string
-  canvasId: string
-  canvasName: string
   nodeId: string
   nodeTitle: string
+  pdfPage?: number
   fieldType: 'transcript' | 'agentResult'
   text: string
 }
@@ -24,10 +23,9 @@ export class NotebookLoader extends BaseLoader<{
   type: 'NotebookLoader'
   notebookId: string
   notebookName: string
-  canvasId: string
-  canvasName: string
   nodeId: string
   nodeTitle: string
+  pdfPage?: number
   fieldType: 'transcript' | 'agentResult'
   textHash: string
 }> {
@@ -73,13 +71,12 @@ export class NotebookLoader extends BaseLoader<{
         pageContent: node.text,
         metadata: {
           type: 'NotebookLoader' as const,
-          source: `${node.notebookId}:${node.canvasId}:${node.nodeId}:${node.fieldType}`,
+          source: `${node.notebookId}:${node.nodeId}:${node.fieldType}`,
           notebookId: node.notebookId,
           notebookName: node.notebookName,
-          canvasId: node.canvasId,
-          canvasName: node.canvasName,
           nodeId: node.nodeId,
           nodeTitle: node.nodeTitle,
+          pdfPage: node.pdfPage,
           fieldType: node.fieldType,
           textHash: textHash
         }

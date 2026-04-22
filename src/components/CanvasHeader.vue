@@ -9,9 +9,9 @@
       </svg>
     </button>
 
-    <!-- 笔记本选择器（仅在非隐藏导航模式下显示） -->
+    <!-- 笔记本选择器（仅在非隐藏导航模式下且不隐藏笔记本选择器时显示） -->
     <div
-      v-if="!hideNavigation"
+      v-if="!hideNavigation && !hideNotebookSelector"
       ref="notebookSelectorRef"
       class="notebook-selector"
       @click="toggleNotebookSelector"
@@ -297,6 +297,7 @@ const props = withDefaults(defineProps<{
   allNotebooks: Notebook[]
   currentNotebookId: string | null
   hideNavigation?: boolean
+  hideNotebookSelector?: boolean
 }>(), {
   showViewportControls: true,
   notebookModelId: undefined,
@@ -304,7 +305,8 @@ const props = withDefaults(defineProps<{
   activeProfileId: '',
   allNotebooks: () => [],
   currentNotebookId: null,
-  hideNavigation: false
+  hideNavigation: false,
+  hideNotebookSelector: false
 })
 
 const emit = defineEmits<{

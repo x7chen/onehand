@@ -1,18 +1,16 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useNotebookStore } from '@/stores/notebookStore'
-import type { CanvasNode, CanvasInfo, Notebook } from '@/types/notebook'
+import type { CanvasNode, Notebook, DisplayNode } from '@/types/notebook'
 
 export interface DeepLinkData {
   notebookId: string
-  canvasId?: string
   nodeId: string
 }
 
 export interface NodePopupData {
   notebook: Notebook
-  canvas?: CanvasInfo
-  node: CanvasNode
+  node: DisplayNode
 }
 
 /**
@@ -58,8 +56,13 @@ export async function findNodeByNodeId(nodeId: string): Promise<NodePopupData | 
 
     const node = notebook.nodes.find(n => n.id === nodeId)
     if (node) {
-      const canvas = notebook.canvases?.find(c => c.id === node.canvasId)
-      return { notebook, canvas, node }
+      return {
+        notebook,
+        node: {
+          ...node,
+          displayPosition: { x: 100, y: 100 }
+        }
+      }
     }
   }
 
@@ -104,18 +107,12 @@ export function useDeepLink() {
     // Set the notebook as current
     notebookStore.setCurrentNotebook(nodeData.notebook)
 
-    // For PDF notebooks, switch to the correct PDF page
-    if (nodeData.notebook.pdfPath && nodeData.canvas?.pdfPage) {
-      notebookStore.switchToPdfPage(nodeData.canvas.pdfPage)
+    // Navigate to the appropriate view
+    if (nodeData.notebook.pdfPath) {
       // PDF notebook - navigate to PdfReaderView with nodeId query
       router.push(`/pdf/${nodeData.notebook.id}?nodeId=${nodeId}`)
-    } else if (nodeData.canvas) {
-      // For non-PDF notebooks, switch to the correct canvas
-      notebookStore.switchToCanvas(nodeData.canvas.id)
-      // Normal notebook - navigate to multi-chat with nodeId query
-      router.push(`/multi-chat/${nodeData.notebook.id}?nodeId=${nodeId}`)
     } else {
-      // No canvas info - just navigate to the notebook
+      // Normal notebook - navigate to multi-chat with nodeId query
       router.push(`/multi-chat/${nodeData.notebook.id}?nodeId=${nodeId}`)
     }
   }

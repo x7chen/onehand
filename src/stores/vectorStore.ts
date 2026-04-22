@@ -94,27 +94,18 @@ export const useVectorStore = defineStore('vector', () => {
     const MAX_CHARS = 20000  // 与 NotebookLoader 保持一致
 
     for (const notebook of notebookStore.notebooks) {
-      if (!notebook.canvases || !notebook.nodes) continue
+      if (!notebook.nodes) continue
 
       for (const node of notebook.nodes) {
-        // 找到节点所属的画布
-        const canvas = notebook.canvases.find(c => c.id === node.canvasId)
-        if (!canvas) continue
-
-        const canvasName = canvas.pdfPage
-          ? `第 ${canvas.pdfPage} 页`
-          : (notebook.canvases.length > 1 ? `第 ${notebook.canvases.indexOf(canvas) + 1} 页` : '画布')
-
         // 添加 transcript（跳过过长文本）
         if (node.transcript && node.transcript.trim().length > 0) {
           if (node.transcript.length <= MAX_CHARS) {
             nodes.push({
               notebookId: notebook.id,
               notebookName: notebook.name,
-              canvasId: canvas.id,
-              canvasName,
               nodeId: node.id,
               nodeTitle: node.title || '',
+              pdfPage: node.pdfPage,
               fieldType: 'transcript',
               text: node.transcript
             })
@@ -127,10 +118,9 @@ export const useVectorStore = defineStore('vector', () => {
             nodes.push({
               notebookId: notebook.id,
               notebookName: notebook.name,
-              canvasId: canvas.id,
-              canvasName,
               nodeId: node.id,
               nodeTitle: node.title || '',
+              pdfPage: node.pdfPage,
               fieldType: 'agentResult',
               text: node.agentResult
             })
@@ -176,27 +166,18 @@ export const useVectorStore = defineStore('vector', () => {
       const MAX_CHARS = 20000
 
       for (const notebook of notebookStore.notebooks) {
-        if (!notebook.canvases || !notebook.nodes) continue
+        if (!notebook.nodes) continue
         for (const node of notebook.nodes) {
-          // 找到节点所属的画布
-          const canvas = notebook.canvases.find(c => c.id === node.canvasId)
-          if (!canvas) continue
-
-          const canvasName = canvas.pdfPage
-            ? `第 ${canvas.pdfPage} 页`
-            : (notebook.canvases.length > 1 ? `第 ${notebook.canvases.indexOf(canvas) + 1} 页` : '画布')
-
           if (node.transcript && node.transcript.trim().length > 0 && node.transcript.length <= MAX_CHARS) {
-            const source = `${notebook.id}:${canvas.id}:${node.id}:transcript`
+            const source = `${notebook.id}:${node.id}:transcript`
             currentNodesInfo.push({
               source,
               node: {
                 notebookId: notebook.id,
                 notebookName: notebook.name,
-                canvasId: canvas.id,
-                canvasName,
                 nodeId: node.id,
                 nodeTitle: node.title || '',
+                pdfPage: node.pdfPage,
                 fieldType: 'transcript',
                 text: node.transcript
               },
@@ -204,16 +185,15 @@ export const useVectorStore = defineStore('vector', () => {
             })
           }
           if (node.agentResult && node.agentResult.trim().length > 0 && node.agentResult.length <= MAX_CHARS) {
-            const source = `${notebook.id}:${canvas.id}:${node.id}:agentResult`
+            const source = `${notebook.id}:${node.id}:agentResult`
             currentNodesInfo.push({
               source,
               node: {
                 notebookId: notebook.id,
                 notebookName: notebook.name,
-                canvasId: canvas.id,
-                canvasName,
                 nodeId: node.id,
                 nodeTitle: node.title || '',
+                pdfPage: node.pdfPage,
                 fieldType: 'agentResult',
                 text: node.agentResult
               },
@@ -294,7 +274,7 @@ export const useVectorStore = defineStore('vector', () => {
       if (nodesByTextHash.size > 0) {
         const uniqueNodes = Array.from(nodesByTextHash.values())
         console.log('uniqueNodes to index:', uniqueNodes.map(n => ({
-          source: `${n.notebookId}:${n.canvasId}:${n.nodeId}:${n.fieldType}`,
+          source: `${n.notebookId}:${n.nodeId}:${n.fieldType}`,
           textPreview: n.text.substring(0, 30)
         })))
         const result = await window.electronAPI.indexNodesIncremental(uniqueNodes)
@@ -354,17 +334,15 @@ export const useVectorStore = defineStore('vector', () => {
         return {
           notebookId: r.metadata.notebookId,
           notebookName: r.metadata.notebookName,
-          canvasId: r.metadata.canvasId,
-          canvasName: r.metadata.canvasName,
           nodeId: r.metadata.nodeId,
           nodeTitle: r.metadata.nodeTitle,
+          pdfPage: r.metadata.pdfPage,
           fieldType: r.metadata.fieldType,
           fullText: r.pageContent,
           similarity: r.score,
           metadata: {
             id: 0,
             notebookId: r.metadata.notebookId,
-            canvasId: r.metadata.canvasId,
             nodeId: r.metadata.nodeId,
             fieldType: r.metadata.fieldType,
             textHash: r.metadata.textHash,
@@ -389,18 +367,14 @@ export const useVectorStore = defineStore('vector', () => {
     const MAX_CHARS = 20000
 
     for (const notebook of notebookStore.notebooks) {
-      if (!notebook.canvases || !notebook.nodes) continue
+      if (!notebook.nodes) continue
       for (const node of notebook.nodes) {
-        // 找到节点所属的画布
-        const canvas = notebook.canvases.find(c => c.id === node.canvasId)
-        if (!canvas) continue
-
         if (node.transcript && node.transcript.trim().length > 0 && node.transcript.length <= MAX_CHARS) {
-          const source = `${notebook.id}:${canvas.id}:${node.id}:transcript`
+          const source = `${notebook.id}:${node.id}:transcript`
           currentNodes.push({ source, textHash: md5(node.transcript) })
         }
         if (node.agentResult && node.agentResult.trim().length > 0 && node.agentResult.length <= MAX_CHARS) {
-          const source = `${notebook.id}:${canvas.id}:${node.id}:agentResult`
+          const source = `${notebook.id}:${node.id}:agentResult`
           currentNodes.push({ source, textHash: md5(node.agentResult) })
         }
       }

@@ -20,8 +20,10 @@
           >
             <div class="item-meta">
               <span class="notebook-name">{{ node.notebookName }}</span>
-              <span class="separator">·</span>
-              <span class="canvas-name">{{ node.canvasName }}</span>
+              <template v-if="node.pdfPage">
+                <span class="separator">·</span>
+                <span class="canvas-name">{{ t('common.pageN', { n: node.pdfPage }) }}</span>
+              </template>
               <template v-if="node.nodeTitle">
                 <span class="separator">·</span>
                 <span class="node-title">{{ node.nodeTitle }}</span>
@@ -93,7 +95,7 @@ function closeNodePopup() {
   selectedNodeUrl.value = ''
 }
 
-function handleNavigate(data: { notebookId: string; canvasId?: string; nodeId: string }) {
+function handleNavigate(data: { notebookId: string; nodeId: string }) {
   const notebook = notebookStore.notebooks.find(p => p.id === data.notebookId)
   if (notebook) {
     notebookStore.setCurrentNotebook(notebook)
@@ -101,7 +103,7 @@ function handleNavigate(data: { notebookId: string; canvasId?: string; nodeId: s
     if (notebook.pdfPath) {
       router.push(`/pdf/${data.notebookId}?nodeId=${data.nodeId}`)
     } else {
-      router.push(`/multi-chat/${data.notebookId}?canvasId=${data.canvasId}&nodeId=${data.nodeId}`)
+      router.push(`/multi-chat/${data.notebookId}?nodeId=${data.nodeId}`)
     }
   }
 

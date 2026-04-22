@@ -816,6 +816,7 @@ onMounted(() => {
   const today = new Date()
   selectedDate.value = today
   document.addEventListener('click', handlePickerClickOutside)
+  // emit必须在selectedDate设置后执行
   emit('visible-nodes-change', rangeNotes.value)
   // 添加笔记列表拖拽多选事件监听
   if (notesListContainerRef.value) {
@@ -836,10 +837,10 @@ onUnmounted(() => {
   document.removeEventListener('mouseup', handleDateDragEnd)
 })
 
-// 监听可见节点变化
+// 监听可见节点变化（不使用immediate，避免在selectedDate设置前emit空数组）
 watch(rangeNotes, (notes) => {
   emit('visible-nodes-change', notes)
-}, { immediate: true })
+})
 
 defineExpose({
   scrollToNode: () => {

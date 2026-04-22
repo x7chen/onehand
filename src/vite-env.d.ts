@@ -23,10 +23,9 @@ interface SherpaOnnxConfig {
 interface NotebookNodeData {
   notebookId: string
   notebookName: string
-  canvasId: string
-  canvasName: string
   nodeId: string
   nodeTitle: string
+  pdfPage?: number
   fieldType: 'transcript' | 'agentResult'
   text: string
 }
@@ -77,10 +76,9 @@ interface ElectronAPI {
       metadata: {
         notebookId: string
         notebookName: string
-        canvasId: string
-        canvasName: string
         nodeId: string
         nodeTitle: string
+        pdfPage?: number
         fieldType: 'transcript' | 'agentResult'
         source: string
         textHash: string

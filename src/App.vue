@@ -113,10 +113,10 @@ function handleNavigate(data: DeepLinkData) {
     } else {
       // Check if we're already on the multi-chat view for this notebook
       if (route.path === `/multi-chat/${data.notebookId}`) {
-        // Already on the page, update query params
-        router.replace({ path: route.path, query: { canvasId: data.canvasId, nodeId: data.nodeId } })
+        // Already on the page, just update nodeId query param
+        router.replace({ path: route.path, query: { nodeId: data.nodeId } })
       } else {
-        router.push(`/multi-chat/${data.notebookId}?canvasId=${data.canvasId}&nodeId=${data.nodeId}`)
+        router.push(`/multi-chat/${data.notebookId}?nodeId=${data.nodeId}`)
       }
     }
   }

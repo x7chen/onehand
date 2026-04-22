@@ -2,7 +2,7 @@
   <div
     class="voice-note-small"
     :class="{ selected: node.selectedAsContext, active: isActive }"
-    :style="{ left: node.position.x + 'px', top: node.position.y + 'px' }"
+    :style="{ left: ((node as DisplayNode).displayPosition?.x || 0) + 'px', top: ((node as DisplayNode).displayPosition?.y || 0) + 'px' }"
     @click="handleClick"
   >
     <!-- 头部 -->
@@ -57,12 +57,12 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useNotebookStore } from '@/stores/notebookStore'
 import { renderMarkdown, processImagePaths } from '@/utils/markdownRenderer'
 import { getNotebookDataDir } from '@/utils/userFilesPath'
-import type { CanvasNode } from '@/types/notebook'
+import type { CanvasNode, DisplayNode } from '@/types/notebook'
 
 const notebookStore = useNotebookStore()
 
 const props = defineProps<{
-  node: CanvasNode
+  node: CanvasNode | DisplayNode
   isActive?: boolean
 }>()
 

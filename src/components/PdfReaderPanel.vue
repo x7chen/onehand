@@ -93,6 +93,11 @@
         @dblclick="toggleRightPanel"
       >
         <div class="resizer-line"></div>
+        <div v-if="isRightPanelCollapsed" class="collapsed-indicator">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
+            <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/>
+          </svg>
+        </div>
       </div>
 
       <!-- 右侧 NodeListPanel -->
@@ -208,8 +213,8 @@ const nodeListPanelRef = ref<InstanceType<typeof NodeListPanel> | null>(null)
 // PDF面板折叠状态
 const isPdfPanelCollapsed = ref(false)
 
-// 右侧NodeListPanel折叠状态
-const isRightPanelCollapsed = ref(false)
+// 右侧NodeListPanel折叠状态（默认折叠）
+const isRightPanelCollapsed = ref(true)
 
 // 当前笔记本
 const currentNotebook = computed(() => {
@@ -222,11 +227,7 @@ let savePanelRatioTimer: number | null = null
 const activeNodeId = ref<string | null>(null)
 const activeNode = computed(() => {
   if (!activeNodeId.value) return null
-  const pdfPage = notebookStore.findNodePdfPage(activeNodeId.value)
-  if (pdfPage === null) return null
-  const canvasId = notebookStore.getCanvasByPdfPage(pdfPage)?.id
-  if (!canvasId) return null
-  return notebookStore.getCanvasNodes(canvasId).find(n => n.id === activeNodeId.value) || null
+  return notebookStore.getAllNodes().find(n => n.id === activeNodeId.value) || null
 })
 const currentAudio = ref<HTMLAudioElement | null>(null)
 const playingNodeId = ref<string | null>(null)
@@ -302,7 +303,7 @@ const currentPdfPageNodes = computed(() => {
 })
 
 const currentPageNodes = computed(() => {
-  return notebookStore.currentCanvasNodes
+  return notebookStore.getAllNodes()
     .filter(n => n.pdfPage === currentPageNumber.value)
     .sort((a, b) => a.createdAt - b.createdAt)
 })
@@ -463,7 +464,6 @@ onUnmounted(() => {
 
 async function handlePageChange(page: number) {
   currentPageNumber.value = page
-  notebookStore.switchToPdfPage(page)
   selectFirstNode()
 
   if (currentNotebook.value) {
@@ -495,16 +495,6 @@ function selectFirstNode() {
     }
   })
 }
-
-watch(() => notebookStore.currentCanvas, (newCanvas) => {
-  if (!isInitialized.value) return
-  if (newCanvas?.pdfPage && newCanvas.pdfPage !== currentPageNumber.value) {
-    currentPageNumber.value = newCanvas.pdfPage
-    nextTick(() => {
-      pdfViewerRef.value?.goToPage(newCanvas.pdfPage!)
-    })
-  }
-}, { immediate: false })
 
 watch(currentPageNumber, (newPage) => {
   nextTick(() => {
@@ -581,7 +571,6 @@ function handleMagicInputSave(text: string) {
       id: nodeId,
       type: 'text-note',
       title,
-      position: { x: 0, y: 0 },
       transcript: text,
       transcriptStatus: 'done',
       agentResult: null,
@@ -601,14 +590,14 @@ function handleMagicInputSave(text: string) {
     const pdfPage = notebookStore.findNodePdfPage(state.nodeId)
     const title = text.slice(0, 10)
     if (pdfPage !== null) {
-      notebookStore.updateNodeInPdfPage(state.nodeId, pdfPage, { transcript: text, title })
+      notebookStore.updateNode(state.nodeId, { transcript: text, title })
     } else {
       notebookStore.updateNode(state.nodeId, { transcript: text, title })
     }
   } else if (state.mode === 'agent' && state.nodeId) {
     const pdfPage = notebookStore.findNodePdfPage(state.nodeId)
     if (pdfPage !== null) {
-      notebookStore.updateNodeInPdfPage(state.nodeId, pdfPage, { agentResult: text, agentStatus: 'done' })
+      notebookStore.updateNode(state.nodeId, { agentResult: text, agentStatus: 'done' })
     } else {
       notebookStore.updateNode(state.nodeId, { agentResult: text, agentStatus: 'done' })
     }
@@ -629,7 +618,6 @@ async function handleRecordingComplete(data: { audioBlob: Blob; duration: number
     id: nodeId,
     type: 'voice-note',
     title,
-    position: { x: 0, y: 0 },
     transcript: '',
     transcriptStatus: 'done',
     agentResult: null,
@@ -656,13 +644,13 @@ async function handleRecordingComplete(data: { audioBlob: Blob; duration: number
     const arrayBuffer = await data.audioBlob.arrayBuffer()
     await window.electronAPI.saveFileBuffer(`${audioDir}/${nodeId}.${extension}`, arrayBuffer)
 
-    notebookStore.updateNodeInPdfPage(nodeId, data.page, { audioPath })
+    notebookStore.updateNode(nodeId, { audioPath })
 
-    notebookStore.updateNodeInPdfPage(nodeId, data.page, { transcriptStatus: 'processing' })
+    notebookStore.updateNode(nodeId, { transcriptStatus: 'processing' })
     const transcriptResult = await transcribeWithSherpaOnnx(data.audioBlob, settingsStore.settings.stt.sherpaOnnx)
 
     if (transcriptResult.success && transcriptResult.text) {
-      notebookStore.updateNodeInPdfPage(nodeId, data.page, {
+      notebookStore.updateNode(nodeId, {
         transcript: transcriptResult.text,
         transcriptStatus: 'done',
         title: transcriptResult.text.slice(0, 10)
@@ -672,14 +660,14 @@ async function handleRecordingComplete(data: { audioBlob: Blob; duration: number
         callAIWithOptionalImage(nodeId, transcriptResult.text, data.page)
       }
     } else {
-      notebookStore.updateNodeInPdfPage(nodeId, data.page, {
+      notebookStore.updateNode(nodeId, {
         transcript: '',
         transcriptStatus: 'error'
       })
     }
   } catch (error) {
     console.error('Failed to process recording:', error)
-    notebookStore.updateNodeInPdfPage(nodeId, data.page, { transcriptStatus: 'error' })
+    notebookStore.updateNode(nodeId, { transcriptStatus: 'error' })
   }
 }
 
@@ -738,9 +726,7 @@ function handleSaveEdit(nodeId: string, text: string) {
 }
 
 function handleCancelEdit(nodeId: string) {
-  const pdfPage = notebookStore.findNodePdfPage(nodeId)
-  const canvas = pdfPage !== null ? notebookStore.getCanvasByPdfPage(pdfPage) : null
-  const nodes = pdfPage !== null ? notebookStore.getNodesByPdfPage(pdfPage) : notebookStore.currentCanvasNodes
+  const nodes = notebookStore.getAllNodes()
   const node = nodes.find(n => n.id === nodeId)
   if (node && !node.transcript) {
     notebookStore.removeNodeAuto(nodeId)
@@ -760,7 +746,7 @@ function handleClickOutsideEditing(e: MouseEvent) {
   }
 
   const pdfPage = notebookStore.findNodePdfPage(editingNodeId.value)
-  const nodes = pdfPage !== null ? notebookStore.getNodesByPdfPage(pdfPage) : notebookStore.currentCanvasNodes
+  const nodes = pdfPage !== null ? notebookStore.getNodesByPdfPage(pdfPage) : notebookStore.getAllNodes()
   const node = nodes.find(n => n.id === editingNodeId.value)
   if (node) {
     if (editingText.value.trim()) {
@@ -793,7 +779,7 @@ async function handleAgentResponse(nodeId: string, transcript: string, pdfPage: 
   const settings = settingsStore.settings
 
   try {
-    notebookStore.updateNodeInPdfPage(nodeId, pdfPage, { agentStatus: 'processing' })
+    notebookStore.updateNode(nodeId, { agentStatus: 'processing' })
 
     const node = notebookStore.getNodesByPdfPage(pdfPage).find(n => n.id === nodeId)
     if (!node) return
@@ -804,7 +790,7 @@ async function handleAgentResponse(nodeId: string, transcript: string, pdfPage: 
       if (notebook) {
         currentEmbeddedImages = await loadEmbeddedImagesForTranscript(transcript, notebook.id, window.electronAPI.readFile)
         if (currentEmbeddedImages && currentEmbeddedImages.length > 0) {
-          notebookStore.updateNodeInPdfPage(nodeId, pdfPage, { embeddedImages: currentEmbeddedImages })
+          notebookStore.updateNode(nodeId, { embeddedImages: currentEmbeddedImages })
         }
       }
     }
@@ -829,7 +815,7 @@ async function handleAgentResponse(nodeId: string, transcript: string, pdfPage: 
 
     const modelConfig = currentModelConfig.value
     if (!modelConfig) {
-      notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
+      notebookStore.updateNode(nodeId, {
         agentResult: '模型配置错误，请检查设置',
         agentStatus: 'error'
       })
@@ -844,31 +830,31 @@ async function handleAgentResponse(nodeId: string, transcript: string, pdfPage: 
       temperature: modelConfig.temperature
     }, (chunk) => {
       accumulatedContent += chunk
-      notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
+      notebookStore.updateNode(nodeId, {
         agentResult: accumulatedContent,
         agentStatus: 'processing'
       })
     }, (thinkingChunk) => {
       accumulatedThinking += thinkingChunk
-      notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
+      notebookStore.updateNode(nodeId, {
         thinkingContent: accumulatedThinking,
         thinkingStatus: 'processing'
       })
     }).then(result => {
-      notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
+      notebookStore.updateNode(nodeId, {
         agentResult: result.content,
         agentStatus: 'done',
         thinkingContent: result.thinking,
         thinkingStatus: result.thinking ? 'done' : undefined
       })
     }).catch(error => {
-      notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
+      notebookStore.updateNode(nodeId, {
         agentResult: String(error),
         agentStatus: 'error'
       })
     })
   } catch (error) {
-    notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
+    notebookStore.updateNode(nodeId, {
       agentResult: String(error),
       agentStatus: 'error'
     })
@@ -883,9 +869,7 @@ function handleDeleteNode(nodeId: string) {
 }
 
 async function handlePlayNode(nodeId: string) {
-  const pdfPage = notebookStore.findNodePdfPage(nodeId)
-  const canvas = pdfPage !== null ? notebookStore.getCanvasByPdfPage(pdfPage) : null
-  const nodes = pdfPage !== null ? notebookStore.getNodesByPdfPage(pdfPage) : notebookStore.currentCanvasNodes
+  const nodes = notebookStore.getAllNodes()
   const node = nodes.find(n => n.id === nodeId)
   if (!node?.audioPath) return
 
@@ -923,13 +907,11 @@ async function handlePlayNode(nodeId: string) {
 }
 
 async function handleToggleContext(nodeId: string) {
-  const pdfPage = notebookStore.findNodePdfPage(nodeId)
-  const canvas = pdfPage !== null ? notebookStore.getCanvasByPdfPage(pdfPage) : null
-  const nodes = pdfPage !== null ? notebookStore.getNodesByPdfPage(pdfPage) : notebookStore.currentCanvasNodes
+  const nodes = notebookStore.getAllNodes()
   const node = nodes.find(n => n.id === nodeId)
   if (node) {
     const newSelectedState = !node.selectedAsContext
-    notebookStore.updateNodeAuto(nodeId, { selectedAsContext: newSelectedState })
+    notebookStore.updateNode(nodeId, { selectedAsContext: newSelectedState })
 
     const notebook = currentNotebook.value
     if (!notebook) return
@@ -937,35 +919,25 @@ async function handleToggleContext(nodeId: string) {
     if (newSelectedState && node.type === 'image-note' && node.imagePath && !node.imageBase64) {
       const base64 = await loadImageBase64(node.imagePath, notebook.id, window.electronAPI.readFile)
       if (base64) {
-        if (pdfPage !== null) {
-          notebookStore.updateNodeInPdfPage(nodeId, pdfPage, { imageBase64: base64 })
-        } else {
-          notebookStore.updateNode(nodeId, { imageBase64: base64 })
-        }
+        notebookStore.updateNode(nodeId, { imageBase64: base64 })
       }
     }
 
     if (newSelectedState && (node.type === 'voice-note' || node.type === 'text-note') && node.transcript) {
       const embeddedImages = await loadEmbeddedImagesForTranscript(node.transcript, notebook.id, window.electronAPI.readFile)
       if (embeddedImages && embeddedImages.length > 0) {
-        if (pdfPage !== null) {
-          notebookStore.updateNodeInPdfPage(nodeId, pdfPage, { embeddedImages })
-        } else {
-          notebookStore.updateNode(nodeId, { embeddedImages })
-        }
+        notebookStore.updateNode(nodeId, { embeddedImages })
       }
     }
   }
 }
 
 async function handleRetryTranscription(nodeId: string) {
-  const pdfPage = notebookStore.findNodePdfPage(nodeId)
-  const canvas = pdfPage !== null ? notebookStore.getCanvasByPdfPage(pdfPage) : null
-  const nodes = pdfPage !== null ? notebookStore.getNodesByPdfPage(pdfPage) : notebookStore.currentCanvasNodes
+  const nodes = notebookStore.getAllNodes()
   const node = nodes.find(n => n.id === nodeId)
-  if (!node || !node.audioPath || pdfPage === null) return
+  if (!node || !node.audioPath) return
 
-  notebookStore.updateNodeInPdfPage(nodeId, pdfPage, { transcriptStatus: 'processing' })
+  notebookStore.updateNode(nodeId, { transcriptStatus: 'processing' })
 
   try {
     const notebook = currentNotebook.value
@@ -983,7 +955,7 @@ async function handleRetryTranscription(nodeId: string) {
       const transcriptResult = await transcribeWithSherpaOnnx(blob, settingsStore.settings.stt.sherpaOnnx)
 
       if (transcriptResult.success && transcriptResult.text) {
-        notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
+        notebookStore.updateNode(nodeId, {
           transcript: transcriptResult.text,
           transcriptStatus: 'done',
           title: transcriptResult.text.slice(0, 10)
@@ -994,17 +966,15 @@ async function handleRetryTranscription(nodeId: string) {
     }
   } catch (error) {
     console.error('Transcription failed:', error)
-    notebookStore.updateNodeInPdfPage(nodeId, pdfPage, { transcriptStatus: 'error' })
+    notebookStore.updateNode(nodeId, { transcriptStatus: 'error' })
   }
 }
 
 function handleToggleFavorite(nodeId: string) {
-  const pdfPage = notebookStore.findNodePdfPage(nodeId)
-  const canvas = pdfPage !== null ? notebookStore.getCanvasByPdfPage(pdfPage) : null
-  const nodes = pdfPage !== null ? notebookStore.getNodesByPdfPage(pdfPage) : notebookStore.currentCanvasNodes
+  const nodes = notebookStore.getAllNodes()
   const node = nodes.find(n => n.id === nodeId)
   if (node) {
-    notebookStore.updateNodeAuto(nodeId, { isFavorite: !node.isFavorite })
+    notebookStore.updateNode(nodeId, { isFavorite: !node.isFavorite })
   }
 }
 
@@ -1159,7 +1129,6 @@ async function handleAnalyzePage(data: { imageBase64: string; pageNumber: number
     id: nodeId,
     type: 'text-note',
     title,
-    position: { x: 0, y: 0 },
     transcript: '分析当前页面',
     transcriptStatus: 'done',
     agentResult: null,
@@ -1183,7 +1152,6 @@ async function handleExplainSelection(data: { imageBase64: string; selectedText:
     id: nodeId,
     type: 'text-note',
     title,
-    position: { x: 0, y: 0 },
     transcript: data.selectedText,
     transcriptStatus: 'done',
     agentResult: null,
@@ -1228,7 +1196,7 @@ async function callImageAnalysisAI(
 
     const modelConfig = currentModelConfig.value
     if (!modelConfig) {
-      notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
+      notebookStore.updateNode(nodeId, {
         agentResult: '模型配置错误，请检查设置',
         agentStatus: 'error'
       })
@@ -1243,19 +1211,19 @@ async function callImageAnalysisAI(
       temperature: modelConfig.temperature
     }, (chunk) => {
       accumulatedContent += chunk
-      notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
+      notebookStore.updateNode(nodeId, {
         agentResult: accumulatedContent,
         agentStatus: 'processing'
       })
     }, (thinkingChunk) => {
       accumulatedThinking += thinkingChunk
-      notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
+      notebookStore.updateNode(nodeId, {
         thinkingContent: accumulatedThinking,
         thinkingStatus: 'processing'
       })
     })
 
-    notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
+    notebookStore.updateNode(nodeId, {
       agentResult: result.content,
       agentStatus: 'done',
       thinkingContent: result.thinking,
@@ -1263,7 +1231,7 @@ async function callImageAnalysisAI(
     })
   } catch (error) {
     console.error('Image analysis failed:', error)
-    notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
+    notebookStore.updateNode(nodeId, {
       agentResult: `分析失败: ${error}`,
       agentStatus: 'error'
     })
@@ -1366,12 +1334,24 @@ function handleIncludePageChange(data: { include: boolean; imageBase64?: string;
 }
 
 .panel-resizer.right-resizer.collapsed {
-  width: 8px;
+  width: 12px;
   cursor: pointer;
 }
 
-.panel-resizer.right-resizer.collapsed:hover .resizer-line {
-  background: var(--color-primary);
+.panel-resizer.right-resizer.collapsed .resizer-line {
+  opacity: 0;
+}
+
+.panel-resizer.right-resizer.collapsed .collapsed-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  transition: color 0.2s;
+}
+
+.panel-resizer.right-resizer.collapsed:hover .collapsed-indicator {
+  color: var(--color-primary);
 }
 
 .dialog-overlay {

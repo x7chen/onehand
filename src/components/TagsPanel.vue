@@ -48,14 +48,16 @@
           <div v-if="selectedTag" class="nodes-list">
             <div
               v-for="item in selectedTag.nodes"
-              :key="`${item.notebookId}-${item.canvasId}-${item.nodeId}`"
+              :key="`${item.notebookId}-${item.nodeId}`"
               class="node-item"
             >
               <div class="node-content" @click="openNodeDetail(item)">
                 <div class="node-meta">
                   <span class="notebook-name">{{ item.notebookName }}</span>
-                  <span class="separator">·</span>
-                  <span class="canvas-info">{{ item.canvasName }}</span>
+                  <template v-if="item.pdfPage">
+                    <span class="separator">·</span>
+                    <span class="canvas-info">{{ t('common.pageN', { n: item.pdfPage }) }}</span>
+                  </template>
                   <template v-if="item.nodeTitle">
                     <span class="separator">·</span>
                     <span class="node-title">{{ item.nodeTitle }}</span>
@@ -98,7 +100,6 @@ import { useNotebookStore } from '@/stores/notebookStore'
 import { useTagStore } from '@/stores/tagStore'
 import { generateDeepLinkUrl } from '@/composables/useDeepLink'
 import type { DeepLinkData } from '@/composables/useDeepLink'
-import type { Notebook, CanvasPage } from '@/types/notebook'
 
 const router = useRouter()
 const notebookStore = useNotebookStore()
@@ -113,10 +114,9 @@ const selectedNodeUrl = ref('')
 interface TaggedNodeItem {
   notebookId: string
   notebookName: string
-  canvasId: string
-  canvasName: string
   nodeId: string
   nodeTitle: string
+  pdfPage?: number
   fullText: string
 }
 
@@ -146,13 +146,10 @@ async function loadTaggedNodes() {
   const tagMap = new Map<string, TagGroup>()
 
   for (const notebook of notebookStore.notebooks) {
-    if (!notebook.canvases || !notebook.nodes) continue
+    if (!notebook.nodes) continue
 
     for (const node of notebook.nodes) {
       if (node.tags && node.tags.length > 0) {
-        const canvas = notebook.canvases.find(c => c.id === node.canvasId)
-        if (!canvas) continue
-
         const fullText = node.transcript || node.agentResult || ''
 
         for (const tagName of node.tags) {
@@ -168,10 +165,9 @@ async function loadTaggedNodes() {
           tagMap.get(tagName)!.nodes.push({
             notebookId: notebook.id,
             notebookName: notebook.name,
-            canvasId: canvas.id,
-            canvasName: getCanvasName(canvas, notebook),
             nodeId: node.id,
             nodeTitle: node.title || '',
+            pdfPage: node.pdfPage,
             fullText
           })
         }
@@ -179,13 +175,16 @@ async function loadTaggedNodes() {
     }
   }
 
-  // Sort nodes within each tag group by notebook name and canvas name
+  // Sort nodes within each tag group by notebook name and pdf page
   for (const group of tagMap.values()) {
     group.nodes.sort((a, b) => {
       if (a.notebookName !== b.notebookName) {
         return a.notebookName.localeCompare(b.notebookName)
       }
-      return a.canvasName.localeCompare(b.canvasName)
+      if (a.pdfPage !== undefined && b.pdfPage !== undefined) {
+        return a.pdfPage - b.pdfPage
+      }
+      return 0
     })
   }
 
@@ -200,17 +199,6 @@ async function loadTaggedNodes() {
   }
 
   loading.value = false
-}
-
-function getCanvasName(canvas: CanvasPage, notebook: Notebook): string {
-  if (canvas.pdfPage !== undefined) {
-    return t('common.pageN', { n: canvas.pdfPage })
-  }
-  const index = notebook.canvases?.findIndex(c => c.id === canvas.id) ?? 0
-  if (notebook.canvases && notebook.canvases.length > 1) {
-    return t('common.pageN', { n: index + 1 })
-  }
-  return t('common.canvas')
 }
 
 function selectTag(tagGroup: TagGroup) {
@@ -234,7 +222,7 @@ function handleNavigate(data: DeepLinkData) {
     if (notebook.pdfPath) {
       router.push(`/pdf/${data.notebookId}?nodeId=${data.nodeId}`)
     } else {
-      router.push(`/multi-chat/${data.notebookId}?canvasId=${data.canvasId}&nodeId=${data.nodeId}`)
+      router.push(`/multi-chat/${data.notebookId}?nodeId=${data.nodeId}`)
     }
   }
   closeNodePopup()

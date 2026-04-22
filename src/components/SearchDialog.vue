@@ -137,8 +137,10 @@
             <div class="result-content" @click="openNodeDetail(result)">
               <div class="result-meta">
                 <span class="notebook-name">{{ result.notebookName }}</span>
-                <span class="separator">·</span>
-                <span class="canvas-info">{{ result.canvasName }}</span>
+                <template v-if="result.pdfPage">
+                  <span class="separator">·</span>
+                  <span class="canvas-info">{{ t('common.pageN', { n: result.pdfPage }) }}</span>
+                </template>
                 <template v-if="result.nodeTitle">
                   <span class="separator">·</span>
                   <span class="node-title">{{ result.nodeTitle }}</span>
@@ -197,7 +199,7 @@ import { useVectorStore } from '@/stores/vectorStore'
 import { useSearchHistoryStore } from '@/stores/searchHistoryStore'
 import { generateDeepLinkUrl } from '@/composables/useDeepLink'
 import type { DeepLinkData } from '@/composables/useDeepLink'
-import type { Notebook, CanvasPage, CanvasNode } from '@/types/notebook'
+import type { CanvasNode } from '@/types/notebook'
 import type { IndexStatus, SkippedIndexNode } from '@/types/embedding'
 import { keywordSearch, semanticSearch, checkIndexNeedsUpdate, type UnifiedSearchResult, type SearchMode } from '@/services/semanticSearch'
 import { updateIndex as updateVectorIndex } from '@/services/semanticSearch'
@@ -214,10 +216,9 @@ const emit = defineEmits<{
 interface SearchResult {
   notebookId: string
   notebookName: string
-  canvasId: string
-  canvasName: string
   nodeId: string
   nodeTitle: string
+  pdfPage?: number
   fieldType: 'transcript' | 'agentResult'
   fullText: string
   highlightedText: string
@@ -459,19 +460,6 @@ function escapeHtml(text: string): string {
   return div.innerHTML
 }
 
-function getCanvasName(canvas: CanvasPage, notebook: Notebook): string {
-  if (canvas.pdfPage !== undefined) {
-    return t('common.pageN', { n: canvas.pdfPage })
-  }
-
-  // Find canvas index for non-PDF notebooks
-  const index = notebook.canvases?.findIndex(c => c.id === canvas.id) ?? 0
-  if (notebook.canvases && notebook.canvases.length > 1) {
-    return t('common.pageN', { n: index + 1 })
-  }
-  return t('common.canvas')
-}
-
 function openNodeDetail(result: SearchResult) {
   selectedNodeUrl.value = generateDeepLinkUrl(result.nodeId)
   showNodePopup.value = true
@@ -492,7 +480,7 @@ function handleNavigate(data: DeepLinkData) {
     if (notebook.pdfPath) {
       router.push(`/pdf/${data.notebookId}?nodeId=${data.nodeId}`)
     } else {
-      router.push(`/multi-chat/${data.notebookId}?canvasId=${data.canvasId}&nodeId=${data.nodeId}`)
+      router.push(`/multi-chat/${data.notebookId}?nodeId=${data.nodeId}`)
     }
   }
 

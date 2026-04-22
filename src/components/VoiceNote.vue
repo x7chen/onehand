@@ -70,7 +70,7 @@
           </svg>
         </button>
         <!-- 复制链接按钮 -->
-        <button v-if="visibleButtons.includes('copyLink') && notebookId && canvasId" class="action-btn copy-link-btn" @click.stop="handleCopyLink" :title="t('voiceNote.copyLink')">
+        <button v-if="visibleButtons.includes('copyLink') && notebookId" class="action-btn copy-link-btn" @click.stop="handleCopyLink" :title="t('voiceNote.copyLink')">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
             <path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/>
           </svg>
@@ -135,7 +135,7 @@
             <span>{{ isAiResultHidden ? t('voiceNote.showAiAnswer') : t('voiceNote.hideAiAnswer') }}</span>
           </button>
           <!-- 复制链接 - 折叠时显示 -->
-          <button v-if="!visibleButtons.includes('copyLink') && notebookId && canvasId" class="menu-item" @click.stop="handleMenuCopyLink">
+          <button v-if="!visibleButtons.includes('copyLink') && notebookId" class="menu-item" @click.stop="handleMenuCopyLink">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
               <path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/>
             </svg>
@@ -345,15 +345,14 @@ import { useTagStore } from '@/stores/tagStore'
 import { formatDuration } from '@/utils/helpers'
 import { renderMarkdown, renderMermaidCharts, processImagePaths } from '@/utils/markdownRenderer'
 import { getNotebookDataDir, getNotebookImagesDir } from '@/utils/userFilesPath'
-import type { CanvasNode } from '@/types/notebook'
+import type { CanvasNode, DisplayNode } from '@/types/notebook'
 
 const notebookStore = useNotebookStore()
 const tagStore = useTagStore()
 
 const props = defineProps<{
-  node: CanvasNode
+  node: CanvasNode | DisplayNode
   notebookId?: string
-  canvasId?: string
   isPlaying?: boolean
   globalHideAiResult?: boolean
   isActive?: boolean
@@ -407,8 +406,8 @@ const visibleButtons = computed<ButtonType[]>(() => {
   // popupMode 下只显示 favorite、copyLink、tag
   if (props.popupMode) {
     const buttons: ButtonType[] = ['favorite', 'tag']
-    // copyLink 需要 notebookId 和 canvasId
-    if (props.notebookId && props.canvasId) {
+    // copyLink 需要 notebookId
+    if (props.notebookId) {
       buttons.push('copyLink')
     }
     return buttons
@@ -424,8 +423,8 @@ const visibleButtons = computed<ButtonType[]>(() => {
   const maxButtons = Math.floor((availableForButtons - BUTTON_GAP) / (BUTTON_WIDTH + BUTTON_GAP))
 
   // 如果能显示所有按钮，全部显示
-  // copyLink 需要 notebookId 和 canvasId
-  const hasCopyLink = props.notebookId && props.canvasId
+  // copyLink 需要 notebookId
+  const hasCopyLink = props.notebookId
   const allButtonsCount = hasCopyLink ? BUTTON_PRIORITY.length : BUTTON_PRIORITY.length - 1
 
   if (maxButtons >= allButtonsCount) {
@@ -454,7 +453,7 @@ const visibleButtons = computed<ButtonType[]>(() => {
 
 // 所有按钮是否都可见
 const allButtonsVisible = computed(() => {
-  const hasCopyLink = props.notebookId && props.canvasId
+  const hasCopyLink = props.notebookId
   const allButtonsCount = hasCopyLink ? BUTTON_PRIORITY.length : BUTTON_PRIORITY.length - 1
   return visibleButtons.value.length >= allButtonsCount
 })
@@ -464,12 +463,18 @@ const isResizing = ref(false)
 const resizeStartWidth = ref(0)
 const resizeStartX = ref(0)
 
+// 获取节点的显示位置（如果是 DisplayNode 使用 displayPosition，否则使用默认值）
+const displayPosition = computed(() => {
+  const node = props.node as DisplayNode
+  return node.displayPosition || { x: 0, y: 0 }
+})
+
 // 节点样式（包含宽度）
 const nodeStyle = computed(() => {
   const width = props.node.width || DEFAULT_NODE_WIDTH
   return {
-    left: props.node.position.x + 'px',
-    top: props.node.position.y + 'px',
+    left: displayPosition.value.x + 'px',
+    top: displayPosition.value.y + 'px',
     width: width + 'px',
     zIndex: props.isActive ? 1000 : 'auto'
   }

@@ -104,7 +104,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '@/stores/settingsStore'
 import NodeCardView from '@/components/NodeCardView.vue'
@@ -131,6 +131,7 @@ const emit = defineEmits<{
   'activate': [nodeId: string]
   'batch-delete': [nodeIds: string[]]
   'batch-select-context': [nodeIds: string[], selected: boolean]
+  'visible-nodes-change': [nodeIds: string[]]
 }>()
 
 const panelRef = ref<HTMLElement | null>(null)
@@ -228,7 +229,31 @@ function handleBatchDelete() {
 // 处理日历视图可见节点变化
 function handleVisibleNodesChange(nodes: CanvasNode[]) {
   calendarVisibleNodes.value = nodes
+  // 直接emit收到的节点ID，不依赖computed
+  emit('visible-nodes-change', nodes.map(n => n.id))
 }
+
+// 计算当前可见的节点 ID 列表（用于卡片/列表视图）
+const visibleNodeIds = computed(() => {
+  if (viewMode.value === 'calendar') {
+    // 日历视图由handleVisibleNodesChange单独emit
+    return calendarVisibleNodes.value.map(n => n.id)
+  }
+  // 卡片视图和列表视图显示所有节点
+  return props.nodes.map(n => n.id)
+})
+
+// emit 可见节点变化（卡片/列表视图）
+function emitVisibleNodes() {
+  if (viewMode.value !== 'calendar') {
+    emit('visible-nodes-change', visibleNodeIds.value)
+  }
+}
+
+// 监听视图模式变化和节点变化（卡片/列表视图）
+watch([viewMode, () => props.nodes], () => {
+  emitVisibleNodes()
+}, { immediate: true })
 
 function handleNodeActivate(nodeId: string) {
   emit('activate', nodeId)

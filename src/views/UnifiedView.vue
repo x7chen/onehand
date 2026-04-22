@@ -12,6 +12,7 @@
       @select-tab="handleSelectTab"
       @select-notebook="handleSelectNotebook"
       @create-notebook="handleCreateNotebook"
+      @switch-view-mode="handleSwitchViewMode"
     />
 
     <!-- 可拖动分隔线 -->
@@ -57,7 +58,7 @@
 
       <!-- 笔记本面板 -->
       <MultiChatPanel
-        v-if="activeTab === 'notebooks' || activeTab === 'all-notebooks'"
+        v-if="(activeTab === 'notebooks' || activeTab === 'all-notebooks') && viewMode !== 'canvas'"
         :notebook-id="activeNotebookId"
         :static-context-files="staticContextFiles"
         :all-static-context-files="contextStore.staticContextFiles"
@@ -69,9 +70,28 @@
         :current-notebook-id="activeNotebookId || null"
       />
 
+      <!-- Canvas画布面板 -->
+      <CanvasViewPanel
+        v-if="viewMode === 'canvas' && activeNotebookId && (activeTab === 'notebooks' || activeTab === 'all-notebooks' || activeTab === 'pdf-notebook')"
+        :notebook-id="activeNotebookId"
+        :static-context-files="staticContextFiles"
+        :all-static-context-files="contextStore.staticContextFiles"
+        :all-dynamic-context-files="contextStore.dynamicContextFiles"
+        :dynamic-context-file="dynamicContextFile || null"
+        :all-profiles="settingsStore.settings.llm.profiles"
+        :active-profile-id="settingsStore.settings.llm.activeProfileId"
+        :all-notebooks="notebookStore.notebooks"
+        :current-notebook-id="activeNotebookId"
+        @toggle-static-context="toggleStaticContext"
+        @select-dynamic-context="selectDynamicContext"
+        @dynamic-context-drop="handleDynamicContextDrop"
+        @select-model="handleSelectModel"
+        @switch-to-chat="handleSwitchViewMode('chat')"
+      />
+
       <!-- PDF笔记本面板 -->
       <PdfReaderPanel
-        v-if="activeTab === 'pdf-notebook' && activeNotebookId"
+        v-if="activeTab === 'pdf-notebook' && viewMode !== 'canvas' && activeNotebookId"
         :notebook-id="activeNotebookId"
         :static-context-files="staticContextFiles"
         :all-static-context-files="contextStore.staticContextFiles"
@@ -238,6 +258,7 @@ import TagsPanel from '@/components/TagsPanel.vue'
 import SettingsPanel from '@/components/SettingsPanel.vue'
 import MultiChatPanel from '@/components/MultiChatPanel.vue'
 import PdfReaderPanel from '@/components/PdfReaderPanel.vue'
+import CanvasViewPanel from '@/components/CanvasViewPanel.vue'
 import type { ContextFile, ContextType } from '@/types/context'
 import { CONTEXT_COLORS, type ContextColor } from '@/types/context'
 import type { QuickCommand } from '@/types/quickCommand'
@@ -255,6 +276,9 @@ const activeTab = ref<string>('all-notebooks')
 
 // 当前激活的笔记本ID
 const activeNotebookId = ref<string | null>(null)
+
+// 视图模式：'chat' | 'canvas'（仅在笔记本tab下生效）
+const viewMode = ref<'chat' | 'canvas'>('chat')
 
 // 对话框状态
 const showNewContextDialog = ref(false)
@@ -306,11 +330,15 @@ function handleSelectTab(tab: string) {
   if (tab !== 'notebooks' && tab !== 'all-notebooks' && tab !== 'pdf-notebook') {
     activeNotebookId.value = null
   }
+  // 切换tab时重置视图模式为chat
+  viewMode.value = 'chat'
 }
 
 // 笔记本选择处理
 function handleSelectNotebook(notebookId: string | null) {
   activeNotebookId.value = notebookId
+  // 选择笔记本时默认为chat模式
+  viewMode.value = 'chat'
 
   if (notebookId) {
     const notebook = notebookStore.notebooks.find(nb => nb.id === notebookId)
@@ -501,6 +529,55 @@ async function confirmDeleteQuickCommand() {
     showQuickCommandDeleteConfirm.value = false
     quickCommandToDelete.value = null
   }
+}
+
+// CanvasViewPanel 事件处理
+function toggleStaticContext(contextId: string) {
+  if (!notebookStore.currentNotebook) return
+  const staticIds = notebookStore.currentNotebook.context?.staticContextIds || []
+  const index = staticIds.indexOf(contextId)
+
+  if (index === -1) {
+    notebookStore.currentNotebook.context = {
+      ...notebookStore.currentNotebook.context,
+      staticContextIds: [...staticIds, contextId]
+    }
+  } else {
+    const newIds = [...staticIds]
+    newIds.splice(index, 1)
+    notebookStore.currentNotebook.context = {
+      ...notebookStore.currentNotebook.context,
+      staticContextIds: newIds
+    }
+  }
+  notebookStore.saveNotebook(notebookStore.currentNotebook)
+}
+
+function selectDynamicContext(contextId: string) {
+  if (!notebookStore.currentNotebook) return
+  notebookStore.currentNotebook.context = {
+    ...notebookStore.currentNotebook.context,
+    dynamicContextId: contextId
+  }
+  notebookStore.saveNotebook(notebookStore.currentNotebook)
+}
+
+function handleDynamicContextDrop(text: string) {
+  // TODO: 处理动态上下文拖拽
+}
+
+function handleSelectModel(modelId: string) {
+  settingsStore.updateSettings({
+    llm: {
+      ...settingsStore.settings.llm,
+      activeProfileId: modelId
+    }
+  })
+}
+
+// 视图模式切换
+function handleSwitchViewMode(mode: 'chat' | 'canvas') {
+  viewMode.value = mode
 }
 </script>
 

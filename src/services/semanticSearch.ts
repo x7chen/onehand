@@ -6,16 +6,15 @@
 import type { SemanticSearchResult, SkippedIndexNode } from '@/types/embedding'
 import { useVectorStore } from '@/stores/vectorStore'
 import { useNotebookStore } from '@/stores/notebookStore'
-import type { Notebook, CanvasPage, CanvasNode } from '@/types/notebook'
+import type { CanvasNode } from '@/types/notebook'
 
 /** 搜索结果（兼容现有 SearchResult 格式） */
 export interface UnifiedSearchResult {
   notebookId: string
   notebookName: string
-  canvasId: string
-  canvasName: string
   nodeId: string
   nodeTitle: string
+  pdfPage?: number
   fieldType: 'transcript' | 'agentResult'
   fullText: string
   highlightedText?: string
@@ -45,13 +44,9 @@ export function keywordSearch(query: string): UnifiedSearchResult[] {
   const hasEnglishLetters = /[a-zA-Z]/.test(query)
 
   for (const notebook of notebookStore.notebooks) {
-    if (!notebook.canvases || !notebook.nodes) continue
+    if (!notebook.nodes) continue
 
     for (const node of notebook.nodes) {
-      // 找到节点所属的画布
-      const canvas = notebook.canvases.find(c => c.id === node.canvasId)
-      if (!canvas) continue
-
       // Search in transcript
       if (node.transcript) {
         const matches = findMatches(node.transcript, query, hasEnglishLetters)
@@ -59,10 +54,9 @@ export function keywordSearch(query: string): UnifiedSearchResult[] {
           results.push({
             notebookId: notebook.id,
             notebookName: notebook.name,
-            canvasId: canvas.id,
-            canvasName: getCanvasName(canvas, notebook),
             nodeId: node.id,
             nodeTitle: node.title || '',
+            pdfPage: node.pdfPage,
             fieldType: 'transcript',
             fullText: node.transcript,
             highlightedText: createHighlightedText(node.transcript, query, match.index),
@@ -78,10 +72,9 @@ export function keywordSearch(query: string): UnifiedSearchResult[] {
           results.push({
             notebookId: notebook.id,
             notebookName: notebook.name,
-            canvasId: canvas.id,
-            canvasName: getCanvasName(canvas, notebook),
             nodeId: node.id,
             nodeTitle: node.title || '',
+            pdfPage: node.pdfPage,
             fieldType: 'agentResult',
             fullText: node.agentResult,
             highlightedText: createHighlightedText(node.agentResult, query, match.index),
@@ -92,13 +85,13 @@ export function keywordSearch(query: string): UnifiedSearchResult[] {
     }
   }
 
-  // Sort by notebook name and canvas name
+  // Sort by notebook name and pdf page
   results.sort((a, b) => {
     if (a.notebookName !== b.notebookName) {
       return a.notebookName.localeCompare(b.notebookName)
     }
-    if (a.canvasName !== b.canvasName) {
-      return a.canvasName.localeCompare(b.canvasName)
+    if (a.pdfPage !== undefined && b.pdfPage !== undefined) {
+      return a.pdfPage - b.pdfPage
     }
     return (a.matchIndex || 0) - (b.matchIndex || 0)
   })
@@ -116,10 +109,9 @@ export async function semanticSearch(query: string, topK = 20): Promise<UnifiedS
   return semanticResults.map(result => ({
     notebookId: result.notebookId,
     notebookName: result.notebookName,
-    canvasId: result.canvasId,
-    canvasName: result.canvasName,
     nodeId: result.nodeId,
     nodeTitle: result.nodeTitle,
+    pdfPage: result.pdfPage,
     fieldType: result.fieldType,
     fullText: result.fullText,
     similarity: result.similarity
@@ -251,16 +243,4 @@ function escapeHtml(text: string): string {
   const div = document.createElement('div')
   div.textContent = text
   return div.innerHTML
-}
-
-function getCanvasName(canvas: CanvasPage, notebook: Notebook): string {
-  if (canvas.pdfPage !== undefined) {
-    return `第 ${canvas.pdfPage} 页`
-  }
-
-  const index = notebook.canvases?.findIndex(c => c.id === canvas.id) ?? 0
-  if (notebook.canvases && notebook.canvases.length > 1) {
-    return `第 ${index + 1} 页`
-  }
-  return '画布'
 }

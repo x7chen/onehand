@@ -34,10 +34,10 @@
 <script setup lang="ts">
 import { ref, shallowRef, computed, watch, nextTick, onMounted, onUnmounted, triggerRef } from 'vue'
 import VoiceNoteSmall from '@/components/VoiceNoteSmall.vue'
-import type { CanvasNode } from '@/types/notebook'
+import type { CanvasNode, DisplayNode } from '@/types/notebook'
 
 interface VirtualNodeItem {
-  node: CanvasNode
+  node: DisplayNode
   top: number
   left: number
   width: number
@@ -175,7 +175,10 @@ function calculateLayout() {
 
       // 当前节点的 top 就是该列当前的高度
       items.set(node.id, {
-        node,
+        node: {
+          ...node,
+          displayPosition: { x: left, y: colHeights[minCol] }
+        },
         top: colHeights[minCol],
         left,
         width: colWidth,

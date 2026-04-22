@@ -46,7 +46,6 @@
         <VoiceNote
           :node="nodeData.node"
           :notebook-id="nodeData.notebook.id"
-          :canvas-id="nodeData.canvas?.id"
           :show-header="true"
           :is-active="false"
           :popup-mode="true"
@@ -77,7 +76,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'close'): void
-  (e: 'navigate', data: { notebookId: string; canvasId?: string; nodeId: string }): void
+  (e: 'navigate', data: { notebookId: string; nodeId: string }): void
 }>()
 
 const notebookStore = useNotebookStore()
@@ -157,7 +156,6 @@ function handleNavigate() {
 
   emit('navigate', {
     notebookId: nodeData.value.notebook.id,
-    canvasId: nodeData.value.canvas?.id,
     nodeId: nodeData.value.node.id
   })
 }

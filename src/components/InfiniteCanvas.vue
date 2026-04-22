@@ -14,84 +14,6 @@
     @drop="handleDrop"
     @mousedown.right.capture="handleRightMouseDownCapture"
   >
-    <!-- 左侧边缘悬浮按钮区域 -->
-    <div
-      class="page-nav-zone page-nav-left"
-      @mouseenter="showLeftButton = true"
-      @mouseleave="showLeftButton = false"
-    >
-      <Transition name="page-nav-fade">
-        <div v-if="showLeftButton" class="page-nav-buttons">
-          <button
-            class="page-nav-btn insert-btn"
-            @click.stop="handleInsertBefore"
-            @mousedown.stop
-            @mouseup.stop
-            :title="t('canvas.insertBefore')"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="12" y1="5" x2="12" y2="19"></line>
-              <line x1="5" y1="12" x2="19" y2="12"></line>
-            </svg>
-          </button>
-          <button
-            v-if="hasPrevPage"
-            class="page-nav-btn"
-            @click.stop="handlePrevPage"
-            @mousedown.stop
-            @mouseup.stop
-            :title="t('common.prevPage')"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="15 18 9 12 15 6"></polyline>
-            </svg>
-          </button>
-        </div>
-      </Transition>
-    </div>
-
-    <!-- 右侧边缘悬浮按钮区域 -->
-    <div
-      class="page-nav-zone page-nav-right"
-      @mouseenter="showRightButton = true"
-      @mouseleave="showRightButton = false"
-    >
-      <Transition name="page-nav-fade">
-        <div v-if="showRightButton" class="page-nav-buttons">
-          <button
-            class="page-nav-btn insert-btn"
-            @click.stop="handleInsertAfter"
-            @mousedown.stop
-            @mouseup.stop
-            :title="t('canvas.insertAfter')"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="12" y1="5" x2="12" y2="19"></line>
-              <line x1="5" y1="12" x2="19" y2="12"></line>
-            </svg>
-          </button>
-          <button
-            v-if="hasNextPage"
-            class="page-nav-btn"
-            @click.stop="handleNextPage"
-            @mousedown.stop
-            @mouseup.stop
-            :title="t('common.nextPage')"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="9 18 15 12 9 6"></polyline>
-            </svg>
-          </button>
-        </div>
-      </Transition>
-    </div>
-
-    <!-- 页码指示器 -->
-    <Transition name="page-indicator-fade">
-      <div v-if="showPageIndicator || showLeftButton || showRightButton" class="page-indicator-bottom">
-        {{ currentPageNumber || 1 }} / {{ totalPages || 1 }}
-      </div>
-    </Transition>
 
     <div
       class="canvas-content"
@@ -118,14 +40,6 @@
     >
       {{ t('canvas.dragToAsk', { count: draggedTextLength }) }}
     </div>
-
-    <!-- 空白画布引导提示 -->
-    <div
-      v-if="isCurrentCanvasEmpty && !isDraggingText"
-      class="empty-canvas-hint"
-    >
-      {{ t('canvas.emptyHint') }}
-    </div>
   </div>
 </template>
 
@@ -141,11 +55,6 @@ const props = defineProps<{
   isRecording?: boolean
   recordingPosition?: { x: number; y: number }
   recordingDuration?: number
-  hasPrevPage?: boolean
-  hasNextPage?: boolean
-  isCurrentCanvasEmpty?: boolean
-  currentPageNumber?: number
-  totalPages?: number
 }>()
 
 const emit = defineEmits<{
@@ -156,56 +65,7 @@ const emit = defineEmits<{
   'dbl-click': [x: number, y: number]
   'drop-text': [x: number, y: number, text: string]
   'drop-image': [x: number, y: number, files: File[]]
-  'prev-page': []
-  'next-page': []
-  'insert-before': []
-  'insert-after': []
 }>()
-
-// 边缘按钮显示状态
-const showLeftButton = ref(false)
-const showRightButton = ref(false)
-
-// 页码指示器状态
-const showPageIndicator = ref(false)
-let pageIndicatorTimer: ReturnType<typeof setTimeout> | null = null
-
-// 临时显示页码指示器
-function showPageIndicatorTemporarily() {
-  showPageIndicator.value = true
-  if (pageIndicatorTimer) {
-    clearTimeout(pageIndicatorTimer)
-  }
-  pageIndicatorTimer = setTimeout(() => {
-    showPageIndicator.value = false
-  }, 2000)
-}
-
-// 处理上一页
-function handlePrevPage() {
-  if (props.hasPrevPage) {
-    emit('prev-page')
-    showPageIndicatorTemporarily()
-  }
-}
-
-// 处理下一页/新增一页
-function handleNextPage() {
-  emit('next-page')
-  showPageIndicatorTemporarily()
-}
-
-// 处理在当前页之前插入
-function handleInsertBefore() {
-  emit('insert-before')
-  showPageIndicatorTemporarily()
-}
-
-// 处理在当前页之后插入
-function handleInsertAfter() {
-  emit('insert-after')
-  showPageIndicatorTemporarily()
-}
 
 const isDraggingText = ref(false)
 const dragHintStyle = ref({ left: '0px', top: '0px' })
@@ -669,176 +529,5 @@ defineExpose({
   z-index: 9999;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   white-space: nowrap;
-}
-
-/* 空白画布引导提示 */
-.empty-canvas-hint {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: transparent;
-  color: var(--text-secondary);
-  padding: 16px 24px;
-  border-radius: 8px;
-  font-size: 16px;
-  font-weight: 500;
-  pointer-events: none;
-  z-index: 5;
-  white-space: nowrap;
-  opacity: 0.7;
-  transition: opacity 0.2s;
-  user-select: none;
-}
-
-.infinite-canvas:hover .empty-canvas-hint {
-  opacity: 0.85;
-}
-
-/* 边缘翻页区域 */
-.page-nav-zone {
-  position: absolute;
-  top: 0;
-  width: 60px;
-  height: 100%;
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  pointer-events: auto;
-}
-
-.page-nav-left {
-  left: 0;
-}
-
-.page-nav-right {
-  right: 0;
-}
-
-/* 按钮容器 */
-.page-nav-buttons {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 12px;
-}
-
-.page-nav-left .page-nav-buttons {
-  margin-left: 8px;
-}
-
-.page-nav-right .page-nav-buttons {
-  margin-right: 8px;
-  align-items: flex-end;
-}
-
-/* 圆形翻页按钮 */
-.page-nav-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  border: none;
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  transition: all 0.2s ease;
-}
-
-.page-nav-btn:hover {
-  background: var(--color-primary);
-  color: white;
-  transform: scale(1.1);
-}
-
-.page-nav-btn svg {
-  width: 20px;
-  height: 20px;
-}
-
-/* 插入按钮样式 */
-.page-nav-btn.insert-btn {
-  background: var(--bg-primary);
-  border: 2px dashed var(--color-primary);
-  color: var(--color-primary);
-}
-
-.page-nav-btn.insert-btn:hover {
-  background: var(--color-primary);
-  color: white;
-  border-style: solid;
-}
-
-/* 新增页面按钮样式 */
-.page-nav-btn.add-new-page {
-  background: var(--bg-primary);
-  border: 2px dashed var(--color-primary);
-  color: var(--color-primary);
-}
-
-.page-nav-btn.add-new-page:hover {
-  background: var(--color-primary);
-  color: white;
-  border-style: solid;
-}
-
-/* 底部页码指示器 */
-.page-indicator-bottom {
-  position: absolute;
-  bottom: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  padding: 6px 16px;
-  border-radius: 16px;
-  font-size: 13px;
-  font-weight: 500;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  z-index: 10;
-  pointer-events: none;
-}
-
-/* 过渡动画 */
-.page-nav-fade-enter-active,
-.page-nav-fade-leave-active {
-  transition: opacity 0.2s ease;
-}
-
-.page-nav-fade-enter-from,
-.page-nav-fade-leave-to {
-  opacity: 0;
-}
-
-/* 页码指示器过渡动画 */
-.page-indicator-fade-enter-active,
-.page-indicator-fade-leave-active {
-  transition: opacity 0.3s ease;
-}
-
-.page-indicator-fade-enter-from,
-.page-indicator-fade-leave-to {
-  opacity: 0;
-}
-
-/* 深色模式适配 */
-@media (prefers-color-scheme: dark) {
-  .page-nav-btn {
-    background: #3d3d3d;
-    color: #e0e0e0;
-  }
-
-  .page-nav-btn:hover {
-    background: var(--color-primary);
-  }
-
-  .page-indicator-bottom {
-    background: #3d3d3d;
-    color: #e0e0e0;
-  }
 }
 </style>

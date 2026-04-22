@@ -6,10 +6,9 @@
 export interface SemanticSearchResult {
   notebookId: string
   notebookName: string
-  canvasId: string
-  canvasName: string
   nodeId: string
   nodeTitle: string
+  pdfPage?: number
   fieldType: 'transcript' | 'agentResult'
   fullText: string
   /** 相似度分数 (0-1) */
@@ -18,7 +17,6 @@ export interface SemanticSearchResult {
   metadata: {
     id: number
     notebookId: string
-    canvasId: string
     nodeId: string
     fieldType: 'transcript' | 'agentResult'
     textHash: string
@@ -44,10 +42,9 @@ export interface IndexStatus {
 export interface SkippedIndexNode {
   notebookId: string
   notebookName: string
-  canvasId: string
-  canvasName: string
   nodeId: string
   nodeTitle: string
+  pdfPage?: number
   fieldType: 'transcript' | 'agentResult'
   reason: string  // 跳过原因，如 "文本过长"
 }

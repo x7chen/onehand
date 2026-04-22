@@ -203,7 +203,7 @@ export class VectorDbManager {
 
   /**
    * 删除指定 source 的数据（用于增量更新）
-   * 注意：source 格式为 notebookId:canvasId:nodeId:fieldType
+   * 注意：source 格式为 notebookId:nodeId:fieldType
    * 这正是我们使用的 loaderId 格式
    */
   async deleteBySource(source: string): Promise<boolean> {

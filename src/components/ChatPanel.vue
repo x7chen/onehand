@@ -16,7 +16,6 @@
         <VoiceNote
           :node="activeNode"
           :notebook-id="notebookId"
-          :canvas-id="canvasId || undefined"
           :is-active="true"
           :global-hide-ai-result="false"
           :show-header="true"
@@ -190,9 +189,8 @@ onUnmounted(() => {
   }
 })
 
-// Get notebookId and canvasId from notebookStore
+// Get notebookId from notebookStore
 const notebookId = computed(() => notebookStore.currentNotebook?.id)
-const canvasId = computed(() => notebookStore.currentCanvasId)
 
 // 获取当前笔记本使用的模型配置
 const currentModelConfig = computed(() => {
@@ -409,7 +407,6 @@ async function handleSendInput(sendText?: string) {
   const newNode: CanvasNode = {
     id: newNodeId,
     type: 'text-note',
-    position: { x: 100, y: 100 },
     transcript: text,
     transcriptStatus: 'done',
     agentResult: null,
@@ -549,7 +546,6 @@ async function handleMagicPadDrop(e: DragEvent) {
   const newNode: CanvasNode = {
     id: newNodeId,
     type: 'text-note',
-    position: { x, y },
     transcript: text,
     transcriptStatus: 'done',
     agentResult: null,
@@ -601,7 +597,6 @@ async function handleMagicPadImageDrop(files: File[]) {
     const newNode: CanvasNode = {
       id: nodeId,
       type: 'image-note',
-      position: { x: 100, y: 100 },
       imagePath,
       transcript: `![${file.name}](${imagePath})`,
       transcriptStatus: 'done',
@@ -627,14 +622,9 @@ async function handleAgentResponseForText(nodeId: string, transcript: string) {
   const pdfPage = props.currentPage
 
   try {
-    if (pdfPage) {
-      notebookStore.updateNodeInPdfPage(nodeId, pdfPage, { agentStatus: 'processing' })
-    } else {
-      notebookStore.updateNode(nodeId, { agentStatus: 'processing' })
-    }
+    notebookStore.updateNode(nodeId, { agentStatus: 'processing' })
 
-    const canvas = pdfPage ? notebookStore.getCanvasByPdfPage(pdfPage) : notebookStore.currentCanvas
-    const canvasNodes = pdfPage ? notebookStore.getNodesByPdfPage(pdfPage) : notebookStore.currentCanvasNodes
+    const canvasNodes = pdfPage ? notebookStore.getNodesByPdfPage(pdfPage) : notebookStore.getAllNodes()
     const node = canvasNodes.find(n => n.id === nodeId)
 
     // 加载当前节点的内嵌图片（如果尚未加载）
@@ -644,11 +634,7 @@ async function handleAgentResponseForText(nodeId: string, transcript: string) {
       if (notebook) {
         currentEmbeddedImages = await loadEmbeddedImagesForTranscript(transcript, notebook.id, window.electronAPI.readFile)
         if (currentEmbeddedImages && currentEmbeddedImages.length > 0) {
-          if (pdfPage) {
-            notebookStore.updateNodeInPdfPage(nodeId, pdfPage, { embeddedImages: currentEmbeddedImages })
-          } else {
-            notebookStore.updateNode(nodeId, { embeddedImages: currentEmbeddedImages })
-          }
+          notebookStore.updateNode(nodeId, { embeddedImages: currentEmbeddedImages })
         }
       }
     }
@@ -877,7 +863,6 @@ async function createVoiceNode(audioBlob: Blob, duration: number) {
   const node: CanvasNode = {
     id: nodeId,
     type: 'voice-note',
-    position: { x: 100, y: 100 },
     audioPath,
     transcript: null,
     transcriptStatus: 'pending',
@@ -1030,18 +1015,11 @@ async function handleAgentResponseForVoice(nodeId: string, transcript: string, p
   const settings = settingsStore.settings
 
   try {
-    if (pdfPage !== undefined && pdfPage !== null) {
-      notebookStore.updateNodeInPdfPage(nodeId, pdfPage, { agentStatus: 'processing' })
-    } else {
-      notebookStore.updateNode(nodeId, { agentStatus: 'processing' })
-    }
+    notebookStore.updateNode(nodeId, { agentStatus: 'processing' })
 
-    const canvas = pdfPage !== undefined && pdfPage !== null
-      ? notebookStore.getCanvasByPdfPage(pdfPage)
-      : notebookStore.currentCanvas
     const canvasNodes = pdfPage !== undefined && pdfPage !== null
       ? notebookStore.getNodesByPdfPage(pdfPage)
-      : notebookStore.currentCanvasNodes
+      : notebookStore.getAllNodes()
     const node = canvasNodes.find(n => n.id === nodeId)
 
     // 加载当前节点的内嵌图片（如果尚未加载）
@@ -1051,11 +1029,7 @@ async function handleAgentResponseForVoice(nodeId: string, transcript: string, p
       if (notebook) {
         currentEmbeddedImages = await loadEmbeddedImagesForTranscript(transcript, notebook.id, window.electronAPI.readFile)
         if (currentEmbeddedImages && currentEmbeddedImages.length > 0) {
-          if (pdfPage !== undefined && pdfPage !== null) {
-            notebookStore.updateNodeInPdfPage(nodeId, pdfPage, { embeddedImages: currentEmbeddedImages })
-          } else {
-            notebookStore.updateNode(nodeId, { embeddedImages: currentEmbeddedImages })
-          }
+          notebookStore.updateNode(nodeId, { embeddedImages: currentEmbeddedImages })
         }
       }
     }
@@ -1086,63 +1060,33 @@ async function handleAgentResponseForVoice(nodeId: string, transcript: string, p
       temperature: currentModelConfig.value?.temperature
     }, (chunk) => {
       accumulatedContent += chunk
-      if (pdfPage !== undefined && pdfPage !== null) {
-        notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
-          agentResult: accumulatedContent,
-          agentStatus: 'processing'
-        })
-      } else {
-        notebookStore.updateNode(nodeId, {
-          agentResult: accumulatedContent,
-          agentStatus: 'processing'
-        })
-      }
+      notebookStore.updateNode(nodeId, {
+        agentResult: accumulatedContent,
+        agentStatus: 'processing'
+      })
 
       if (shouldAutoScroll.value) {
         nextTick(() => scrollToBottom())
       }
     }, (thinkingChunk) => {
       accumulatedThinking += thinkingChunk
-      if (pdfPage !== undefined && pdfPage !== null) {
-        notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
-          thinkingContent: accumulatedThinking,
-          thinkingStatus: 'processing'
-        })
-      } else {
-        notebookStore.updateNode(nodeId, {
-          thinkingContent: accumulatedThinking,
-          thinkingStatus: 'processing'
-        })
-      }
+      notebookStore.updateNode(nodeId, {
+        thinkingContent: accumulatedThinking,
+        thinkingStatus: 'processing'
+      })
     })
 
-    if (pdfPage !== undefined && pdfPage !== null) {
-      notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
-        agentResult: result.content,
-        agentStatus: 'done',
-        thinkingContent: result.thinking,
-        thinkingStatus: result.thinking ? 'done' : undefined
-      })
-    } else {
-      notebookStore.updateNode(nodeId, {
-        agentResult: result.content,
-        agentStatus: 'done',
-        thinkingContent: result.thinking,
-        thinkingStatus: result.thinking ? 'done' : undefined
-      })
-    }
+    notebookStore.updateNode(nodeId, {
+      agentResult: result.content,
+      agentStatus: 'done',
+      thinkingContent: result.thinking,
+      thinkingStatus: result.thinking ? 'done' : undefined
+    })
   } catch (error) {
-    if (pdfPage !== undefined && pdfPage !== null) {
-      notebookStore.updateNodeInPdfPage(nodeId, pdfPage, {
-        agentResult: String(error),
-        agentStatus: 'error'
-      })
-    } else {
-      notebookStore.updateNode(nodeId, {
-        agentResult: String(error),
-        agentStatus: 'error'
-      })
-    }
+    notebookStore.updateNode(nodeId, {
+      agentResult: String(error),
+      agentStatus: 'error'
+    })
   }
 }
 </script>

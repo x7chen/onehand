@@ -101,6 +101,12 @@
               </button>
               <!-- 下拉菜单 -->
               <div v-if="openMenuNotebookId === notebook.id" class="notebook-menu-dropdown">
+                <button class="menu-item canvas-view" @click="handleOpenCanvasPanel(notebook, $event)">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                    <path d="M4 4h7v7H4zm0 9h7v7H4zm9-9h7v7h-7zm0 9h7v7h-7z"/>
+                  </svg>
+                  <span>{{ t('canvas.expandList') }}</span>
+                </button>
                 <button class="menu-item rename" @click="startRename(notebook, $event)">
                   <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
                     <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.9959.9959 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
@@ -249,6 +255,7 @@ const emit = defineEmits<{
   'select-tab': [tab: string]
   'select-notebook': [notebookId: string | null]
   'create-notebook': [data: { name: string; pdfPath?: string; staticContextIds: string[]; dynamicContextId?: string }]
+  'switch-view-mode': [mode: 'chat' | 'canvas']
 }>()
 
 const { t } = useI18n()
@@ -363,6 +370,14 @@ async function handleDeleteNotebook(notebook: Notebook) {
       emit('select-notebook', null)
     }
   }
+}
+
+// 打开画布视图面板
+function handleOpenCanvasPanel(notebook: Notebook, event: MouseEvent) {
+  event.stopPropagation()
+  openMenuNotebookId.value = null
+  emit('select-notebook', notebook.id)
+  emit('switch-view-mode', 'canvas')
 }
 
 // 显示菜单
@@ -645,6 +660,11 @@ function handleTrashDrop(e: DragEvent) {
 .menu-item:hover {
   background: var(--bg-secondary);
   color: var(--text-primary);
+}
+
+.menu-item.canvas-view:hover {
+  background: var(--color-primary)20;
+  color: var(--color-primary);
 }
 
 .menu-item.delete:hover {
