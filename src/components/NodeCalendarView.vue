@@ -918,7 +918,8 @@ defineExpose({
 .picker-popover {
   position: absolute;
   top: calc(100% + 4px);
-  left: 0;
+  left: 50%;
+  transform: translateX(-50%);
   background: var(--bg-primary);
   border: 1px solid var(--border-color);
   border-radius: 8px;
