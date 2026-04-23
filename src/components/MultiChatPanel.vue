@@ -322,26 +322,16 @@ const currentModelConfig = computed(() => {
 watch(() => props.notebookId, (newId, oldId) => {
   if (newId !== oldId) {
     nextTick(() => {
-      selectFirstNodes()
+      // 切换笔记本时清空节点选择
+      clearNodeSelection()
     })
   }
 })
 
-// 选中当前笔记本的前两个节点
-function selectFirstNodes() {
-  const nodes = displayNodes.value
-  if (nodes.length > 0) {
-    const sortedNodes = [...nodes].sort((a, b) => a.createdAt - b.createdAt)
-    activeNodeIdLeft.value = sortedNodes[0].id
-    if (sortedNodes.length > 1) {
-      activeNodeIdRight.value = sortedNodes[1].id
-    } else {
-      activeNodeIdRight.value = null
-    }
-  } else {
-    activeNodeIdLeft.value = null
-    activeNodeIdRight.value = null
-  }
+// 清空节点选择（切换笔记本时使用）
+function clearNodeSelection() {
+  activeNodeIdLeft.value = null
+  activeNodeIdRight.value = null
 }
 
 // 滚动到指定节点
@@ -368,12 +358,7 @@ function handleNodeActivate(nodeId: string) {
 onMounted(() => {
   window.addEventListener('keydown', handleKeyDown)
   initPanelWidths()
-
-  if (!activeNodeIdLeft.value) {
-    nextTick(() => {
-      selectFirstNodes()
-    })
-  }
+  // 不自动选择节点，等待用户点击
 })
 
 // 监听 activateNodeId prop 变化，用于跳转链接激活节点
