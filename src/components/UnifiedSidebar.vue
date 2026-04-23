@@ -478,8 +478,12 @@ function handleTrashDrop(e: DragEvent) {
 }
 
 .sidebar-header {
-  padding: 16px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
   border-bottom: 1px solid var(--border-color);
+  box-sizing: border-box;
 }
 
 .create-note-btn {
@@ -488,7 +492,8 @@ function handleTrashDrop(e: DragEvent) {
   justify-content: center;
   gap: 8px;
   width: 100%;
-  padding: 8px 16px;
+  height: 36px;
+  padding: 0 16px;
   background: var(--color-primary);
   border: none;
   border-radius: 8px;
@@ -497,6 +502,7 @@ function handleTrashDrop(e: DragEvent) {
   font-size: 14px;
   font-weight: 500;
   transition: all 0.2s;
+  box-sizing: border-box;
 }
 
 .create-note-btn:hover {

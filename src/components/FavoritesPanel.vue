@@ -170,14 +170,19 @@ function handleNavigate(data: DeepLinkData) {
 }
 
 .panel-header {
-  padding: 24px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
   border-bottom: 1px solid var(--border-color);
+  box-sizing: border-box;
 }
 
 .header-title {
   display: flex;
   align-items: center;
   gap: 12px;
+  height: 100%;
 }
 
 .header-title h2 {
@@ -185,6 +190,7 @@ function handleNavigate(data: DeepLinkData) {
   font-size: 20px;
   font-weight: 500;
   color: var(--text-primary);
+  line-height: 1;
 }
 
 .favorite-icon {

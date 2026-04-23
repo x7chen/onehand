@@ -611,14 +611,19 @@ function updateAutoAiAnswer(enabled: boolean) {
 }
 
 .panel-header {
-  padding: 24px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
   border-bottom: 1px solid var(--border-color);
+  box-sizing: border-box;
 }
 
 .panel-header h2 {
   margin: 0;
   font-size: 20px;
   color: var(--text-primary);
+  line-height: 1;
 }
 
 .settings-body {

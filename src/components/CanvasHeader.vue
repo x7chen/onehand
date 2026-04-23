@@ -517,13 +517,15 @@ onUnmounted(() => {
 
 <style scoped>
 .canvas-header {
+  height: 60px;
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 12px 16px;
+  padding: 0 16px;
   background: var(--bg-primary);
   box-shadow: 0 2px 4px var(--shadow-color);
   position: relative;
+  box-sizing: border-box;
 }
 
 .back-btn {
