@@ -601,8 +601,8 @@ function handleTrashDrop(e: DragEvent) {
 }
 
 .notebook-item.active {
-  background: var(--color-primary)20;
-  color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--text-primary);
 }
 
 .notebook-item.renaming {
@@ -659,7 +659,6 @@ function handleTrashDrop(e: DragEvent) {
 }
 
 .notebook-menu-btn:hover {
-  background: var(--bg-tertiary);
   color: var(--text-primary);
 }
 
@@ -698,7 +697,7 @@ function handleTrashDrop(e: DragEvent) {
 }
 
 .menu-item.canvas-view:hover {
-  background: var(--color-primary)20;
+  background: var(--color-primary-light);
   color: var(--color-primary);
 }
 
@@ -716,7 +715,7 @@ function handleTrashDrop(e: DragEvent) {
 }
 
 .create-notebook:hover {
-  background: var(--color-primary)20;
+  background: var(--color-primary-light);
 }
 
 /* 回收站 */
