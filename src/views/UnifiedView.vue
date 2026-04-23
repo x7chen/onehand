@@ -13,6 +13,7 @@
       @select-notebook="handleSelectNotebook"
       @create-notebook="handleCreateNotebook"
       @switch-view-mode="handleSwitchViewMode"
+      @create-note="handleCreateNote"
     />
 
     <!-- 可拖动分隔线 -->
@@ -69,7 +70,9 @@
         :all-notebooks="notebookStore.notebooks"
         :current-notebook-id="activeNotebookId || null"
         :activate-node-id="activateNodeId"
+        :trigger-create-note="shouldTriggerCreateNote"
         @node-activated="handleNodeActivated"
+        @create-note-triggered="handleCreateNoteTriggered"
       />
 
       <!-- Canvas画布面板 -->
@@ -333,6 +336,9 @@ const dynamicContextFile = computed(() => {
   return id ? contextStore.dynamicContextFiles.find(f => f.id === id) : null
 })
 
+// 触发创建笔记输入
+const shouldTriggerCreateNote = ref(false)
+
 onMounted(async () => {
   await notebookStore.loadNotebooks()
   await contextStore.loadContextFiles()
@@ -424,6 +430,36 @@ function handleSelectNotebook(notebookId: string | null) {
   } else {
     activeTab.value = 'all-notebooks'
   }
+}
+
+// 创建笔记 - 触发输入模式
+function handleCreateNote() {
+  // 确定目标笔记本
+  let targetNotebookId: string | null = activeNotebookId.value
+
+  if (!targetNotebookId) {
+    // 如果没有选中笔记本，使用默认笔记本
+    const defaultId = settingsStore.settings.general.defaultNotebookId
+    if (!defaultId) {
+      // 如果没有默认笔记本，提示用户
+      alert(t('settings.defaultNotebookNone'))
+      return
+    }
+    targetNotebookId = defaultId
+    // 设置为默认笔记本
+    handleSelectNotebook(targetNotebookId)
+  }
+
+  // 确保视图模式为 chat
+  viewMode.value = 'chat'
+
+  // 触发创建笔记输入
+  shouldTriggerCreateNote.value = true
+}
+
+// 创建笔记触发完成
+function handleCreateNoteTriggered() {
+  shouldTriggerCreateNote.value = false
 }
 
 // 创建笔记本

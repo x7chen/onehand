@@ -267,6 +267,7 @@ export default {
     thinking: 'Thinking',
     showThinking: 'Show thinking',
     hideThinking: 'Hide thinking',
+    createNote: 'Create Note',
   },
   title: {
     appTitle: 'OneHand',

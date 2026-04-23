@@ -1,7 +1,12 @@
 <template>
   <aside class="unified-sidebar" @dragover="handleSidebarDragOver" @drop="handleSidebarDrop" @click="openMenuNotebookId = null">
     <div class="sidebar-header">
-      <h1 class="logo">OneHand</h1>
+      <button class="create-note-btn" @click="handleCreateNote" :title="t('common.create')">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+          <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+        </svg>
+        <span>{{ t('voiceNote.createNote') }}</span>
+      </button>
     </div>
 
     <nav class="sidebar-nav">
@@ -256,6 +261,7 @@ const emit = defineEmits<{
   'select-notebook': [notebookId: string | null]
   'create-notebook': [data: { name: string; pdfPath?: string; staticContextIds: string[]; dynamicContextId?: string }]
   'switch-view-mode': [mode: 'chat' | 'canvas']
+  'create-note': []
 }>()
 
 const { t } = useI18n()
@@ -426,6 +432,11 @@ function handleCreateNotebook(data: {
   showCreateNotebookDialog.value = false
 }
 
+// 创建笔记
+function handleCreateNote() {
+  emit('create-note')
+}
+
 // 拖拽处理
 function handleSidebarDragOver(e: DragEvent) {
   // Allow drag over sidebar
@@ -469,14 +480,32 @@ function handleTrashDrop(e: DragEvent) {
 .sidebar-header {
   padding: 16px;
   border-bottom: 1px solid var(--border-color);
-  text-align: center;
 }
 
-.logo {
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0;
+.create-note-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 16px;
+  background: var(--color-primary);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.create-note-btn:hover {
+  background: var(--color-primary-hover);
+  transform: translateY(-1px);
+}
+
+.create-note-btn svg {
+  flex-shrink: 0;
 }
 
 .sidebar-nav {

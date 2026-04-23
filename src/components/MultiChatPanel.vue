@@ -70,6 +70,7 @@
       <div class="chat-panels-container" :class="{ 'right-collapsed': isRightChatPanelCollapsed }">
         <!-- 左侧 ChatPanel -->
         <ChatPanel
+          ref="chatPanelRef"
           :active-node="activeNodeLeft"
           :static-context-files="staticContextFiles"
           :dynamic-context-file="dynamicContextFile"
@@ -192,6 +193,7 @@ const props = withDefaults(defineProps<{
   allNotebooks: Notebook[]
   currentNotebookId: string | null
   activateNodeId?: string | null
+  triggerCreateNote?: boolean
 }>(), {
   notebookId: null,
   staticContextFiles: () => [],
@@ -202,12 +204,14 @@ const props = withDefaults(defineProps<{
   activeProfileId: '',
   allNotebooks: () => [],
   currentNotebookId: null,
-  activateNodeId: null
+  activateNodeId: null,
+  triggerCreateNote: false
 })
 
 const emit = defineEmits<{
   'notebook-changed': [notebookId: string | null]
   'node-activated': []
+  'create-note-triggered': []
 }>()
 
 const { t } = useI18n()
@@ -227,6 +231,9 @@ const isRightChatPanelCollapsed = ref(true)
 
 // NodeListPanel 组件引用
 const nodePanelRef = ref<InstanceType<typeof NodeListPanel> | null>(null)
+
+// ChatPanel 组件引用
+const chatPanelRef = ref<InstanceType<typeof ChatPanel> | null>(null)
 
 // 当前笔记本
 const currentNotebook = computed(() => {
@@ -378,6 +385,16 @@ watch(() => props.activateNodeId, (nodeId) => {
       handleNodeActivate(nodeId)
       emit('node-activated')
     }
+  }
+}, { immediate: true })
+
+// 监听 triggerCreateNote prop 变化，用于触发创建笔记输入
+watch(() => props.triggerCreateNote, (shouldTrigger) => {
+  if (shouldTrigger) {
+    nextTick(() => {
+      chatPanelRef.value?.triggerInputMode()
+      emit('create-note-triggered')
+    })
   }
 }, { immediate: true })
 

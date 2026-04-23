@@ -1155,6 +1155,19 @@ async function handleAgentResponseForVoice(nodeId: string, transcript: string, p
     })
   }
 }
+
+// 暴露方法给父组件调用
+function triggerInputMode() {
+  isInputMode.value = true
+  inputText.value = ''
+  nextTick(() => {
+    magicInputCoreRef.value?.textareaRef?.focus()
+  })
+}
+
+defineExpose({
+  triggerInputMode
+})
 </script>
 
 <style scoped>

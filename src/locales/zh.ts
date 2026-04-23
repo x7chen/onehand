@@ -267,6 +267,7 @@ export default {
     thinking: '思考过程',
     showThinking: '展开思考过程',
     hideThinking: '收起思考过程',
+    createNote: '创建笔记',
   },
   title: {
     appTitle: 'OneHand',
