@@ -142,6 +142,8 @@ export default {
     defaultNotebook: '默认笔记本',
     defaultNotebookNone: '未设置',
     defaultNotebookHint: '在全部笔记本视图中创建笔记时，自动保存到此笔记本',
+    autoAiAnswer: '自动 AI 回答',
+    autoAiAnswerHint: '创建笔记时自动触发 AI 回答，关闭后需手动点击重新生成',
   },
   notebook: {
     newNotebook: '新建笔记本',

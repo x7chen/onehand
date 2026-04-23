@@ -234,7 +234,9 @@ const editingNodeId = ref<string | null>(null)
 const editingText = ref('')
 
 const globalHideAiResult = ref(false)
-const aiAnswerEnabled = ref(true)
+
+// AI 回答开关状态（从设置中读取默认值）
+const aiAnswerEnabled = ref(settingsStore.settings.general.autoAiAnswer ?? true)
 
 const showDynamicContextEditor = ref(false)
 const dynamicContextEditContent = ref('')

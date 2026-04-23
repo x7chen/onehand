@@ -283,8 +283,8 @@ const playingNodeId = ref<string | null>(null)
 // 全局隐藏 AI 回答
 const globalHideAiResult = ref(false)
 
-// AI 回答开关
-const aiAnswerEnabled = ref(true)
+// AI 回答开关（从设置中读取默认值）
+const aiAnswerEnabled = ref(settingsStore.settings.general.autoAiAnswer ?? true)
 
 // 动态上下文
 const showDynamicContextEditor = ref(false)

@@ -142,6 +142,8 @@ export default {
     defaultNotebook: 'Default Notebook',
     defaultNotebookNone: 'Not set',
     defaultNotebookHint: 'When creating notes in all notebooks view, automatically save to this notebook',
+    autoAiAnswer: 'Auto AI Answer',
+    autoAiAnswerHint: 'Automatically trigger AI answer when creating notes, disable to require manual regeneration',
   },
   notebook: {
     newNotebook: 'New Notebook',

@@ -147,8 +147,8 @@ const nodeListPanelRef = ref<InstanceType<typeof NodeListPanel> | null>(null)
 // 全局 AI 回答隐藏状态
 const globalHideAiResult = ref(false)
 
-// AI 回答开关状态（默认开启）
-const aiAnswerEnabled = ref(true)
+// AI 回答开关状态（从设置中读取默认值）
+const aiAnswerEnabled = ref(settingsStore.settings.general.autoAiAnswer ?? true)
 
 // 动态上下文编辑器
 const showDynamicContextEditor = ref(false)

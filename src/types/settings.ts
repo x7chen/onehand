@@ -52,6 +52,7 @@ export interface GeneralSettings {
   nodeListViewMode?: 'card' | 'list' | 'calendar'  // 笔记列表视图模式
   userFilesPath?: string  // 用户文件目录（笔记本、PDF、图片、音频、上下文等）
   defaultNotebookId?: string  // 默认笔记本ID（全部笔记本视图下创建笔记时使用）
+  autoAiAnswer?: boolean  // 自动AI回答开关（创建笔记时自动触发AI回答）
 }
 
 export interface ViewSettings {
@@ -113,7 +114,8 @@ export const defaultSettings: Settings = {
     colorTheme: 'default',
     customPrimaryColor: undefined,
     notebooksViewMode: 'grid',
-    nodeListViewMode: 'card'
+    nodeListViewMode: 'card',
+    autoAiAnswer: true  // 默认开启自动AI回答
   },
   view: {
     chatViewLeftPanelRatio: 0.6,

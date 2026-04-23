@@ -180,6 +180,19 @@
             </select>
             <p class="form-hint">{{ t('settings.defaultNotebookHint') }}</p>
           </div>
+
+          <div class="form-group">
+            <label>{{ t('settings.autoAiAnswer') }}</label>
+            <div class="toggle-switch">
+              <input
+                type="checkbox"
+                :checked="settingsStore.settings.general.autoAiAnswer ?? true"
+                @change="updateAutoAiAnswer(($event.target as HTMLInputElement).checked)"
+              />
+              <span class="toggle-label">{{ (settingsStore.settings.general.autoAiAnswer ?? true) ? t('settings.enabled') : t('settings.disabled') }}</span>
+            </div>
+            <p class="form-hint">{{ t('settings.autoAiAnswerHint') }}</p>
+          </div>
         </div>
 
         <!-- Model Settings Tab -->
@@ -574,6 +587,16 @@ function updateDefaultNotebook(notebookId: string) {
     general: {
       ...settingsStore.settings.general,
       defaultNotebookId: notebookId || undefined
+    }
+  })
+}
+
+// 更新自动AI回答开关
+function updateAutoAiAnswer(enabled: boolean) {
+  settingsStore.updateSettings({
+    general: {
+      ...settingsStore.settings.general,
+      autoAiAnswer: enabled
     }
   })
 }
