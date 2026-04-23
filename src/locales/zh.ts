@@ -139,6 +139,9 @@ export default {
     embeddingProfileHint: '嵌入功能将使用所选 Profile 的模型名称',
     embeddingDimension: '嵌入维度',
     embeddingDimensionHint: '嵌入模型的向量维度，常见值：1536 (OpenAI)、1024 (部分 Qwen 模型)、768 (其他)',
+    defaultNotebook: '默认笔记本',
+    defaultNotebookNone: '未设置',
+    defaultNotebookHint: '在全部笔记本视图中创建笔记时，自动保存到此笔记本',
   },
   notebook: {
     newNotebook: '新建笔记本',

@@ -162,6 +162,24 @@
             </div>
             <p class="form-hint">{{ t('settings.userFilesPathHint') }}</p>
           </div>
+
+          <div class="form-group">
+            <label>{{ t('settings.defaultNotebook') }}</label>
+            <select
+              :value="settingsStore.settings.general.defaultNotebookId || ''"
+              @change="updateDefaultNotebook(($event.target as HTMLSelectElement).value)"
+            >
+              <option value="">{{ t('settings.defaultNotebookNone') }}</option>
+              <option
+                v-for="notebook in notebooks"
+                :key="notebook.id"
+                :value="notebook.id"
+              >
+                {{ notebook.name }}
+              </option>
+            </select>
+            <p class="form-hint">{{ t('settings.defaultNotebookHint') }}</p>
+          </div>
         </div>
 
         <!-- Model Settings Tab -->
@@ -344,6 +362,7 @@
 import { ref, nextTick, watch, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { useNotebookStore } from '@/stores/notebookStore'
 import type { BuiltinTheme } from '@/types/settings'
 
 const { t } = useI18n()
@@ -354,6 +373,9 @@ const emit = defineEmits<{
 }>()
 
 const settingsStore = useSettingsStore()
+const notebookStore = useNotebookStore()
+
+const notebooks = computed(() => notebookStore.notebooks)
 
 // 标签页状态
 const activeTab = ref<'general' | 'model'>('general')
@@ -542,6 +564,16 @@ function updateEmbeddingDimension(dimension: number) {
     llm: {
       ...settingsStore.settings.llm,
       embeddingDimension: dimension
+    }
+  })
+}
+
+// 更新默认笔记本
+function updateDefaultNotebook(notebookId: string) {
+  settingsStore.updateSettings({
+    general: {
+      ...settingsStore.settings.general,
+      defaultNotebookId: notebookId || undefined
     }
   })
 }

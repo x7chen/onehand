@@ -139,6 +139,9 @@ export default {
     embeddingProfileHint: 'Embedding will use the model name from the selected Profile',
     embeddingDimension: 'Embedding Dimension',
     embeddingDimensionHint: 'Vector dimension of embedding model. Common values: 1536 (OpenAI), 1024 (some Qwen models), 768 (others)',
+    defaultNotebook: 'Default Notebook',
+    defaultNotebookNone: 'Not set',
+    defaultNotebookHint: 'When creating notes in all notebooks view, automatically save to this notebook',
   },
   notebook: {
     newNotebook: 'New Notebook',

@@ -404,6 +404,19 @@ export const useNotebookStore = defineStore('notebook', () => {
     }
   }
 
+  // 更新节点收藏状态（支持跨笔记本）
+  async function updateNodeFavorite(nodeId: string, isFavorite: boolean) {
+    const map = getNodeToNotebookMap()
+    const notebook = map.get(nodeId)
+    if (notebook) {
+      const node = notebook.nodes?.find(n => n.id === nodeId)
+      if (node) {
+        node.isFavorite = isFavorite
+        await saveNotebook(notebook)
+      }
+    }
+  }
+
   // 删除节点
   function removeNode(nodeId: string) {
     if (!currentNotebook.value?.nodes) return
@@ -508,6 +521,7 @@ export const useNotebookStore = defineStore('notebook', () => {
     addNode,
     updateNode,
     batchUpdateContextSelection,
+    updateNodeFavorite,
     removeNode,
     // PDF 页面管理
     getNodesByPdfPage,

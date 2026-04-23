@@ -15,7 +15,7 @@
       <div v-if="activeNode" class="node-detail">
         <VoiceNote
           :node="activeNode"
-          :notebook-id="notebookId"
+          :notebook-id="effectiveNotebookId"
           :is-active="true"
           :global-hide-ai-result="false"
           :show-header="true"
@@ -128,6 +128,7 @@ const props = defineProps<{
   includedPageImage?: { imageBase64: string; pageNumber: number } | null
   isActive?: boolean
   panelId?: 'left' | 'right'
+  targetNotebookId?: string | null
 }>()
 
 const emit = defineEmits<{
@@ -189,12 +190,31 @@ onUnmounted(() => {
   }
 })
 
-// Get notebookId from notebookStore
-const notebookId = computed(() => notebookStore.currentNotebook?.id)
+// Get notebookId - use targetNotebookId prop if provided, otherwise use currentNotebook
+// For all notebooks view, targetNotebookId is null, so we use default notebook from settings
+const effectiveNotebookId = computed(() => {
+  if (props.targetNotebookId) {
+    return props.targetNotebookId
+  }
+  // If targetNotebookId is null (all notebooks view), use default notebook from settings
+  const defaultNotebookId = settingsStore.settings.general.defaultNotebookId
+  if (defaultNotebookId) {
+    return defaultNotebookId
+  }
+  // Fallback to current notebook
+  return notebookStore.currentNotebook?.id
+})
+
+// Get the effective notebook object
+const effectiveNotebook = computed(() => {
+  const id = effectiveNotebookId.value
+  if (!id) return null
+  return notebookStore.notebooks.find(nb => nb.id === id) || null
+})
 
 // 获取当前笔记本使用的模型配置
 const currentModelConfig = computed(() => {
-  const modelId = notebookStore.currentNotebook?.modelId || settingsStore.settings.llm.activeProfileId
+  const modelId = effectiveNotebook.value?.modelId || settingsStore.settings.llm.activeProfileId
   return settingsStore.settings.llm.profiles.find(p => p.id === modelId)
 })
 
@@ -403,6 +423,19 @@ async function handleSendInput(sendText?: string) {
   const text = (sendText || inputText.value).trim()
   if (!text) return
 
+  // 确保有目标笔记本
+  const targetNotebook = effectiveNotebook.value
+  if (!targetNotebook) {
+    console.error('No notebook to save note to')
+    return
+  }
+
+  // 如果当前笔记本不是目标笔记本，临时切换
+  const needSwitchNotebook = notebookStore.currentNotebook?.id !== targetNotebook.id
+  if (needSwitchNotebook) {
+    notebookStore.setCurrentNotebook(targetNotebook)
+  }
+
   const newNodeId = uuidv4()
   const newNode: CanvasNode = {
     id: newNodeId,
@@ -520,6 +553,19 @@ async function handleMagicPadDrop(e: DragEvent) {
   // 输入模式下屏蔽拖拽创建节点
   if (isInputMode.value) return
 
+  // 确保有目标笔记本
+  const targetNotebook = effectiveNotebook.value
+  if (!targetNotebook) {
+    console.error('No notebook to save note to')
+    return
+  }
+
+  // 如果当前笔记本不是目标笔记本，临时切换
+  const needSwitchNotebook = notebookStore.currentNotebook?.id !== targetNotebook.id
+  if (needSwitchNotebook) {
+    notebookStore.setCurrentNotebook(targetNotebook)
+  }
+
   e.preventDefault()
   e.stopPropagation()
 
@@ -577,10 +623,20 @@ async function handleMagicPadDrop(e: DragEvent) {
 
 // MagicPad - 拖拽图片创建节点
 async function handleMagicPadImageDrop(files: File[]) {
-  const notebook = notebookStore.currentNotebook
-  if (!notebook) return
+  // 确保有目标笔记本
+  const targetNotebook = effectiveNotebook.value
+  if (!targetNotebook) {
+    console.error('No notebook to save note to')
+    return
+  }
 
-  const notebookDir = await getNotebookDataDir(notebook.id)
+  // 如果当前笔记本不是目标笔记本，临时切换
+  const needSwitchNotebook = notebookStore.currentNotebook?.id !== targetNotebook.id
+  if (needSwitchNotebook) {
+    notebookStore.setCurrentNotebook(targetNotebook)
+  }
+
+  const notebookDir = await getNotebookDataDir(targetNotebook.id)
   const imagesDir = `${notebookDir}/images`
   await window.electronAPI.mkdir(imagesDir)
 
@@ -630,7 +686,7 @@ async function handleAgentResponseForText(nodeId: string, transcript: string) {
     // 加载当前节点的内嵌图片（如果尚未加载）
     let currentEmbeddedImages = node?.embeddedImages
     if (!currentEmbeddedImages && transcript) {
-      const notebook = notebookStore.currentNotebook
+      const notebook = effectiveNotebook.value
       if (notebook) {
         currentEmbeddedImages = await loadEmbeddedImagesForTranscript(transcript, notebook.id, window.electronAPI.readFile)
         if (currentEmbeddedImages && currentEmbeddedImages.length > 0) {
@@ -845,14 +901,24 @@ async function stopVoiceRecording() {
 
 // 创建语音节点
 async function createVoiceNode(audioBlob: Blob, duration: number) {
+  // 确保有目标笔记本
+  const targetNotebook = effectiveNotebook.value
+  if (!targetNotebook) {
+    console.error('No notebook to save note to')
+    return
+  }
+
+  // 如果当前笔记本不是目标笔记本，临时切换
+  const needSwitchNotebook = notebookStore.currentNotebook?.id !== targetNotebook.id
+  if (needSwitchNotebook) {
+    notebookStore.setCurrentNotebook(targetNotebook)
+  }
+
   const extension = audioBlob.type === 'audio/wav' ? 'wav' : 'webm'
   const nodeId = uuidv4()
   const audioPath = `audio/${nodeId}.${extension}`
 
-  const notebook = notebookStore.currentNotebook
-  if (!notebook) return
-
-  const audioDir = await getNotebookAudioDir(notebook.id)
+  const audioDir = await getNotebookAudioDir(targetNotebook.id)
   await window.electronAPI.mkdir(audioDir)
 
   const arrayBuffer = await audioBlob.arrayBuffer()
@@ -907,7 +973,7 @@ async function handleTranscription(node: CanvasNode) {
   try {
     updateNodeWithPage(node.id, { transcriptStatus: 'processing' })
 
-    const notebook = notebookStore.currentNotebook
+    const notebook = effectiveNotebook.value
     if (!notebook || !node.audioPath) return
 
     const notebookDir = await getNotebookDataDir(notebook.id)
@@ -961,7 +1027,7 @@ function updateNodeWithPage(nodeId: string, updates: Partial<CanvasNode>) {
 }
 
 function findNodeById(nodeId: string): CanvasNode | undefined {
-  return notebookStore.currentNotebook?.nodes?.find(n => n.id === nodeId)
+  return effectiveNotebook.value?.nodes?.find(n => n.id === nodeId)
 }
 
 // 重新生成 AI 回答
@@ -1025,7 +1091,7 @@ async function handleAgentResponseForVoice(nodeId: string, transcript: string, p
     // 加载当前节点的内嵌图片（如果尚未加载）
     let currentEmbeddedImages = node?.embeddedImages
     if (!currentEmbeddedImages && transcript) {
-      const notebook = notebookStore.currentNotebook
+      const notebook = effectiveNotebook.value
       if (notebook) {
         currentEmbeddedImages = await loadEmbeddedImagesForTranscript(transcript, notebook.id, window.electronAPI.readFile)
         if (currentEmbeddedImages && currentEmbeddedImages.length > 0) {

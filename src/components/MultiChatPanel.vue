@@ -76,6 +76,7 @@
           :ai-answer-enabled="aiAnswerEnabled"
           :is-active="activePanel === 'left'"
           :panel-id="'left'"
+          :target-notebook-id="notebookId"
           class="left-chat-panel"
           :class="{ 'full-width': isRightChatPanelCollapsed }"
           :style="isRightChatPanelCollapsed ? {} : { width: leftChatPanelWidth + 'px' }"
@@ -120,6 +121,7 @@
           :ai-answer-enabled="aiAnswerEnabled"
           :is-active="activePanel === 'right'"
           :panel-id="'right'"
+          :target-notebook-id="notebookId"
           class="right-chat-panel"
           @delete="handleDeleteNode"
           @play="handlePlayNode"
@@ -634,22 +636,31 @@ async function handleToggleContext(nodeId: string) {
   const node = displayNodes.value.find(n => n.id === nodeId)
   if (node) {
     const newSelectedState = !node.selectedAsContext
-    notebookStore.updateNode(nodeId, { selectedAsContext: newSelectedState })
 
-    const notebook = currentNotebook.value
-    if (!notebook) return
+    // 使用跨笔记本更新方法
+    notebookStore.batchUpdateContextSelection([nodeId], newSelectedState)
 
-    if (newSelectedState && node.type === 'image-note' && node.imagePath && !node.imageBase64) {
-      const base64 = await loadImageBase64(node.imagePath, notebook.id, window.electronAPI.readFile)
-      if (base64) {
-        notebookStore.updateNode(nodeId, { imageBase64: base64 })
-      }
-    }
+    // 如果需要加载图片，找到节点所属的笔记本
+    if (newSelectedState) {
+      // 找到节点所属的笔记本
+      const notebook = props.notebookId
+        ? currentNotebook.value
+        : notebookStore.notebooks.find(nb => nb.nodes?.some(n => n.id === nodeId))
 
-    if (newSelectedState && (node.type === 'voice-note' || node.type === 'text-note') && node.transcript) {
-      const embeddedImages = await loadEmbeddedImagesForTranscript(node.transcript, notebook.id, window.electronAPI.readFile)
-      if (embeddedImages && embeddedImages.length > 0) {
-        notebookStore.updateNode(nodeId, { embeddedImages })
+      if (notebook) {
+        if (node.type === 'image-note' && node.imagePath && !node.imageBase64) {
+          const base64 = await loadImageBase64(node.imagePath, notebook.id, window.electronAPI.readFile)
+          if (base64) {
+            notebookStore.updateNode(nodeId, { imageBase64: base64 })
+          }
+        }
+
+        if ((node.type === 'voice-note' || node.type === 'text-note') && node.transcript) {
+          const embeddedImages = await loadEmbeddedImagesForTranscript(node.transcript, notebook.id, window.electronAPI.readFile)
+          if (embeddedImages && embeddedImages.length > 0) {
+            notebookStore.updateNode(nodeId, { embeddedImages })
+          }
+        }
       }
     }
   }
@@ -766,10 +777,12 @@ async function handleAgentResponse(nodeId: string, transcript: string) {
   }
 }
 
-function handleToggleFavorite(nodeId: string) {
+async function handleToggleFavorite(nodeId: string) {
   const node = displayNodes.value.find(n => n.id === nodeId)
   if (node) {
-    notebookStore.updateNode(nodeId, { isFavorite: !node.isFavorite })
+    const newFavoriteState = !node.isFavorite
+    // 使用跨笔记本更新方法
+    await notebookStore.updateNodeFavorite(nodeId, newFavoriteState)
   }
 }
 

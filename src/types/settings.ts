@@ -51,6 +51,7 @@ export interface GeneralSettings {
   notebooksViewMode?: 'grid' | 'list'  // 笔记本面板视图模式
   nodeListViewMode?: 'card' | 'list' | 'calendar'  // 笔记列表视图模式
   userFilesPath?: string  // 用户文件目录（笔记本、PDF、图片、音频、上下文等）
+  defaultNotebookId?: string  // 默认笔记本ID（全部笔记本视图下创建笔记时使用）
 }
 
 export interface ViewSettings {
