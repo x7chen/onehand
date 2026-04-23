@@ -241,6 +241,44 @@
             <span>{{ t('common.copy') }}</span>
           </button>
         </div>
+
+        <!-- 关联笔记气泡 -->
+        <div v-if="showRelatedNotesPopover" class="related-notes-popover-overlay" @click="closeRelatedNotesPopover"></div>
+        <div v-if="showRelatedNotesPopover" class="related-notes-popover" :style="relatedNotesPopoverStyle">
+          <div class="related-notes-header">
+            <span class="related-notes-title">{{ t('voiceNote.relatedNotes') }}</span>
+            <span v-if="!isSearchingRelated && relatedNotes.length > 0" class="related-notes-count">
+              {{ relatedNotes.length }}
+            </span>
+          </div>
+          <!-- 搜索中状态 -->
+          <div v-if="isSearchingRelated" class="related-notes-loading">
+            <div class="loading-spinner"></div>
+            <span>{{ t('voiceNote.searchingRelated') }}</span>
+          </div>
+          <!-- 搜索结果列表 -->
+          <div v-else-if="relatedNotes.length > 0" class="related-notes-list">
+            <div
+              v-for="result in relatedNotes"
+              :key="result.nodeId + result.fieldType"
+              class="related-note-item"
+              @click.stop="navigateToRelatedNote(result)"
+            >
+              <div class="related-note-meta">
+                <span class="related-notebook-name">{{ result.notebookName }}</span>
+                <span v-if="result.nodeTitle" class="related-note-separator">·</span>
+                <span v-if="result.nodeTitle" class="related-note-title">{{ result.nodeTitle }}</span>
+                <span class="related-note-separator">·</span>
+                <span class="related-note-similarity">{{ Math.round(result.similarity * 100) }}%</span>
+              </div>
+              <div class="related-note-preview">{{ getPreviewText(result.fullText) }}</div>
+            </div>
+          </div>
+          <!-- 无结果状态 -->
+          <div v-else class="related-notes-empty">
+            <span>{{ t('voiceNote.noRelatedNotes') }}</span>
+          </div>
+        </div>
       </Teleport>
     </div>
 
@@ -269,6 +307,17 @@
           @contextmenu.prevent.stop="handleTextContextMenu"
           v-html="sanitizedTranscript"
         ></div>
+        <!-- 关联笔记按钮 -->
+        <button
+          v-if="node.transcript"
+          class="related-btn transcript-related-btn"
+          @click.stop="(e: MouseEvent) => openRelatedNotesPopover(node.transcript || '', 'transcript', e)"
+          :title="t('voiceNote.findRelated')"
+        >
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+            <path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/>
+          </svg>
+        </button>
         <button
           v-if="node.transcript"
           class="copy-btn transcript-copy-btn"
@@ -322,6 +371,17 @@
           @contextmenu.prevent.stop="handleTextContextMenu"
           v-html="sanitizedAgentResult"
         ></div>
+        <!-- 关联笔记按钮 -->
+        <button
+          v-if="node.agentResult"
+          class="related-btn agent-related-btn"
+          @click.stop="(e: MouseEvent) => openRelatedNotesPopover(node.agentResult || '', 'agentResult', e)"
+          :title="t('voiceNote.findRelated')"
+        >
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+            <path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/>
+          </svg>
+        </button>
         <button
           v-if="node.agentResult"
           class="copy-btn agent-copy-btn"
@@ -335,20 +395,36 @@
       </div>
     </div>
   </div>
+
+  <!-- 关联笔记详情弹窗 -->
+  <NodePopup
+    :visible="showRelatedNodePopup"
+    :url="relatedNodeUrl"
+    @close="closeRelatedNodePopup"
+    @navigate="handleRelatedNodeNavigate"
+  />
 </template>
 
 <script setup lang="ts">
 import { ref, nextTick, watch, computed, onMounted, onUnmounted, watchEffect } from 'vue'
+import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import NodePopup from '@/components/NodePopup.vue'
 import { useNotebookStore } from '@/stores/notebookStore'
 import { useTagStore } from '@/stores/tagStore'
+import { useVectorStore } from '@/stores/vectorStore'
 import { formatDuration } from '@/utils/helpers'
 import { renderMarkdown, renderMermaidCharts, processImagePaths } from '@/utils/markdownRenderer'
 import { getNotebookDataDir, getNotebookImagesDir } from '@/utils/userFilesPath'
+import { generateDeepLinkUrl, findNodeByNodeId } from '@/composables/useDeepLink'
+import type { NodePopupData } from '@/composables/useDeepLink'
 import type { CanvasNode, DisplayNode } from '@/types/notebook'
+import type { SemanticSearchResult } from '@/types/embedding'
 
+const router = useRouter()
 const notebookStore = useNotebookStore()
 const tagStore = useTagStore()
+const vectorStore = useVectorStore()
 
 const props = defineProps<{
   node: CanvasNode | DisplayNode
@@ -375,6 +451,7 @@ const emit = defineEmits<{
   (e: 'edit-agent', nodeId: string): void
   (e: 'activate', nodeId: string): void
   (e: 'copy-link', nodeId: string): void
+  (e: 'navigate-to-note', notebookId: string, nodeId: string): void
 }>()
 
 const { t } = useI18n()
@@ -878,6 +955,93 @@ function removeTagFromNode(tagName: string) {
   const currentTags = props.node.tags || []
   const newTags = currentTags.filter(t => t !== tagName)
   emit('update-node', props.node.id, { tags: newTags })
+}
+
+// 关联笔记气泡相关
+const showRelatedNotesPopover = ref(false)
+const relatedNotesPopoverStyle = ref<{ top: string; right: string }>({ top: '0px', right: '0px' })
+const relatedNotes = ref<SemanticSearchResult[]>([])
+const isSearchingRelated = ref(false)
+const relatedNotesSource = ref<'transcript' | 'agentResult'>('transcript')
+
+// 关联笔记详情弹窗
+const showRelatedNodePopup = ref(false)
+const relatedNodeUrl = ref('')
+const relatedNodeData = ref<NodePopupData | null>(null)
+
+// 打开关联笔记气泡
+async function openRelatedNotesPopover(text: string, source: 'transcript' | 'agentResult', event: MouseEvent) {
+  const btn = event.currentTarget as HTMLElement
+  const rect = btn.getBoundingClientRect()
+  relatedNotesPopoverStyle.value = {
+    top: `${rect.bottom + 4}px`,
+    right: `${window.innerWidth - rect.right}px`
+  }
+  showRelatedNotesPopover.value = true
+  relatedNotesSource.value = source
+  relatedNotes.value = []
+  isSearchingRelated.value = true
+
+  // 执行语义搜索
+  try {
+    const results = await vectorStore.semanticSearch(text, 10)
+    // 过滤掉当前节点本身
+    relatedNotes.value = results.filter(r => r.nodeId !== props.node.id)
+  } catch (error) {
+    console.error('Semantic search error:', error)
+    relatedNotes.value = []
+  } finally {
+    isSearchingRelated.value = false
+  }
+}
+
+// 关闭关联笔记气泡
+function closeRelatedNotesPopover() {
+  showRelatedNotesPopover.value = false
+  relatedNotes.value = []
+  isSearchingRelated.value = false
+}
+
+// 跳转到关联笔记（显示详情弹窗）
+async function navigateToRelatedNote(result: SemanticSearchResult) {
+  // 查找节点数据
+  const nodeData = await findNodeByNodeId(result.nodeId)
+  if (nodeData) {
+    relatedNodeData.value = nodeData
+    relatedNodeUrl.value = generateDeepLinkUrl(result.nodeId)
+    showRelatedNodePopup.value = true
+  }
+}
+
+// 关闭关联笔记详情弹窗
+function closeRelatedNodePopup() {
+  showRelatedNodePopup.value = false
+  relatedNodeUrl.value = ''
+  relatedNodeData.value = null
+}
+
+// 从关联笔记弹窗跳转到笔记位置
+function handleRelatedNodeNavigate(data: { notebookId: string; nodeId: string }) {
+  closeRelatedNodePopup()
+
+  // 找到目标笔记本并跳转
+  const notebook = notebookStore.notebooks.find(n => n.id === data.notebookId)
+  if (notebook) {
+    notebookStore.setCurrentNotebook(notebook)
+
+    // 根据笔记本类型跳转到对应页面
+    if (notebook.pdfPath) {
+      router.push(`/pdf/${data.notebookId}?nodeId=${data.nodeId}`)
+    } else {
+      router.push(`/multi-chat/${data.notebookId}?nodeId=${data.nodeId}`)
+    }
+  }
+}
+
+// 获取关联笔记预览文本（截取前50字符）
+function getPreviewText(text: string): string {
+  if (text.length <= 50) return text
+  return text.slice(0, 50) + '...'
 }
 
 // 右键上下文菜单处理
@@ -1716,12 +1880,36 @@ watch(() => props.node.thinkingContent, async (newThinkingContent) => {
   z-index: 10;
 }
 
+/* 关联笔记按钮样式 */
+.related-btn {
+  position: absolute;
+  right: 36px;
+  bottom: 4px;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: all 0.2s;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+}
+
 .transcript-content-wrapper:hover .copy-btn,
-.agent-content-wrapper:hover .copy-btn {
+.agent-content-wrapper:hover .copy-btn,
+.transcript-content-wrapper:hover .related-btn,
+.agent-content-wrapper:hover .related-btn {
   opacity: 1;
 }
 
-.copy-btn:hover {
+.copy-btn:hover,
+.related-btn:hover {
   background: var(--accent-color, var(--color-primary));
   color: white;
 }
@@ -2502,5 +2690,147 @@ background-color: rgba(0, 0, 0, 1);
 .tag-cancel-btn:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
+}
+
+/* ========================================
+   关联笔记气泡样式
+   ======================================== */
+
+.related-notes-popover-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 3100;
+}
+
+.related-notes-popover {
+  position: fixed;
+  z-index: 3101;
+  min-width: 280px;
+  max-width: 350px;
+  max-height: 300px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px var(--shadow-color);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.related-notes-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.related-notes-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.related-notes-count {
+  font-size: 12px;
+  color: var(--color-primary);
+  background: rgba(255, 152, 0, 0.1);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.related-notes-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  gap: 8px;
+}
+
+.related-notes-loading .loading-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--border-color);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.related-notes-loading span {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.related-notes-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.related-note-item {
+  padding: 10px;
+  background: var(--bg-secondary);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.related-note-item:hover {
+  background: var(--bg-hover);
+}
+
+.related-note-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.related-notebook-name {
+  color: var(--color-primary);
+  font-weight: 500;
+}
+
+.related-note-separator {
+  color: var(--text-secondary);
+  opacity: 0.5;
+}
+
+.related-note-title {
+  color: var(--text-primary);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 80px;
+}
+
+.related-note-similarity {
+  color: var(--color-success);
+  font-weight: 500;
+}
+
+.related-note-preview {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.related-notes-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  font-size: 13px;
+  color: var(--text-secondary);
 }
 </style>

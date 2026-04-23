@@ -268,6 +268,10 @@ export default {
     showThinking: '展开思考过程',
     hideThinking: '收起思考过程',
     createNote: '创建笔记',
+    relatedNotes: '关联笔记',
+    findRelated: '查找关联笔记',
+    noRelatedNotes: '未找到关联笔记',
+    searchingRelated: '搜索关联笔记...',
   },
   title: {
     appTitle: 'OneHand',

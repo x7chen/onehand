@@ -268,6 +268,10 @@ export default {
     showThinking: 'Show thinking',
     hideThinking: 'Hide thinking',
     createNote: 'Create Note',
+    relatedNotes: 'Related Notes',
+    findRelated: 'Find related notes',
+    noRelatedNotes: 'No related notes found',
+    searchingRelated: 'Searching related notes...',
   },
   title: {
     appTitle: 'OneHand',
