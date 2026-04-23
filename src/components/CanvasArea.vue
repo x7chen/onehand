@@ -42,13 +42,6 @@
       </template>
     </InfiniteCanvas>
 
-    <ContextToolbar
-      v-if="selectedContextCount > 0"
-      :selected-count="selectedContextCount"
-      @clear="clearContextSelection"
-      @ask="handleAskWithNewRecording"
-    />
-
     <!-- MagicInput 弹出框 -->
     <MagicInput
       :is-open="magicInputState.isOpen"
@@ -69,7 +62,6 @@ import { useNotebookStore } from '@/stores/notebookStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import InfiniteCanvas from '@/components/InfiniteCanvas.vue'
 import VoiceNote from '@/components/VoiceNote.vue'
-import ContextToolbar from '@/components/ContextToolbar.vue'
 import MagicInput from '@/components/MagicInput.vue'
 import type { CanvasNode, Viewport, DisplayNode } from '@/types/notebook'
 import type { ContextFile } from '@/types/context'

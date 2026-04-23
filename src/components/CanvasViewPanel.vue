@@ -354,7 +354,11 @@ function handleResizeLeftEnd() {
 
 // 导出方法供父组件调用
 defineExpose({
-  openDynamicContextEditor
+  openDynamicContextEditor,
+  setActiveNodeId: (nodeId: string) => {
+    activeNodeId.value = nodeId
+    canvasAreaRef.value?.setActiveNodeId(nodeId)
+  }
 })
 </script>
 

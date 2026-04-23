@@ -68,10 +68,13 @@
         :active-profile-id="settingsStore.settings.llm.activeProfileId"
         :all-notebooks="notebookStore.notebooks"
         :current-notebook-id="activeNotebookId || null"
+        :activate-node-id="activateNodeId"
+        @node-activated="handleNodeActivated"
       />
 
       <!-- Canvas画布面板 -->
       <CanvasViewPanel
+        ref="canvasViewPanelRef"
         v-if="viewMode === 'canvas' && activeNotebookId && (activeTab === 'notebooks' || activeTab === 'all-notebooks' || activeTab === 'pdf-notebook')"
         :notebook-id="activeNotebookId"
         :static-context-files="staticContextFiles"
@@ -101,6 +104,8 @@
         :active-profile-id="settingsStore.settings.llm.activeProfileId"
         :all-notebooks="notebookStore.notebooks"
         :current-notebook-id="activeNotebookId"
+        :activate-node-id="activateNodeId"
+        @node-activated="handleNodeActivated"
       />
     </main>
 
@@ -247,6 +252,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter, useRoute } from 'vue-router'
 import { useNotebookStore } from '@/stores/notebookStore'
 import { useContextStore } from '@/stores/contextStore'
 import { useSettingsStore } from '@/stores/settingsStore'
@@ -264,12 +270,17 @@ import { CONTEXT_COLORS, type ContextColor } from '@/types/context'
 import type { QuickCommand } from '@/types/quickCommand'
 
 const { t } = useI18n()
+const router = useRouter()
+const route = useRoute()
 const notebookStore = useNotebookStore()
 const contextStore = useContextStore()
 const settingsStore = useSettingsStore()
 const quickCommandStore = useQuickCommandStore()
 
 const contextColors = computed(() => CONTEXT_COLORS)
+
+// CanvasViewPanel 的引用（用于激活节点）
+const canvasViewPanelRef = ref<InstanceType<typeof CanvasViewPanel> | null>(null)
 
 // 当前激活的 tab
 const activeTab = ref<string>('all-notebooks')
@@ -279,6 +290,9 @@ const activeNotebookId = ref<string | null>(null)
 
 // 视图模式：'chat' | 'canvas'（仅在笔记本tab下生效）
 const viewMode = ref<'chat' | 'canvas'>('chat')
+
+// 需要激活的节点ID（用于跳转链接）
+const activateNodeId = ref<string | null>(null)
 
 // 对话框状态
 const showNewContextDialog = ref(false)
@@ -322,7 +336,63 @@ const dynamicContextFile = computed(() => {
 onMounted(async () => {
   await notebookStore.loadNotebooks()
   await contextStore.loadContextFiles()
+
+  // 处理路由中的 nodeId 参数
+  handleRouteNodeId()
 })
+
+// 监听路由变化，处理 nodeId 查询参数
+watch(() => route.query.nodeId, (nodeId) => {
+  if (nodeId && route.params.notebookId) {
+    handleNodeActivation(String(nodeId), String(route.params.notebookId))
+  }
+}, { immediate: false })
+
+// 处理路由中的 nodeId 参数（初始化时）
+function handleRouteNodeId() {
+  const nodeId = route.query.nodeId
+  const notebookId = route.params.notebookId
+
+  if (nodeId && notebookId) {
+    handleNodeActivation(String(nodeId), String(notebookId))
+  }
+}
+
+// 处理节点激活（跳转到指定节点）
+function handleNodeActivation(nodeId: string, notebookId: string) {
+  // 设置笔记本
+  const notebook = notebookStore.notebooks.find(nb => nb.id === notebookId)
+  if (!notebook) return
+
+  notebookStore.setCurrentNotebook(notebook)
+  activeNotebookId.value = notebookId
+
+  // 设置 tab 和视图模式
+  if (notebook.pdfPath) {
+    activeTab.value = 'pdf-notebook'
+    viewMode.value = 'chat'  // PDF笔记跳转到 PdfReaderPanel
+  } else {
+    activeTab.value = 'notebooks'
+    viewMode.value = 'chat'  // 普通笔记跳转到 MultiChatPanel
+  }
+
+  // 等待组件渲染后激活节点
+  setTimeout(() => {
+    activateNode(nodeId)
+  }, 300)
+}
+
+// 激活指定节点（根据当前视图模式选择正确的面板）
+function activateNode(nodeId: string) {
+  // 通过 prop 传递给子组件，子组件监听变化并激活节点
+  activateNodeId.value = nodeId
+}
+
+// 节点激活完成后的回调
+function handleNodeActivated() {
+  // 清除激活请求
+  activateNodeId.value = null
+}
 
 // 标签选择处理
 function handleSelectTab(tab: string) {

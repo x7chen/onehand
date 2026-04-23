@@ -160,13 +160,7 @@
       </div>
     </div>
 
-    <!-- 上下文选择工具栏 -->
-    <ContextToolbar
-      v-if="selectedContextCount > 0"
-      :selected-count="selectedContextCount"
-      @clear="clearContextSelection"
-    />
-  </div>
+    </div>
 </template>
 
 <script setup lang="ts">
@@ -178,7 +172,6 @@ import { useContextStore } from '@/stores/contextStore'
 import CanvasHeader from '@/components/CanvasHeader.vue'
 import NodeListPanel from '@/components/NodeListPanel.vue'
 import ChatPanel from '@/components/ChatPanel.vue'
-import ContextToolbar from '@/components/ContextToolbar.vue'
 import { chatWithLLM, buildFullContextMessages } from '@/composables/useQwenAgent'
 import { loadEmbeddedImagesForTranscript, loadImageBase64 } from '@/utils/contextBuilder'
 import { getNotebookDataDir } from '@/utils/userFilesPath'
@@ -196,6 +189,7 @@ const props = withDefaults(defineProps<{
   activeProfileId: string
   allNotebooks: Notebook[]
   currentNotebookId: string | null
+  activateNodeId?: string | null
 }>(), {
   notebookId: null,
   staticContextFiles: () => [],
@@ -205,11 +199,13 @@ const props = withDefaults(defineProps<{
   allProfiles: () => [],
   activeProfileId: '',
   allNotebooks: () => [],
-  currentNotebookId: null
+  currentNotebookId: null,
+  activateNodeId: null
 })
 
 const emit = defineEmits<{
   'notebook-changed': [notebookId: string | null]
+  'node-activated': []
 }>()
 
 const { t } = useI18n()
@@ -370,6 +366,18 @@ onMounted(() => {
     })
   }
 })
+
+// 监听 activateNodeId prop 变化，用于跳转链接激活节点
+watch(() => props.activateNodeId, (nodeId) => {
+  if (nodeId) {
+    // 检查节点是否存在于当前笔记本
+    const node = displayNodes.value.find(n => n.id === nodeId)
+    if (node) {
+      handleNodeActivate(nodeId)
+      emit('node-activated')
+    }
+  }
+}, { immediate: true })
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyDown)

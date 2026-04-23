@@ -139,12 +139,6 @@
       </div>
     </div>
 
-    <ContextToolbar
-      v-if="selectedContextCount > 0"
-      :selected-count="selectedContextCount"
-      @clear="clearContextSelection"
-    />
-
     <!-- MagicInput 弹出框 -->
     <MagicInput
       :is-open="magicInputState.isOpen"
@@ -168,7 +162,6 @@ import CanvasHeader from '@/components/CanvasHeader.vue'
 import PdfViewer from '@/components/PdfViewer.vue'
 import ChatPanel from '@/components/ChatPanel.vue'
 import NodeListPanel from '@/components/NodeListPanel.vue'
-import ContextToolbar from '@/components/ContextToolbar.vue'
 import MagicInput from '@/components/MagicInput.vue'
 import { transcribeWithSherpaOnnx } from '@/composables/useSherpaOnnx'
 import { chatWithLLM, buildFullContextMessages, buildImageAnalysisMessages } from '@/composables/useQwenAgent'
@@ -188,6 +181,7 @@ const props = withDefaults(defineProps<{
   activeProfileId: string
   allNotebooks: Notebook[]
   currentNotebookId: string
+  activateNodeId?: string | null
 }>(), {
   notebookId: '',
   staticContextFiles: () => [],
@@ -197,8 +191,13 @@ const props = withDefaults(defineProps<{
   allProfiles: () => [],
   activeProfileId: '',
   allNotebooks: () => [],
-  currentNotebookId: ''
+  currentNotebookId: '',
+  activateNodeId: null
 })
+
+const emit = defineEmits<{
+  'node-activated': []
+}>()
 
 const { t } = useI18n()
 const notebookStore = useNotebookStore()
@@ -417,6 +416,22 @@ function stopResizeRight() {
   document.body.style.cursor = ''
   document.body.style.userSelect = ''
 }
+
+// 监听 activateNodeId prop 变化，用于跳转链接激活节点
+watch(() => props.activateNodeId, (nodeId) => {
+  if (nodeId) {
+    // 检查节点是否存在于当前笔记本
+    const node = notebookStore.getAllNodes().find(n => n.id === nodeId)
+    if (node) {
+      activeNodeId.value = nodeId
+      // 如果节点有 pdfPage，跳转到对应页面
+      if (node.pdfPage) {
+        currentPageNumber.value = node.pdfPage
+      }
+      emit('node-activated')
+    }
+  }
+}, { immediate: true })
 
 onMounted(async () => {
   if (props.notebookId) {
