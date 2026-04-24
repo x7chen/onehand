@@ -203,8 +203,7 @@ export class VectorDbManager {
 
   /**
    * 删除指定 source 的数据（用于增量更新）
-   * 注意：source 格式为 notebookId:nodeId:fieldType
-   * 这正是我们使用的 loaderId 格式
+   * 同时删除 uniqueLoaderId 和 source 字段匹配的数据，处理可能的格式不一致问题
    */
   async deleteBySource(source: string): Promise<boolean> {
     if (!this.ragApp || !this.initialized) {
@@ -212,8 +211,21 @@ export class VectorDbManager {
     }
 
     try {
-      // source 就是 loaderId，直接调用 deleteLoader
+      // 先尝试用 source 作为 uniqueLoaderId 删除
       const result = await this.ragApp.deleteLoader(source)
+
+      // 同时直接查询数据库删除 source 字段匹配的数据（处理旧数据格式问题）
+      if (fs.existsSync(this.dbFilePath)) {
+        const dbUrl = `file:${this.dbFilePath.replace(/\\/g, '/')}`
+        const client = createClient({ url: dbUrl })
+
+        // 删除 uniqueLoaderId 或 source 字段匹配的数据
+        await client.execute(
+          `DELETE FROM notebook_vectors WHERE uniqueLoaderId = ? OR source = ?`,
+          [source, source]
+        )
+      }
+
       return result
     } catch (error) {
       console.error(`Failed to delete by source ${source}:`, error)
@@ -222,8 +234,9 @@ export class VectorDbManager {
   }
 
   /**
-   * 获取所有已索引数据的 source 和 textHash
+   * 获取所有已索引数据的 uniqueLoaderId 和 textHash
    * 直接查询 LibSQL 数据库
+   * 使用 uniqueLoaderId 作为 key，与 deleteBySource 保持一致
    */
   async getAllIndexedHashes(): Promise<Map<string, string>> {
     if (!fs.existsSync(this.dbFilePath)) {
@@ -232,28 +245,28 @@ export class VectorDbManager {
 
     try {
       const dbUrl = `file:${this.dbFilePath.replace(/\\/g, '/')}`
-      
+
       const client = createClient({
         url: dbUrl
       })
 
       const allResult = await client.execute(
-        `SELECT source, metadata FROM notebook_vectors`
+        `SELECT uniqueLoaderId, metadata FROM notebook_vectors`
       )
 
       const hashes = new Map<string, string>()
 
       for (const row of allResult.rows) {
-        const source = row.source?.toString() || ''
+        const uniqueLoaderId = row.uniqueLoaderId?.toString() || ''
         const metadataStr = row.metadata?.toString() || ''
         try {
           const metadata = JSON.parse(metadataStr)
           const textHash = metadata.textHash
-          if (source && textHash) {
-            hashes.set(source, textHash)
+          if (uniqueLoaderId && textHash) {
+            hashes.set(uniqueLoaderId, textHash)
           }
         } catch (e) {
-          console.warn(`getAllIndexedHashes: failed to parse metadata for ${source}`)
+          console.warn(`getAllIndexedHashes: failed to parse metadata for ${uniqueLoaderId}`)
         }
       }
 

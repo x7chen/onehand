@@ -830,7 +830,7 @@ ipcMain.handle('index-nodes-incremental', async (event, nodes) => {
 
       for (const node of batch) {
         try {
-          const loaderId = `${node.notebookId}:${node.canvasId}:${node.nodeId}:${node.fieldType}`
+          const loaderId = `${node.notebookId}:${node.nodeId}:${node.fieldType}`
           const count = await vectorDbManager.indexNodesWithLoaderId([node], loaderId)
           totalIndexed += count
           if (count === 0) {
