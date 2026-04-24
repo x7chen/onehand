@@ -180,8 +180,8 @@ function calculateNodePositions(nodes: CanvasNode[], heights: Map<string, number
 
     positions.set(node.id, { x, y })
 
-    // 使用测量高度或存储高度或默认值
-    const nodeHeight = heights.get(node.id) || node.height || LAYOUT_CONFIG.DEFAULT_NODE_HEIGHT
+    // 使用测量高度或默认值
+    const nodeHeight = heights.get(node.id) || LAYOUT_CONFIG.DEFAULT_NODE_HEIGHT
     columnHeights[minColumn] = y + nodeHeight + LAYOUT_CONFIG.ROW_GAP
   }
 
@@ -267,7 +267,7 @@ const visibleNodes = computed<DisplayNode[]>(() => {
 
     const pos = node.displayPosition
     const w = node.width || nodeWidth
-    const h = measuredHeights.value.get(node.id) || node.height || LAYOUT_CONFIG.DEFAULT_NODE_HEIGHT
+    const h = measuredHeights.value.get(node.id) || LAYOUT_CONFIG.DEFAULT_NODE_HEIGHT
 
     // 判断节点是否在可见区域内
     return pos.x + w >= extendedLeft &&
@@ -542,18 +542,7 @@ async function performInitialMeasurement() {
 
   // 最终测量完成
   measurementPhase.value = MEASURE_COMPLETE_PHASE
-
-  // 保存测量到的高度到节点数据
-  for (const [nodeId, height] of measuredHeights.value) {
-    const node = nodes.find(n => n.id === nodeId)
-    if (node && (!node.height || Math.abs(node.height - height) > 10)) {
-      notebookStore.updateNode(nodeId, { height }, true)
-    }
-  }
-  // 批量保存后，保存笔记本
-  if (notebookStore.currentNotebook) {
-    notebookStore.saveNotebook(notebookStore.currentNotebook)
-  }
+  // height 不再保存到节点数据，由 ResizeObserver 动态测量
 }
 
 function handleViewportChange(newViewport: Viewport) {
@@ -958,17 +947,7 @@ async function handleAutoLayout() {
   // 使用最新的测量高度计算瀑布流布局
   const positions = calculateNodePositions(nodes, measuredHeights.value)
   manualPositions.value = positions
-
-  // 保存测量高度到节点数据
-  for (const [nodeId, height] of measuredHeights.value) {
-    const node = nodes.find(n => n.id === nodeId)
-    if (node && (!node.height || Math.abs(node.height - height) > 10)) {
-      notebookStore.updateNode(nodeId, { height }, true)
-    }
-  }
-  if (notebookStore.currentNotebook) {
-    notebookStore.saveNotebook(notebookStore.currentNotebook)
-  }
+  // height 不再保存到节点数据，由 ResizeObserver 动态测量
 }
 
 function handleActivateNode(nodeId: string) {
