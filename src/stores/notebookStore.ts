@@ -489,10 +489,57 @@ export const useNotebookStore = defineStore('notebook', () => {
       .sort((a, b) => a.createdAt - b.createdAt)
   }
 
+  // 获取所有笔记本中被选中作为上下文的节点（跨笔记本）
+  function getAllNotebooksSelectedContextNodes(excludeNodeId?: string): CanvasNode[] {
+    const allSelectedNodes: CanvasNode[] = []
+
+    for (const notebook of notebooks.value) {
+      if (!notebook.nodes) continue
+
+      const selectedNodes = notebook.nodes
+        .filter(n => n.selectedAsContext && n.transcriptStatus === 'done')
+        .filter(n => !excludeNodeId || n.id !== excludeNodeId)
+
+      allSelectedNodes.push(...selectedNodes)
+    }
+
+    return allSelectedNodes.sort((a, b) => a.createdAt - b.createdAt)
+  }
+
+  // 获取所有笔记本中被选中作为上下文的节点及其笔记本ID（跨笔记本）
+  function getAllNotebooksSelectedContextNodesWithNotebookId(excludeNodeId?: string): { node: CanvasNode; notebookId: string }[] {
+    const allSelectedNodes: { node: CanvasNode; notebookId: string }[] = []
+
+    for (const notebook of notebooks.value) {
+      if (!notebook.nodes) continue
+
+      const selectedNodes = notebook.nodes
+        .filter(n => n.selectedAsContext && n.transcriptStatus === 'done')
+        .filter(n => !excludeNodeId || n.id !== excludeNodeId)
+        .map(n => ({ node: n, notebookId: notebook.id }))
+
+      allSelectedNodes.push(...selectedNodes)
+    }
+
+    return allSelectedNodes.sort((a, b) => a.node.createdAt - b.node.createdAt)
+  }
+
   // 获取所有节点
   function getAllNodes(): CanvasNode[] {
     if (!currentNotebook.value?.nodes) return []
     return [...currentNotebook.value.nodes]
+  }
+
+  // 获取所有笔记本的所有节点（跨笔记本）
+  function getAllNotebooksNodes(): CanvasNode[] {
+    const allNodes: CanvasNode[] = []
+
+    for (const notebook of notebooks.value) {
+      if (!notebook.nodes) continue
+      allNodes.push(...notebook.nodes)
+    }
+
+    return allNodes
   }
 
   // 统计已选中作为上下文的节点数量
@@ -533,7 +580,10 @@ export const useNotebookStore = defineStore('notebook', () => {
     removeNodeAuto,
     // 全局操作
     getAllSelectedContextNodes,
+    getAllNotebooksSelectedContextNodes,
+    getAllNotebooksSelectedContextNodesWithNotebookId,
     getAllNodes,
+    getAllNotebooksNodes,
     countAllSelectedContext,
     countAllSelectableNodes
   }

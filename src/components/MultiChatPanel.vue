@@ -707,18 +707,45 @@ async function handleAgentResponse(nodeId: string, transcript: string) {
     const node = displayNodes.value.find(n => n.id === nodeId)
     if (!node) return
 
+    // 找到当前节点所属的笔记本
+    const currentNodeNotebook = props.notebookId
+      ? currentNotebook.value
+      : notebookStore.notebooks.find(nb => nb.nodes?.some(n => n.id === nodeId))
+
     let currentEmbeddedImages = node.embeddedImages
-    if (!currentEmbeddedImages && transcript) {
-      const notebook = currentNotebook.value
-      if (notebook) {
-        currentEmbeddedImages = await loadEmbeddedImagesForTranscript(transcript, notebook.id, window.electronAPI.readFile)
-        if (currentEmbeddedImages && currentEmbeddedImages.length > 0) {
-          notebookStore.updateNode(nodeId, { embeddedImages: currentEmbeddedImages })
-        }
+    if (!currentEmbeddedImages && transcript && currentNodeNotebook) {
+      currentEmbeddedImages = await loadEmbeddedImagesForTranscript(transcript, currentNodeNotebook.id, window.electronAPI.readFile)
+      if (currentEmbeddedImages && currentEmbeddedImages.length > 0) {
+        notebookStore.updateNode(nodeId, { embeddedImages: currentEmbeddedImages })
       }
     }
 
-    const selectedNodes = displayNodes.value.filter(n => n.selectedAsContext && n.id !== nodeId)
+    // 获取上下文节点：在全部笔记本视图下使用跨笔记本方法加载图片
+    let selectedNodes: { transcript: string; agentResult: string; imageBase64?: string; embeddedImages?: string[] }[]
+
+    if (props.notebookId === null) {
+      // 全部笔记本视图：获取所有笔记本中被选中的节点及其笔记本ID
+      const selectedNodesWithNotebookId = notebookStore.getAllNotebooksSelectedContextNodesWithNotebookId(nodeId)
+
+      // 加载每个节点的内嵌图片（如果尚未加载）
+      selectedNodes = await Promise.all(selectedNodesWithNotebookId.map(async ({ node, notebookId }) => {
+        let embeddedImages = node.embeddedImages
+        if (!embeddedImages && node.transcript) {
+          embeddedImages = await loadEmbeddedImagesForTranscript(node.transcript, notebookId, window.electronAPI.readFile)
+        }
+        return {
+          transcript: node.transcript || '',
+          agentResult: node.agentResult || '',
+          imageBase64: node.imageBase64,
+          embeddedImages
+        }
+      }))
+    } else {
+      // 单个笔记本视图：使用 displayNodes
+      selectedNodes = displayNodes.value
+        .filter(n => n.selectedAsContext && n.id !== nodeId)
+        .map(n => ({ transcript: n.transcript || '', agentResult: n.agentResult || '', imageBase64: n.imageBase64, embeddedImages: n.embeddedImages }))
+    }
 
     const staticContextContent = props.staticContextFiles
       .map(f => f.content)
@@ -726,7 +753,7 @@ async function handleAgentResponse(nodeId: string, transcript: string) {
       .join('\n\n')
 
     const messages = buildFullContextMessages(
-      selectedNodes.map(n => ({ transcript: n.transcript || '', agentResult: n.agentResult || '', imageBase64: n.imageBase64, embeddedImages: n.embeddedImages })),
+      selectedNodes,
       transcript,
       staticContextContent,
       props.dynamicContextFile?.content,

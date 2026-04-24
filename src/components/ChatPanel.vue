@@ -695,7 +695,32 @@ async function handleAgentResponseForText(nodeId: string, transcript: string) {
       }
     }
 
-    const selectedNodes = canvasNodes.filter(n => n.selectedAsContext && n.id !== nodeId)
+    // 获取上下文节点：在全部笔记本视图下使用跨笔记本方法
+    let selectedNodes: { transcript: string; agentResult: string; imageBase64?: string; embeddedImages?: string[] }[]
+
+    if (props.targetNotebookId === null) {
+      // 全部笔记本视图：获取所有笔记本中被选中的节点及其笔记本ID
+      const selectedNodesWithNotebookId = notebookStore.getAllNotebooksSelectedContextNodesWithNotebookId(nodeId)
+
+      // 加载每个节点的内嵌图片（如果尚未加载）
+      selectedNodes = await Promise.all(selectedNodesWithNotebookId.map(async ({ node, notebookId }) => {
+        let embeddedImages = node.embeddedImages
+        if (!embeddedImages && node.transcript) {
+          embeddedImages = await loadEmbeddedImagesForTranscript(node.transcript, notebookId, window.electronAPI.readFile)
+        }
+        return {
+          transcript: node.transcript || '',
+          agentResult: node.agentResult || '',
+          imageBase64: node.imageBase64,
+          embeddedImages
+        }
+      }))
+    } else {
+      // 单个笔记本视图：使用当前笔记本的节点
+      selectedNodes = canvasNodes
+        .filter(n => n.selectedAsContext && n.id !== nodeId)
+        .map(n => ({ transcript: n.transcript || '', agentResult: n.agentResult || '', imageBase64: n.imageBase64, embeddedImages: n.embeddedImages }))
+    }
 
     const staticContextContent = props.staticContextFiles
       .map(f => f.content)
@@ -703,7 +728,7 @@ async function handleAgentResponseForText(nodeId: string, transcript: string) {
       .join('\n\n')
 
     const messages = buildFullContextMessages(
-      selectedNodes.map(n => ({ transcript: n.transcript || '', agentResult: n.agentResult || '', imageBase64: n.imageBase64, embeddedImages: n.embeddedImages })),
+      selectedNodes,
       transcript,
       staticContextContent,
       props.dynamicContextFile?.content,
@@ -1100,7 +1125,32 @@ async function handleAgentResponseForVoice(nodeId: string, transcript: string, p
       }
     }
 
-    const selectedNodes = canvasNodes.filter(n => n.selectedAsContext && n.id !== nodeId)
+    // 获取上下文节点：在全部笔记本视图下使用跨笔记本方法
+    let selectedNodes: { transcript: string; agentResult: string; imageBase64?: string; embeddedImages?: string[] }[]
+
+    if (props.targetNotebookId === null) {
+      // 全部笔记本视图：获取所有笔记本中被选中的节点及其笔记本ID
+      const selectedNodesWithNotebookId = notebookStore.getAllNotebooksSelectedContextNodesWithNotebookId(nodeId)
+
+      // 加载每个节点的内嵌图片（如果尚未加载）
+      selectedNodes = await Promise.all(selectedNodesWithNotebookId.map(async ({ node, notebookId }) => {
+        let embeddedImages = node.embeddedImages
+        if (!embeddedImages && node.transcript) {
+          embeddedImages = await loadEmbeddedImagesForTranscript(node.transcript, notebookId, window.electronAPI.readFile)
+        }
+        return {
+          transcript: node.transcript || '',
+          agentResult: node.agentResult || '',
+          imageBase64: node.imageBase64,
+          embeddedImages
+        }
+      }))
+    } else {
+      // 单个笔记本视图：使用当前笔记本的节点
+      selectedNodes = canvasNodes
+        .filter(n => n.selectedAsContext && n.id !== nodeId)
+        .map(n => ({ transcript: n.transcript || '', agentResult: n.agentResult || '', imageBase64: n.imageBase64, embeddedImages: n.embeddedImages }))
+    }
 
     const staticContextContent = props.staticContextFiles
       .map(f => f.content)
@@ -1108,7 +1158,7 @@ async function handleAgentResponseForVoice(nodeId: string, transcript: string, p
       .join('\n\n')
 
     const messages = buildFullContextMessages(
-      selectedNodes.map(n => ({ transcript: n.transcript || '', agentResult: n.agentResult || '', imageBase64: n.imageBase64, embeddedImages: n.embeddedImages })),
+      selectedNodes,
       transcript,
       staticContextContent,
       props.dynamicContextFile?.content,
