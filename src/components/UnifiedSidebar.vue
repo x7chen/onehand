@@ -1,5 +1,6 @@
 <template>
   <aside class="unified-sidebar" @dragover="handleSidebarDragOver" @drop="handleSidebarDrop" @click="openMenuNotebookId = null">
+    <!-- 固定顶部区域：创建笔记 + 搜索 -->
     <div class="sidebar-header">
       <button class="create-note-btn" @click="handleCreateNote" :title="t('common.create')">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
@@ -9,18 +10,17 @@
       </button>
     </div>
 
-    <nav class="sidebar-nav">
-      <!-- 搜索 -->
-      <button
-        class="nav-item"
-        :class="{ active: activeTab === 'search' }"
-        @click="handleSearchClick"
-      >
+    <div class="sidebar-search">
+      <button class="nav-item" @click="handleSearchClick">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
           <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
         </svg>
         <span>{{ t('common.search') }}</span>
       </button>
+    </div>
+
+    <!-- 可滚动中间区域 -->
+    <nav class="sidebar-nav">
 
       <!-- 所有笔记本（树状结构） -->
       <div class="nav-tree-item">
@@ -470,6 +470,7 @@ function handleTrashDrop(e: DragEvent) {
 <style scoped>
 .unified-sidebar {
   width: 180px;
+  height: 100%;
   background: var(--bg-primary);
   display: flex;
   flex-direction: column;
@@ -484,6 +485,7 @@ function handleTrashDrop(e: DragEvent) {
   padding: 0 16px;
   border-bottom: 1px solid var(--border-color);
   box-sizing: border-box;
+  flex-shrink: 0;
 }
 
 .create-note-btn {
@@ -514,12 +516,43 @@ function handleTrashDrop(e: DragEvent) {
   flex-shrink: 0;
 }
 
+/* 固定的搜索区域 */
+.sidebar-search {
+  padding: 8px;
+  flex-shrink: 0;
+}
+
+.sidebar-search .nav-item {
+  padding: 10px 16px;
+}
+
+/* 可滚动的中间导航区域 */
 .sidebar-nav {
   flex: 1;
   padding: 8px;
   display: flex;
   flex-direction: column;
   gap: 4px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* 自定义滚动条样式 */
+.sidebar-nav::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 3px;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
 }
 
 .nav-item {
@@ -718,7 +751,7 @@ function handleTrashDrop(e: DragEvent) {
   background: var(--color-primary-light);
 }
 
-/* 回收站 */
+/* 回收站 - 固定在底部 */
 .sidebar-trash {
   display: flex;
   align-items: center;
@@ -730,6 +763,7 @@ function handleTrashDrop(e: DragEvent) {
   cursor: pointer;
   transition: all 0.2s;
   border: 2px dashed transparent;
+  flex-shrink: 0;
 }
 
 .sidebar-trash:hover {
