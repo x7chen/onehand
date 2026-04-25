@@ -144,6 +144,9 @@ export default {
     defaultNotebookHint: '在全部笔记本视图中创建笔记时，自动保存到此笔记本',
     autoAiAnswer: '自动 AI 回答',
     autoAiAnswerHint: '创建笔记时自动触发 AI 回答，关闭后需手动点击重新生成',
+    evernoteLinkPrefix: '印象笔记链接前缀',
+    evernoteLinkPrefixPlaceholder: '示例: evernote:///view/3248616/s15/',
+    evernoteLinkPrefixHint: "用于从笔记跳转到印象笔记，最终链接格式为: {'前缀'}{'ever_id'}/{'ever_id'}/",
   },
   notebook: {
     newNotebook: '新建笔记本',
@@ -272,6 +275,7 @@ export default {
     findRelated: '查找关联笔记',
     noRelatedNotes: '未找到关联笔记',
     searchingRelated: '搜索关联笔记...',
+    openInEvernote: '在印象笔记中打开',
   },
   title: {
     appTitle: 'OneHand',

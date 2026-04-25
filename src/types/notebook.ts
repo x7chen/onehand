@@ -46,6 +46,8 @@ export interface CanvasNode {
   pdfPage?: number
   pdfPosition?: { x: number; y: number }
   highlightRect?: { x: number; y: number; width: number; height: number }
+  /** 印象笔记节点ID，用于跳转到印象笔记 */
+  ever_id?: string
 }
 
 /** 画布显示节点，包含动态计算的位置 */

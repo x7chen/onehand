@@ -53,6 +53,7 @@ export interface GeneralSettings {
   userFilesPath?: string  // 用户文件目录（笔记本、PDF、图片、音频、上下文等）
   defaultNotebookId?: string  // 默认笔记本ID（全部笔记本视图下创建笔记时使用）
   autoAiAnswer?: boolean  // 自动AI回答开关（创建笔记时自动触发AI回答）
+  evernoteLinkPrefix?: string  // 印象笔记链接前缀（用于跳转到印象笔记）
 }
 
 export interface ViewSettings {
@@ -115,7 +116,8 @@ export const defaultSettings: Settings = {
     customPrimaryColor: undefined,
     notebooksViewMode: 'grid',
     nodeListViewMode: 'card',
-    autoAiAnswer: true  // 默认开启自动AI回答
+    autoAiAnswer: true,  // 默认开启自动AI回答
+    evernoteLinkPrefix: 'evernote:///view/3248616/s15/'  // 默认印象笔记链接前缀
   },
   view: {
     chatViewLeftPanelRatio: 0.6,

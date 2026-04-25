@@ -144,6 +144,9 @@ export default {
     defaultNotebookHint: 'When creating notes in all notebooks view, automatically save to this notebook',
     autoAiAnswer: 'Auto AI Answer',
     autoAiAnswerHint: 'Automatically trigger AI answer when creating notes, disable to require manual regeneration',
+    evernoteLinkPrefix: 'Evernote Link Prefix',
+    evernoteLinkPrefixPlaceholder: 'Example: evernote:///view/3248616/s15/',
+    evernoteLinkPrefixHint: "Used to jump from notes to Evernote, final link format: {'prefix'}{'ever_id'}/{'ever_id'}/",
   },
   notebook: {
     newNotebook: 'New Notebook',
@@ -272,6 +275,7 @@ export default {
     findRelated: 'Find related notes',
     noRelatedNotes: 'No related notes found',
     searchingRelated: 'Searching related notes...',
+    openInEvernote: 'Open in Evernote',
   },
   title: {
     appTitle: 'OneHand',

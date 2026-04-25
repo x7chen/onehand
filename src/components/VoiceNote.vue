@@ -148,8 +148,15 @@
             </svg>
             <span>{{ t('tag.title') }}</span>
           </button>
+          <!-- 印象笔记 - 仅当有 ever_id 时显示 -->
+          <button v-if="node.ever_id" class="menu-item" @click.stop="openEvernote">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+            </svg>
+            <span>{{ t('voiceNote.openInEvernote') }}</span>
+          </button>
           <!-- 分隔线 -->
-          <div v-if="!allButtonsVisible" class="menu-divider"></div>
+          <div v-if="!allButtonsVisible || node.ever_id" class="menu-divider"></div>
           <!-- 删除按钮 - 永远在菜单中 -->
           <button class="menu-item delete-menu-item" @click.stop="deleteNode">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
@@ -413,6 +420,7 @@ import NodePopup from '@/components/NodePopup.vue'
 import { useNotebookStore } from '@/stores/notebookStore'
 import { useTagStore } from '@/stores/tagStore'
 import { useVectorStore } from '@/stores/vectorStore'
+import { useSettingsStore } from '@/stores/settingsStore'
 import { formatDuration } from '@/utils/helpers'
 import { renderMarkdown, renderMermaidCharts, processImagePaths } from '@/utils/markdownRenderer'
 import { getNotebookDataDir, getNotebookImagesDir } from '@/utils/userFilesPath'
@@ -425,6 +433,7 @@ const router = useRouter()
 const notebookStore = useNotebookStore()
 const tagStore = useTagStore()
 const vectorStore = useVectorStore()
+const settingsStore = useSettingsStore()
 
 const props = defineProps<{
   node: CanvasNode | DisplayNode
@@ -1169,6 +1178,15 @@ function playAudio() {
   setTimeout(() => {
     localIsPlaying.value = false
   }, 3000)
+}
+
+// 打开印象笔记链接
+function openEvernote() {
+  if (!props.node.ever_id) return
+  const prefix = settingsStore.settings.general.evernoteLinkPrefix || 'evernote:///view/3248616/s15/'
+  const evernoteUrl = `${prefix}${props.node.ever_id}/${props.node.ever_id}/`
+  window.open(evernoteUrl, '_blank')
+  closeMenu()
 }
 
 function deleteNode() {

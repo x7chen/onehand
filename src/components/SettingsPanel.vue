@@ -193,6 +193,17 @@
             </div>
             <p class="form-hint">{{ t('settings.autoAiAnswerHint') }}</p>
           </div>
+
+          <div class="form-group">
+            <label>{{ t('settings.evernoteLinkPrefix') }}</label>
+            <input
+              :value="settingsStore.settings.general.evernoteLinkPrefix || ''"
+              @input="updateEvernoteLinkPrefix(($event.target as HTMLInputElement).value)"
+              type="text"
+              :placeholder="t('settings.evernoteLinkPrefixPlaceholder')"
+            />
+            <p class="form-hint">{{ t('settings.evernoteLinkPrefixHint') }}</p>
+          </div>
         </div>
 
         <!-- Model Settings Tab -->
@@ -597,6 +608,16 @@ function updateAutoAiAnswer(enabled: boolean) {
     general: {
       ...settingsStore.settings.general,
       autoAiAnswer: enabled
+    }
+  })
+}
+
+// 更新印象笔记链接前缀
+function updateEvernoteLinkPrefix(prefix: string) {
+  settingsStore.updateSettings({
+    general: {
+      ...settingsStore.settings.general,
+      evernoteLinkPrefix: prefix || undefined
     }
   })
 }

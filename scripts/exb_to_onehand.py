@@ -12,13 +12,17 @@
     output_dir    - 输出目录，默认为当前目录下的 onehand_notebooks
 
 选项:
-    -i, --images      提取图片和附件
+    -i, --images      提取图片到笔记本目录下的images文件夹，并转换为markdown图片引用
     -d, --by-date     按日期（年月）分组到不同笔记本
+    -s, --single-file 导出为单个文件（不按笔记本分组）
     --list-tables     列出数据库中的所有表（用于调试）
 
 示例:
     python exb_to_onehand.py blocks/x8chen#app.yinxiang.com.exb
+    python exb_to_onehand.py blocks/x8chen#app.yinxiang.com.exb ./output
     python exb_to_onehand.py blocks/x8chen#app.yinxiang.com.exb ./output -i
+    python exb_to_onehand.py blocks/x8chen#app.yinxiang.com.exb ./output -d
+    python exb_to_onehand.py blocks/x8chen#app.yinxiang.com.exb ./output -s
     python exb_to_onehand.py blocks/x8chen#app.yinxiang.com.exb --list-tables
 """
 
@@ -344,6 +348,122 @@ def extract_note_content(content_xml: str) -> str:
     return markdown
 
 
+def process_images_in_content(content: str, resources: List[Dict], images_dir: str, image_counter: List[int] = None) -> Tuple[str, List[Dict]]:
+    """
+    处理内容中的图片，保存到指定目录，并替换为markdown图片引用
+
+    Args:
+        content: 原始HTML内容
+        resources: 资源列表
+        images_dir: 图片保存目录
+        image_counter: 全局图片计数器 [count]，用于生成唯一文件名
+
+    Returns:
+        Tuple[处理后的内容, 保存的图片信息列表]
+    """
+    if not content:
+        return content, []
+
+    # 初始化计数器
+    if image_counter is None:
+        image_counter = [0]
+
+    saved_images = []
+
+    # 移除 CDATA 标记
+    content = re.sub(r'<!\[CDATA\[|\]\]>', '', content)
+
+    # 处理 <en-media> 标签（印象笔记的图片嵌入方式）
+    # 格式: <en-media type="image/png" hash="xxxxx" />
+    def replace_en_media(match):
+        nonlocal saved_images
+
+        tag = match.group(0)
+        # 提取属性
+        type_match = re.search(r'type="([^"]+)"', tag)
+        hash_match = re.search(r'hash="([^"]+)"', tag)
+
+        if not type_match:
+            return tag
+
+        mime_type = type_match.group(1)
+        content_hash = hash_match.group(1) if hash_match else None
+
+        # 只处理图片类型
+        if not mime_type.startswith('image/'):
+            return tag
+
+        # 查找匹配的资源（优先用 hash 匹配，其次用 mime 类型）
+        matched_resource = None
+        if content_hash:
+            for resource in resources:
+                # 尝试多种 hash 匹配方式
+                res_hash = resource.get('hash')
+                if res_hash:
+                    # hash 可能是 bytes 或 str
+                    if isinstance(res_hash, bytes):
+                        res_hash_str = res_hash.hex()
+                    else:
+                        res_hash_str = str(res_hash)
+                    if res_hash_str == content_hash or content_hash in res_hash_str:
+                        matched_resource = resource
+                        break
+
+        if not matched_resource:
+            # 如果没找到精确匹配，尝试用同类型的第一个图片资源
+            for resource in resources:
+                if resource.get('mime', '').startswith('image/'):
+                    matched_resource = resource
+                    break
+
+        if not matched_resource or 'data' not in matched_resource:
+            return '[图片]'
+
+        # 保存图片
+        try:
+            # 确定文件扩展名
+            ext = mime_type.split('/')[-1]
+            if ext == 'jpeg':
+                ext = 'jpg'
+
+            # 使用全局计数器生成唯一文件名
+            image_counter[0] += 1
+            now = int(datetime.now().timestamp() * 1000)
+            filename = f"img-{now}-{image_counter[0]}.{ext}"
+            image_path = os.path.join(images_dir, filename)
+
+            # 保存图片数据（EXB 中是二进制数据）
+            binary_data = matched_resource['data']
+            with open(image_path, 'wb') as f:
+                f.write(binary_data)
+
+            # 记录保存的图片
+            relative_path = f"images/{filename}"
+            saved_images.append({
+                'path': image_path,
+                'relative_path': relative_path,
+                'filename': filename
+            })
+
+            # 返回 markdown 图片语法
+            alt = matched_resource.get('filename', 'image')
+            if alt:
+                alt = re.sub(r'[<>:"/\\|?*]', '_', alt)
+            return f"\n![{alt}]({relative_path})\n"
+
+        except Exception as e:
+            print(f"  警告: 保存图片失败: {e}")
+            return '[图片]'
+
+    # 替换 en-media 标签
+    content = re.sub(r'<en-media[^>]*/>', replace_en_media, content)
+
+    # 转换剩余的 HTML 为 Markdown
+    content = html_to_markdown(content)
+
+    return content, saved_images
+
+
 def get_db_schema(conn: sqlite3.Connection) -> Dict[str, List[str]]:
     """获取数据库表结构"""
     cursor = conn.cursor()
@@ -642,16 +762,39 @@ def collect_all_tags(notes: List[Dict]) -> Dict[str, Dict]:
     return all_tags
 
 
-def create_node_from_note(note: Dict) -> Dict:
-    """从笔记创建节点（V2格式），使用原始 GUID 作为 id"""
-    # 使用印象笔记的原始 GUID 作为节点 ID
+def create_node_from_note(note: Dict, extract_images: bool = False, images_dir: str = None, image_counter: List[int] = None) -> Dict:
+    """
+    从笔记创建节点（V2格式），保存印象笔记 GUID 到 ever_id
+
+    Args:
+        note: 笔记数据
+        extract_images: 是否提取图片
+        images_dir: 图片保存目录
+        image_counter: 全局图片计数器
+    """
+    # 使用印象笔记的原始 GUID 作为 ever_id
+    ever_id = note.get('guid') or generate_id()
+    # 生成新的节点 ID
     node_id = note.get('guid') or generate_id()
+
+    # 处理内容
+    content = note['content']
+    if extract_images and note.get('raw_content') and note.get('resources') and images_dir:
+        content, saved_images = process_images_in_content(
+            note['raw_content'],
+            note['resources'],
+            images_dir,
+            image_counter
+        )
+        if saved_images:
+            print(f"  笔记 '{note['title'][:30]}...' 提取了 {len(saved_images)} 张图片")
 
     return {
         'id': node_id,
+        'ever_id': ever_id,  # 保存印象笔记的 guid
         'type': 'text-note',
         'title': note['title'][:100] if len(note['title']) > 100 else note['title'],
-        'transcript': note['content'],
+        'transcript': content,
         'transcriptStatus': 'done',
         'agentResult': None,
         'agentStatus': 'pending',
@@ -664,17 +807,43 @@ def create_node_from_note(note: Dict) -> Dict:
 def create_onehand_notebook_v2(
     notes: List[Dict],
     notebook_name: str,
-    notebook_id: str = None
+    notebook_id: str = None,
+    extract_images: bool = False,
+    output_dir: str = None
 ) -> Dict:
-    """创建 OneHand 笔记本格式 (V2)"""
+    """
+    创建 OneHand 笔记本格式 (V2)
+
+    Args:
+        notes: 笔记列表
+        notebook_name: 笔记本名称
+        notebook_id: 笔记本ID
+        extract_images: 是否提取图片到单独文件夹
+        output_dir: 输出目录（用于创建图片文件夹）
+    """
     now = int(datetime.now().timestamp() * 1000)
     if notebook_id is None:
         notebook_id = str(now)
 
+    # 如果需要提取图片，创建 images 目录
+    images_dir = None
+    if extract_images and output_dir:
+        notebook_dir = os.path.join(output_dir, notebook_id)
+        images_dir = os.path.join(notebook_dir, 'images')
+        os.makedirs(images_dir, exist_ok=True)
+
+    # 全局图片计数器，确保所有笔记的图片名唯一
+    image_counter = [0]
+
     # 创建节点
     nodes = []
     for note in notes:
-        node = create_node_from_note(note)
+        node = create_node_from_note(
+            note,
+            extract_images=extract_images,
+            images_dir=images_dir,
+            image_counter=image_counter
+        )
         nodes.append(node)
 
     # 按创建时间排序
@@ -693,11 +862,15 @@ def convert_exb_to_onehand(
     exb_path: str,
     output_dir: str,
     by_date: bool = False,
-    by_notebook: bool = True  # 新增参数：按笔记本分组
+    by_notebook: bool = True,
+    extract_images: bool = False
 ) -> List[str]:
     """
     将 EXB 文件转换为 OneHand 格式
     默认按笔记本分组导出
+
+    参数:
+        extract_images: 是否提取图片和附件到单独的目录
     """
     print(f"正在解析数据库: {exb_path}")
 
@@ -744,7 +917,9 @@ def convert_exb_to_onehand(
             notebook = create_onehand_notebook_v2(
                 month_notes,
                 f"笔记 {month_key}",
-                notebook_id
+                notebook_id,
+                extract_images=extract_images,
+                output_dir=output_dir
             )
 
             output_path = os.path.join(output_dir, f"{notebook_id}.json")
@@ -766,21 +941,23 @@ def convert_exb_to_onehand(
         for notebook_name in sorted(notes_by_notebook.keys()):
             notebook_notes = notes_by_notebook[notebook_name]
 
-            # 清理文件名中的非法字符
-            safe_name = re.sub(r'[<>:"/\\|?*]', '_', notebook_name)
-            notebook_id = f"{safe_name}-{int(datetime.now().timestamp() * 1000)}"
+            # 使用纯时间戳作为 notebook_id，避免中文文件名
+            notebook_id = str(int(datetime.now().timestamp() * 1000))
 
             notebook = create_onehand_notebook_v2(
                 notebook_notes,
                 notebook_name,
-                notebook_id
+                notebook_id,
+                extract_images=extract_images,
+                output_dir=output_dir
             )
 
-            output_path = os.path.join(output_dir, f"{safe_name}.json")
+            # 文件名使用纯时间戳 notebook_id
+            output_path = os.path.join(output_dir, f"{notebook_id}.json")
             with open(output_path, 'w', encoding='utf-8') as f:
                 json.dump(notebook, f, ensure_ascii=False, indent=2)
             output_paths.append(output_path)
-            print(f"  - {notebook_name}: {len(notebook_notes)} 条笔记 -> {safe_name}.json")
+            print(f"  - {notebook_name}: {len(notebook_notes)} 条笔记 -> {notebook_id}.json")
 
     else:
         # 创建单个笔记本（旧行为）
@@ -789,7 +966,9 @@ def convert_exb_to_onehand(
         notebook = create_onehand_notebook_v2(
             notes,
             f"{exb_name} 导入",
-            notebook_id
+            notebook_id,
+            extract_images=extract_images,
+            output_dir=output_dir
         )
 
         output_path = os.path.join(output_dir, f"{notebook_id}.json")
@@ -799,6 +978,17 @@ def convert_exb_to_onehand(
         print(f"已创建笔记本: {output_path}")
         print(f"笔记本名称: {exb_name} 导入")
         print(f"包含 {len(notes)} 条笔记")
+
+    # 统计提取的图片总数
+    if extract_images:
+        total_images = 0
+        for nb_id in [os.path.basename(p).replace('.json', '') for p in output_paths]:
+            images_dir = os.path.join(output_dir, nb_id, 'images')
+            if os.path.exists(images_dir):
+                image_count = len([f for f in os.listdir(images_dir) if os.path.isfile(os.path.join(images_dir, f))])
+                total_images += image_count
+                print(f"  笔记本 {nb_id}: 提取了 {image_count} 张图片")
+        print(f"总共提取了 {total_images} 张图片")
 
     # 写入标签文件
     if tag_count > 0:
@@ -832,6 +1022,7 @@ def main():
 示例:
     python exb_to_onehand.py blocks/x8chen#app.yinxiang.com.exb
     python exb_to_onehand.py blocks/x8chen#app.yinxiang.com.exb ./output
+    python exb_to_onehand.py blocks/x8chen#app.yinxiang.com.exb ./output -i
     python exb_to_onehand.py blocks/x8chen#app.yinxiang.com.exb ./output -d
     python exb_to_onehand.py blocks/x8chen#app.yinxiang.com.exb ./output -s
     python exb_to_onehand.py blocks/x8chen#app.yinxiang.com.exb --list-tables
@@ -840,6 +1031,8 @@ def main():
     parser.add_argument('input', help='印象笔记数据库文件 (.exb) 路径')
     parser.add_argument('output', nargs='?', default='./onehand_notebooks',
                         help='输出目录，默认为 ./onehand_notebooks')
+    parser.add_argument('-i', '--images', action='store_true',
+                        help='提取图片到笔记本目录下的images文件夹，并转换为markdown图片引用')
     parser.add_argument('-d', '--by-date', action='store_true',
                         help='按日期（年月）分组到不同笔记本')
     parser.add_argument('-s', '--single-file', action='store_true',
@@ -867,13 +1060,17 @@ def main():
         args.input,
         args.output,
         by_date=args.by_date,
-        by_notebook=not args.single_file
+        by_notebook=not args.single_file,
+        extract_images=args.images
     )
 
     if output_paths:
         print(f"\n转换完成！输出文件:")
         for path in output_paths:
             print(f"  - {path}")
+        if args.images:
+            print(f"\n注意: 使用了 -i 参数提取图片，请将笔记本 JSON 文件和同名的文件夹一起复制")
+            print(f"例如: {os.path.basename(output_paths[0])} 和 {os.path.basename(output_paths[0]).replace('.json', '')}/images/")
     else:
         print("\n转换失败，没有生成输出文件")
 
