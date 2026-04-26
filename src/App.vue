@@ -21,6 +21,7 @@ import { useTagStore } from '@/stores/tagStore'
 import { useTheme } from '@/composables/useTheme'
 import { useDeepLink } from '@/composables/useDeepLink'
 import { useLinkPaste } from '@/composables/useLinkPaste'
+import { getNotebookDataDir } from '@/utils/userFilesPath'
 import NodePopup from '@/components/NodePopup.vue'
 import TitleBar from '@/components/TitleBar.vue'
 import type { DeepLinkData } from '@/composables/useDeepLink'
@@ -51,7 +52,7 @@ const showNodePopup = ref(false)
 const popupUrl = ref<string | undefined>(undefined)
 
 // Handle click on onehand:// links in the app
-function handleDeepLinkClick(event: MouseEvent) {
+async function handleDeepLinkClick(event: MouseEvent) {
   const target = event.target as HTMLElement
 
   // Handle anchor links first - prevent navigation to avoid white screen
@@ -65,9 +66,35 @@ function handleDeepLinkClick(event: MouseEvent) {
     }
   }
 
-  // Handle relative file links (e.g., ./files/document.pdf) - ignore them
-  const fileLink = target.closest('a[href^="./"]') as HTMLAnchorElement | null
+  // Handle file attachment links (e.g., files/document.pdf) - open with system
+  const fileLink = target.closest('a[href^="files/"]') as HTMLAnchorElement | null
   if (fileLink) {
+    event.preventDefault()
+    event.stopPropagation()
+
+    const href = fileLink.getAttribute('href') || ''
+    if (href) {
+      // Get current notebook ID from route
+      const notebookId = route.params.notebookId as string
+      if (notebookId) {
+        try {
+          const notebookDir = await getNotebookDataDir(notebookId)
+          const fullPath = `${notebookDir}/${href}`
+          const result = await window.electronAPI.openPath(fullPath)
+          if (!result.success) {
+            console.error('Failed to open file:', result.error)
+          }
+        } catch (error) {
+          console.error('Error opening file:', error)
+        }
+      }
+    }
+    return
+  }
+
+  // Handle relative file links (e.g., ./files/document.pdf) - ignore them
+  const relativeLink = target.closest('a[href^="./"]') as HTMLAnchorElement | null
+  if (relativeLink) {
     event.preventDefault()
     event.stopPropagation()
     return

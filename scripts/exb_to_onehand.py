@@ -12,7 +12,7 @@
     output_dir    - 输出目录，默认为当前目录下的 onehand_notebooks
 
 选项:
-    -i, --images      提取图片到笔记本目录下的images文件夹，并转换为markdown图片引用
+    -i, --images      提取图片和附件到笔记本目录下的images/files文件夹，并转换为markdown引用
     -d, --by-date     按日期（年月）分组到不同笔记本
     -s, --single-file 导出为单个文件（不按笔记本分组）
     --list-tables     列出数据库中的所有表（用于调试）
@@ -90,9 +90,9 @@ class HTMLToMarkdown(HTMLParser):
             self.result.append('\n\n')
         elif tag == 'br':
             if self.in_list_item:
-                self.list_item_content.append('\n')
+                self.list_item_content.append('  \n')
             else:
-                self.result.append('\n')
+                self.result.append('  \n')
         elif tag == 'hr':
             self.result.append('\n---\n')
         elif tag == 'strong' or tag == 'b':
@@ -348,35 +348,40 @@ def extract_note_content(content_xml: str) -> str:
     return markdown
 
 
-def process_images_in_content(content: str, resources: List[Dict], images_dir: str, image_counter: List[int] = None) -> Tuple[str, List[Dict]]:
+def process_images_in_content(content: str, resources: List[Dict], images_dir: str, files_dir: str, image_counter: List[int] = None, file_counter: List[int] = None) -> Tuple[str, List[Dict], List[Dict]]:
     """
-    处理内容中的图片，保存到指定目录，并替换为markdown图片引用
+    处理内容中的图片和附件，保存到指定目录，并替换为markdown引用
 
     Args:
         content: 原始HTML内容
         resources: 资源列表
         images_dir: 图片保存目录
+        files_dir: 附件保存目录
         image_counter: 全局图片计数器 [count]，用于生成唯一文件名
+        file_counter: 全局附件计数器 [count]，用于生成唯一文件名
 
     Returns:
-        Tuple[处理后的内容, 保存的图片信息列表]
+        Tuple[处理后的内容, 保存的图片信息列表, 保存的附件信息列表]
     """
     if not content:
-        return content, []
+        return content, [], []
 
     # 初始化计数器
     if image_counter is None:
         image_counter = [0]
+    if file_counter is None:
+        file_counter = [0]
 
     saved_images = []
+    saved_files = []
 
     # 移除 CDATA 标记
     content = re.sub(r'<!\[CDATA\[|\]\]>', '', content)
 
-    # 处理 <en-media> 标签（印象笔记的图片嵌入方式）
+    # 处理 <en-media> 标签（印象笔记的资源嵌入方式）
     # 格式: <en-media type="image/png" hash="xxxxx" />
     def replace_en_media(match):
-        nonlocal saved_images
+        nonlocal saved_images, saved_files
 
         tag = match.group(0)
         # 提取属性
@@ -388,10 +393,6 @@ def process_images_in_content(content: str, resources: List[Dict], images_dir: s
 
         mime_type = type_match.group(1)
         content_hash = hash_match.group(1) if hash_match else None
-
-        # 只处理图片类型
-        if not mime_type.startswith('image/'):
-            return tag
 
         # 查找匹配的资源（优先用 hash 匹配，其次用 mime 类型）
         matched_resource = None
@@ -409,51 +410,139 @@ def process_images_in_content(content: str, resources: List[Dict], images_dir: s
                         matched_resource = resource
                         break
 
-        if not matched_resource:
-            # 如果没找到精确匹配，尝试用同类型的第一个图片资源
-            for resource in resources:
-                if resource.get('mime', '').startswith('image/'):
-                    matched_resource = resource
-                    break
+        # 处理图片类型
+        if mime_type.startswith('image/'):
+            if not matched_resource:
+                # 如果没找到精确匹配，尝试用同类型的第一个图片资源
+                for resource in resources:
+                    if resource.get('mime', '').startswith('image/'):
+                        matched_resource = resource
+                        break
 
-        if not matched_resource or 'data' not in matched_resource:
-            return '[图片]'
+            if not matched_resource or 'data' not in matched_resource:
+                return '[图片]'
 
-        # 保存图片
-        try:
-            # 确定文件扩展名
-            ext = mime_type.split('/')[-1]
-            if ext == 'jpeg':
-                ext = 'jpg'
+            # 保存图片
+            try:
+                # 确定文件扩展名
+                ext = mime_type.split('/')[-1]
+                if ext == 'jpeg':
+                    ext = 'jpg'
 
-            # 使用全局计数器生成唯一文件名
-            image_counter[0] += 1
-            now = int(datetime.now().timestamp() * 1000)
-            filename = f"img-{now}-{image_counter[0]}.{ext}"
-            image_path = os.path.join(images_dir, filename)
+                # 使用全局计数器生成唯一文件名
+                image_counter[0] += 1
+                now = int(datetime.now().timestamp() * 1000)
+                filename = f"img-{now}-{image_counter[0]}.{ext}"
+                image_path = os.path.join(images_dir, filename)
 
-            # 保存图片数据（EXB 中是二进制数据）
-            binary_data = matched_resource['data']
-            with open(image_path, 'wb') as f:
-                f.write(binary_data)
+                # 保存图片数据（EXB 中是二进制数据）
+                binary_data = matched_resource['data']
+                with open(image_path, 'wb') as f:
+                    f.write(binary_data)
 
-            # 记录保存的图片
-            relative_path = f"images/{filename}"
-            saved_images.append({
-                'path': image_path,
-                'relative_path': relative_path,
-                'filename': filename
-            })
+                # 记录保存的图片
+                relative_path = f"images/{filename}"
+                saved_images.append({
+                    'path': image_path,
+                    'relative_path': relative_path,
+                    'filename': filename
+                })
 
-            # 返回 markdown 图片语法
-            alt = matched_resource.get('filename', 'image')
-            if alt:
-                alt = re.sub(r'[<>:"/\\|?*]', '_', alt)
-            return f"\n![{alt}]({relative_path})\n"
+                # 返回 markdown 图片语法
+                alt = matched_resource.get('filename', 'image')
+                if alt:
+                    alt = re.sub(r'[<>:"/\\|?*]', '_', alt)
+                return f"\n![{alt}]({relative_path})\n"
 
-        except Exception as e:
-            print(f"  警告: 保存图片失败: {e}")
-            return '[图片]'
+            except Exception as e:
+                print(f"  警告: 保存图片失败: {e}")
+                return '[图片]'
+
+        # 处理其他附件类型（非图片）
+        else:
+            if not matched_resource:
+                # 如果没找到精确匹配，尝试用同类型的第一个资源
+                for resource in resources:
+                    if resource.get('mime') == mime_type:
+                        matched_resource = resource
+                        break
+
+            if not matched_resource or 'data' not in matched_resource:
+                # 返回一个通用占位符
+                return f'[附件: {mime_type}]'
+
+            # 保存附件
+            try:
+                # 确定文件扩展名
+                mime_to_ext = {
+                    'application/pdf': 'pdf',
+                    'application/zip': 'zip',
+                    'application/x-zip-compressed': 'zip',
+                    'application/msword': 'doc',
+                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+                    'application/vnd.ms-excel': 'xls',
+                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+                    'application/vnd.ms-powerpoint': 'ppt',
+                    'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'pptx',
+                    'application/rtf': 'rtf',
+                    'application/x-rtf': 'rtf',
+                    'text/plain': 'txt',
+                    'text/html': 'html',
+                    'audio/mpeg': 'mp3',
+                    'audio/mp3': 'mp3',
+                    'audio/wav': 'wav',
+                    'audio/x-wav': 'wav',
+                    'video/mp4': 'mp4',
+                    'video/quicktime': 'mov',
+                    'video/x-msvideo': 'avi',
+                }
+
+                ext = mime_to_ext.get(mime_type)
+                if not ext:
+                    # 尝试从 mime 类型名称获取
+                    ext = mime_type.split('/')[-1]
+                    if len(ext) > 10:
+                        ext = None
+
+                # 如果仍未确定扩展名，尝试从原始文件名获取
+                if not ext:
+                    original_filename = matched_resource.get('filename', '')
+                    if original_filename and '.' in original_filename:
+                        ext = original_filename.rsplit('.', 1)[-1].lower()
+                        # 限制扩展名长度，避免异常情况
+                        if len(ext) > 10:
+                            ext = 'bin'
+                    else:
+                        ext = 'bin'
+
+                # 使用数字累加生成文件名，避免特殊字符问题
+                file_counter[0] += 1
+                now = int(datetime.now().timestamp() * 1000)
+                filename = f"file-{now}-{file_counter[0]}.{ext}"
+                file_path = os.path.join(files_dir, filename)
+
+                # 保存附件数据
+                binary_data = matched_resource['data']
+                with open(file_path, 'wb') as f:
+                    f.write(binary_data)
+
+                # 记录保存的附件
+                relative_path = f"files/{filename}"
+                saved_files.append({
+                    'path': file_path,
+                    'relative_path': relative_path,
+                    'filename': filename,
+                    'mime': mime_type,
+                    'original_filename': matched_resource.get('filename', filename)  # 保留原始文件名用于显示
+                })
+
+                # 返回 markdown 链接语法，使用原始文件名作为显示文本
+                display_name = matched_resource.get('filename', filename)
+                return f"\n📎 [{display_name}]({relative_path})\n"
+
+            except Exception as e:
+                print(f"  警告: 保存附件失败: {e}")
+                return f'[附件: {mime_type}]'
 
     # 替换 en-media 标签
     content = re.sub(r'<en-media[^>]*/>', replace_en_media, content)
@@ -461,7 +550,7 @@ def process_images_in_content(content: str, resources: List[Dict], images_dir: s
     # 转换剩余的 HTML 为 Markdown
     content = html_to_markdown(content)
 
-    return content, saved_images
+    return content, saved_images, saved_files
 
 
 def get_db_schema(conn: sqlite3.Connection) -> Dict[str, List[str]]:
@@ -727,50 +816,17 @@ def extract_resources_from_exb(exb_path: str) -> Dict[str, List[Dict]]:
     return resources_by_note
 
 
-TAG_COLORS = [
-    '#66bb6a', '#4299e1', '#ed8936', '#e53e3e',
-    '#9f7aea', '#ed64a6', '#38b2ac', '#ecc94b',
-]
-
-
-def get_next_tag_color(used_colors: set) -> str:
-    """获取下一个可用的标签颜色"""
-    for color in TAG_COLORS:
-        if color not in used_colors:
-            return color
-    return TAG_COLORS[0]
-
-
-def collect_all_tags(notes: List[Dict]) -> Dict[str, Dict]:
-    """从所有笔记中收集标签"""
-    all_tags = {}
-    used_colors = set()
-
-    for note in notes:
-        for tag in note.get('tags', []):
-            if tag and tag not in all_tags:
-                color = get_next_tag_color(used_colors)
-                used_colors.add(color)
-                all_tags[tag] = {
-                    'id': f'tag-{hashlib.md5(tag.encode()).hexdigest()[:12]}',
-                    'name': tag,
-                    'color': color,
-                    'createdAt': int(datetime.now().timestamp() * 1000),
-                    'updatedAt': int(datetime.now().timestamp() * 1000)
-                }
-
-    return all_tags
-
-
-def create_node_from_note(note: Dict, extract_images: bool = False, images_dir: str = None, image_counter: List[int] = None) -> Dict:
+def create_node_from_note(note: Dict, extract_images: bool = False, images_dir: str = None, files_dir: str = None, image_counter: List[int] = None, file_counter: List[int] = None) -> Dict:
     """
     从笔记创建节点（V2格式），保存印象笔记 GUID 到 ever_id
 
     Args:
         note: 笔记数据
-        extract_images: 是否提取图片
+        extract_images: 是否提取图片和附件
         images_dir: 图片保存目录
+        files_dir: 附件保存目录
         image_counter: 全局图片计数器
+        file_counter: 全局附件计数器
     """
     # 使用印象笔记的原始 GUID 作为 ever_id
     ever_id = note.get('guid') or generate_id()
@@ -779,15 +835,19 @@ def create_node_from_note(note: Dict, extract_images: bool = False, images_dir: 
 
     # 处理内容
     content = note['content']
-    if extract_images and note.get('raw_content') and note.get('resources') and images_dir:
-        content, saved_images = process_images_in_content(
+    if extract_images and note.get('raw_content') and note.get('resources') and images_dir and files_dir:
+        content, saved_images, saved_files = process_images_in_content(
             note['raw_content'],
             note['resources'],
             images_dir,
-            image_counter
+            files_dir,
+            image_counter,
+            file_counter
         )
         if saved_images:
             print(f"  笔记 '{note['title'][:30]}...' 提取了 {len(saved_images)} 张图片")
+        if saved_files:
+            print(f"  笔记 '{note['title'][:30]}...' 提取了 {len(saved_files)} 个附件")
 
     return {
         'id': node_id,
@@ -818,22 +878,26 @@ def create_onehand_notebook_v2(
         notes: 笔记列表
         notebook_name: 笔记本名称
         notebook_id: 笔记本ID
-        extract_images: 是否提取图片到单独文件夹
-        output_dir: 输出目录（用于创建图片文件夹）
+        extract_images: 是否提取图片和附件到单独文件夹
+        output_dir: 输出目录（用于创建图片和附件文件夹）
     """
     now = int(datetime.now().timestamp() * 1000)
     if notebook_id is None:
         notebook_id = str(now)
 
-    # 如果需要提取图片，创建 images 目录
+    # 如果需要提取资源，创建 images 和 files 目录
     images_dir = None
+    files_dir = None
     if extract_images and output_dir:
         notebook_dir = os.path.join(output_dir, notebook_id)
         images_dir = os.path.join(notebook_dir, 'images')
+        files_dir = os.path.join(notebook_dir, 'files')
         os.makedirs(images_dir, exist_ok=True)
+        os.makedirs(files_dir, exist_ok=True)
 
-    # 全局图片计数器，确保所有笔记的图片名唯一
+    # 全局计数器，确保所有笔记的文件名唯一
     image_counter = [0]
+    file_counter = [0]
 
     # 创建节点
     nodes = []
@@ -842,7 +906,9 @@ def create_onehand_notebook_v2(
             note,
             extract_images=extract_images,
             images_dir=images_dir,
-            image_counter=image_counter
+            files_dir=files_dir,
+            image_counter=image_counter,
+            file_counter=file_counter
         )
         nodes.append(node)
 
@@ -890,12 +956,6 @@ def convert_exb_to_onehand(
         note['resources'] = resources.get(note['note_id'], [])
 
     print(f"总共找到 {len(notes)} 条笔记")
-
-    # 收集标签
-    tags_dict = collect_all_tags(notes)
-    tag_count = len(tags_dict)
-    if tag_count > 0:
-        print(f"发现 {tag_count} 个标签")
 
     # 确保输出目录存在
     os.makedirs(output_dir, exist_ok=True)
@@ -979,37 +1039,24 @@ def convert_exb_to_onehand(
         print(f"笔记本名称: {exb_name} 导入")
         print(f"包含 {len(notes)} 条笔记")
 
-    # 统计提取的图片总数
+    # 统计提取的图片和附件总数
     if extract_images:
         total_images = 0
+        total_files = 0
         for nb_id in [os.path.basename(p).replace('.json', '') for p in output_paths]:
-            images_dir = os.path.join(output_dir, nb_id, 'images')
+            notebook_dir = os.path.join(output_dir, nb_id)
+            images_dir = os.path.join(notebook_dir, 'images')
+            files_dir = os.path.join(notebook_dir, 'files')
+            image_count = 0
+            file_count = 0
             if os.path.exists(images_dir):
                 image_count = len([f for f in os.listdir(images_dir) if os.path.isfile(os.path.join(images_dir, f))])
                 total_images += image_count
-                print(f"  笔记本 {nb_id}: 提取了 {image_count} 张图片")
-        print(f"总共提取了 {total_images} 张图片")
-
-    # 写入标签文件
-    if tag_count > 0:
-        tags_path = os.path.join(output_dir, 'tags.json')
-        existing_tags = []
-        if os.path.exists(tags_path):
-            try:
-                with open(tags_path, 'r', encoding='utf-8') as f:
-                    existing_tags = json.load(f)
-            except:
-                existing_tags = []
-
-        # 合并标签
-        existing_tag_names = {t['name'] for t in existing_tags}
-        for tag_name, tag_def in tags_dict.items():
-            if tag_name not in existing_tag_names:
-                existing_tags.append(tag_def)
-
-        with open(tags_path, 'w', encoding='utf-8') as f:
-            json.dump(existing_tags, f, ensure_ascii=False, indent=2)
-        print(f"标签已写入: {tags_path}")
+            if os.path.exists(files_dir):
+                file_count = len([f for f in os.listdir(files_dir) if os.path.isfile(os.path.join(files_dir, f))])
+                total_files += file_count
+            print(f"  笔记本 {nb_id}: 提取了 {image_count} 张图片, {file_count} 个附件")
+        print(f"总共提取了 {total_images} 张图片, {total_files} 个附件")
 
     return output_paths
 
@@ -1032,7 +1079,7 @@ def main():
     parser.add_argument('output', nargs='?', default='./onehand_notebooks',
                         help='输出目录，默认为 ./onehand_notebooks')
     parser.add_argument('-i', '--images', action='store_true',
-                        help='提取图片到笔记本目录下的images文件夹，并转换为markdown图片引用')
+                        help='提取图片和附件到笔记本目录下的images/files文件夹，并转换为markdown引用')
     parser.add_argument('-d', '--by-date', action='store_true',
                         help='按日期（年月）分组到不同笔记本')
     parser.add_argument('-s', '--single-file', action='store_true',
@@ -1069,8 +1116,8 @@ def main():
         for path in output_paths:
             print(f"  - {path}")
         if args.images:
-            print(f"\n注意: 使用了 -i 参数提取图片，请将笔记本 JSON 文件和同名的文件夹一起复制")
-            print(f"例如: {os.path.basename(output_paths[0])} 和 {os.path.basename(output_paths[0]).replace('.json', '')}/images/")
+            print(f"\n注意: 使用了 -i 参数提取图片和附件，请将笔记本 JSON 文件和同名的文件夹一起复制")
+            print(f"例如: {os.path.basename(output_paths[0])} 和 {os.path.basename(output_paths[0]).replace('.json', '')}/images/ 及 files/ 目录")
     else:
         print("\n转换失败，没有生成输出文件")
 

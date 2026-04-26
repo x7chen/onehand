@@ -65,6 +65,8 @@ interface ElectronAPI {
   getIconDataUrl: () => Promise<string | null>
   // 获取系统语言
   getSystemLocale: () => Promise<string>
+  // 打开本地文件（使用系统默认程序）
+  openPath: (filePath: string) => Promise<{ success: boolean; error?: string }>
   // Vector Database API (embedJs)
   initVectorDb: (dimension?: number, maxElements?: number) => Promise<{ success: boolean; dimension?: number; error?: string }>
   indexNodes: (nodes: NotebookNodeData[]) => Promise<{ success: boolean; entriesAdded?: number; failedCount?: number; failedNodes?: string[]; error?: string }>

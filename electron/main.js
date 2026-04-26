@@ -686,6 +686,21 @@ ipcMain.handle('get-system-locale', () => {
   return app.getLocale()
 })
 
+// 打开本地文件（使用系统默认程序）
+ipcMain.handle('open-path', async (event, filePath) => {
+  try {
+    if (!fs.existsSync(filePath)) {
+      return { success: false, error: 'File not found' }
+    }
+    // shell.openPath 会用系统默认程序打开文件
+    await shell.openPath(filePath)
+    return { success: true }
+  } catch (error) {
+    console.error('Failed to open path:', error)
+    return { success: false, error: String(error) }
+  }
+})
+
 // ========== Vector Database IPC Handlers (embedJs) ==========
 
 /**

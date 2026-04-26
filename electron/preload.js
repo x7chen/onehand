@@ -33,6 +33,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getIconDataUrl: () => ipcRenderer.invoke('get-icon-data-url'),
   // 获取系统语言
   getSystemLocale: () => ipcRenderer.invoke('get-system-locale'),
+  // 打开本地文件（使用系统默认程序）
+  openPath: (filePath) => ipcRenderer.invoke('open-path', filePath),
   // Vector Database API (embedJs with LibSQL)
   initVectorDb: (dimension, maxElements) => ipcRenderer.invoke('init-vector-db', dimension, maxElements),
   indexNodes: (nodes) => ipcRenderer.invoke('index-nodes', nodes),
