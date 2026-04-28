@@ -593,6 +593,7 @@ function handleMagicInputSave(text: string) {
       agentResult: null,
       agentStatus: 'pending',
       createdAt: Date.now(),
+      updatedAt: Date.now(),
       pdfPage,
       pdfPosition: position
     }
@@ -640,6 +641,7 @@ async function handleRecordingComplete(data: { audioBlob: Blob; duration: number
     agentResult: null,
     agentStatus: 'pending',
     createdAt: Date.now(),
+    updatedAt: Date.now(),
     pdfPage: data.page,
     pdfPosition: { x: data.x, y: data.y },
     duration: data.duration
@@ -1151,6 +1153,7 @@ async function handleAnalyzePage(data: { imageBase64: string; pageNumber: number
     agentResult: null,
     agentStatus: 'processing',
     createdAt: Date.now(),
+    updatedAt: Date.now(),
     pdfPage: data.pageNumber,
     pdfPosition: data.position
   }
@@ -1174,6 +1177,7 @@ async function handleExplainSelection(data: { imageBase64: string; selectedText:
     agentResult: null,
     agentStatus: 'processing',
     createdAt: Date.now(),
+    updatedAt: Date.now(),
     pdfPage: data.pageNumber,
     pdfPosition: data.position
   }

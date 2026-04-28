@@ -619,6 +619,7 @@ async function handleLongPressEnd(isCancel = false) {
       agentStatus: 'pending',
       selectedAsContext: false,
       createdAt: Date.now(),
+      updatedAt: Date.now(),
       duration: recordingDuration.value
     }
 
@@ -1001,7 +1002,8 @@ function handleMagicInputSave(text: string) {
       agentResult: null,
       agentStatus: 'pending',
       selectedAsContext: false,
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      updatedAt: Date.now()
     }
     notebookStore.addNode(node)
 
@@ -1034,7 +1036,8 @@ async function handleDropText(x: number, y: number, text: string) {
     agentResult: null,
     agentStatus: 'pending',
     selectedAsContext: false,
-    createdAt: Date.now()
+    createdAt: Date.now(),
+    updatedAt: Date.now()
   }
 
   notebookStore.addNode(node)
@@ -1070,7 +1073,8 @@ async function handleDropImage(x: number, y: number, files: File[]) {
       agentResult: null,
       agentStatus: 'pending',
       selectedAsContext: false,
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      updatedAt: Date.now()
     }
 
     notebookStore.addNode(node)
@@ -1115,6 +1119,7 @@ async function handleAskWithNewRecording() {
         agentStatus: 'pending',
         selectedAsContext: false,
         createdAt: Date.now(),
+        updatedAt: Date.now(),
         duration: recordingDuration.value
       }
 

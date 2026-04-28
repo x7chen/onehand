@@ -84,9 +84,8 @@ const startNodeId = ref<string | null>(null) // 开始时的节点ID
 
 const DRAG_THRESHOLD = 5 // 拖拽阈值，超过此距离才进入拖拽模式
 
-const sortedNodes = computed(() => {
-  return [...props.nodes].sort((a, b) => a.createdAt - b.createdAt)
-})
+// 直接使用 props.nodes（已由父组件排序）
+const sortedNodes = computed(() => props.nodes)
 
 function handleScroll() {
   // 可扩展虚拟滚动，但列表视图一般节点数量较少，暂不实现

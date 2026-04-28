@@ -50,6 +50,7 @@ export interface GeneralSettings {
   customPrimaryColor?: string  // 自定义主题色（仅当colorTheme为custom时有效）
   notebooksViewMode?: 'grid' | 'list'  // 笔记本面板视图模式
   nodeListViewMode?: 'card' | 'list' | 'calendar'  // 笔记列表视图模式
+  nodeListSortOrder?: 'createdAtAsc' | 'createdAtDesc' | 'updatedAtAsc' | 'updatedAtDesc'  // 笔记列表排序方式
   userFilesPath?: string  // 用户文件目录（笔记本、PDF、图片、音频、上下文等）
   defaultNotebookId?: string  // 默认笔记本ID（全部笔记本视图下创建笔记时使用）
   autoAiAnswer?: boolean  // 自动AI回答开关（创建笔记时自动触发AI回答）
@@ -116,6 +117,7 @@ export const defaultSettings: Settings = {
     customPrimaryColor: undefined,
     notebooksViewMode: 'grid',
     nodeListViewMode: 'card',
+    nodeListSortOrder: 'createdAtDesc',  // 默认按创建时间倒序（最新在前）
     autoAiAnswer: true,  // 默认开启自动AI回答
     evernoteLinkPrefix: 'evernote:///view/3248616/s15/'  // 默认印象笔记链接前缀
   },

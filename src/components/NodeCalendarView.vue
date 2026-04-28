@@ -167,9 +167,9 @@
             <span class="note-title">
               {{ getNoteTitle(node) }}
             </span>
-            <!-- 创建时间 -->
+            <!-- 时间（根据排序方式显示创建时间或更新时间） -->
             <span class="note-time">
-              {{ formatNoteTime(node.createdAt) }}
+              {{ formatNoteTime(useUpdatedAt ? (node.updatedAt || node.createdAt) : node.createdAt) }}
             </span>
           </div>
         </div>
@@ -189,8 +189,10 @@ import type { CanvasNode } from '@/types/notebook'
 const props = withDefaults(defineProps<{
   nodes: CanvasNode[]
   activeNodeId?: string | null
+  sortOrder?: 'createdAtAsc' | 'createdAtDesc' | 'updatedAtAsc' | 'updatedAtDesc'
 }>(), {
-  activeNodeId: null
+  activeNodeId: null,
+  sortOrder: 'createdAtDesc'
 })
 
 const emit = defineEmits<{
@@ -308,11 +310,18 @@ const formatRangeTitle = computed(() => {
   }
 })
 
-// 按日期分组的节点
+// 判断是否使用更新时间进行筛选（根据排序方式决定）
+const useUpdatedAt = computed(() => {
+  return props.sortOrder === 'updatedAtAsc' || props.sortOrder === 'updatedAtDesc'
+})
+
+// 按日期分组的节点（根据排序方式决定使用哪个时间字段）
 const nodesByDate = computed(() => {
   const map = new Map<string, CanvasNode[]>()
   for (const node of props.nodes) {
-    const date = new Date(node.createdAt)
+    // 根据排序方式决定使用创建时间还是更新时间
+    const timestamp = useUpdatedAt.value ? (node.updatedAt || node.createdAt) : node.createdAt
+    const date = new Date(timestamp)
     const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`
     if (!map.has(key)) {
       map.set(key, [])
@@ -358,8 +367,12 @@ const calendarDays = computed(() => {
   return days
 })
 
-// 根据时间范围获取笔记
+// 根据时间范围获取笔记（根据排序方式决定使用哪个时间字段筛选）
 const rangeNotes = computed(() => {
+  // 获取节点的时间字段值（根据排序方式）
+  const getNodeTime = (node: CanvasNode) =>
+    useUpdatedAt.value ? (node.updatedAt || node.createdAt) : node.createdAt
+
   // 自定义范围
   if (viewRange.value === 'custom' && customRangeStart.value && customRangeEnd.value) {
     const startDate = new Date(customRangeStart.value)
@@ -368,10 +381,10 @@ const rangeNotes = computed(() => {
     endDate.setHours(23, 59, 59, 999)
     return props.nodes
       .filter(node => {
-        const nodeDate = new Date(node.createdAt)
+        const nodeDate = new Date(getNodeTime(node))
         return nodeDate >= startDate && nodeDate <= endDate
       })
-      .sort((a, b) => a.createdAt - b.createdAt)
+      .sort((a, b) => getNodeTime(a) - getNodeTime(b))
   }
 
   if (!selectedDate.value) return []
@@ -404,10 +417,10 @@ const rangeNotes = computed(() => {
 
   return props.nodes
     .filter(node => {
-      const nodeDate = new Date(node.createdAt)
+      const nodeDate = new Date(getNodeTime(node))
       return nodeDate >= startDate && nodeDate <= endDate
     })
-    .sort((a, b) => a.createdAt - b.createdAt)
+    .sort((a, b) => getNodeTime(a) - getNodeTime(b))
 })
 
 // 获取一周的开始（周日）

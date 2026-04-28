@@ -374,6 +374,10 @@ export const useNotebookStore = defineStore('notebook', () => {
     const node = currentNotebook.value.nodes.find(n => n.id === nodeId)
     if (node) {
       Object.assign(node, updates)
+      // 自动更新 updatedAt（排除仅更新选择状态的情况）
+      if (!('selectedAsContext' in updates) || Object.keys(updates).length > 1) {
+        node.updatedAt = Date.now()
+      }
       if (!skipSave) {
         saveNotebook(currentNotebook.value)
       }
@@ -412,6 +416,7 @@ export const useNotebookStore = defineStore('notebook', () => {
       const node = notebook.nodes?.find(n => n.id === nodeId)
       if (node) {
         node.isFavorite = isFavorite
+        node.updatedAt = Date.now()
         await saveNotebook(notebook)
       }
     }
@@ -456,6 +461,10 @@ export const useNotebookStore = defineStore('notebook', () => {
     const node = currentNotebook.value.nodes.find(n => n.id === nodeId && n.pdfPage === pdfPageNumber)
     if (node) {
       Object.assign(node, updates)
+      // 自动更新 updatedAt（排除仅更新选择状态的情况）
+      if (!('selectedAsContext' in updates) || Object.keys(updates).length > 1) {
+        node.updatedAt = Date.now()
+      }
       if (!skipSave) {
         saveNotebook(currentNotebook.value)
       }

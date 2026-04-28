@@ -55,9 +55,13 @@
           </svg>
         </button>
         <!-- 重新生成按钮 -->
-        <button v-if="visibleButtons.includes('regenerate')" class="action-btn regenerate-btn" @click.stop="handleRegenerate" :disabled="!canRegenerate" :title="canRegenerate ? t('voiceNote.regenerate') : t('voiceNote.cannotRegenerate')">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+        <button v-if="visibleButtons.includes('regenerate')" class="action-btn regenerate-btn" @click.stop="handleRegenerate" :disabled="!canRegenerate || isAgentProcessing" :title="canRegenerate ? t('voiceNote.regenerate') : t('voiceNote.cannotRegenerate')">
+          <svg v-if="!isAgentProcessing" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
             <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+          </svg>
+          <svg v-else class="loading-spinner" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <circle cx="12" cy="12" r="10" stroke-opacity="0.25"/>
+            <path d="M12 2a10 10 0 0 1 10 10" stroke-opacity="1"/>
           </svg>
         </button>
         <!-- 隐藏 AI 回答按钮 -->
@@ -118,9 +122,13 @@
             <span>{{ isFavorite ? t('voiceNote.unfavorite') : t('voiceNote.favorite') }}</span>
           </button>
           <!-- 重新生成 - 折叠时显示 -->
-          <button v-if="!visibleButtons.includes('regenerate')" class="menu-item" :disabled="!canRegenerate" @click.stop="handleMenuRegenerate">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+          <button v-if="!visibleButtons.includes('regenerate')" class="menu-item" :disabled="!canRegenerate || isAgentProcessing" @click.stop="handleMenuRegenerate">
+            <svg v-if="!isAgentProcessing" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
               <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+            </svg>
+            <svg v-else class="loading-spinner" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+              <circle cx="12" cy="12" r="10" stroke-opacity="0.25"/>
+              <path d="M12 2a10 10 0 0 1 10 10" stroke-opacity="1"/>
             </svg>
             <span>{{ t('voiceNote.regenerate') }}</span>
           </button>
@@ -154,6 +162,13 @@
               <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
             </svg>
             <span>{{ t('voiceNote.openInEvernote') }}</span>
+          </button>
+          <!-- 详情 -->
+          <button class="menu-item" @click.stop="openDetailsPopover">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+            </svg>
+            <span>{{ t('voiceNote.details') }}</span>
           </button>
           <!-- 分隔线 -->
           <div v-if="!allButtonsVisible || node.ever_id" class="menu-divider"></div>
@@ -284,6 +299,56 @@
           <!-- 无结果状态 -->
           <div v-else class="related-notes-empty">
             <span>{{ t('voiceNote.noRelatedNotes') }}</span>
+          </div>
+        </div>
+
+        <!-- 详情气泡 -->
+        <div v-if="showDetailsPopover" class="details-popover-overlay" @click="closeDetailsPopover"></div>
+        <div v-if="showDetailsPopover" class="details-popover" :style="detailsPopoverStyle">
+          <div class="details-header">
+            <span class="details-title">{{ t('voiceNote.noteDetails') }}</span>
+            <button class="details-close-btn" @click.stop="closeDetailsPopover">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+              </svg>
+            </button>
+          </div>
+          <div class="details-content">
+            <!-- 标题 -->
+            <div class="details-row">
+              <span class="details-label">{{ t('voiceNote.detailsTitle') }}</span>
+              <span class="details-value">{{ node.title || t('nodeList.noTitle') }}</span>
+            </div>
+            <!-- 所属笔记本 -->
+            <div class="details-row">
+              <span class="details-label">{{ t('voiceNote.detailsNotebook') }}</span>
+              <span class="details-value">{{ notebookName }}</span>
+            </div>
+            <!-- 创建时间 -->
+            <div class="details-row">
+              <span class="details-label">{{ t('voiceNote.detailsCreatedAt') }}</span>
+              <span class="details-value">{{ formatDateTime(node.createdAt) }}</span>
+            </div>
+            <!-- 更新时间 -->
+            <div class="details-row">
+              <span class="details-label">{{ t('voiceNote.detailsUpdatedAt') }}</span>
+              <span class="details-value">{{ formatDateTime(node.updatedAt || node.createdAt) }}</span>
+            </div>
+            <!-- 标签 -->
+            <div class="details-row">
+              <span class="details-label">{{ t('voiceNote.detailsTags') }}</span>
+              <span class="details-value">{{ nodeTags.length > 0 ? nodeTags.map(t => t.name).join(', ') : t('nav.noTags') }}</span>
+            </div>
+            <!-- 字数 -->
+            <div class="details-row">
+              <span class="details-label">{{ t('voiceNote.detailsWordCount') }}</span>
+              <span class="details-value">{{ wordCount }} {{ t('context.wordCount', { count: wordCount }).replace(wordCount + '', '') }}</span>
+            </div>
+            <!-- 类型 -->
+            <div class="details-row">
+              <span class="details-label">{{ t('voiceNote.detailsType') }}</span>
+              <span class="details-value">{{ getNodeTypeName(node.type) }}</span>
+            </div>
           </div>
         </div>
       </Teleport>
@@ -766,6 +831,11 @@ const canRegenerate = computed(() => {
   return true
 })
 
+// AI是否正在处理中（processing状态显示加载动画并禁用按钮）
+const isAgentProcessing = computed(() => {
+  return props.node.agentStatus === 'processing'
+})
+
 // 菜单相关
 const showMenu = ref(false)
 const menuStyle = ref<{ top: string; right: string }>({ top: '0px', right: '0px' })
@@ -841,6 +911,96 @@ const showTagDropdown = ref(false)
 const filteredTags = ref<Tag[]>([])
 
 import type { Tag } from '@/types/tag'
+
+// 详情气泡相关
+const showDetailsPopover = ref(false)
+const detailsPopoverStyle = ref<{ top: string; left: string }>({ top: '0px', left: '0px' })
+
+// 笔记本名称
+const notebookName = computed(() => {
+  const notebookId = props.notebookId || notebookStore.currentNotebook?.id
+  if (!notebookId) return t('notebook.myNotebooks')
+  const notebook = notebookStore.notebooks.find(n => n.id === notebookId)
+  return notebook?.name || t('notebook.myNotebooks')
+})
+
+// 字数统计
+const wordCount = computed(() => {
+  const transcript = props.node.transcript || ''
+  const agentResult = props.node.agentResult || ''
+  const totalText = transcript + agentResult
+  // 统计中文字符和英文单词
+  const chineseChars = totalText.match(/[一-龥]/g)?.length || 0
+  const englishWords = totalText.match(/[a-zA-Z]+/g)?.length || 0
+  return chineseChars + englishWords
+})
+
+// 格式化日期时间
+function formatDateTime(timestamp: number) {
+  const date = new Date(timestamp)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${year}-${month}-${day} ${hours}:${minutes}`
+}
+
+// 获取节点类型名称
+function getNodeTypeName(type: string) {
+  switch (type) {
+    case 'voice-note':
+      return t('voiceNote.detailsVoiceNote')
+    case 'text-note':
+      return t('voiceNote.detailsTextNote')
+    case 'image-note':
+      return t('voiceNote.detailsImageNote')
+    default:
+      return type
+  }
+}
+
+function openDetailsPopover() {
+  closeMenu()
+  const voiceNoteEl = voiceNoteRef.value
+  if (voiceNoteEl) {
+    // 找到菜单按钮的位置，使气泡与按钮右对齐
+    const menuBtn = voiceNoteEl.querySelector('.menu-btn') as HTMLElement
+    const popoverWidth = 280
+
+    if (menuBtn) {
+      const btnRect = menuBtn.getBoundingClientRect()
+      // 气泡右边缘与按钮右边缘对齐
+      let left = btnRect.right - popoverWidth
+
+      // 确保不超出左边界
+      if (left < 8) {
+        left = 8
+      }
+
+      detailsPopoverStyle.value = {
+        top: `${btnRect.bottom + 4}px`,
+        left: `${left}px`
+      }
+    } else {
+      // 如果找不到按钮，使用节点位置
+      const rect = voiceNoteEl.getBoundingClientRect()
+      let left = rect.right - popoverWidth
+      if (left < 8) {
+        left = 8
+      }
+      detailsPopoverStyle.value = {
+        top: `${rect.bottom + 4}px`,
+        left: `${left}px`
+      }
+    }
+    showDetailsPopover.value = true
+  }
+}
+
+function closeDetailsPopover() {
+  showDetailsPopover.value = false
+}
 
 // 获取节点标签（带颜色信息）
 const nodeTags = computed<Tag[]>(() => {
@@ -1756,6 +1916,10 @@ watch(() => props.node.thinkingContent, async (newThinkingContent) => {
   background: transparent;
 }
 
+.menu-item .loading-spinner {
+  animation: spin 1s linear infinite;
+}
+
 /* 功能按钮组 */
 .action-buttons {
   display: flex;
@@ -1816,6 +1980,10 @@ watch(() => props.node.thinkingContent, async (newThinkingContent) => {
 
 .regenerate-btn:not(:disabled):hover {
   color: var(--color-primary);
+}
+
+.regenerate-btn .loading-spinner {
+  animation: spin 1s linear infinite;
 }
 
 /* 复制链接按钮 */
@@ -2850,5 +3018,97 @@ background-color: rgba(0, 0, 0, 1);
   padding: 20px;
   font-size: 13px;
   color: var(--text-secondary);
+}
+
+/* 详情气泡
+   ======================================== */
+
+.details-popover-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 3200;
+}
+
+.details-popover {
+  position: fixed;
+  z-index: 3201;
+  width: 280px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px var(--shadow-color);
+  overflow: hidden;
+}
+
+.details-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.details-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.details-close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+}
+
+.details-close-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.details-content {
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.details-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.details-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  min-width: 70px;
+  flex-shrink: 0;
+}
+
+.details-value {
+  font-size: 13px;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+/* Spin动画 */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>

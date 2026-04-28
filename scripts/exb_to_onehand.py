@@ -36,7 +36,7 @@ import hashlib
 import uuid
 import argparse
 import zlib
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from html.parser import HTMLParser
 from typing import List, Dict, Optional, Tuple
 from pathlib import Path
@@ -249,16 +249,24 @@ def html_to_markdown(html_content: str) -> str:
 def parse_evernote_timestamp(ts: float) -> int:
     """
     解析印象笔记时间戳
-    印象笔记使用从 0001-01-01 开始的天数（带小数部分表示时间）
+    印象笔记使用从 UTC 0001-01-01 开始的天数，但存储值比实际天数多1天
     转换为毫秒级 Unix 时间戳
+
+    经过测试验证：
+    - 用户期望时间：2026-04-27 09:10（北京时间）
+    - 存储天数：739733.0491
+    - UTC基准直接解析：2026-04-28 09:10（错误，多1天）
+    - UTC基准减1天后解析：2026-04-27 09:10（正确）
     """
     if not ts:
         return int(datetime.now().timestamp() * 1000)
 
     try:
-        # 印象笔记时间戳是从 0001-01-01 开始的天数
-        base_date = datetime(1, 1, 1)
-        actual_date = base_date + timedelta(days=ts)
+        # 印象笔记存储的天数比 UTC 基准计算的多1天
+        # 需要减去1天来得到正确的 UTC 时间
+        adjusted_days = ts - 1
+        base_date = datetime(1, 1, 1, tzinfo=timezone.utc)
+        actual_date = base_date + timedelta(days=adjusted_days)
 
         # 转换为毫秒级 Unix 时间戳
         timestamp_ms = int(actual_date.timestamp() * 1000)
@@ -860,6 +868,7 @@ def create_node_from_note(note: Dict, extract_images: bool = False, images_dir: 
         'agentStatus': 'pending',
         'isFavorite': False,
         'createdAt': note['created'],
+        'updatedAt': note['updated'],  # 添加更新时间
         'tags': note.get('tags', [])
     }
 
@@ -973,7 +982,7 @@ def convert_exb_to_onehand(
         # 为每个月份创建笔记本
         for month_key in sorted(notes_by_month.keys()):
             month_notes = notes_by_month[month_key]
-            notebook_id = f"{month_key.replace('-', '')}-{int(datetime.now().timestamp() * 1000)}"
+            notebook_id = str(uuid.uuid4())
             notebook = create_onehand_notebook_v2(
                 month_notes,
                 f"笔记 {month_key}",
@@ -1001,8 +1010,8 @@ def convert_exb_to_onehand(
         for notebook_name in sorted(notes_by_notebook.keys()):
             notebook_notes = notes_by_notebook[notebook_name]
 
-            # 使用纯时间戳作为 notebook_id，避免中文文件名
-            notebook_id = str(int(datetime.now().timestamp() * 1000))
+            # 使用 UUID 作为 notebook_id
+            notebook_id = str(uuid.uuid4())
 
             notebook = create_onehand_notebook_v2(
                 notebook_notes,
@@ -1012,7 +1021,7 @@ def convert_exb_to_onehand(
                 output_dir=output_dir
             )
 
-            # 文件名使用纯时间戳 notebook_id
+            # 文件名使用 notebook_id
             output_path = os.path.join(output_dir, f"{notebook_id}.json")
             with open(output_path, 'w', encoding='utf-8') as f:
                 json.dump(notebook, f, ensure_ascii=False, indent=2)
@@ -1021,7 +1030,7 @@ def convert_exb_to_onehand(
 
     else:
         # 创建单个笔记本（旧行为）
-        notebook_id = str(int(datetime.now().timestamp() * 1000))
+        notebook_id = str(uuid.uuid4())
         exb_name = Path(exb_path).stem
         notebook = create_onehand_notebook_v2(
             notes,

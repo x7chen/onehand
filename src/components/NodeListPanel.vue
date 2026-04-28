@@ -8,39 +8,126 @@
     <div class="panel-title-bar">
       <h2 class="panel-title">{{ notebookName }}</h2>
       <span class="note-count">{{ nodes.length }} {{ t('notebook.notes') }}</span>
-      <div class="view-toggle-group">
+      <!-- 按钮组 -->
+      <div class="btn-group">
+        <!-- 排序按钮 -->
+        <button
+          class="sort-toggle-btn"
+          @click="toggleSortMenu"
+        >
+          <!-- 排序图标 -->
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M3 18h6v-2H3v2zM3 6v2h18V6H3zm0 7h12v-2H3v2z"/>
+          </svg>
+        </button>
+        <!-- 视图切换按钮 -->
         <button
           class="view-toggle-btn"
-          :class="{ active: viewMode === 'card' }"
-          @click="viewMode = 'card'"
+          @click="toggleViewMenu"
         >
           <!-- 卡片图标 -->
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+          <svg v-if="viewMode === 'card'" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
             <path d="M4 4h7v7H4zm0 9h7v7H4zm9-9h7v7h-7zm0 9h7v7h-7z"/>
           </svg>
-        </button>
-        <button
-          class="view-toggle-btn"
-          :class="{ active: viewMode === 'list' }"
-          @click="viewMode = 'list'"
-        >
           <!-- 列表图标 -->
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+          <svg v-else-if="viewMode === 'list'" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
             <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
           </svg>
-        </button>
-        <button
-          class="view-toggle-btn"
-          :class="{ active: viewMode === 'calendar' }"
-          @click="viewMode = 'calendar'"
-        >
           <!-- 日历图标 -->
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+          <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
             <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM9 10H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2zm-8 4H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2z"/>
           </svg>
         </button>
       </div>
     </div>
+
+    <!-- 排序抽屉菜单 -->
+    <Teleport to="body">
+      <div v-if="showSortMenu" class="menu-overlay" @click="closeSortMenu"></div>
+      <div v-if="showSortMenu" class="drawer-menu sort-menu" :style="sortMenuStyle">
+        <button
+          class="drawer-menu-item"
+          :class="{ active: sortOrder === 'createdAtAsc' }"
+          @click="setSortOrder('createdAtAsc')"
+        >
+          <svg v-if="sortOrder === 'createdAtAsc'" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" class="check-icon">
+            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+          </svg>
+          <span v-else class="check-placeholder"></span>
+          <span>{{ t('nodeList.sortCreatedAtAsc') }}</span>
+        </button>
+        <button
+          class="drawer-menu-item"
+          :class="{ active: sortOrder === 'createdAtDesc' }"
+          @click="setSortOrder('createdAtDesc')"
+        >
+          <svg v-if="sortOrder === 'createdAtDesc'" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" class="check-icon">
+            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+          </svg>
+          <span v-else class="check-placeholder"></span>
+          <span>{{ t('nodeList.sortCreatedAtDesc') }}</span>
+        </button>
+        <button
+          class="drawer-menu-item"
+          :class="{ active: sortOrder === 'updatedAtAsc' }"
+          @click="setSortOrder('updatedAtAsc')"
+        >
+          <svg v-if="sortOrder === 'updatedAtAsc'" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" class="check-icon">
+            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+          </svg>
+          <span v-else class="check-placeholder"></span>
+          <span>{{ t('nodeList.sortUpdatedAtAsc') }}</span>
+        </button>
+        <button
+          class="drawer-menu-item"
+          :class="{ active: sortOrder === 'updatedAtDesc' }"
+          @click="setSortOrder('updatedAtDesc')"
+        >
+          <svg v-if="sortOrder === 'updatedAtDesc'" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" class="check-icon">
+            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+          </svg>
+          <span v-else class="check-placeholder"></span>
+          <span>{{ t('nodeList.sortUpdatedAtDesc') }}</span>
+        </button>
+      </div>
+    </Teleport>
+
+    <!-- 视图抽屉菜单 -->
+    <Teleport to="body">
+      <div v-if="showViewMenu" class="menu-overlay" @click="closeViewMenu"></div>
+      <div v-if="showViewMenu" class="drawer-menu view-menu" :style="viewMenuStyle">
+        <button
+          class="drawer-menu-item"
+          :class="{ active: viewMode === 'card' }"
+          @click="setViewMode('card')"
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M4 4h7v7H4zm0 9h7v7H4zm9-9h7v7h-7zm0 9h7v7h-7z"/>
+          </svg>
+          <span>{{ t('nodeList.cardView') }}</span>
+        </button>
+        <button
+          class="drawer-menu-item"
+          :class="{ active: viewMode === 'list' }"
+          @click="setViewMode('list')"
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
+          </svg>
+          <span>{{ t('nodeList.listView') }}</span>
+        </button>
+        <button
+          class="drawer-menu-item"
+          :class="{ active: viewMode === 'calendar' }"
+          @click="setViewMode('calendar')"
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM9 10H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2zm-8 4H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2z"/>
+          </svg>
+          <span>{{ t('nodeList.calendarView') }}</span>
+        </button>
+      </div>
+    </Teleport>
 
     <!-- 视图内容区域 -->
     <div class="view-content">
@@ -48,7 +135,7 @@
       <NodeCardView
         v-if="viewMode === 'card'"
         ref="cardViewRef"
-        :nodes="nodes"
+        :nodes="sortedNodes"
         :active-node-id="activeNodeId"
         :panel-width="panelWidth"
         @toggle-context="$emit('toggle-context', $event)"
@@ -61,7 +148,7 @@
       <NodeListView
         v-if="viewMode === 'list'"
         ref="listViewRef"
-        :nodes="nodes"
+        :nodes="sortedNodes"
         :active-node-id="activeNodeId"
         @toggle-context="$emit('toggle-context', $event)"
         @toggle-favorite="$emit('toggle-favorite', $event)"
@@ -73,8 +160,9 @@
       <NodeCalendarView
         v-if="viewMode === 'calendar'"
         ref="calendarViewRef"
-        :nodes="nodes"
+        :nodes="sortedNodes"
         :active-node-id="activeNodeId"
+        :sort-order="sortOrder"
         @toggle-context="$emit('toggle-context', $event)"
         @toggle-favorite="$emit('toggle-favorite', $event)"
         @activate="handleNodeActivate"
@@ -100,11 +188,36 @@
         {{ t('common.delete') }}
       </button>
     </div>
+
+    <!-- 批量删除确认对话框 -->
+    <Teleport to="body">
+      <div v-if="showDeleteConfirmDialog" class="delete-dialog-overlay" @click="showDeleteConfirmDialog = false">
+        <div class="delete-dialog" @click.stop>
+          <div class="dialog-header">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" class="warning-icon">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+            </svg>
+            <h3>{{ t('nodeList.deleteConfirmTitle') }}</h3>
+          </div>
+          <div class="dialog-body">
+            <p>{{ t('nodeList.deleteConfirmMessage', { count: pendingDeleteCount }) }}</p>
+          </div>
+          <div class="dialog-footer">
+            <button class="cancel-btn" @click="showDeleteConfirmDialog = false">
+              {{ t('common.cancel') }}
+            </button>
+            <button class="delete-btn" @click="confirmBatchDelete">
+              {{ t('common.delete') }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '@/stores/settingsStore'
 import NodeCardView from '@/components/NodeCardView.vue'
@@ -139,8 +252,23 @@ const cardViewRef = ref<InstanceType<typeof NodeCardView> | null>(null)
 const listViewRef = ref<InstanceType<typeof NodeListView> | null>(null)
 const calendarViewRef = ref<InstanceType<typeof NodeCalendarView> | null>(null)
 
+// 排序按钮和菜单状态
+const sortBtnRef = ref<HTMLElement | null>(null)
+const showSortMenu = ref(false)
+const sortMenuStyle = ref<{ top?: string; right?: string }>({})
+
+// 视图按钮和菜单状态
+const viewBtnRef = ref<HTMLElement | null>(null)
+const showViewMenu = ref(false)
+const viewMenuStyle = ref<{ top?: string; right?: string }>({})
+
 // 日历视图当前可见的节点
 const calendarVisibleNodes = ref<CanvasNode[]>([])
+
+// 批量删除确认对话框状态
+const showDeleteConfirmDialog = ref(false)
+const pendingDeleteIds = ref<string[]>([])
+const pendingDeleteCount = computed(() => pendingDeleteIds.value.length)
 
 // 视图模式：从设置中读取
 const viewMode = computed({
@@ -150,6 +278,79 @@ const viewMode = computed({
     settingsStore.saveSettings()
   }
 })
+
+// 排序模式：从设置中读取
+const sortOrder = computed({
+  get: () => settingsStore.settings.general.nodeListSortOrder || 'createdAtDesc',
+  set: (value) => {
+    settingsStore.settings.general.nodeListSortOrder = value
+    settingsStore.saveSettings()
+  }
+})
+
+// 排序后的节点列表
+const sortedNodes = computed(() => {
+  const nodes = [...props.nodes]
+  switch (sortOrder.value) {
+    case 'createdAtAsc':
+      return nodes.sort((a, b) => a.createdAt - b.createdAt)
+    case 'createdAtDesc':
+      return nodes.sort((a, b) => b.createdAt - a.createdAt)
+    case 'updatedAtAsc':
+      return nodes.sort((a, b) => (a.updatedAt || a.createdAt) - (b.updatedAt || b.createdAt))
+    case 'updatedAtDesc':
+      return nodes.sort((a, b) => (b.updatedAt || b.createdAt) - (a.updatedAt || a.createdAt))
+  }
+  return nodes
+})
+
+// 排序菜单控制
+function toggleSortMenu(e: MouseEvent) {
+  if (showSortMenu.value) {
+    closeSortMenu()
+  } else {
+    const btn = (e.currentTarget as HTMLElement)
+    const rect = btn.getBoundingClientRect()
+    sortMenuStyle.value = {
+      top: `${rect.bottom + 4}px`,
+      right: `${window.innerWidth - rect.right}px`
+    }
+    showSortMenu.value = true
+  }
+}
+
+function closeSortMenu() {
+  showSortMenu.value = false
+}
+
+function setSortOrder(order: string) {
+  sortOrder.value = order as any
+  closeSortMenu()
+}
+
+// 视图菜单控制
+function toggleViewMenu(e: MouseEvent) {
+  if (showViewMenu.value) {
+    closeViewMenu()
+  } else {
+    const btn = (e.currentTarget as HTMLElement)
+    const rect = btn.getBoundingClientRect()
+    viewMenuStyle.value = {
+      top: `${rect.bottom + 4}px`,
+      right: `${window.innerWidth - rect.right}px`
+    }
+    showViewMenu.value = true
+  }
+}
+
+function closeViewMenu() {
+  showViewMenu.value = false
+}
+
+function setViewMode(mode: string) {
+  viewMode.value = mode as any
+  closeViewMenu()
+}
 
 // 选中的节点（复用上下文选择）
 const selectedNodes = computed(() => {
@@ -214,7 +415,7 @@ function deselectAll() {
   }
 }
 
-// 批量删除（删除所有选中作为上下文的节点，日历视图时只删除当前可见的选中节点）
+// 批量删除（显示确认对话框）
 function handleBatchDelete() {
   if (selectedCount.value === 0) return
   let nodesToDelete: CanvasNode[]
@@ -223,7 +424,15 @@ function handleBatchDelete() {
   } else {
     nodesToDelete = selectedNodes.value
   }
-  emit('batch-delete', nodesToDelete.map(n => n.id))
+  pendingDeleteIds.value = nodesToDelete.map(n => n.id)
+  showDeleteConfirmDialog.value = true
+}
+
+// 确认批量删除
+function confirmBatchDelete() {
+  emit('batch-delete', pendingDeleteIds.value)
+  showDeleteConfirmDialog.value = false
+  pendingDeleteIds.value = []
 }
 
 // 处理日历视图可见节点变化
@@ -239,8 +448,8 @@ const visibleNodeIds = computed(() => {
     // 日历视图由handleVisibleNodesChange单独emit
     return calendarVisibleNodes.value.map(n => n.id)
   }
-  // 卡片视图和列表视图显示所有节点
-  return props.nodes.map(n => n.id)
+  // 卡片视图和列表视图显示所有排序后的节点
+  return sortedNodes.value.map(n => n.id)
 })
 
 // emit 可见节点变化（卡片/列表视图）
@@ -274,6 +483,22 @@ defineExpose({
       listViewRef.value?.scrollToNode(nodeId)
     }
   }
+})
+
+// 全局事件监听：ESC 关闭菜单
+function handleKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape') {
+    closeSortMenu()
+    closeViewMenu()
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('keydown', handleKeydown)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeydown)
 })
 </script>
 
@@ -319,17 +544,15 @@ defineExpose({
   white-space: nowrap;
 }
 
-.view-toggle-group {
+/* 按钮组 */
+.btn-group {
   display: flex;
   align-items: center;
-  gap: 2px;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  padding: 2px;
+  gap: 8px;
   margin-left: auto;
 }
 
+/* 视图切换按钮 */
 .view-toggle-btn {
   display: flex;
   align-items: center;
@@ -337,8 +560,8 @@ defineExpose({
   width: 28px;
   height: 28px;
   background: transparent;
-  border: none;
-  border-radius: 4px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
   cursor: pointer;
   color: var(--text-secondary);
   transition: all 0.2s;
@@ -346,11 +569,84 @@ defineExpose({
 
 .view-toggle-btn:hover {
   color: var(--text-primary);
+  background: var(--bg-hover);
 }
 
-.view-toggle-btn.active {
-  background: var(--color-primary);
-  color: white;
+/* 排序按钮 */
+.sort-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+}
+
+.sort-toggle-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+/* 菜单遮罩层 */
+.menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2000;
+}
+
+/* 抽屉菜单 */
+.drawer-menu {
+  position: fixed;
+  z-index: 2001;
+  min-width: 140px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px var(--shadow-color);
+  padding: 4px;
+}
+
+.drawer-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  font-size: 13px;
+  text-align: left;
+  transition: background 0.2s;
+}
+
+.drawer-menu-item:hover {
+  background: var(--bg-hover);
+}
+
+.drawer-menu-item.active {
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
+}
+
+.drawer-menu-item .check-icon {
+  flex-shrink: 0;
+}
+
+.drawer-menu-item .check-placeholder {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
 }
 
 /* 视图内容区域 */
@@ -407,5 +703,96 @@ defineExpose({
 .selected-count {
   font-size: 13px;
   color: var(--text-secondary);
+}
+
+/* 删除确认对话框 */
+.delete-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2600;
+}
+
+.delete-dialog {
+  background: var(--bg-primary);
+  border-radius: 12px;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 8px 32px var(--shadow-color);
+  overflow: hidden;
+}
+
+.delete-dialog .dialog-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.delete-dialog .dialog-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.delete-dialog .warning-icon {
+  color: var(--color-error);
+}
+
+.delete-dialog .dialog-body {
+  padding: 16px;
+}
+
+.delete-dialog .dialog-body p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.delete-dialog .dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+.delete-dialog .cancel-btn {
+  padding: 8px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.delete-dialog .cancel-btn:hover {
+  background: var(--bg-hover);
+}
+
+.delete-dialog .delete-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  background: var(--color-error);
+  color: white;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.delete-dialog .delete-btn:hover {
+  opacity: 0.9;
 }
 </style>

@@ -42,6 +42,7 @@ export interface CanvasNode {
   isFavorite?: boolean
   tags?: string[]  // 节点标签列表
   createdAt: number
+  updatedAt?: number  // 更新时间，用于排序
   duration?: number
   pdfPage?: number
   pdfPosition?: { x: number; y: number }

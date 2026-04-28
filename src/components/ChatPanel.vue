@@ -446,6 +446,7 @@ async function handleSendInput(sendText?: string) {
     agentStatus: props.aiAnswerEnabled ? 'pending' : 'pending',
     selectedAsContext: false,
     createdAt: Date.now(),
+    updatedAt: Date.now(),
     pdfPage: props.currentPage,
     pdfPosition: { x: 100, y: 100 }
   }
@@ -598,6 +599,7 @@ async function handleMagicPadDrop(e: DragEvent) {
     agentStatus: 'pending',
     selectedAsContext: false,
     createdAt: Date.now(),
+    updatedAt: Date.now(),
     pdfPage: props.currentPage,
     pdfPosition: { x, y }
   }
@@ -660,6 +662,7 @@ async function handleMagicPadImageDrop(files: File[]) {
       agentStatus: 'pending',
       selectedAsContext: false,
       createdAt: Date.now(),
+      updatedAt: Date.now(),
       pdfPage: props.currentPage,
       pdfPosition: { x: 100, y: 100 }
     }
@@ -961,6 +964,7 @@ async function createVoiceNode(audioBlob: Blob, duration: number) {
     agentStatus: 'pending',
     selectedAsContext: false,
     createdAt: Date.now(),
+    updatedAt: Date.now(),
     duration,
     pdfPage,
     pdfPosition: { x: 100, y: 100 }

@@ -94,9 +94,8 @@ let isPageChanging = false
 // 测量定时器
 let measureTimer: ReturnType<typeof setTimeout> | null = null
 
-const sortedNodes = computed(() => {
-  return [...props.nodes].sort((a, b) => a.createdAt - b.createdAt)
-})
+// 直接使用 props.nodes（已由父组件排序）
+const sortedNodes = computed(() => props.nodes)
 
 const columnCount = computed(() => {
   const panelWidth = props.panelWidth - CONTAINER_PADDING * 2

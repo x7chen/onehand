@@ -229,6 +229,31 @@
       @close="showCreateNotebookDialog = false"
       @create="handleCreateNotebook"
     />
+
+    <!-- 删除确认对话框 -->
+    <Teleport to="body">
+      <div v-if="showDeleteConfirmDialog" class="delete-dialog-overlay" @click="showDeleteConfirmDialog = false">
+        <div class="delete-dialog" @click.stop>
+          <div class="dialog-header">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" class="warning-icon">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+            </svg>
+            <h3>{{ t('notebook.deleteConfirmTitle') }}</h3>
+          </div>
+          <div class="dialog-body">
+            <p>{{ t('notebook.deleteConfirmMessage', { name: notebookToDelete?.name || '' }) }}</p>
+          </div>
+          <div class="dialog-footer">
+            <button class="cancel-btn" @click="showDeleteConfirmDialog = false">
+              {{ t('common.cancel') }}
+            </button>
+            <button class="delete-btn" @click="confirmDeleteNotebook">
+              {{ t('common.delete') }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </aside>
 </template>
 
@@ -291,6 +316,10 @@ const showSearchDialog = ref(false)
 
 // 创建笔记本对话框状态
 const showCreateNotebookDialog = ref(false)
+
+// 删除确认对话框状态
+const showDeleteConfirmDialog = ref(false)
+const notebookToDelete = ref<Notebook | null>(null)
 
 // 拖拽状态
 const isDragOverTrash = ref(false)
@@ -367,14 +396,21 @@ function handleNotebookClick(notebookId: string) {
 
 // 删除笔记本
 async function handleDeleteNotebook(notebook: Notebook) {
-  const confirmed = confirm(t('notebook.deleteConfirmMessage', { name: notebook.name }))
-  if (confirmed) {
-    await notebookStore.deleteNotebook(notebook.id)
-    openMenuNotebookId.value = null
-    // 如果删除的是当前选中的笔记本，清除选中状态
-    if (props.activeNotebookId === notebook.id) {
-      emit('select-notebook', null)
-    }
+  notebookToDelete.value = notebook
+  showDeleteConfirmDialog.value = true
+}
+
+// 确认删除笔记本
+async function confirmDeleteNotebook() {
+  if (!notebookToDelete.value) return
+  const deletedId = notebookToDelete.value.id
+  await notebookStore.deleteNotebook(deletedId)
+  openMenuNotebookId.value = null
+  showDeleteConfirmDialog.value = false
+  notebookToDelete.value = null
+  // 如果删除的是当前选中的笔记本，清除选中状态
+  if (props.activeNotebookId === deletedId) {
+    emit('select-notebook', null)
   }
 }
 
@@ -779,5 +815,96 @@ function handleTrashDrop(e: DragEvent) {
 
 .sidebar-trash svg {
   flex-shrink: 0;
+}
+
+/* 删除确认对话框 */
+.delete-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2600;
+}
+
+.delete-dialog {
+  background: var(--bg-primary);
+  border-radius: 12px;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 8px 32px var(--shadow-color);
+  overflow: hidden;
+}
+
+.delete-dialog .dialog-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.delete-dialog .dialog-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.delete-dialog .warning-icon {
+  color: var(--color-error);
+}
+
+.delete-dialog .dialog-body {
+  padding: 16px;
+}
+
+.delete-dialog .dialog-body p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.delete-dialog .dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+.delete-dialog .cancel-btn {
+  padding: 8px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.delete-dialog .cancel-btn:hover {
+  background: var(--bg-hover);
+}
+
+.delete-dialog .delete-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  background: var(--color-error);
+  color: white;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.delete-dialog .delete-btn:hover {
+  opacity: 0.9;
 }
 </style>
