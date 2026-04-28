@@ -20,6 +20,7 @@
               :ref="(el) => { if (el) voiceNoteRefs[item.node.id] = el }"
               :node="item.node"
               :is-active="activeNodeId === item.node.id"
+              :sort-order="sortOrder"
               @toggle-context="$emit('toggle-context', $event)"
               @toggle-favorite="$emit('toggle-favorite', $event)"
               @activate="handleNodeActivate"
@@ -48,9 +49,11 @@ const props = withDefaults(defineProps<{
   nodes: CanvasNode[]
   activeNodeId?: string | null
   panelWidth: number
+  sortOrder?: 'createdAtAsc' | 'createdAtDesc' | 'updatedAtAsc' | 'updatedAtDesc'
 }>(), {
   activeNodeId: null,
-  panelWidth: 600
+  panelWidth: 600,
+  sortOrder: 'createdAtDesc'
 })
 
 const emit = defineEmits<{

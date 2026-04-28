@@ -1056,7 +1056,12 @@ function updateNodeWithPage(nodeId: string, updates: Partial<CanvasNode>) {
 }
 
 function findNodeById(nodeId: string): CanvasNode | undefined {
-  return effectiveNotebook.value?.nodes?.find(n => n.id === nodeId)
+  // 如果有指定的目标笔记本，只在该笔记本中查找
+  if (props.targetNotebookId) {
+    return effectiveNotebook.value?.nodes?.find(n => n.id === nodeId)
+  }
+  // 在全部笔记本视图中，在所有笔记本中查找节点
+  return notebookStore.getAllNotebooksNodes().find(n => n.id === nodeId)
 }
 
 // 重新生成 AI 回答
@@ -1077,18 +1082,11 @@ function handleRegenerateAgent(nodeId: string) {
 function handleRetryAgent(nodeId: string) {
   const node = findNodeById(nodeId)
   if (node && node.transcript) {
-    // 重置状态
-    if (node.pdfPage !== undefined && node.pdfPage !== null) {
-      notebookStore.updateNodeInPdfPage(nodeId, node.pdfPage, {
-        agentResult: null,
-        agentStatus: 'processing'
-      })
-    } else {
-      notebookStore.updateNode(nodeId, {
-        agentResult: null,
-        agentStatus: 'processing'
-      })
-    }
+    // 重置状态（使用跨笔记本更新）
+    notebookStore.updateNodeInAnyNotebook(nodeId, {
+      agentResult: null,
+      agentStatus: 'processing'
+    })
 
     // 如果有勾选附图，就使用附图
     if (props.includedPageImage) {
@@ -1110,22 +1108,26 @@ async function handleAgentResponseForVoice(nodeId: string, transcript: string, p
   const settings = settingsStore.settings
 
   try {
-    notebookStore.updateNode(nodeId, { agentStatus: 'processing' })
+    // 使用跨笔记本更新节点状态
+    notebookStore.updateNodeInAnyNotebook(nodeId, { agentStatus: 'processing' })
 
+    // 在全部笔记本视图下使用跨笔记本方法获取节点
     const canvasNodes = pdfPage !== undefined && pdfPage !== null
       ? notebookStore.getNodesByPdfPage(pdfPage)
-      : notebookStore.getAllNodes()
+      : (props.targetNotebookId ? notebookStore.getAllNodes() : notebookStore.getAllNotebooksNodes())
     const node = canvasNodes.find(n => n.id === nodeId)
+
+    // 找到节点所属的笔记本
+    const nodeNotebook = props.targetNotebookId
+      ? effectiveNotebook.value
+      : notebookStore.notebooks.find(nb => nb.nodes?.some(n => n.id === nodeId))
 
     // 加载当前节点的内嵌图片（如果尚未加载）
     let currentEmbeddedImages = node?.embeddedImages
-    if (!currentEmbeddedImages && transcript) {
-      const notebook = effectiveNotebook.value
-      if (notebook) {
-        currentEmbeddedImages = await loadEmbeddedImagesForTranscript(transcript, notebook.id, window.electronAPI.readFile)
-        if (currentEmbeddedImages && currentEmbeddedImages.length > 0) {
-          notebookStore.updateNode(nodeId, { embeddedImages: currentEmbeddedImages })
-        }
+    if (!currentEmbeddedImages && transcript && nodeNotebook) {
+      currentEmbeddedImages = await loadEmbeddedImagesForTranscript(transcript, nodeNotebook.id, window.electronAPI.readFile)
+      if (currentEmbeddedImages && currentEmbeddedImages.length > 0) {
+        notebookStore.updateNodeInAnyNotebook(nodeId, { embeddedImages: currentEmbeddedImages })
       }
     }
 
@@ -1180,7 +1182,7 @@ async function handleAgentResponseForVoice(nodeId: string, transcript: string, p
       temperature: currentModelConfig.value?.temperature
     }, (chunk) => {
       accumulatedContent += chunk
-      notebookStore.updateNode(nodeId, {
+      notebookStore.updateNodeInAnyNotebook(nodeId, {
         agentResult: accumulatedContent,
         agentStatus: 'processing'
       })
@@ -1190,20 +1192,20 @@ async function handleAgentResponseForVoice(nodeId: string, transcript: string, p
       }
     }, (thinkingChunk) => {
       accumulatedThinking += thinkingChunk
-      notebookStore.updateNode(nodeId, {
+      notebookStore.updateNodeInAnyNotebook(nodeId, {
         thinkingContent: accumulatedThinking,
         thinkingStatus: 'processing'
       })
     })
 
-    notebookStore.updateNode(nodeId, {
+    notebookStore.updateNodeInAnyNotebook(nodeId, {
       agentResult: result.content,
       agentStatus: 'done',
       thinkingContent: result.thinking,
       thinkingStatus: result.thinking ? 'done' : undefined
     })
   } catch (error) {
-    notebookStore.updateNode(nodeId, {
+    notebookStore.updateNodeInAnyNotebook(nodeId, {
       agentResult: String(error),
       agentStatus: 'error'
     })

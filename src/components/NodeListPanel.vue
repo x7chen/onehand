@@ -138,6 +138,7 @@
         :nodes="sortedNodes"
         :active-node-id="activeNodeId"
         :panel-width="panelWidth"
+        :sort-order="sortOrder"
         @toggle-context="$emit('toggle-context', $event)"
         @toggle-favorite="$emit('toggle-favorite', $event)"
         @activate="handleNodeActivate"
@@ -150,6 +151,7 @@
         ref="listViewRef"
         :nodes="sortedNodes"
         :active-node-id="activeNodeId"
+        :sort-order="sortOrder"
         @toggle-context="$emit('toggle-context', $event)"
         @toggle-favorite="$emit('toggle-favorite', $event)"
         @activate="handleNodeActivate"
@@ -172,14 +174,13 @@
     </div>
 
     <!-- 底部批量管理栏 -->
-    <div class="batch-management-bar">
+    <div v-if="selectedCount > 0" class="batch-management-bar">
       <button class="batch-btn" @click="isAllSelected ? deselectAll() : selectAll()">
         {{ isAllSelected ? t('common.deselectAll') : t('common.selectAll') }}
       </button>
       <span class="selected-count">{{ t('common.selectedCount', { count: selectedCount }) }}</span>
       <button
         class="batch-btn delete-btn"
-        :disabled="selectedCount === 0"
         @click="handleBatchDelete"
       >
         <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">

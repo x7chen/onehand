@@ -820,7 +820,8 @@ function handleDragStart(nodeId: string, offsetX: number, offsetY: number) {
 }
 
 function handleUpdateNode(nodeId: string, updates: Partial<CanvasNode>) {
-  notebookStore.updateNode(nodeId, updates)
+  // 使用跨笔记本更新方法，支持全部笔记本视图
+  notebookStore.updateNodeInAnyNotebook(nodeId, updates)
 }
 
 // 静态上下文选择

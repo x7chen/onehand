@@ -29,7 +29,7 @@
       <span v-else class="small-title-placeholder"></span>
       <!-- 右侧：日期 -->
       <div class="small-header-right">
-        <span class="small-date">{{ formatCreatedTime }}</span>
+        <span class="small-date">{{ formatDisplayTime }}</span>
       </div>
     </div>
 
@@ -64,6 +64,7 @@ const notebookStore = useNotebookStore()
 const props = defineProps<{
   node: CanvasNode | DisplayNode
   isActive?: boolean
+  sortOrder?: 'createdAtAsc' | 'createdAtDesc' | 'updatedAtAsc' | 'updatedAtDesc'
 }>()
 
 const emit = defineEmits<{
@@ -75,9 +76,14 @@ const emit = defineEmits<{
 // 收藏状态
 const isFavorite = computed(() => props.node.isFavorite ?? false)
 
-// 格式化创建时间
-const formatCreatedTime = computed(() => {
-  const timestamp = props.node.createdAt
+// 判断是否使用更新时间
+const useUpdatedAt = computed(() => {
+  return props.sortOrder === 'updatedAtAsc' || props.sortOrder === 'updatedAtDesc'
+})
+
+// 格式化显示时间（根据排序方式决定）
+const formatDisplayTime = computed(() => {
+  const timestamp = useUpdatedAt.value ? (props.node.updatedAt || props.node.createdAt) : props.node.createdAt
   if (!timestamp) return ''
   const date = new Date(timestamp)
   const year = date.getFullYear()

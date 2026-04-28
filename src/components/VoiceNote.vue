@@ -916,12 +916,19 @@ import type { Tag } from '@/types/tag'
 const showDetailsPopover = ref(false)
 const detailsPopoverStyle = ref<{ top: string; left: string }>({ top: '0px', left: '0px' })
 
-// 笔记本名称
+// 笔记本名称（通过节点ID查找实际所属的笔记本，优先级最高）
 const notebookName = computed(() => {
-  const notebookId = props.notebookId || notebookStore.currentNotebook?.id
-  if (!notebookId) return t('notebook.myNotebooks')
-  const notebook = notebookStore.notebooks.find(n => n.id === notebookId)
-  return notebook?.name || t('notebook.myNotebooks')
+  // 优先通过节点ID在所有笔记本中查找实际所属的笔记本
+  const nodeNotebook = notebookStore.notebooks.find(nb => nb.nodes?.some(n => n.id === props.node.id))
+  if (nodeNotebook) return nodeNotebook.name
+  // 如果找不到，使用 notebookId prop（如果有的话）
+  if (props.notebookId) {
+    const notebook = notebookStore.notebooks.find(n => n.id === props.notebookId)
+    if (notebook) return notebook.name
+  }
+  // 最后使用当前笔记本（如果有的话）
+  if (notebookStore.currentNotebook) return notebookStore.currentNotebook.name
+  return t('notebook.myNotebooks')
 })
 
 // 字数统计

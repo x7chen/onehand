@@ -422,6 +422,25 @@ export const useNotebookStore = defineStore('notebook', () => {
     }
   }
 
+  // 更新节点（支持跨笔记本）
+  function updateNodeInAnyNotebook(nodeId: string, updates: Partial<CanvasNode>, skipSave = false) {
+    const map = getNodeToNotebookMap()
+    const notebook = map.get(nodeId)
+    if (notebook) {
+      const node = notebook.nodes?.find(n => n.id === nodeId)
+      if (node) {
+        Object.assign(node, updates)
+        // 自动更新 updatedAt（排除仅更新选择状态的情况）
+        if (!('selectedAsContext' in updates) || Object.keys(updates).length > 1) {
+          node.updatedAt = Date.now()
+        }
+        if (!skipSave) {
+          saveNotebook(notebook)
+        }
+      }
+    }
+  }
+
   // 删除节点
   function removeNode(nodeId: string) {
     if (!currentNotebook.value?.nodes) return
@@ -576,6 +595,7 @@ export const useNotebookStore = defineStore('notebook', () => {
     updateCurrentViewport,
     addNode,
     updateNode,
+    updateNodeInAnyNotebook,
     batchUpdateContextSelection,
     updateNodeFavorite,
     removeNode,

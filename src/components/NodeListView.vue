@@ -40,9 +40,9 @@
         <span class="node-title">
           {{ getNodeTitle(node) }}
         </span>
-        <!-- 创建日期 -->
+        <!-- 日期（根据排序方式显示创建时间或更新时间） -->
         <span class="node-date">
-          {{ formatDate(node.createdAt) }}
+          {{ formatDate(useUpdatedAt ? (node.updatedAt || node.createdAt) : node.createdAt) }}
         </span>
       </div>
     </div>
@@ -57,8 +57,10 @@ import type { CanvasNode } from '@/types/notebook'
 const props = withDefaults(defineProps<{
   nodes: CanvasNode[]
   activeNodeId?: string | null
+  sortOrder?: 'createdAtAsc' | 'createdAtDesc' | 'updatedAtAsc' | 'updatedAtDesc'
 }>(), {
-  activeNodeId: null
+  activeNodeId: null,
+  sortOrder: 'createdAtDesc'
 })
 
 const emit = defineEmits<{
@@ -83,6 +85,11 @@ const isDragStarted = ref(false) // 是否已进入拖拽模式
 const startNodeId = ref<string | null>(null) // 开始时的节点ID
 
 const DRAG_THRESHOLD = 5 // 拖拽阈值，超过此距离才进入拖拽模式
+
+// 判断是否使用更新时间
+const useUpdatedAt = computed(() => {
+  return props.sortOrder === 'updatedAtAsc' || props.sortOrder === 'updatedAtDesc'
+})
 
 // 直接使用 props.nodes（已由父组件排序）
 const sortedNodes = computed(() => props.nodes)
