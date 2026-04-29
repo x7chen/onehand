@@ -223,8 +223,8 @@ const magicPadRef = ref<HTMLElement | null>(null)
 let longPressTimer: number | null = null
 const LONG_PRESS_DURATION = 500
 
-// 输入模式相关
-const isInputMode = ref(false)
+// 输入模式相关（根据设置初始化）
+const isInputMode = ref(settingsStore.settings.general.magicPadDefaultMode === 'edit')
 const inputText = ref('')
 const magicInputCoreRef = ref<InstanceType<typeof MagicInputCore> | null>(null)
 
@@ -412,7 +412,7 @@ function handleMagicPadDblClick(e: MouseEvent) {
   })
 }
 
-// 输入模式 - 取消
+// 输入模式 - 取消（切换到拖拽模式）
 function handleCancelInput() {
   isInputMode.value = false
   inputText.value = ''
@@ -458,9 +458,11 @@ async function handleSendInput(sendText?: string) {
   }
   emit('node-created', newNode)
 
-  // 重置输入模式
-  isInputMode.value = false
+  // 重置输入状态（根据设置决定是否保持编辑模式）
   inputText.value = ''
+  if (settingsStore.settings.general.magicPadDefaultMode !== 'edit') {
+    isInputMode.value = false
+  }
 
   // 触发 AI 回答
   if (props.aiAnswerEnabled) {

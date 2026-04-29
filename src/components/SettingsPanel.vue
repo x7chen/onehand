@@ -195,6 +195,19 @@
           </div>
 
           <div class="form-group">
+            <label>{{ t('settings.magicPadEditMode') }}</label>
+            <div class="toggle-switch">
+              <input
+                type="checkbox"
+                :checked="settingsStore.settings.general.magicPadDefaultMode === 'edit'"
+                @change="updateMagicPadDefaultMode(($event.target as HTMLInputElement).checked ? 'edit' : 'drag')"
+              />
+              <span class="toggle-label">{{ settingsStore.settings.general.magicPadDefaultMode === 'edit' ? t('settings.enabled') : t('settings.disabled') }}</span>
+            </div>
+            <p class="form-hint">{{ t('settings.magicPadDefaultModeHint') }}</p>
+          </div>
+
+          <div class="form-group">
             <label>{{ t('settings.evernoteLinkPrefix') }}</label>
             <input
               :value="settingsStore.settings.general.evernoteLinkPrefix || ''"
@@ -608,6 +621,16 @@ function updateAutoAiAnswer(enabled: boolean) {
     general: {
       ...settingsStore.settings.general,
       autoAiAnswer: enabled
+    }
+  })
+}
+
+// 更新 MagicPad 默认模式
+function updateMagicPadDefaultMode(mode: 'edit' | 'drag') {
+  settingsStore.updateSettings({
+    general: {
+      ...settingsStore.settings.general,
+      magicPadDefaultMode: mode
     }
   })
 }

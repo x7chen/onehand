@@ -144,6 +144,8 @@ export default {
     defaultNotebookHint: 'When creating notes in all notebooks view, automatically save to this notebook',
     autoAiAnswer: 'Auto AI Answer',
     autoAiAnswerHint: 'Automatically trigger AI answer when creating notes, disable to require manual regeneration',
+    magicPadEditMode: 'Chat Box Edit Mode',
+    magicPadDefaultModeHint: 'Enable to default to edit mode, disable to default to drag/record mode',
     evernoteLinkPrefix: 'Evernote Link Prefix',
     evernoteLinkPrefixPlaceholder: 'Example: evernote:///view/3248616/s15/',
     evernoteLinkPrefixHint: "Used to jump from notes to Evernote, final link format: {'prefix'}{'ever_id'}/{'ever_id'}/",

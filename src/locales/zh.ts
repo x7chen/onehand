@@ -144,6 +144,8 @@ export default {
     defaultNotebookHint: '在全部笔记本视图中创建笔记时，自动保存到此笔记本',
     autoAiAnswer: '自动 AI 回答',
     autoAiAnswerHint: '创建笔记时自动触发 AI 回答，关闭后需手动点击重新生成',
+    magicPadEditMode: '聊天框编辑模式',
+    magicPadDefaultModeHint: '开启后默认为编辑模式，关闭后默认为拖拽/录音模式',
     evernoteLinkPrefix: '印象笔记链接前缀',
     evernoteLinkPrefixPlaceholder: '示例: evernote:///view/3248616/s15/',
     evernoteLinkPrefixHint: "用于从笔记跳转到印象笔记，最终链接格式为: {'前缀'}{'ever_id'}/{'ever_id'}/",
