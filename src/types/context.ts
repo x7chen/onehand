@@ -35,6 +35,13 @@ export const CONTEXT_COLORS = [
 export type ContextColor = typeof CONTEXT_COLORS[number]
 
 /**
+ * 回收站上下文文件
+ */
+export interface TrashContextFile extends ContextFile {
+  deletedAt: number
+}
+
+/**
  * 笔记本关联的上下文
  */
 export interface NotebookContext {

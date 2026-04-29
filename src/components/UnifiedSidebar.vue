@@ -342,10 +342,8 @@
     <!-- 回收站 -->
     <div
       class="sidebar-trash"
-      :class="{ 'drag-over': isDragOverTrash }"
-      @dragover="handleTrashDragOver"
-      @dragleave="handleTrashDragLeave"
-      @drop="handleTrashDrop"
+      :class="{ 'drag-over': isDragOverTrash, 'active': activeTab === 'trash' }"
+      @click="handleTrashClick"
     >
       <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
         <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
@@ -788,6 +786,11 @@ function handleTrashDrop(e: DragEvent) {
   isDragOverTrash.value = false
   // TODO: 实现拖拽删除笔记本功能
 }
+
+// 回收站点击处理
+function handleTrashClick() {
+  emit('select-tab', 'trash')
+}
 </script>
 
 <style scoped>
@@ -1229,6 +1232,11 @@ function handleTrashDrop(e: DragEvent) {
 
 .sidebar-trash svg {
   flex-shrink: 0;
+}
+
+.sidebar-trash.active {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
 }
 
 /* 删除确认对话框 */

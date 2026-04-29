@@ -1,8 +1,15 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { Notebook, CanvasNode } from '@/types/notebook'
+import type { Notebook, CanvasNode, TrashNotebook } from '@/types/notebook'
 import type { NotebookContext } from '@/types/context'
-import { getNotebooksDir, getNotebookFilePath, getPdfDir, getNotebookDataDir, getNotebookAudioDir, getNotebookImagesDir } from '@/utils/userFilesPath'
+import { getNotebooksDir, getNotebookFilePath, getPdfDir, getNotebookDataDir, getNotebookAudioDir, getNotebookImagesDir, getTrashNotebooksDir, getTrashNotebookFilePath, getTrashNotebookDataDir, getTrashNotebooksMetaFilePath, getTrashNodesFilePath, getTrashNodesDataDir } from '@/utils/userFilesPath'
+
+// 回收站节点元数据接口
+interface TrashNodeMeta {
+  node: CanvasNode
+  sourceNotebookId: string
+  deletedAt: number
+}
 
 // 为节点设置默认的运行时状态
 function ensureNodeRuntimeState(node: CanvasNode): CanvasNode {
@@ -104,6 +111,8 @@ function migrateNotebook(notebook: Notebook): { notebook: Notebook; needsSave: b
 export const useNotebookStore = defineStore('notebook', () => {
   const notebooks = ref<Notebook[]>([])
   const currentNotebook = ref<Notebook | null>(null)
+  const trashNotebooks = ref<TrashNotebook[]>([])
+  const trashNodes = ref<TrashNodeMeta[]>([])
 
   // 节点 ID 到笔记本的映射缓存（用于批量操作时快速查找）
   let nodeToNotebookMap: Map<string, Notebook> | null = null
@@ -126,7 +135,23 @@ export const useNotebookStore = defineStore('notebook', () => {
     nodeToNotebookMap = null
   }
 
-  const notebookList = computed(() => notebooks.value)
+  const notebookList = computed(() => notebooks.value.filter(n => !n.isTrash))
+
+  // 获取回收站笔记本（用于兼容旧的 TrashPanel）
+  const trashNotebook = computed(() => {
+    // 创建一个虚拟的回收站笔记本用于 TrashPanel 显示
+    if (trashNodes.value.length === 0) return null
+    const nodes = trashNodes.value.map(t => t.node)
+    return {
+      id: 'trash_nodes',
+      name: '回收站节点',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      nodes,
+      viewport: { x: 0, y: 0, zoom: 1 },
+      isTrash: true
+    } as Notebook
+  })
 
   // 获取当前笔记本视口
   const viewport = computed(() => {
@@ -136,6 +161,11 @@ export const useNotebookStore = defineStore('notebook', () => {
   // 加载所有笔记本（扫描笔记本目录）
   async function loadNotebooks() {
     try {
+      // 加载回收站笔记本元数据
+      await loadTrashNotebooks()
+      // 加载回收站节点
+      await loadTrashNodes()
+
       const notebooksDir = await getNotebooksDir()
       const dirExists = await window.electronAPI.exists(notebooksDir)
 
@@ -319,18 +349,146 @@ export const useNotebookStore = defineStore('notebook', () => {
     await saveNotebookFile(notebook)
   }
 
-  // 删除笔记本
+  // 删除笔记本（移动到回收站）
   async function deleteNotebook(notebookId: string) {
     try {
-      // 删除笔记本文件
-      const filePath = await getNotebookFilePath(notebookId)
-      await window.electronAPI.unlink(filePath)
-    } catch (error) {
-      console.error('Failed to delete notebook file:', error)
-    }
+      const notebook = notebooks.value.find(n => n.id === notebookId)
+      if (!notebook) return
 
-    // 从内存中移除
-    notebooks.value = notebooks.value.filter(n => n.id !== notebookId)
+      // 创建回收站笔记本元数据
+      const trashNotebook: TrashNotebook = {
+        originalId: notebookId,
+        name: notebook.name,
+        deletedAt: Date.now(),
+        createdAt: notebook.createdAt,
+        updatedAt: notebook.updatedAt,
+        pdfPath: notebook.pdfPath,
+        nodeCount: notebook.nodes?.length || 0
+      }
+
+      // 确保回收站目录存在
+      const trashDir = await getTrashNotebooksDir()
+      await window.electronAPI.mkdir(trashDir)
+
+      // 移动笔记本文件到回收站
+      const notebookFilePath = await getNotebookFilePath(notebookId)
+      const trashNotebookPath = await getTrashNotebookFilePath(notebookId)
+      const notebookFileExists = await window.electronAPI.exists(notebookFilePath)
+      if (notebookFileExists) {
+        await window.electronAPI.moveFile(notebookFilePath, trashNotebookPath)
+      }
+
+      // 移动笔记本附件目录到回收站
+      const notebookDataDir = await getNotebookDataDir(notebookId)
+      const trashDataDir = await getTrashNotebookDataDir(notebookId)
+      const dataDirExists = await window.electronAPI.exists(notebookDataDir)
+      if (dataDirExists) {
+        await window.electronAPI.moveDir(notebookDataDir, trashDataDir)
+      }
+
+      // 添加到回收站列表并保存元数据
+      trashNotebooks.value.push(trashNotebook)
+      await saveTrashNotebooksMeta()
+
+      // 从正常列表移除
+      notebooks.value = notebooks.value.filter(n => n.id !== notebookId)
+    } catch (error) {
+      console.error('Failed to move notebook to trash:', error)
+    }
+  }
+
+  // 从回收站恢复笔记本
+  async function restoreNotebookFromTrash(originalId: string) {
+    try {
+      const trashNotebook = trashNotebooks.value.find(n => n.originalId === originalId)
+      if (!trashNotebook) return
+
+      // 确保笔记本目录存在
+      const notebooksDir = await getNotebooksDir()
+      await window.electronAPI.mkdir(notebooksDir)
+
+      // 移动笔记本文件回来
+      const trashNotebookPath = await getTrashNotebookFilePath(originalId)
+      const notebookFilePath = await getNotebookFilePath(originalId)
+      const trashFileExists = await window.electronAPI.exists(trashNotebookPath)
+      if (trashFileExists) {
+        await window.electronAPI.moveFile(trashNotebookPath, notebookFilePath)
+      }
+
+      // 移动附件目录回来
+      const trashDataDir = await getTrashNotebookDataDir(originalId)
+      const notebookDataDir = await getNotebookDataDir(originalId)
+      const trashDataExists = await window.electronAPI.exists(trashDataDir)
+      if (trashDataExists) {
+        await window.electronAPI.moveDir(trashDataDir, notebookDataDir)
+      }
+
+      // 从回收站列表移除
+      trashNotebooks.value = trashNotebooks.value.filter(n => n.originalId !== originalId)
+      await saveTrashNotebooksMeta()
+
+      // 加载恢复的笔记本
+      const fileResult = await window.electronAPI.readFile(notebookFilePath, 'utf-8')
+      if (fileResult.success && fileResult.data && typeof fileResult.data === 'string') {
+        const restoredNotebook = JSON.parse(fileResult.data) as Notebook
+        const { notebook: migratedNotebook } = migrateNotebook(restoredNotebook)
+        notebooks.value.push(migratedNotebook)
+        notebooks.value.sort((a, b) => (b.updatedAt || b.createdAt) - (a.updatedAt || a.createdAt))
+      }
+    } catch (error) {
+      console.error('Failed to restore notebook from trash:', error)
+    }
+  }
+
+  // 永久删除笔记本
+  async function deleteNotebookPermanently(originalId: string) {
+    try {
+      // 删除回收站中的笔记本文件
+      const trashNotebookPath = await getTrashNotebookFilePath(originalId)
+      const trashFileExists = await window.electronAPI.exists(trashNotebookPath)
+      if (trashFileExists) {
+        await window.electronAPI.unlink(trashNotebookPath)
+      }
+
+      // 删除回收站中的附件目录
+      const trashDataDir = await getTrashNotebookDataDir(originalId)
+      const trashDataExists = await window.electronAPI.exists(trashDataDir)
+      if (trashDataExists) {
+        await window.electronAPI.rmdir(trashDataDir)
+      }
+
+      // 从回收站列表移除
+      trashNotebooks.value = trashNotebooks.value.filter(n => n.originalId !== originalId)
+      await saveTrashNotebooksMeta()
+    } catch (error) {
+      console.error('Failed to permanently delete notebook:', error)
+    }
+  }
+
+  // 保存回收站笔记本元数据
+  async function saveTrashNotebooksMeta() {
+    try {
+      const filePath = await getTrashNotebooksMetaFilePath()
+      await window.electronAPI.saveFile(filePath, JSON.stringify(trashNotebooks.value, null, 2))
+    } catch (error) {
+      console.error('Failed to save trash notebooks meta:', error)
+    }
+  }
+
+  // 加载回收站笔记本元数据
+  async function loadTrashNotebooks() {
+    try {
+      const filePath = await getTrashNotebooksMetaFilePath()
+      const exists = await window.electronAPI.exists(filePath)
+      if (exists) {
+        const result = await window.electronAPI.readFile(filePath, 'utf-8')
+        if (result.success && result.data && typeof result.data === 'string') {
+          trashNotebooks.value = JSON.parse(result.data) as TrashNotebook[]
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load trash notebooks:', error)
+    }
   }
 
   function setCurrentNotebook(notebook: Notebook | null) {
@@ -441,15 +599,194 @@ export const useNotebookStore = defineStore('notebook', () => {
     }
   }
 
-  // 删除节点
-  function removeNode(nodeId: string) {
-    if (!currentNotebook.value?.nodes) return
+  // 删除节点（移动到回收站）
+  async function removeNode(nodeId: string) {
+    const map = getNodeToNotebookMap()
+    const sourceNotebook = map.get(nodeId)
 
-    currentNotebook.value.nodes = currentNotebook.value.nodes.filter(n => n.id !== nodeId)
-    saveNotebook(currentNotebook.value)
-    // 更新映射缓存
-    if (nodeToNotebookMap) {
-      nodeToNotebookMap.delete(nodeId)
+    if (!sourceNotebook?.nodes) return
+
+    const node = sourceNotebook.nodes.find(n => n.id === nodeId)
+    if (!node) return
+
+    // 创建回收站节点元数据
+    const trashNodeMeta: TrashNodeMeta = {
+      node: { ...node },
+      sourceNotebookId: sourceNotebook.id,
+      deletedAt: Date.now()
+    }
+
+    // 确保回收站目录存在
+    const trashDataDir = await getTrashNodesDataDir()
+    await window.electronAPI.mkdir(trashDataDir)
+
+    // 移动节点附件到回收站（如果有）
+    if (node.audioPath) {
+      const sourceAudioPath = node.audioPath
+      const trashAudioPath = `${trashDataDir}/${nodeId}_${node.audioPath.split(/[/\\]/).pop()}`
+      const audioExists = await window.electronAPI.exists(sourceAudioPath)
+      if (audioExists) {
+        await window.electronAPI.moveFile(sourceAudioPath, trashAudioPath)
+        // 更新节点中的音频路径
+        trashNodeMeta.node.audioPath = trashAudioPath
+      }
+    }
+
+    if (node.imagePath) {
+      const sourceImagePath = node.imagePath
+      const trashImagePath = `${trashDataDir}/${nodeId}_${node.imagePath.split(/[/\\]/).pop()}`
+      const imageExists = await window.electronAPI.exists(sourceImagePath)
+      if (imageExists) {
+        await window.electronAPI.moveFile(sourceImagePath, trashImagePath)
+        trashNodeMeta.node.imagePath = trashImagePath
+      }
+    }
+
+    // 添加到回收站节点列表
+    trashNodes.value.push(trashNodeMeta)
+    await saveTrashNodes()
+
+    // 从原笔记本移除
+    sourceNotebook.nodes = sourceNotebook.nodes.filter(n => n.id !== nodeId)
+
+    // 更新映射
+    map.delete(nodeId)
+
+    // 保存原笔记本
+    await saveNotebook(sourceNotebook)
+  }
+
+  // 从回收站恢复节点到原笔记本
+  async function restoreNodeFromTrash(nodeId: string) {
+    const trashNodeMeta = trashNodes.value.find(t => t.node.id === nodeId)
+    if (!trashNodeMeta) return false
+
+    // 查找原笔记本
+    const targetNotebook = notebooks.value.find(n => n.id === trashNodeMeta.sourceNotebookId)
+    if (!targetNotebook) {
+      console.warn(`Source notebook ${trashNodeMeta.sourceNotebookId} not found, cannot restore node`)
+      return false
+    }
+
+    // 恢复节点（去掉 sourceNotebookId）
+    const restoredNode: CanvasNode = {
+      ...trashNodeMeta.node,
+      sourceNotebookId: undefined as any
+    }
+
+    // 恢复附件文件（如果有）
+    const notebookDataDir = await getNotebookDataDir(targetNotebook.id)
+    await window.electronAPI.mkdir(notebookDataDir)
+
+    if (restoredNode.audioPath && restoredNode.audioPath.includes('trash/')) {
+      const trashAudioPath = restoredNode.audioPath
+      const audioFileName = trashAudioPath.split(/[/\\]/).pop() || ''
+      const newAudioPath = `${notebookDataDir}/${audioFileName.replace(`${nodeId}_`, '')}`
+      const trashAudioExists = await window.electronAPI.exists(trashAudioPath)
+      if (trashAudioExists) {
+        await window.electronAPI.moveFile(trashAudioPath, newAudioPath)
+        restoredNode.audioPath = newAudioPath
+      }
+    }
+
+    if (restoredNode.imagePath && restoredNode.imagePath.includes('trash/')) {
+      const trashImagePath = restoredNode.imagePath
+      const imageFileName = trashImagePath.split(/[/\\]/).pop() || ''
+      const newImagePath = `${notebookDataDir}/${imageFileName.replace(`${nodeId}_`, '')}`
+      const trashImageExists = await window.electronAPI.exists(trashImagePath)
+      if (trashImageExists) {
+        await window.electronAPI.moveFile(trashImagePath, newImagePath)
+        restoredNode.imagePath = newImagePath
+      }
+    }
+
+    // 添加回原笔记本
+    if (!targetNotebook.nodes) {
+      targetNotebook.nodes = []
+    }
+    targetNotebook.nodes.push(restoredNode)
+
+    // 从回收站移除
+    trashNodes.value = trashNodes.value.filter(t => t.node.id !== nodeId)
+    await saveTrashNodes()
+
+    // 保存原笔记本
+    await saveNotebook(targetNotebook)
+
+    return true
+  }
+
+  // 从回收站彻底删除节点（不可恢复）
+  async function deleteNodePermanently(nodeId: string) {
+    const trashNodeMeta = trashNodes.value.find(t => t.node.id === nodeId)
+    if (!trashNodeMeta) return
+
+    // 删除附件文件
+    if (trashNodeMeta.node.audioPath) {
+      const audioExists = await window.electronAPI.exists(trashNodeMeta.node.audioPath)
+      if (audioExists) {
+        await window.electronAPI.unlink(trashNodeMeta.node.audioPath)
+      }
+    }
+
+    if (trashNodeMeta.node.imagePath) {
+      const imageExists = await window.electronAPI.exists(trashNodeMeta.node.imagePath)
+      if (imageExists) {
+        await window.electronAPI.unlink(trashNodeMeta.node.imagePath)
+      }
+    }
+
+    // 从回收站列表移除
+    trashNodes.value = trashNodes.value.filter(t => t.node.id !== nodeId)
+    await saveTrashNodes()
+  }
+
+  // 清空回收站节点
+  async function emptyTrash() {
+    // 删除所有附件文件
+    for (const trashNodeMeta of trashNodes.value) {
+      if (trashNodeMeta.node.audioPath) {
+        const audioExists = await window.electronAPI.exists(trashNodeMeta.node.audioPath)
+        if (audioExists) {
+          await window.electronAPI.unlink(trashNodeMeta.node.audioPath)
+        }
+      }
+      if (trashNodeMeta.node.imagePath) {
+        const imageExists = await window.electronAPI.exists(trashNodeMeta.node.imagePath)
+        if (imageExists) {
+          await window.electronAPI.unlink(trashNodeMeta.node.imagePath)
+        }
+      }
+    }
+
+    // 清空回收站节点列表
+    trashNodes.value = []
+    await saveTrashNodes()
+  }
+
+  // 保存回收站节点
+  async function saveTrashNodes() {
+    try {
+      const filePath = await getTrashNodesFilePath()
+      await window.electronAPI.saveFile(filePath, JSON.stringify(trashNodes.value, null, 2))
+    } catch (error) {
+      console.error('Failed to save trash nodes:', error)
+    }
+  }
+
+  // 加载回收站节点
+  async function loadTrashNodes() {
+    try {
+      const filePath = await getTrashNodesFilePath()
+      const exists = await window.electronAPI.exists(filePath)
+      if (exists) {
+        const result = await window.electronAPI.readFile(filePath, 'utf-8')
+        if (result.success && result.data && typeof result.data === 'string') {
+          trashNodes.value = JSON.parse(result.data) as TrashNodeMeta[]
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load trash nodes:', error)
     }
   }
 
@@ -547,11 +884,12 @@ export const useNotebookStore = defineStore('notebook', () => {
       .sort((a, b) => a.createdAt - b.createdAt)
   }
 
-  // 获取所有笔记本中被选中作为上下文的节点（跨笔记本）
+  // 获取所有笔记本中被选中作为上下文的节点（跨笔记本，排除回收站）
   function getAllNotebooksSelectedContextNodes(excludeNodeId?: string): CanvasNode[] {
     const allSelectedNodes: CanvasNode[] = []
 
     for (const notebook of notebooks.value) {
+      if (notebook.isTrash) continue  // 排除回收站
       if (!notebook.nodes) continue
 
       const selectedNodes = notebook.nodes
@@ -564,11 +902,12 @@ export const useNotebookStore = defineStore('notebook', () => {
     return allSelectedNodes.sort((a, b) => a.createdAt - b.createdAt)
   }
 
-  // 获取所有笔记本中被选中作为上下文的节点及其笔记本ID（跨笔记本）
+  // 获取所有笔记本中被选中作为上下文的节点及其笔记本ID（跨笔记本，排除回收站）
   function getAllNotebooksSelectedContextNodesWithNotebookId(excludeNodeId?: string): { node: CanvasNode; notebookId: string }[] {
     const allSelectedNodes: { node: CanvasNode; notebookId: string }[] = []
 
     for (const notebook of notebooks.value) {
+      if (notebook.isTrash) continue  // 排除回收站
       if (!notebook.nodes) continue
 
       const selectedNodes = notebook.nodes
@@ -588,11 +927,12 @@ export const useNotebookStore = defineStore('notebook', () => {
     return [...currentNotebook.value.nodes]
   }
 
-  // 获取所有笔记本的所有节点（跨笔记本）
+  // 获取所有笔记本的所有节点（跨笔记本，排除回收站）
   function getAllNotebooksNodes(): CanvasNode[] {
     const allNodes: CanvasNode[] = []
 
     for (const notebook of notebooks.value) {
+      if (notebook.isTrash) continue  // 排除回收站
       if (!notebook.nodes) continue
       allNodes.push(...notebook.nodes)
     }
@@ -615,11 +955,16 @@ export const useNotebookStore = defineStore('notebook', () => {
     notebooks,
     currentNotebook,
     notebookList,
+    trashNotebook,
+    trashNotebooks,
+    trashNodes,
     viewport,
     loadNotebooks,
     createNotebook,
     saveNotebook,
     deleteNotebook,
+    restoreNotebookFromTrash,
+    deleteNotebookPermanently,
     setCurrentNotebook,
     getCurrentViewport,
     updateCurrentViewport,
@@ -629,6 +974,9 @@ export const useNotebookStore = defineStore('notebook', () => {
     batchUpdateContextSelection,
     updateNodeFavorite,
     removeNode,
+    restoreNodeFromTrash,
+    deleteNodePermanently,
+    emptyTrash,
     moveNodeToNotebook,
     getNodeToNotebookMap,
     // PDF 页面管理

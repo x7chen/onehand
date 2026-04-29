@@ -47,6 +47,9 @@ interface ElectronAPI {
   ensureDir: (dirPath: string) => Promise<{ success: boolean; error?: string }>
   readdir: (dirPath: string) => Promise<{ success: boolean; data?: string[]; error?: string }>
   unlink: (filePath: string) => Promise<{ success: boolean; error?: string }>
+  moveFile: (srcPath: string, destPath: string) => Promise<{ success: boolean; error?: string }>
+  moveDir: (srcPath: string, destPath: string) => Promise<{ success: boolean; error?: string }>
+  rmdir: (dirPath: string) => Promise<{ success: boolean; error?: string }>
   writeFile: (filePath: string, data: ArrayBuffer | Buffer) => Promise<{ success: boolean; error?: string }>
   setTheme: (isDark: boolean) => Promise<{ success: boolean }>
   readConfig: () => Promise<{ success: boolean; data?: string; error?: string }>

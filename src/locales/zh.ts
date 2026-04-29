@@ -85,6 +85,19 @@ export default {
     noTags: '暂无标签',
     pin: '固定',
     unpin: '取消固定',
+    emptyTrash: '清空回收站',
+  },
+  trash: {
+    notes: '笔记',
+    notebooks: '笔记本',
+    contexts: '上下文',
+    quickCommands: '快捷指令',
+    noTrashItems: '回收站为空',
+    emptyAll: '清空全部',
+    deletedAt: '删除于 {time}',
+    restore: '恢复',
+    deletePermanently: '彻底删除',
+    confirmEmpty: '确定要清空回收站吗？所有内容将被永久删除。',
   },
   settings: {
     title: '设置',
@@ -294,6 +307,8 @@ export default {
     detailsImageNote: '图片笔记',
     moveTo: '移动到',
     moveToNotebook: '移动到笔记本',
+    restore: '恢复',
+    deletePermanently: '彻底删除',
   },
   title: {
     appTitle: 'OneHand',

@@ -25,3 +25,10 @@ export const QUICK_COMMAND_COLORS = [
 ] as const
 
 export type QuickCommandColor = typeof QUICK_COMMAND_COLORS[number]
+
+/**
+ * 回收站快捷指令
+ */
+export interface TrashQuickCommand extends QuickCommand {
+  deletedAt: number
+}

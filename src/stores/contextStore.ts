@@ -1,11 +1,12 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { ContextFile, ContextType, ContextColor } from '@/types/context'
+import type { ContextFile, ContextType, ContextColor, TrashContextFile } from '@/types/context'
 import { CONTEXT_COLORS } from '@/types/context'
-import { getContextsDir } from '@/utils/userFilesPath'
+import { getContextsDir, getTrashContextsFilePath } from '@/utils/userFilesPath'
 
 export const useContextStore = defineStore('context', () => {
   const contextFiles = ref<ContextFile[]>([])
+  const trashContextFiles = ref<TrashContextFile[]>([])
 
   const allContextFiles = computed(() => contextFiles.value)
 
@@ -36,6 +37,9 @@ export const useContextStore = defineStore('context', () => {
    */
   async function loadContextFiles() {
     try {
+      // 加载回收站上下文文件
+      await loadTrashContextFiles()
+
       const contextsDir = await getContextsDir()
       const exists = await window.electronAPI.exists(`${contextsDir}/contexts.json`)
 
@@ -177,14 +181,95 @@ export const useContextStore = defineStore('context', () => {
   }
 
   /**
-   * 删除上下文文件
+   * 删除上下文文件（移动到回收站）
    */
   async function deleteContextFile(contextFileId: string) {
+    const context = contextFiles.value.find(f => f.id === contextFileId)
+    if (!context) return
+
+    // 创建回收站上下文文件
+    const trashContext: TrashContextFile = {
+      ...context,
+      deletedAt: Date.now()
+    }
+
+    // 添加到回收站列表
+    trashContextFiles.value.push(trashContext)
+    await saveTrashContextFiles()
+
+    // 从正常列表移除
     contextFiles.value = contextFiles.value.filter(f => f.id !== contextFileId)
     await saveContextFiles()
+  }
 
-    // 注意：electron API 没有提供删除文件的方法，这里只从列表中删除
-    // 如果需要物理删除，需要在 electron 主进程中添加 deleteFile IPC 处理
+  /**
+   * 从回收站恢复上下文文件
+   */
+  async function restoreContextFromTrash(contextId: string) {
+    const trashContext = trashContextFiles.value.find(f => f.id === contextId)
+    if (!trashContext) return
+
+    // 创建恢复的上下文文件（去掉 deletedAt）
+    const restoredContext: ContextFile = {
+      id: trashContext.id,
+      name: trashContext.name,
+      type: trashContext.type,
+      color: trashContext.color,
+      content: trashContext.content,
+      createdAt: trashContext.createdAt,
+      updatedAt: trashContext.updatedAt,
+      notebookId: trashContext.notebookId
+    }
+
+    // 添加到正常列表
+    contextFiles.value.push(restoredContext)
+    await saveContextFiles()
+    await saveContextFileContent(restoredContext)
+
+    // 从回收站列表移除
+    trashContextFiles.value = trashContextFiles.value.filter(f => f.id !== contextId)
+    await saveTrashContextFiles()
+  }
+
+  /**
+   * 永久删除上下文文件
+   */
+  async function deleteContextPermanently(contextId: string) {
+    trashContextFiles.value = trashContextFiles.value.filter(f => f.id !== contextId)
+    await saveTrashContextFiles()
+  }
+
+  /**
+   * 保存回收站上下文文件列表
+   */
+  async function saveTrashContextFiles() {
+    try {
+      const filePath = await getTrashContextsFilePath()
+      await window.electronAPI.saveFile(
+        filePath,
+        JSON.stringify(trashContextFiles.value, null, 2)
+      )
+    } catch (error) {
+      console.error('Failed to save trash context files:', error)
+    }
+  }
+
+  /**
+   * 加载回收站上下文文件列表
+   */
+  async function loadTrashContextFiles() {
+    try {
+      const filePath = await getTrashContextsFilePath()
+      const exists = await window.electronAPI.exists(filePath)
+      if (exists) {
+        const result = await window.electronAPI.readFile(filePath, 'utf-8')
+        if (result.success && result.data && typeof result.data === 'string') {
+          trashContextFiles.value = JSON.parse(result.data) as TrashContextFile[]
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load trash context files:', error)
+    }
   }
 
   /**
@@ -220,11 +305,14 @@ export const useContextStore = defineStore('context', () => {
     allContextFiles,
     staticContextFiles,
     dynamicContextFiles,
+    trashContextFiles,
     loadContextFiles,
     createContextFile,
     updateContextFile,
     updateContextColor,
     deleteContextFile,
+    restoreContextFromTrash,
+    deleteContextPermanently,
     getContextFileById,
     appendToDynamicContext,
     loadContextFileContent,

@@ -487,6 +487,43 @@ ipcMain.handle('unlink', async (event, filePath) => {
   }
 })
 
+ipcMain.handle('move-file', async (event, srcPath, destPath) => {
+  try {
+    const dir = path.dirname(destPath)
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true })
+    }
+    fs.renameSync(srcPath, destPath)
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: String(error) }
+  }
+})
+
+ipcMain.handle('move-dir', async (event, srcPath, destPath) => {
+  try {
+    const dir = path.dirname(destPath)
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true })
+    }
+    fs.renameSync(srcPath, destPath)
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: String(error) }
+  }
+})
+
+ipcMain.handle('rmdir', async (event, dirPath) => {
+  try {
+    if (fs.existsSync(dirPath)) {
+      fs.rmSync(dirPath, { recursive: true, force: true })
+    }
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: String(error) }
+  }
+})
+
 ipcMain.handle('read-config', async () => {
   try {
     const configPath = getConfigPath()

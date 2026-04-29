@@ -142,8 +142,11 @@
           </div>
         </div>
         <div class="dialog-actions">
-          <button @click="showEditQuickCommandDialog = false" class="cancel-btn">{{ t('common.cancel') }}</button>
-          <button @click="saveQuickCommandEdit" class="confirm-btn">{{ t('common.save') }}</button>
+          <button @click="deleteQuickCommand(editingQuickCommand)" class="delete-btn">{{ t('common.delete') }}</button>
+          <div class="dialog-actions-right">
+            <button @click="showEditQuickCommandDialog = false" class="cancel-btn">{{ t('common.cancel') }}</button>
+            <button @click="saveQuickCommandEdit" class="confirm-btn">{{ t('common.save') }}</button>
+          </div>
         </div>
       </div>
     </div>
@@ -435,10 +438,29 @@ function handleQuickCommandDragEnd(e: DragEvent) {
 
 .dialog-actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   align-items: center;
   gap: 12px;
   margin-top: 20px;
+}
+
+.dialog-actions-right {
+  display: flex;
+  gap: 12px;
+}
+
+.delete-btn {
+  padding: 8px 16px;
+  background: rgba(255, 68, 68, 0.1);
+  border: 1px solid rgba(255, 68, 68, 0.3);
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--color-error);
+  transition: all 0.2s;
+}
+
+.delete-btn:hover {
+  background: rgba(255, 68, 68, 0.2);
 }
 
 .cancel-btn {

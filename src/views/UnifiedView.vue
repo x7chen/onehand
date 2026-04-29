@@ -50,6 +50,9 @@
       <!-- 收藏夹面板 -->
       <FavoritesPanel v-if="activeTab === 'favorites'" />
 
+      <!-- 回收站面板 -->
+      <TrashPanel v-if="activeTab === 'trash'" />
+
       <!-- 设置面板 -->
       <SettingsPanel
         v-if="activeTab === 'settings'"
@@ -171,51 +174,30 @@
     <!-- Edit Context Dialog -->
     <div v-if="showEditContextDialog && editingContext" class="dialog-overlay" @click="closeEditDialog">
       <div class="dialog edit-dialog" @click.stop>
-        <div class="edit-dialog-header">
-          <h3>{{ t('context.editTag') }}</h3>
-          <button @click="closeEditDialog" class="close-btn" :title="t('common.close')">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-            </svg>
-          </button>
-        </div>
-
-        <div class="edit-form">
-          <div class="form-group">
-            <label>{{ t('context.tagName') }}</label>
-            <input
-              v-model="editingContext.name"
-              type="text"
-              :placeholder="t('context.tagName')"
-              class="name-input"
+        <h3>{{ t('context.editTag') }}</h3>
+        <input
+          v-model="editingContext.name"
+          type="text"
+          :placeholder="t('context.tagName')"
+        />
+        <textarea
+          v-model="editingContext.content"
+          :placeholder="t('context.tagContentPlaceholder')"
+          class="content-input"
+        ></textarea>
+        <div class="form-group">
+          <label>{{ t('context.tagColor') }}</label>
+          <div class="color-picker">
+            <button
+              v-for="color in contextColors"
+              :key="color"
+              class="color-option"
+              :class="{ selected: editingContext.color === color }"
+              :style="{ backgroundColor: color }"
+              @click="editingContext.color = color"
             />
           </div>
-
-          <div class="form-group">
-            <label>{{ t('context.tagColor') }}</label>
-            <div class="color-picker">
-              <button
-                v-for="color in contextColors"
-                :key="color"
-                class="color-option"
-                :class="{ selected: editingContext.color === color }"
-                :style="{ backgroundColor: color }"
-                @click="editingContext.color = color"
-                :title="color"
-              />
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label>{{ t('context.contextContent') }}</label>
-            <textarea
-              v-model="editingContext.content"
-              :placeholder="t('context.tagContentPlaceholder')"
-              class="content-input"
-            ></textarea>
-          </div>
         </div>
-
         <div class="dialog-actions">
           <button @click="confirmDeleteContext(editingContext.id, true)" class="delete-btn">{{ t('common.delete') }}</button>
           <div class="dialog-actions-right">
@@ -263,6 +245,7 @@ import { useQuickCommandStore } from '@/stores/quickCommandStore'
 import UnifiedSidebar from '@/components/UnifiedSidebar.vue'
 import ContextsPanel from '@/components/ContextsPanel.vue'
 import FavoritesPanel from '@/components/FavoritesPanel.vue'
+import TrashPanel from '@/components/TrashPanel.vue'
 import TagsPanel from '@/components/TagsPanel.vue'
 import SettingsPanel from '@/components/SettingsPanel.vue'
 import MultiChatPanel from '@/components/MultiChatPanel.vue'
@@ -773,43 +756,8 @@ function handleSwitchViewMode(mode: 'chat' | 'canvas') {
 }
 
 .edit-dialog {
-  min-width: 600px;
-  max-width: 800px;
-}
-
-.edit-dialog-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-.edit-dialog-header h3 {
-  margin: 0;
-}
-
-.close-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  cursor: pointer;
-  color: var(--text-secondary);
-  transition: background 0.2s;
-}
-
-.close-btn:hover {
-  background: var(--border-color);
-}
-
-.edit-form {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+  min-width: 500px;
+  max-width: 700px;
 }
 
 .color-picker {
@@ -882,7 +830,7 @@ function handleSwitchViewMode(mode: 'chat' | 'canvas') {
 
 .content-input {
   width: 100%;
-  min-height: 300px;
+  min-height: 200px;
   padding: 12px;
   border: 1px solid var(--border-color);
   border-radius: 6px;

@@ -15,6 +15,8 @@ export interface Notebook {
   modelId?: string
   /** PDF笔记本上次查看的页码（从1开始），用于恢复阅读位置 */
   lastPdfPage?: number
+  /** 是否为回收站笔记本，回收站不参与普通笔记本列表遍历 */
+  isTrash?: boolean
 }
 
 export interface Viewport {
@@ -49,9 +51,22 @@ export interface CanvasNode {
   highlightRect?: { x: number; y: number; width: number; height: number }
   /** 印象笔记节点ID，用于跳转到印象笔记 */
   ever_id?: string
+  /** 来源笔记本ID，仅当节点在回收站时有效，用于恢复到原笔记本 */
+  sourceNotebookId?: string
 }
 
 /** 画布显示节点，包含动态计算的位置 */
 export interface DisplayNode extends CanvasNode {
   displayPosition: { x: number; y: number }
+}
+
+/** 回收站笔记本元数据 */
+export interface TrashNotebook {
+  originalId: string  // 原笔记本ID
+  name: string
+  deletedAt: number   // 删除时间
+  createdAt: number
+  updatedAt: number
+  pdfPath?: string    // PDF路径（如果有）
+  nodeCount: number   // 笔记数量
 }

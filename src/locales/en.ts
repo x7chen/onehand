@@ -85,6 +85,19 @@ export default {
     noTags: 'No tags yet',
     pin: 'Pin',
     unpin: 'Unpin',
+    emptyTrash: 'Empty trash',
+  },
+  trash: {
+    notes: 'Notes',
+    notebooks: 'Notebooks',
+    contexts: 'Contexts',
+    quickCommands: 'Quick Commands',
+    noTrashItems: 'Trash is empty',
+    emptyAll: 'Empty all',
+    deletedAt: 'Deleted {time}',
+    restore: 'Restore',
+    deletePermanently: 'Delete permanently',
+    confirmEmpty: 'Are you sure you want to empty the trash? All items will be permanently deleted.',
   },
   settings: {
     title: 'Settings',
@@ -294,6 +307,8 @@ export default {
     detailsImageNote: 'Image note',
     moveTo: 'Move to',
     moveToNotebook: 'Move to notebook',
+    restore: 'Restore',
+    deletePermanently: 'Delete permanently',
   },
   title: {
     appTitle: 'OneHand',

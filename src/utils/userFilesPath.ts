@@ -87,3 +87,75 @@ export async function getUserDataFilePath(filename: string): Promise<string> {
   const basePath = await getUserFilesPath()
   return `${basePath}/${filename}`
 }
+
+/**
+ * 获取回收站目录路径
+ */
+export async function getTrashDir(): Promise<string> {
+  const basePath = await getUserFilesPath()
+  return `${basePath}/trash`
+}
+
+/**
+ * 获取回收站笔记本目录
+ */
+export async function getTrashNotebooksDir(): Promise<string> {
+  const trashDir = await getTrashDir()
+  return `${trashDir}/notebooks`
+}
+
+/**
+ * 获取回收站笔记本文件路径
+ */
+export async function getTrashNotebookFilePath(originalId: string): Promise<string> {
+  const trashDir = await getTrashNotebooksDir()
+  return `${trashDir}/${originalId}.json`
+}
+
+/**
+ * 获取回收站笔记本数据目录（用于存储音频、图片等）
+ */
+export async function getTrashNotebookDataDir(originalId: string): Promise<string> {
+  const trashDir = await getTrashNotebooksDir()
+  return `${trashDir}/${originalId}`
+}
+
+/**
+ * 获取回收站上下文文件路径
+ */
+export async function getTrashContextsFilePath(): Promise<string> {
+  const trashDir = await getTrashDir()
+  return `${trashDir}/contexts.json`
+}
+
+/**
+ * 获取回收站快捷指令文件路径
+ */
+export async function getTrashQuickCommandsFilePath(): Promise<string> {
+  const trashDir = await getTrashDir()
+  return `${trashDir}/quickCommands.json`
+}
+
+/**
+ * 获取回收站笔记本元数据文件路径
+ */
+export async function getTrashNotebooksMetaFilePath(): Promise<string> {
+  const trashDir = await getTrashDir()
+  return `${trashDir}/notebooks_meta.json`
+}
+
+/**
+ * 获取回收站节点文件路径
+ */
+export async function getTrashNodesFilePath(): Promise<string> {
+  const trashDir = await getTrashDir()
+  return `${trashDir}/nodes.json`
+}
+
+/**
+ * 获取回收站节点附件目录（音频、图片等）
+ */
+export async function getTrashNodesDataDir(): Promise<string> {
+  const trashDir = await getTrashDir()
+  return `${trashDir}/nodes`
+}
