@@ -1177,19 +1177,20 @@ function handleTrashClick() {
 }
 
 .menu-item.canvas-view:hover {
-  background: var(--color-primary-light);
-  color: var(--color-primary);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
 }
 
 .menu-item.pin:hover,
-.menu-item.unpin:hover {
-  background: var(--color-primary-light);
-  color: var(--color-primary);
+.menu-item.unpin:hover,
+.menu-item.rename:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
 }
 
 .menu-item.delete:hover {
-  background: rgba(255, 68, 68, 0.1);
-  color: var(--color-error);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
 }
 
 .all-notebooks {

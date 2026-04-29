@@ -117,53 +117,31 @@
 
     <!-- New Context Dialog -->
     <div v-if="showNewContextDialog" class="dialog-overlay" @click="showNewContextDialog = false">
-      <div class="dialog edit-dialog" @click.stop>
+      <div class="dialog" @click.stop>
         <h3>{{ t('context.newContext') }}</h3>
-
-        <div class="edit-form">
-          <div class="form-group">
-            <label>{{ t('context.tagName') }}</label>
-            <input
-              v-model="newContextName"
-              type="text"
-              :placeholder="t('context.contextNamePlaceholder')"
-              class="name-input"
+        <input
+          v-model="newContextName"
+          type="text"
+          :placeholder="t('context.contextNamePlaceholder')"
+        />
+        <textarea
+          v-model="newContextContent"
+          :placeholder="t('context.tagContentPlaceholder')"
+          class="content-input"
+        ></textarea>
+        <div class="form-group">
+          <label>{{ t('context.tagColor') }}</label>
+          <div class="color-picker">
+            <button
+              v-for="color in contextColors"
+              :key="color"
+              class="color-option"
+              :class="{ selected: newContextColor === color }"
+              :style="{ backgroundColor: color }"
+              @click="newContextColor = color"
             />
           </div>
-
-          <div class="form-group">
-            <label>{{ t('context.contextType') }}</label>
-            <select v-model="newContextType">
-              <option value="static">{{ t('context.staticDesc') }}</option>
-              <option value="dynamic">{{ t('context.dynamicDesc') }}</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label>{{ t('context.tagColor') }}</label>
-            <div class="color-picker">
-              <button
-                v-for="color in contextColors"
-                :key="color"
-                class="color-option"
-                :class="{ selected: newContextColor === color }"
-                :style="{ backgroundColor: color }"
-                @click="newContextColor = color"
-                :title="color"
-              />
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label>{{ t('context.contextContent') }}</label>
-            <textarea
-              v-model="newContextContent"
-              :placeholder="t('context.tagContentPlaceholder')"
-              class="content-input"
-            ></textarea>
-          </div>
         </div>
-
         <div class="dialog-actions">
           <button @click="showNewContextDialog = false" class="cancel-btn">{{ t('common.cancel') }}</button>
           <button @click="createContextFile" class="confirm-btn">{{ t('common.create') }}</button>

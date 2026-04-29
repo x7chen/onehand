@@ -179,16 +179,37 @@
         {{ isAllSelected ? t('common.deselectAll') : t('common.selectAll') }}
       </button>
       <span class="selected-count">{{ t('common.selectedCount', { count: selectedCount }) }}</span>
-      <button
-        class="batch-btn delete-btn"
-        @click="handleBatchDelete"
-      >
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-          <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-        </svg>
-        {{ t('common.delete') }}
-      </button>
+      <!-- 抽屉菜单按钮 -->
+      <div class="batch-menu-wrapper">
+        <button
+          ref="batchMenuBtnRef"
+          class="batch-menu-btn"
+          @click="toggleBatchMenu"
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <circle cx="12" cy="5" r="2"/>
+            <circle cx="12" cy="12" r="2"/>
+            <circle cx="12" cy="19" r="2"/>
+          </svg>
+        </button>
+      </div>
     </div>
+
+    <!-- 批量操作抽屉菜单 -->
+    <Teleport to="body">
+      <div v-if="showBatchMenu" class="menu-overlay" @click="closeBatchMenu"></div>
+      <div v-if="showBatchMenu" class="drawer-menu batch-menu" :style="batchMenuStyle">
+        <button
+          class="drawer-menu-item delete"
+          @click="handleBatchDelete"
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+          </svg>
+          <span>{{ t('common.delete') }}</span>
+        </button>
+      </div>
+    </Teleport>
 
     <!-- 批量删除确认对话框 -->
     <Teleport to="body">
@@ -262,6 +283,11 @@ const sortMenuStyle = ref<{ top?: string; right?: string }>({})
 const viewBtnRef = ref<HTMLElement | null>(null)
 const showViewMenu = ref(false)
 const viewMenuStyle = ref<{ top?: string; right?: string }>({})
+
+// 批量操作菜单状态
+const batchMenuBtnRef = ref<HTMLElement | null>(null)
+const showBatchMenu = ref(false)
+const batchMenuStyle = ref<{ top?: string; bottom?: string; right?: string }>({})
 
 // 日历视图当前可见的节点
 const calendarVisibleNodes = ref<CanvasNode[]>([])
@@ -348,6 +374,27 @@ function closeViewMenu() {
   showViewMenu.value = false
 }
 
+// 批量操作菜单控制
+function toggleBatchMenu() {
+  if (showBatchMenu.value) {
+    closeBatchMenu()
+  } else {
+    const btn = batchMenuBtnRef.value
+    if (btn) {
+      const rect = btn.getBoundingClientRect()
+      batchMenuStyle.value = {
+        bottom: `${window.innerHeight - rect.top + 4}px`,
+        right: `${window.innerWidth - rect.right}px`
+      }
+      showBatchMenu.value = true
+    }
+  }
+}
+
+function closeBatchMenu() {
+  showBatchMenu.value = false
+}
+
 function setViewMode(mode: string) {
   viewMode.value = mode as any
   closeViewMenu()
@@ -418,6 +465,7 @@ function deselectAll() {
 
 // 批量删除（显示确认对话框）
 function handleBatchDelete() {
+  closeBatchMenu()
   if (selectedCount.value === 0) return
   let nodesToDelete: CanvasNode[]
   if (viewMode.value === 'calendar') {
@@ -491,6 +539,7 @@ function handleKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape') {
     closeSortMenu()
     closeViewMenu()
+    closeBatchMenu()
   }
 }
 
@@ -683,27 +732,43 @@ onUnmounted(() => {
   background: var(--bg-hover);
 }
 
-.batch-btn.delete-btn {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--color-error);
-  border-color: var(--color-error);
-}
-
-.batch-btn.delete-btn:hover {
-  background: rgba(255, 68, 68, 0.1);
-}
-
-.batch-btn.delete-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 .selected-count {
   font-size: 13px;
   color: var(--text-secondary);
+  flex: 1;
+}
+
+/* 批量操作菜单按钮 */
+.batch-menu-wrapper {
+  position: relative;
+  margin-left: auto;
+}
+
+.batch-menu-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.batch-menu-btn:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.batch-menu {
+  min-width: 120px;
+}
+
+.batch-menu .drawer-menu-item.delete:hover {
+  background: rgba(255, 68, 68, 0.1);
 }
 
 /* 删除确认对话框 */
