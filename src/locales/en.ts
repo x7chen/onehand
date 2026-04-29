@@ -83,6 +83,8 @@ export default {
     trash: 'Trash',
     noFavorites: 'No favorite notes yet',
     noTags: 'No tags yet',
+    pin: 'Pin',
+    unpin: 'Unpin',
   },
   settings: {
     title: 'Settings',

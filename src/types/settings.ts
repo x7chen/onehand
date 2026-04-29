@@ -56,6 +56,8 @@ export interface GeneralSettings {
   autoAiAnswer?: boolean  // 自动AI回答开关（创建笔记时自动触发AI回答）
   magicPadDefaultMode?: 'edit' | 'drag'  // MagicPad 默认模式（编辑模式或拖拽/录音模式）
   evernoteLinkPrefix?: string  // 印象笔记链接前缀（用于跳转到印象笔记）
+  pinnedNotebookIds?: string[]  // 固定的笔记本ID列表（侧边栏快捷访问）
+  pinnedAllNotebooks?: boolean  // 是否固定全部笔记本视图
 }
 
 export interface ViewSettings {
@@ -121,7 +123,9 @@ export const defaultSettings: Settings = {
     nodeListSortOrder: 'createdAtDesc',  // 默认按创建时间倒序（最新在前）
     autoAiAnswer: true,  // 默认开启自动AI回答
     magicPadDefaultMode: 'drag',  // 默认为拖拽/录音模式
-    evernoteLinkPrefix: 'evernote:///view/3248616/s15/'  // 默认印象笔记链接前缀
+    evernoteLinkPrefix: 'evernote:///view/3248616/s15/',  // 默认印象笔记链接前缀
+    pinnedNotebookIds: [],  // 默认无固定笔记本
+    pinnedAllNotebooks: false  // 默认不固定全部笔记本
   },
   view: {
     chatViewLeftPanelRatio: 0.6,

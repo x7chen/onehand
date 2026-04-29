@@ -83,6 +83,8 @@ export default {
     trash: '回收站',
     noFavorites: '暂无收藏的笔记',
     noTags: '暂无标签',
+    pin: '固定',
+    unpin: '取消固定',
   },
   settings: {
     title: '设置',

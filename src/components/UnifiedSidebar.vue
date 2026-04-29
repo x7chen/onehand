@@ -1,5 +1,5 @@
 <template>
-  <aside class="unified-sidebar" @dragover="handleSidebarDragOver" @drop="handleSidebarDrop" @click="openMenuNotebookId = null">
+  <aside class="unified-sidebar" @dragover="handleSidebarDragOver" @drop="handleSidebarDrop" @click="handleSidebarClick">
     <!-- 固定顶部区域：创建笔记 + 搜索 -->
     <div class="sidebar-header">
       <button class="create-note-btn" @click="handleCreateNote" :title="t('common.create')">
@@ -27,7 +27,7 @@
         <button
           class="nav-item tree-header"
           :class="{ active: activeTab === 'notebooks' || activeTab === 'all-notebooks' || activeNotebookId }"
-          @click="handleNotebooksClick"
+          @click.stop="handleNotebooksClick"
         >
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5">
             <rect x="4" y="4" width="16" height="16" rx="2"/>
@@ -42,31 +42,58 @@
             width="16"
             height="16"
             fill="currentColor"
-            :class="{ expanded: isNotebooksExpanded }"
+            :class="{ expanded: showNotebooksPopover }"
           >
             <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
           </svg>
         </button>
 
-        <!-- 笔记本列表（展开时显示） -->
-        <div v-if="isNotebooksExpanded" class="notebook-list">
+        <!-- 固定的笔记本列表 -->
+        <div v-if="isAllNotebooksPinned || pinnedNotebooks.length > 0" class="pinned-notebooks-section">
+          <!-- 固定的全部笔记本 -->
           <button
-            class="notebook-item all-notebooks"
+            v-if="isAllNotebooksPinned"
+            class="notebook-item"
             :class="{ active: activeTab === 'all-notebooks' && !activeNotebookId }"
-            @click="handleAllNotebooksClick"
+            @click="handleAllNotebooksClickFromPinned"
+            @mouseenter="hoveredNotebookId = 'all-notebooks'"
+            @mouseleave="hoveredNotebookId = null"
           >
             <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
               <path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/>
             </svg>
             <span>{{ t('canvas.allNotebooks') }}</span>
+            <!-- 菜单按钮 -->
+            <div class="notebook-menu-wrapper">
+              <button
+                class="notebook-menu-btn"
+                :class="{ visible: hoveredNotebookId === 'all-notebooks' || openMenuNotebookId === 'all-notebooks' }"
+                @click="toggleMenu('all-notebooks', $event)"
+              >
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                  <circle cx="12" cy="5" r="2"/>
+                  <circle cx="12" cy="12" r="2"/>
+                  <circle cx="12" cy="19" r="2"/>
+                </svg>
+              </button>
+              <!-- 下拉菜单 -->
+              <div v-if="openMenuNotebookId === 'all-notebooks'" class="notebook-menu-dropdown">
+                <button class="menu-item unpin" @click="handleUnpinAllNotebooks($event)">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                    <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.5v-6H18v-2l-2-2z"/>
+                  </svg>
+                  <span>{{ t('nav.unpin') }}</span>
+                </button>
+              </div>
+            </div>
           </button>
 
-          <!-- 具体笔记本列表 -->
+          <!-- 固定的具体笔记本 -->
           <button
-            v-for="notebook in sortedNotebooks"
+            v-for="notebook in pinnedNotebooks"
             :key="notebook.id"
             class="notebook-item"
-            :class="{ active: activeNotebookId === notebook.id, renaming: renamingNotebookId === notebook.id }"
+            :class="{ active: activeNotebookId === notebook.id }"
             @click="handleNotebookClick(notebook.id)"
             @mouseenter="hoveredNotebookId = notebook.id"
             @mouseleave="hoveredNotebookId = null"
@@ -77,22 +104,9 @@
             <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
               <path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z"/>
             </svg>
-            <!-- 重命名输入框 -->
-            <input
-              v-if="renamingNotebookId === notebook.id"
-              type="text"
-              class="rename-input"
-              v-model="renameInputValue"
-              :placeholder="t('notebook.renamePlaceholder')"
-              @click.stop
-              @keyup.enter="confirmRename(notebook)"
-              @keyup.escape="cancelRename"
-              @blur="confirmRename(notebook)"
-              ref="renameInput"
-            />
-            <span v-else>{{ notebook.name }}</span>
+            <span>{{ notebook.name }}</span>
             <!-- 菜单按钮 -->
-            <div v-show="renamingNotebookId !== notebook.id" class="notebook-menu-wrapper">
+            <div class="notebook-menu-wrapper">
               <button
                 class="notebook-menu-btn"
                 :class="{ visible: hoveredNotebookId === notebook.id || openMenuNotebookId === notebook.id }"
@@ -106,6 +120,12 @@
               </button>
               <!-- 下拉菜单 -->
               <div v-if="openMenuNotebookId === notebook.id" class="notebook-menu-dropdown">
+                <button class="menu-item unpin" @click="handleUnpin(notebook, $event)">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                    <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.5v-6H18v-2l-2-2z"/>
+                  </svg>
+                  <span>{{ t('nav.unpin') }}</span>
+                </button>
                 <button class="menu-item canvas-view" @click="handleOpenCanvasPanel(notebook, $event)">
                   <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
                     <path d="M4 4h7v7H4zm0 9h7v7H4zm9-9h7v7h-7zm0 9h7v7h-7z"/>
@@ -127,15 +147,133 @@
               </div>
             </div>
           </button>
-
-          <!-- 新建笔记本 -->
-          <button class="notebook-item create-notebook" @click="showCreateNotebookDialog = true">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-              <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-            </svg>
-            <span>{{ t('notebook.newNotebook') }}</span>
-          </button>
         </div>
+
+        <!-- 笔记本弹出菜单（使用 Teleport 覆盖在主内容区域上方） -->
+        <Teleport to="body">
+          <div v-if="showNotebooksPopover" class="notebooks-popover" :style="popoverStyle">
+            <!-- 新建笔记本（跨两列） -->
+            <button class="popover-item create-notebook" @click.stop="showCreateNotebookDialog = true; showNotebooksPopover = false">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+              </svg>
+              <span>{{ t('notebook.newNotebook') }}</span>
+            </button>
+
+            <!-- 全部笔记本 -->
+            <button
+              class="popover-item all-notebooks"
+              :class="{ active: activeTab === 'all-notebooks' && !activeNotebookId }"
+              @click.stop="handleAllNotebooksClick"
+              @mouseenter="hoveredPopoverAllNotebooks = true"
+              @mouseleave="hoveredPopoverAllNotebooks = false"
+            >
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                <path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/>
+              </svg>
+              <span>{{ t('canvas.allNotebooks') }}</span>
+              <!-- 菜单按钮 -->
+              <div class="popover-menu-wrapper">
+                <button
+                  class="popover-menu-btn"
+                  :class="{ visible: hoveredPopoverAllNotebooks || showAllNotebooksMenu }"
+                  @click="toggleAllNotebooksMenu($event)"
+                >
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                    <circle cx="12" cy="5" r="2"/>
+                    <circle cx="12" cy="12" r="2"/>
+                    <circle cx="12" cy="19" r="2"/>
+                  </svg>
+                </button>
+                <!-- 下拉菜单 -->
+                <div v-if="showAllNotebooksMenu" class="popover-menu-dropdown">
+                  <button class="menu-item pin" @click.stop="handleTogglePinAllNotebooks($event)">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                      <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.5v-6H18v-2l-2-2z"/>
+                    </svg>
+                    <span>{{ isAllNotebooksPinned ? t('nav.unpin') : t('nav.pin') }}</span>
+                  </button>
+                </div>
+              </div>
+            </button>
+
+            <!-- 具体笔记本列表（两列布局） -->
+            <template v-for="(notebook, index) in sortedNotebooks" :key="notebook.id">
+              <button
+                class="popover-item"
+                :class="{ active: activeNotebookId === notebook.id, renaming: renamingNotebookId === notebook.id }"
+                @click.stop="handleNotebookClick(notebook.id)"
+                @mouseenter="hoveredPopoverNotebookId = notebook.id"
+                @mouseleave="hoveredPopoverNotebookId = null"
+              >
+                <svg v-if="notebook.pdfPath" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                  <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
+                </svg>
+                <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                  <path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z"/>
+                </svg>
+                <!-- 重命名输入框 -->
+                <input
+                  v-if="renamingNotebookId === notebook.id"
+                  type="text"
+                  class="rename-input"
+                  v-model="renameInputValue"
+                  :placeholder="t('notebook.renamePlaceholder')"
+                  @click.stop
+                  @keyup.enter="confirmRename(notebook)"
+                  @keyup.escape="cancelRename"
+                  @blur="confirmRename(notebook)"
+                  ref="renameInput"
+                />
+                <span v-else>{{ notebook.name }}</span>
+                <!-- 菜单按钮 -->
+                <div v-show="renamingNotebookId !== notebook.id" class="popover-menu-wrapper">
+                  <button
+                    class="popover-menu-btn"
+                    :class="{ visible: hoveredPopoverNotebookId === notebook.id || openPopoverMenuNotebookId === notebook.id }"
+                    @click="togglePopoverMenu(notebook.id, $event)"
+                  >
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                      <circle cx="12" cy="5" r="2"/>
+                      <circle cx="12" cy="12" r="2"/>
+                      <circle cx="12" cy="19" r="2"/>
+                    </svg>
+                  </button>
+                  <!-- 下拉菜单 -->
+                  <div v-if="openPopoverMenuNotebookId === notebook.id" class="popover-menu-dropdown">
+                    <button class="menu-item pin" @click.stop="handleTogglePin(notebook, $event)">
+                      <svg v-if="isPinned(notebook)" viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                        <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.5v-6H18v-2l-2-2z"/>
+                      </svg>
+                      <svg v-else viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                        <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.5v-6H18v-2l-2-2z"/>
+                      </svg>
+                      <span>{{ isPinned(notebook) ? t('nav.unpin') : t('nav.pin') }}</span>
+                    </button>
+                    <button class="menu-item canvas-view" @click.stop="handleOpenCanvasPanel(notebook, $event)">
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                        <path d="M4 4h7v7H4zm0 9h7v7H4zm9-9h7v7h-7zm0 9h7v7h-7z"/>
+                      </svg>
+                      <span>{{ t('canvas.expandList') }}</span>
+                    </button>
+                    <button class="menu-item rename" @click.stop="startPopoverRename(notebook, $event)">
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                        <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.9959.9959 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                      </svg>
+                      <span>{{ t('notebook.renameNotebook') }}</span>
+                    </button>
+                    <button class="menu-item delete" @click.stop="handleDeleteNotebook(notebook)">
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                        <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                      </svg>
+                      <span>{{ t('common.delete') }}</span>
+                    </button>
+                  </div>
+                </div>
+              </button>
+            </template>
+          </div>
+        </Teleport>
       </div>
 
       <!-- 上下文 -->
@@ -293,14 +431,29 @@ const { t } = useI18n()
 const settingsStore = useSettingsStore()
 const notebookStore = useNotebookStore()
 
-// 笔记本列表展开状态
-const isNotebooksExpanded = ref(true)
+// 笔记本弹出菜单状态
+const showNotebooksPopover = ref(false)
 
-// 悬停的笔记本（用于显示菜单）
+// 弹出菜单位置
+const popoverPosition = ref({ top: 0, left: 0 })
+
+// 悬停的笔记本（用于显示菜单）- 固定区域
 const hoveredNotebookId = ref<string | null>(null)
 
-// 打开的菜单笔记本ID
+// 悬停的笔记本（弹出菜单中）
+const hoveredPopoverNotebookId = ref<string | null>(null)
+
+// 悬停的全部笔记本（弹出菜单中）
+const hoveredPopoverAllNotebooks = ref(false)
+
+// 全部笔记本菜单显示状态
+const showAllNotebooksMenu = ref(false)
+
+// 打开的菜单笔记本ID - 固定区域
 const openMenuNotebookId = ref<string | null>(null)
+
+// 打开的菜单笔记本ID - 弹出菜单中
+const openPopoverMenuNotebookId = ref<string | null>(null)
 
 // 正在重命名的笔记本ID
 const renamingNotebookId = ref<string | null>(null)
@@ -327,6 +480,32 @@ const isDragOverTrash = ref(false)
 // 按名称排序的笔记本列表
 const sortedNotebooks = computed(() => {
   return [...props.allNotebooks].sort((a, b) => a.name.localeCompare(b.name))
+})
+
+// 固定的笔记本列表
+const pinnedNotebooks = computed(() => {
+  const pinnedIds = settingsStore.settings.general.pinnedNotebookIds || []
+  return pinnedIds
+    .map(id => props.allNotebooks.find(n => n.id === id))
+    .filter((n): n is Notebook => n !== undefined)
+})
+
+// 弹出菜单样式
+const popoverStyle = computed(() => {
+  return {
+    top: `${popoverPosition.value.top}px`,
+    left: `${popoverPosition.value.left}px`
+  }
+})
+
+// 检查笔记本是否固定
+function isPinned(notebook: Notebook): boolean {
+  return (settingsStore.settings.general.pinnedNotebookIds || []).includes(notebook.id)
+}
+
+// 检查全部笔记本是否固定
+const isAllNotebooksPinned = computed(() => {
+  return settingsStore.settings.general.pinnedAllNotebooks || false
 })
 
 // 主题相关
@@ -377,27 +556,80 @@ function handleSearchClick() {
   showSearchDialog.value = true
 }
 
-// 笔记本标签点击（展开/折叠）
-function handleNotebooksClick() {
-  isNotebooksExpanded.value = !isNotebooksExpanded.value
+// 笔记本标签点击（显示/隐藏弹出菜单）
+function handleNotebooksClick(event: MouseEvent) {
+  const button = event.currentTarget as HTMLElement
+  const rect = button.getBoundingClientRect()
+  popoverPosition.value = {
+    top: rect.top,
+    left: rect.right + 8
+  }
+  showNotebooksPopover.value = !showNotebooksPopover.value
+  openPopoverMenuNotebookId.value = null
+  showAllNotebooksMenu.value = false
 }
 
 // 所有笔记本点击
 function handleAllNotebooksClick() {
   emit('select-tab', 'all-notebooks')
   emit('select-notebook', null)
+  showNotebooksPopover.value = false
+}
+
+// 从固定区域点击全部笔记本
+function handleAllNotebooksClickFromPinned() {
+  emit('select-tab', 'all-notebooks')
+  emit('select-notebook', null)
+}
+
+// 取消固定全部笔记本（固定区域的菜单）
+function handleUnpinAllNotebooks(event: MouseEvent) {
+  event.stopPropagation()
+  settingsStore.updateSettings({
+    general: { ...settingsStore.settings.general, pinnedAllNotebooks: false }
+  })
+  openMenuNotebookId.value = null
 }
 
 // 具体笔记本点击
 function handleNotebookClick(notebookId: string) {
   emit('select-tab', 'notebooks')
   emit('select-notebook', notebookId)
+  showNotebooksPopover.value = false
+}
+
+// 固定/取消固定笔记本
+function handleTogglePin(notebook: Notebook, event: MouseEvent) {
+  event.stopPropagation()
+  const pinnedIds = settingsStore.settings.general.pinnedNotebookIds || []
+  const isCurrentlyPinned = pinnedIds.includes(notebook.id)
+  const newPinnedIds = isCurrentlyPinned
+    ? pinnedIds.filter(id => id !== notebook.id)
+    : [...pinnedIds, notebook.id]
+  settingsStore.updateSettings({
+    general: { ...settingsStore.settings.general, pinnedNotebookIds: newPinnedIds }
+  })
+  openPopoverMenuNotebookId.value = null
+}
+
+// 取消固定笔记本（固定区域的菜单）
+function handleUnpin(notebook: Notebook, event: MouseEvent) {
+  event.stopPropagation()
+  const pinnedIds = settingsStore.settings.general.pinnedNotebookIds || []
+  const newPinnedIds = pinnedIds.filter(id => id !== notebook.id)
+  settingsStore.updateSettings({
+    general: { ...settingsStore.settings.general, pinnedNotebookIds: newPinnedIds }
+  })
+  openMenuNotebookId.value = null
 }
 
 // 删除笔记本
 async function handleDeleteNotebook(notebook: Notebook) {
   notebookToDelete.value = notebook
   showDeleteConfirmDialog.value = true
+  openMenuNotebookId.value = null
+  openPopoverMenuNotebookId.value = null
+  showNotebooksPopover.value = false
 }
 
 // 确认删除笔记本
@@ -406,11 +638,19 @@ async function confirmDeleteNotebook() {
   const deletedId = notebookToDelete.value.id
   await notebookStore.deleteNotebook(deletedId)
   openMenuNotebookId.value = null
+  openPopoverMenuNotebookId.value = null
   showDeleteConfirmDialog.value = false
   notebookToDelete.value = null
   // 如果删除的是当前选中的笔记本，清除选中状态
   if (props.activeNotebookId === deletedId) {
     emit('select-notebook', null)
+  }
+  // 从固定列表中移除
+  const pinnedIds = settingsStore.settings.general.pinnedNotebookIds || []
+  if (pinnedIds.includes(deletedId)) {
+    settingsStore.updateSettings({
+      general: { ...settingsStore.settings.general, pinnedNotebookIds: pinnedIds.filter(id => id !== deletedId) }
+    })
   }
 }
 
@@ -418,22 +658,62 @@ async function confirmDeleteNotebook() {
 function handleOpenCanvasPanel(notebook: Notebook, event: MouseEvent) {
   event.stopPropagation()
   openMenuNotebookId.value = null
+  openPopoverMenuNotebookId.value = null
+  showNotebooksPopover.value = false
   emit('select-notebook', notebook.id)
   emit('switch-view-mode', 'canvas')
 }
 
-// 显示菜单
+// 显示菜单（固定区域）
 function toggleMenu(notebookId: string, event: MouseEvent) {
   event.stopPropagation()
   openMenuNotebookId.value = openMenuNotebookId.value === notebookId ? null : notebookId
 }
 
-// 开始重命名
+// 显示菜单（弹出菜单区域）
+function togglePopoverMenu(notebookId: string, event: MouseEvent) {
+  event.stopPropagation()
+  openPopoverMenuNotebookId.value = openPopoverMenuNotebookId.value === notebookId ? null : notebookId
+  showAllNotebooksMenu.value = false
+}
+
+// 显示全部笔记本菜单
+function toggleAllNotebooksMenu(event: MouseEvent) {
+  event.stopPropagation()
+  showAllNotebooksMenu.value = !showAllNotebooksMenu.value
+  openPopoverMenuNotebookId.value = null
+}
+
+// 固定/取消固定全部笔记本
+function handleTogglePinAllNotebooks(event: MouseEvent) {
+  event.stopPropagation()
+  const newPinned = !settingsStore.settings.general.pinnedAllNotebooks
+  settingsStore.updateSettings({
+    general: { ...settingsStore.settings.general, pinnedAllNotebooks: newPinned }
+  })
+  showAllNotebooksMenu.value = false
+}
+
+// 开始重命名（固定区域）
 function startRename(notebook: Notebook, event: MouseEvent) {
   event.stopPropagation()
   renamingNotebookId.value = notebook.id
   renameInputValue.value = notebook.name
   openMenuNotebookId.value = null
+  nextTick(() => {
+    if (renameInput.value) {
+      renameInput.value.focus()
+      renameInput.value.select()
+    }
+  })
+}
+
+// 开始重命名（弹出菜单区域）
+function startPopoverRename(notebook: Notebook, event: MouseEvent) {
+  event.stopPropagation()
+  renamingNotebookId.value = notebook.id
+  renameInputValue.value = notebook.name
+  openPopoverMenuNotebookId.value = null
   nextTick(() => {
     if (renameInput.value) {
       renameInput.value.focus()
@@ -476,6 +756,13 @@ function handleCreateNote() {
 // 拖拽处理
 function handleSidebarDragOver(e: DragEvent) {
   // Allow drag over sidebar
+}
+
+function handleSidebarClick() {
+  openMenuNotebookId.value = null
+  openPopoverMenuNotebookId.value = null
+  showAllNotebooksMenu.value = false
+  showNotebooksPopover.value = false
 }
 
 function handleSidebarDrop(e: DragEvent) {
@@ -532,11 +819,11 @@ function handleTrashDrop(e: DragEvent) {
   width: 100%;
   height: 36px;
   padding: 0 16px;
-  background: var(--color-primary);
+  background: var(--bg-secondary);
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  color: white;
+  color: var(--text-primary);
   font-size: 14px;
   font-weight: 500;
   transition: all 0.2s;
@@ -544,8 +831,7 @@ function handleTrashDrop(e: DragEvent) {
 }
 
 .create-note-btn:hover {
-  background: var(--color-primary-hover);
-  transform: translateY(-1px);
+  background: var(--bg-hover);
 }
 
 .create-note-btn svg {
@@ -670,7 +956,7 @@ function handleTrashDrop(e: DragEvent) {
 }
 
 .notebook-item.active {
-  background: var(--color-primary);
+  background: var(--bg-secondary);
   color: var(--text-primary);
 }
 
@@ -698,6 +984,128 @@ function handleTrashDrop(e: DragEvent) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* 固定的笔记本列表 */
+.pinned-notebooks-section {
+  padding-left: 12px;
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* 笔记本弹出菜单 */
+.notebooks-popover {
+  position: fixed;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px var(--shadow-color);
+  padding: 8px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  z-index: 1000;
+  min-width: 280px;
+  max-width: 400px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.popover-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 13px;
+  transition: all 0.2s;
+  text-align: left;
+  width: 100%;
+  position: relative;
+}
+
+.popover-item:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.popover-item.active {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.popover-item.renaming {
+  background: var(--bg-tertiary);
+}
+
+.popover-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.popover-item.create-notebook {
+  grid-column: 1 / -1;
+  color: var(--color-primary);
+}
+
+.popover-item.create-notebook:hover {
+  background: var(--color-primary-light);
+}
+
+.popover-item.all-notebooks {
+  font-weight: 500;
+}
+
+/* 弹出菜单内的菜单按钮 */
+.popover-menu-wrapper {
+  position: relative;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.popover-menu-btn {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  opacity: 0;
+}
+
+.popover-menu-btn.visible {
+  opacity: 1;
+}
+
+.popover-menu-btn:hover {
+  color: var(--text-primary);
+}
+
+.popover-menu-dropdown {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  margin-top: 4px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px var(--shadow-color);
+  z-index: 1100;
+  min-width: 120px;
+  padding: 4px 0;
 }
 
 /* 笔记本菜单按钮 */
@@ -766,6 +1174,12 @@ function handleTrashDrop(e: DragEvent) {
 }
 
 .menu-item.canvas-view:hover {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+.menu-item.pin:hover,
+.menu-item.unpin:hover {
   background: var(--color-primary-light);
   color: var(--color-primary);
 }
