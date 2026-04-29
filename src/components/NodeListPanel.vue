@@ -10,16 +10,6 @@
       <span class="note-count">{{ nodes.length }} {{ t('notebook.notes') }}</span>
       <!-- 按钮组 -->
       <div class="btn-group">
-        <!-- 排序按钮 -->
-        <button
-          class="sort-toggle-btn"
-          @click="toggleSortMenu"
-        >
-          <!-- 排序图标 -->
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-            <path d="M3 18h6v-2H3v2zM3 6v2h18V6H3zm0 7h12v-2H3v2z"/>
-          </svg>
-        </button>
         <!-- 视图切换按钮 -->
         <button
           class="view-toggle-btn"
@@ -36,6 +26,16 @@
           <!-- 日历图标 -->
           <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
             <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM9 10H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2zm-8 4H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2z"/>
+          </svg>
+        </button>
+        <!-- 排序按钮 -->
+        <button
+          class="sort-toggle-btn"
+          @click="toggleSortMenu"
+        >
+          <!-- 排序图标 -->
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M3 18h6v-2H3v2zM3 6v2h18V6H3zm0 7h12v-2H3v2z"/>
           </svg>
         </button>
       </div>

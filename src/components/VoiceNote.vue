@@ -170,6 +170,13 @@
             </svg>
             <span>{{ t('voiceNote.details') }}</span>
           </button>
+          <!-- 移动到 -->
+          <button class="menu-item move-item" @click.stop="openMoveMenu">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
+            </svg>
+            <span>{{ t('voiceNote.moveTo') }}</span>
+          </button>
           <!-- 分隔线 -->
           <div v-if="!allButtonsVisible || node.ever_id" class="menu-divider"></div>
           <!-- 删除按钮 - 永远在菜单中 -->
@@ -178,6 +185,30 @@
               <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
             </svg>
             <span>{{ t('common.delete') }}</span>
+          </button>
+        </div>
+
+        <!-- 移动到二级菜单 -->
+        <div v-if="showMoveMenu" class="move-menu-overlay" @click="closeMoveMenu"></div>
+        <div v-if="showMoveMenu" class="move-menu" :style="moveMenuStyle">
+          <div class="move-menu-header">
+            <span>{{ t('voiceNote.moveToNotebook') }}</span>
+          </div>
+          <button
+            v-for="nb in allNotebooks"
+            :key="nb.id"
+            class="move-menu-item"
+            :class="{ current: nb.id === currentNotebookId }"
+            :disabled="nb.id === currentNotebookId"
+            @click.stop="handleMoveToNotebook(nb.id)"
+          >
+            <svg v-if="nb.pdfPath" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
+            </svg>
+            <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z"/>
+            </svg>
+            <span>{{ nb.name }}</span>
           </button>
         </div>
 
@@ -844,6 +875,20 @@ const menuStyle = ref<{ top: string; right: string }>({ top: '0px', right: '0px'
 const showContextMenu = ref(false)
 const contextMenuStyle = ref<{ top: string; left: string }>({ top: '0px', left: '0px' })
 
+// 移动菜单相关
+const showMoveMenu = ref(false)
+const moveMenuStyle = ref<{ top: string; left: string }>({ top: '0px', left: '0px' })
+
+// 所有笔记本
+const allNotebooks = computed(() => notebookStore.notebooks)
+
+// 当前笔记本ID
+const currentNotebookId = computed(() => {
+  const map = notebookStore.getNodeToNotebookMap()
+  const nb = map.get(props.node.id)
+  return nb?.id
+})
+
 function toggleMenu(e: MouseEvent) {
   if (showMenu.value) {
     showMenu.value = false
@@ -861,6 +906,36 @@ function toggleMenu(e: MouseEvent) {
 
 function closeMenu() {
   showMenu.value = false
+  showMoveMenu.value = false
+}
+
+// 移动菜单相关函数
+function openMoveMenu(e: MouseEvent) {
+  const btn = e.currentTarget as HTMLElement
+  const rect = btn.getBoundingClientRect()
+  // 计算左侧位置，确保不超出屏幕
+  const menuWidth = 180
+  const leftPos = rect.left - menuWidth - 8
+  // 确保不超出屏幕左侧
+  const finalLeft = Math.max(8, leftPos)
+  moveMenuStyle.value = {
+    top: `${rect.top}px`,
+    left: `${finalLeft}px`
+  }
+  showMoveMenu.value = true
+}
+
+function closeMoveMenu() {
+  showMoveMenu.value = false
+}
+
+async function handleMoveToNotebook(notebookId: string) {
+  if (notebookId === currentNotebookId.value) return
+  const success = await notebookStore.moveNodeToNotebook(props.node.id, notebookId)
+  if (success) {
+    closeMoveMenu()
+    closeMenu()
+  }
 }
 
 // 菜单中折叠按钮的处理函数
@@ -3117,5 +3192,73 @@ background-color: rgba(0, 0, 0, 1);
   to {
     transform: rotate(360deg);
   }
+}
+
+/* ========================================
+   移动到笔记本菜单样式
+   ======================================== */
+
+.move-menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 3300;
+}
+
+.move-menu {
+  position: fixed;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px var(--shadow-color);
+  z-index: 3301;
+  min-width: 180px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.move-menu-header {
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.move-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.move-menu-item:hover:not(:disabled) {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.move-menu-item.current {
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+
+.move-menu-item:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.move-menu-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>

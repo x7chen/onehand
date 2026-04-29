@@ -453,6 +453,36 @@ export const useNotebookStore = defineStore('notebook', () => {
     }
   }
 
+  // 移动节点到另一个笔记本
+  async function moveNodeToNotebook(nodeId: string, targetNotebookId: string) {
+    const map = getNodeToNotebookMap()
+    const sourceNotebook = map.get(nodeId)
+    const targetNotebook = notebooks.value.find(n => n.id === targetNotebookId)
+
+    if (!sourceNotebook || !targetNotebook) return false
+
+    const node = sourceNotebook.nodes?.find(n => n.id === nodeId)
+    if (!node) return false
+
+    // Remove from source
+    sourceNotebook.nodes = sourceNotebook.nodes?.filter(n => n.id !== nodeId)
+
+    // Add to target
+    if (!targetNotebook.nodes) {
+      targetNotebook.nodes = []
+    }
+    targetNotebook.nodes.push(node)
+
+    // Update map
+    map.set(nodeId, targetNotebook)
+
+    // Save both notebooks
+    await saveNotebook(sourceNotebook)
+    await saveNotebook(targetNotebook)
+
+    return true
+  }
+
   // ========== PDF 页面相关方法 ==========
 
   // 获取指定 PDF 页码的所有节点
@@ -599,6 +629,8 @@ export const useNotebookStore = defineStore('notebook', () => {
     batchUpdateContextSelection,
     updateNodeFavorite,
     removeNode,
+    moveNodeToNotebook,
+    getNodeToNotebookMap,
     // PDF 页面管理
     getNodesByPdfPage,
     findNodePdfPage,

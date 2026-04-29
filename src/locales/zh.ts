@@ -292,6 +292,8 @@ export default {
     detailsVoiceNote: '语音笔记',
     detailsTextNote: '文字笔记',
     detailsImageNote: '图片笔记',
+    moveTo: '移动到',
+    moveToNotebook: '移动到笔记本',
   },
   title: {
     appTitle: 'OneHand',

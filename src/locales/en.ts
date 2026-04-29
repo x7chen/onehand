@@ -292,6 +292,8 @@ export default {
     detailsVoiceNote: 'Voice note',
     detailsTextNote: 'Text note',
     detailsImageNote: 'Image note',
+    moveTo: 'Move to',
+    moveToNotebook: 'Move to notebook',
   },
   title: {
     appTitle: 'OneHand',
