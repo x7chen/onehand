@@ -200,6 +200,15 @@
       <div v-if="showBatchMenu" class="menu-overlay" @click="closeBatchMenu"></div>
       <div v-if="showBatchMenu" class="drawer-menu batch-menu" :style="batchMenuStyle">
         <button
+          class="drawer-menu-item move"
+          @click="handleBatchMove"
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-6 12H6v-2h8v2zm4-4H6v-2h12v2z"/>
+          </svg>
+          <span>{{ t('nodeList.moveTo') }}</span>
+        </button>
+        <button
           class="drawer-menu-item delete"
           @click="handleBatchDelete"
         >
@@ -208,6 +217,27 @@
           </svg>
           <span>{{ t('common.delete') }}</span>
         </button>
+      </div>
+
+      <!-- 移动笔记本菜单 -->
+      <div v-if="showMoveNotebookMenu" class="drawer-menu move-notebook-menu" :style="moveNotebookMenuStyle">
+        <button
+          v-for="notebook in availableNotebooks"
+          :key="notebook.id"
+          class="drawer-menu-item notebook-item"
+          @click="selectMoveNotebook(notebook.id)"
+        >
+          <svg v-if="notebook.pdfPath" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
+          </svg>
+          <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z"/>
+          </svg>
+          <span>{{ notebook.name }}</span>
+        </button>
+        <div v-if="availableNotebooks.length === 0" class="empty-notebooks">
+          {{ t('nodeList.noAvailableNotebooks') }}
+        </div>
       </div>
     </Teleport>
 
@@ -242,6 +272,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { useNotebookStore } from '@/stores/notebookStore'
 import NodeCardView from '@/components/NodeCardView.vue'
 import NodeListView from '@/components/NodeListView.vue'
 import NodeCalendarView from '@/components/NodeCalendarView.vue'
@@ -259,12 +290,14 @@ const props = withDefaults(defineProps<{
 
 const { t } = useI18n()
 const settingsStore = useSettingsStore()
+const notebookStore = useNotebookStore()
 
 const emit = defineEmits<{
   'toggle-context': [nodeId: string]
   'toggle-favorite': [nodeId: string]
   'activate': [nodeId: string]
   'batch-delete': [nodeIds: string[]]
+  'batch-move': [nodeIds: string[], targetNotebookId: string]
   'batch-select-context': [nodeIds: string[], selected: boolean]
   'visible-nodes-change': [nodeIds: string[]]
 }>()
@@ -288,6 +321,11 @@ const viewMenuStyle = ref<{ top?: string; right?: string }>({})
 const batchMenuBtnRef = ref<HTMLElement | null>(null)
 const showBatchMenu = ref(false)
 const batchMenuStyle = ref<{ top?: string; bottom?: string; right?: string }>({})
+
+// 移动笔记本菜单状态
+const showMoveNotebookMenu = ref(false)
+const moveNotebookMenuStyle = ref<{ top?: string; bottom?: string; right?: string }>({})
+const pendingMoveIds = ref<string[]>([])
 
 // 日历视图当前可见的节点
 const calendarVisibleNodes = ref<CanvasNode[]>([])
@@ -329,6 +367,11 @@ const sortedNodes = computed(() => {
       return nodes.sort((a, b) => (b.updatedAt || b.createdAt) - (a.updatedAt || a.createdAt))
   }
   return nodes
+})
+
+// 可移动的笔记本列表（排除当前笔记本）
+const availableNotebooks = computed(() => {
+  return notebookStore.notebooks.filter(n => n.id !== notebookStore.currentNotebook?.id)
 })
 
 // 排序菜单控制
@@ -393,6 +436,7 @@ function toggleBatchMenu() {
 
 function closeBatchMenu() {
   showBatchMenu.value = false
+  showMoveNotebookMenu.value = false
 }
 
 function setViewMode(mode: string) {
@@ -482,6 +526,42 @@ function confirmBatchDelete() {
   emit('batch-delete', pendingDeleteIds.value)
   showDeleteConfirmDialog.value = false
   pendingDeleteIds.value = []
+}
+
+// 批量移动（打开笔记本列表菜单）
+function handleBatchMove(e: MouseEvent) {
+  if (selectedCount.value === 0) return
+  let nodesToMove: CanvasNode[]
+  if (viewMode.value === 'calendar') {
+    nodesToMove = calendarVisibleNodes.value.filter(n => n.selectedAsContext)
+  } else {
+    nodesToMove = selectedNodes.value
+  }
+  pendingMoveIds.value = nodesToMove.map(n => n.id)
+
+  // 计算移动笔记本菜单的位置（在移动按钮右侧，底部对齐）
+  const target = e.currentTarget as HTMLElement
+  if (target) {
+    const rect = target.getBoundingClientRect()
+    moveNotebookMenuStyle.value = {
+      bottom: `${window.innerHeight - rect.bottom}px`,
+      right: `${window.innerWidth - rect.left + 4}px`
+    }
+  }
+  showMoveNotebookMenu.value = true
+}
+
+// 选择目标笔记本进行移动
+function selectMoveNotebook(notebookId: string) {
+  emit('batch-move', pendingMoveIds.value, notebookId)
+  closeMoveNotebookMenu()
+  closeBatchMenu()
+  pendingMoveIds.value = []
+}
+
+// 关闭移动笔记本菜单
+function closeMoveNotebookMenu() {
+  showMoveNotebookMenu.value = false
 }
 
 // 处理日历视图可见节点变化
@@ -769,6 +849,24 @@ onUnmounted(() => {
 
 .batch-menu .drawer-menu-item.delete:hover {
   background: rgba(255, 68, 68, 0.1);
+}
+
+/* 移动笔记本菜单 */
+.move-notebook-menu {
+  min-width: 160px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.move-notebook-menu .notebook-item {
+  font-size: 13px;
+}
+
+.empty-notebooks {
+  padding: 12px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-align: center;
 }
 
 /* 删除确认对话框 */

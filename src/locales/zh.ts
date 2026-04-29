@@ -375,5 +375,7 @@ export default {
     sortUpdatedAtDesc: '更新时间（最新）',
     deleteConfirmTitle: '确认删除笔记',
     deleteConfirmMessage: '确定要删除选中的 {count} 个笔记吗？将移动到回收站。',
+    moveTo: '移动到',
+    noAvailableNotebooks: '没有可移动的笔记本',
   },
 }

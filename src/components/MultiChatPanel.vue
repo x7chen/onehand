@@ -35,6 +35,7 @@
         :panel-width="leftPanelWidth"
         @delete="handleDeleteNode"
         @batch-delete="handleBatchDeleteNodes"
+        @batch-move="handleBatchMoveNodes"
         @batch-select-context="handleBatchSelectContext"
         @play="handlePlayNode"
         @toggle-context="handleToggleContext"
@@ -583,6 +584,19 @@ function handleDeleteNode(nodeId: string) {
 function handleBatchDeleteNodes(nodeIds: string[]) {
   for (const nodeId of nodeIds) {
     notebookStore.removeNode(nodeId)
+    if (activeNodeIdLeft.value === nodeId) {
+      activeNodeIdLeft.value = null
+    }
+    if (activeNodeIdRight.value === nodeId) {
+      activeNodeIdRight.value = null
+    }
+  }
+}
+
+// 批量移动节点到目标笔记本
+function handleBatchMoveNodes(nodeIds: string[], targetNotebookId: string) {
+  for (const nodeId of nodeIds) {
+    notebookStore.moveNodeToNotebook(nodeId, targetNotebookId)
     if (activeNodeIdLeft.value === nodeId) {
       activeNodeIdLeft.value = null
     }
