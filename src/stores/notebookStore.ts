@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { Notebook, CanvasNode, TrashNotebook } from '@/types/notebook'
 import type { NotebookContext } from '@/types/context'
-import { getNotebooksDir, getNotebookFilePath, getPdfDir, getNotebookDataDir, getNotebookAudioDir, getNotebookImagesDir, getTrashNotebooksDir, getTrashNotebookFilePath, getTrashNotebookDataDir, getTrashNotebooksMetaFilePath, getTrashNodesFilePath, getTrashNodesDataDir } from '@/utils/userFilesPath'
+import { getNotebooksDir, getNotebookFilePath, getNotebookPdfDir, getNotebookDataDir, getNotebookAudioDir, getNotebookImagesDir, getTrashNotebooksDir, getTrashNotebookFilePath, getTrashNotebookDataDir, getTrashNotebooksMetaFilePath, getTrashNodesFilePath, getTrashNodesDataDir } from '@/utils/userFilesPath'
 
 // 回收站节点元数据接口
 interface TrashNodeMeta {
@@ -244,21 +244,22 @@ export const useNotebookStore = defineStore('notebook', () => {
 
   // 创建新笔记本
   async function createNotebook(name: string, context?: NotebookContext, pdfPath?: string) {
+    const notebookId = Date.now().toString()
     let finalPdfPath = pdfPath
+    let finalName = name.trim()
 
-    // 如果有PDF路径，复制PDF到用户数据目录
+    // 如果有PDF路径，复制PDF到笔记本文件夹下的pdf子目录
     if (pdfPath) {
       try {
-        const pdfDir = await getPdfDir()
+        const notebookPdfDir = await getNotebookPdfDir(notebookId)
 
-        // 确保pdf目录存在
-        await window.electronAPI.mkdir(pdfDir)
+        // 确保笔记本pdf目录存在
+        await window.electronAPI.mkdir(notebookPdfDir)
 
-        // 生成新文件名：使用时间戳避免冲突
-        const pdfName = pdfPath.split(/[/\\]/).pop() || 'document.pdf'
-        const ext = pdfName.includes('.') ? pdfName.split('.').pop() : 'pdf'
+        // 生成新文件名：使用时间戳避免路径兼容问题
+        const ext = pdfPath.split('.').pop() || 'pdf'
         const newPdfName = `${Date.now()}.${ext}`
-        const newPdfPath = `${pdfDir}/${newPdfName}`
+        const newPdfPath = `${notebookPdfDir}/${newPdfName}`
 
         // 复制PDF文件
         const result = await window.electronAPI.copyFile(pdfPath, newPdfPath)
@@ -267,14 +268,20 @@ export const useNotebookStore = defineStore('notebook', () => {
         } else {
           console.error('Failed to copy PDF:', result.error)
         }
+
+        // 如果笔记本名称为空，使用PDF文件名（去掉扩展名）作为笔记本名
+        if (!finalName) {
+          const originalFileName = pdfPath.split(/[/\\]/).pop() || ''
+          finalName = originalFileName.replace(/\.[^.]+$/, '') || 'Untitled'
+        }
       } catch (error) {
-        console.error('Failed to copy PDF to user data directory:', error)
+        console.error('Failed to copy PDF to notebook directory:', error)
       }
     }
 
     const notebook: Notebook = {
-      id: Date.now().toString(),
-      name,
+      id: notebookId,
+      name: finalName || 'Untitled',
       createdAt: Date.now(),
       updatedAt: Date.now(),
       nodes: [],

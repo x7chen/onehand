@@ -191,9 +191,6 @@
         <!-- 移动到二级菜单 -->
         <div v-if="showMoveMenu" class="move-menu-overlay" @click="closeMoveMenu"></div>
         <div v-if="showMoveMenu" class="move-menu" :style="moveMenuStyle">
-          <div class="move-menu-header">
-            <span>{{ t('voiceNote.moveToNotebook') }}</span>
-          </div>
           <button
             v-for="nb in allNotebooks"
             :key="nb.id"
@@ -3218,13 +3215,6 @@ background-color: rgba(0, 0, 0, 1);
   max-height: 300px;
   overflow-y: auto;
   padding: 4px 0;
-}
-
-.move-menu-header {
-  padding: 8px 12px;
-  font-size: 12px;
-  color: var(--text-secondary);
-  border-bottom: 1px solid var(--border-color);
 }
 
 .move-menu-item {

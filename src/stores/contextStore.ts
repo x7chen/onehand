@@ -104,42 +104,7 @@ export const useContextStore = defineStore('context', () => {
     contextFiles.value.push(contextFile)
     await saveContextFiles()
 
-    // 同时保存内容到单独的 markdown 文件
-    await saveContextFileContent(contextFile)
-
     return contextFile
-  }
-
-  /**
-   * 保存上下文文件内容到 markdown 文件
-   */
-  async function saveContextFileContent(contextFile: ContextFile) {
-    try {
-      const contextsDir = await getContextsDir()
-      await window.electronAPI.mkdir(contextsDir)
-      await window.electronAPI.saveFile(
-        `${contextsDir}/${contextFile.id}.md`,
-        contextFile.content
-      )
-    } catch (error) {
-      console.error('Failed to save context file content:', error)
-    }
-  }
-
-  /**
-   * 读取上下文文件内容
-   */
-  async function loadContextFileContent(contextFileId: string): Promise<string | null> {
-    try {
-      const contextsDir = await getContextsDir()
-      const result = await window.electronAPI.readFile(`${contextsDir}/${contextFileId}.md`, 'utf-8')
-      if (result.success && result.data && typeof result.data === 'string') {
-        return result.data
-      }
-    } catch (error) {
-      console.error('Failed to load context file content:', error)
-    }
-    return null
   }
 
   /**
@@ -157,11 +122,6 @@ export const useContextStore = defineStore('context', () => {
         updatedAt: Date.now()
       })
       await saveContextFiles()
-
-      // 如果内容更新了，保存到 markdown 文件
-      if (updates.content !== undefined) {
-        await saveContextFileContent(file)
-      }
     }
   }
 
@@ -224,7 +184,6 @@ export const useContextStore = defineStore('context', () => {
     // 添加到正常列表
     contextFiles.value.push(restoredContext)
     await saveContextFiles()
-    await saveContextFileContent(restoredContext)
 
     // 从回收站列表移除
     trashContextFiles.value = trashContextFiles.value.filter(f => f.id !== contextId)
@@ -294,9 +253,8 @@ export const useContextStore = defineStore('context', () => {
       
       file.content = newContent
       file.updatedAt = Date.now()
-      
+
       await saveContextFiles()
-      await saveContextFileContent(file)
     }
   }
 
@@ -315,8 +273,6 @@ export const useContextStore = defineStore('context', () => {
     deleteContextPermanently,
     getContextFileById,
     appendToDynamicContext,
-    loadContextFileContent,
-    saveContextFileContent,
     getNextColor
   }
 })

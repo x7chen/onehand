@@ -81,6 +81,14 @@ export async function getNotebookImagesDir(notebookId: string): Promise<string> 
 }
 
 /**
+ * 获取笔记本PDF目录
+ */
+export async function getNotebookPdfDir(notebookId: string): Promise<string> {
+  const notebookDir = await getNotebookDataDir(notebookId)
+  return `${notebookDir}/pdf`
+}
+
+/**
  * 获取用户数据目录下的文件路径（用于快捷指令等）
  */
 export async function getUserDataFilePath(filename: string): Promise<string> {

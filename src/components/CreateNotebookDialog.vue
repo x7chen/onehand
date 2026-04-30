@@ -145,7 +145,8 @@ function toggleStaticContext(contextId: string) {
 
 // 创建笔记本
 function handleCreate() {
-  if (!notebookName.value.trim()) return
+  // 如果名称为空且没有PDF文件，不允许创建
+  if (!notebookName.value.trim() && !pdfFilePath.value) return
 
   emit('create', {
     name: notebookName.value.trim(),

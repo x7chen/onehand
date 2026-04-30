@@ -200,6 +200,15 @@
       <div v-if="showBatchMenu" class="menu-overlay" @click="closeBatchMenu"></div>
       <div v-if="showBatchMenu" class="drawer-menu batch-menu" :style="batchMenuStyle">
         <button
+          class="drawer-menu-item favorite"
+          @click="handleBatchFavorite"
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
+          </svg>
+          <span>{{ t('nodeList.favorite') }}</span>
+        </button>
+        <button
           class="drawer-menu-item move"
           @click="handleBatchMove"
         >
@@ -298,6 +307,7 @@ const emit = defineEmits<{
   'activate': [nodeId: string]
   'batch-delete': [nodeIds: string[]]
   'batch-move': [nodeIds: string[], targetNotebookId: string]
+  'batch-favorite': [nodeIds: string[]]
   'batch-select-context': [nodeIds: string[], selected: boolean]
   'visible-nodes-change': [nodeIds: string[]]
 }>()
@@ -505,6 +515,19 @@ function deselectAll() {
       emit('batch-select-context', nodeIds, false)
     }
   }
+}
+
+// 批量收藏
+function handleBatchFavorite() {
+  closeBatchMenu()
+  if (selectedCount.value === 0) return
+  let nodesToFavorite: CanvasNode[]
+  if (viewMode.value === 'calendar') {
+    nodesToFavorite = calendarVisibleNodes.value.filter(n => n.selectedAsContext)
+  } else {
+    nodesToFavorite = selectedNodes.value
+  }
+  emit('batch-favorite', nodesToFavorite.map(n => n.id))
 }
 
 // 批量删除（显示确认对话框）

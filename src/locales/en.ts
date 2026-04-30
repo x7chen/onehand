@@ -377,5 +377,6 @@ export default {
     deleteConfirmMessage: 'Are you sure you want to delete {count} selected notes? They will be moved to trash.',
     moveTo: 'Move to',
     noAvailableNotebooks: 'No available notebooks',
+    favorite: 'Favorite',
   },
 }

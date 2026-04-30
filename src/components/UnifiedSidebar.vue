@@ -98,9 +98,7 @@
             @mouseenter="hoveredNotebookId = notebook.id"
             @mouseleave="hoveredNotebookId = null"
           >
-            <svg v-if="notebook.pdfPath" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-              <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
-            </svg>
+            <span v-if="notebook.pdfPath" class="pdf-icon">PDF</span>
             <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
               <path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z"/>
             </svg>
@@ -206,9 +204,7 @@
                 @mouseenter="hoveredPopoverNotebookId = notebook.id"
                 @mouseleave="hoveredPopoverNotebookId = null"
               >
-                <svg v-if="notebook.pdfPath" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                  <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
-                </svg>
+                <span v-if="notebook.pdfPath" class="pdf-icon">PDF</span>
                 <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
                   <path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z"/>
                 </svg>
@@ -989,6 +985,20 @@ function handleTrashClick() {
   white-space: nowrap;
 }
 
+.pdf-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 16px;
+  background: #e53e3e;
+  color: white;
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
 /* 固定的笔记本列表 */
 .pinned-notebooks-section {
   padding-left: 12px;
@@ -1011,8 +1021,8 @@ function handleTrashClick() {
   gap: 4px;
   z-index: 1000;
   min-width: 280px;
-  max-width: 400px;
-  max-height: 400px;
+  max-width: 500px;
+  max-height: 600px;
   overflow-y: auto;
 }
 

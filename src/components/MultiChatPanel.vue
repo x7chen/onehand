@@ -36,6 +36,7 @@
         @delete="handleDeleteNode"
         @batch-delete="handleBatchDeleteNodes"
         @batch-move="handleBatchMoveNodes"
+        @batch-favorite="handleBatchFavoriteNodes"
         @batch-select-context="handleBatchSelectContext"
         @play="handlePlayNode"
         @toggle-context="handleToggleContext"
@@ -603,6 +604,13 @@ function handleBatchMoveNodes(nodeIds: string[], targetNotebookId: string) {
     if (activeNodeIdRight.value === nodeId) {
       activeNodeIdRight.value = null
     }
+  }
+}
+
+// 批量收藏节点
+function handleBatchFavoriteNodes(nodeIds: string[]) {
+  for (const nodeId of nodeIds) {
+    notebookStore.updateNodeFavorite(nodeId, true)
   }
 }
 
