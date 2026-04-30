@@ -94,19 +94,59 @@
     </div>
 
     <!-- 文本输入框 -->
-    <textarea
-      ref="textareaRef"
-      v-model="inputText"
-      class="magic-input-textarea"
-      :placeholder="t('common.inputContent')"
-      @dragstart="handleTextareaDragStart"
-      @dragend="handleDragEnd"
-      @dragover.prevent="handleDragOver"
-      @drop.prevent="handleDrop"
-      @contextmenu.prevent="handleTextareaContextMenu"
-      @input="handleInput"
-      @keydown="handleKeydown"
-    ></textarea>
+    <div class="textarea-wrapper">
+      <!-- 高亮层 -->
+      <div
+        v-if="showFindBar && findMatches.length > 0"
+        ref="highlightLayerRef"
+        class="find-highlight-layer"
+      ></div>
+      <textarea
+        ref="textareaRef"
+        v-model="inputText"
+        class="magic-input-textarea"
+        :placeholder="t('common.inputContent')"
+        @dragstart="handleTextareaDragStart"
+        @dragend="handleDragEnd"
+        @dragover.prevent="handleDragOver"
+        @drop.prevent="handleDrop"
+        @contextmenu.prevent="handleTextareaContextMenu"
+        @input="handleInput"
+        @keydown="handleKeydown"
+        @scroll="syncHighlightScroll"
+      ></textarea>
+    </div>
+
+    <!-- 查找栏 -->
+    <div v-if="showFindBar" class="find-bar">
+      <button class="find-close-btn" @click="closeFindBar" :title="t('common.close')">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+          <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+        </svg>
+      </button>
+      <input
+        ref="findInputRef"
+        v-model="findKeyword"
+        class="find-input"
+        type="text"
+        :placeholder="t('common.find')"
+        @input="performFind"
+        @keydown.enter="findNextMatch"
+        @keydown.shift.enter="findPrevMatch"
+        @keydown.escape="closeFindBar"
+      />
+      <button class="find-nav-btn" @click="findPrevMatch" :disabled="findMatches.length === 0" :title="t('common.findPrev')">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+          <path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/>
+        </svg>
+      </button>
+      <button class="find-nav-btn" @click="findNextMatch" :disabled="findMatches.length === 0" :title="t('common.findNext')">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+          <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/>
+        </svg>
+      </button>
+      <span class="find-count">{{ findMatchesText }}</span>
+    </div>
 
     <!-- 右键编辑菜单 -->
     <div v-if="showEditMenu" class="edit-menu-overlay" @click="showEditMenu = false"></div>
@@ -206,6 +246,12 @@ import { getNotebookImagesDir } from '@/utils/userFilesPath'
 import type { QuickCommand } from '@/types/quickCommand'
 import rewritePromptsRaw from '@/data/rewritePrompts.json'
 
+// 查找匹配类型
+interface FindMatch {
+  start: number
+  end: number
+}
+
 // 提示词菜单项类型定义
 interface PromptMenuItem {
   label: string
@@ -267,6 +313,16 @@ watch(() => props.initialText, (newVal) => {
   }
 })
 
+// 监听文本变化，更新查找
+watch(inputText, () => {
+  if (showFindBar.value && findKeyword.value) {
+    performFind()
+    nextTick(() => {
+      updateHighlightLayer()
+    })
+  }
+})
+
 // 拖拽相关
 const dragCaretPosition = ref<number | null>(null)
 const internalDragSelection = ref<{ start: number; end: number; text: string } | null>(null)
@@ -279,9 +335,12 @@ const hasSelection = ref(false)
 // 自适应高度
 function autoResize() {
   const textarea = textareaRef.value
-  if (!textarea) return
+  const wrapper = textarea?.parentElement
+  if (!textarea || !wrapper) return
   textarea.style.height = 'auto'
-  textarea.style.height = Math.min(textarea.scrollHeight, 600) + 'px'
+  const newHeight = Math.min(textarea.scrollHeight, 600)
+  textarea.style.height = newHeight + 'px'
+  wrapper.style.minHeight = newHeight + 'px'
 }
 
 // 处理输入变化
@@ -333,6 +392,14 @@ const expandedSubChildren = ref<Record<string, PromptMenuItem> | null>(null)
 const savedSelectionRange = ref<{ start: number; end: number } | null>(null)
 const rewriteMenuPosition = ref<{ bottom: string; left: string }>({ bottom: '0px', left: '0px' })
 const selectedMenuPath = ref<string>('') // 保存选择的菜单路径
+
+// 查找功能相关
+const showFindBar = ref(false)
+const findKeyword = ref('')
+const findMatches = ref<FindMatch[]>([])
+const currentMatchIndex = ref(0)
+const findInputRef = ref<HTMLInputElement | null>(null)
+const highlightLayerRef = ref<HTMLDivElement | null>(null)
 
 // 打开修辞菜单
 function openRewriteMenu(event: MouseEvent) {
@@ -422,7 +489,17 @@ onMounted(() => {
   nextTick(() => {
     autoResize()
   })
+  // 添加查找快捷键监听
+  document.addEventListener('keydown', handleFindShortcut)
 })
+
+// 处理查找快捷键 Ctrl/Cmd+F
+function handleFindShortcut(e: KeyboardEvent) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+    e.preventDefault()
+    toggleFindBar()
+  }
+}
 
 // 点击外部关闭快捷指令气泡和修辞菜单
 function handleClickOutside(e: MouseEvent) {
@@ -446,6 +523,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
+  document.removeEventListener('keydown', handleFindShortcut)
   if (recordingTimer) {
     clearInterval(recordingTimer)
   }
@@ -983,6 +1061,177 @@ function closePreviewPopover() {
   previewText.value = ''
 }
 
+// 查找功能：切换查找栏
+function toggleFindBar() {
+  showFindBar.value = !showFindBar.value
+  if (showFindBar.value) {
+    nextTick(() => {
+      findInputRef.value?.focus()
+      // 如果 textarea 有选中内容，将其作为默认搜索词
+      const textarea = textareaRef.value
+      if (textarea) {
+        const selection = textarea.value.substring(textarea.selectionStart, textarea.selectionEnd)
+        if (selection) {
+          findKeyword.value = selection
+          performFind()
+        }
+      }
+    })
+  } else {
+    closeFindBar()
+  }
+}
+
+// 关闭查找栏
+function closeFindBar() {
+  showFindBar.value = false
+  findKeyword.value = ''
+  findMatches.value = []
+  currentMatchIndex.value = 0
+  textareaRef.value?.focus()
+}
+
+// 执行查找
+function performFind() {
+  const keyword = findKeyword.value
+  const text = inputText.value
+
+  if (!keyword) {
+    findMatches.value = []
+    currentMatchIndex.value = 0
+    return
+  }
+
+  // 查找所有匹配
+  const matches: FindMatch[] = []
+  let searchPos = 0
+  const lowerText = text.toLowerCase()
+  const lowerKeyword = keyword.toLowerCase()
+
+  while (searchPos <= lowerText.length) {
+    const pos = lowerText.indexOf(lowerKeyword, searchPos)
+    if (pos === -1) break
+    matches.push({ start: pos, end: pos + keyword.length })
+    searchPos = pos + 1
+  }
+
+  findMatches.value = matches
+
+  // 如果有匹配，选中第一个
+  if (matches.length > 0) {
+    currentMatchIndex.value = 0
+    scrollToMatch(0)
+  } else {
+    currentMatchIndex.value = 0
+  }
+}
+
+// 查找下一个
+function findNextMatch() {
+  if (findMatches.value.length === 0) return
+
+  currentMatchIndex.value = (currentMatchIndex.value + 1) % findMatches.value.length
+  scrollToMatch(currentMatchIndex.value)
+}
+
+// 查找上一个
+function findPrevMatch() {
+  if (findMatches.value.length === 0) return
+
+  currentMatchIndex.value = (currentMatchIndex.value - 1 + findMatches.value.length) % findMatches.value.length
+  scrollToMatch(currentMatchIndex.value)
+}
+
+// 滚动到指定匹配并选中
+function scrollToMatch(index: number) {
+  const match = findMatches.value[index]
+  if (!match) return
+
+  const textarea = textareaRef.value
+  if (textarea) {
+    textarea.focus()
+    textarea.selectionStart = match.start
+    textarea.selectionEnd = match.end
+
+    // 滚动使匹配可见
+    const textBefore = inputText.value.substring(0, match.start)
+    const linesBefore = textBefore.split('\n').length
+    const lineHeight = parseFloat(getComputedStyle(textarea).lineHeight) || 20
+    const scrollTop = (linesBefore - 1) * lineHeight - textarea.clientHeight / 2
+    textarea.scrollTop = Math.max(0, scrollTop)
+
+    // 更新高亮层
+    updateHighlightLayer()
+  }
+}
+
+// 更新高亮层
+function updateHighlightLayer() {
+  const textarea = textareaRef.value
+  const highlightLayer = highlightLayerRef.value
+  if (!textarea || !highlightLayer || findMatches.value.length === 0) return
+
+  const text = inputText.value
+  const keyword = findKeyword.value
+
+  // 构建高亮HTML
+  let html = ''
+  let lastEnd = 0
+
+  findMatches.value.forEach((match, idx) => {
+    // 添加匹配前的文本
+    html += escapeHtml(text.substring(lastEnd, match.start))
+
+    // 添加高亮匹配
+    const matchText = text.substring(match.start, match.end)
+    const isCurrent = idx === currentMatchIndex.value
+    const className = isCurrent ? 'find-highlight-current' : 'find-highlight'
+    html += `<span class="${className}">${escapeHtml(matchText)}</span>`
+
+    lastEnd = match.end
+  })
+
+  // 添加最后剩余文本
+  html += escapeHtml(text.substring(lastEnd))
+
+  highlightLayer.innerHTML = html
+}
+
+// HTML转义
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/<span class="find-highlight-current">/g, '%%CURRENT%%')
+    .replace(/<span class="find-highlight">/g, '%%MATCH%%')
+    .replace(/<\/span>/g, '%%END%%')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/%%CURRENT%%/g, '<span class="find-highlight-current">')
+    .replace(/%%MATCH%%/g, '<span class="find-highlight">')
+    .replace(/%%END%%/g, '</span>')
+}
+
+// 查找匹配数量显示
+const findMatchesText = computed(() => {
+  if (findMatches.value.length === 0) {
+    return t('common.findNoMatch')
+  }
+  return t('common.findMatches', {
+    current: currentMatchIndex.value + 1,
+    total: findMatches.value.length
+  })
+})
+
+// 同步高亮层滚动
+function syncHighlightScroll() {
+  const textarea = textareaRef.value
+  const highlightLayer = highlightLayerRef.value
+  if (textarea && highlightLayer) {
+    highlightLayer.scrollTop = textarea.scrollTop
+    highlightLayer.scrollLeft = textarea.scrollLeft
+  }
+}
+
 // 处理拖放
 async function handleDrop(e: DragEvent) {
   const textarea = textareaRef.value
@@ -1117,8 +1366,11 @@ defineExpose({
 }
 
 .magic-input-textarea {
-  flex: 1;
-  min-height: 100px;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   padding: 12px;
   border: none;
   background: var(--bg-primary) !important;
@@ -1130,6 +1382,7 @@ defineExpose({
   outline: none;
   box-sizing: border-box;
   overflow-y: auto;
+  z-index: 2;
 }
 
 .magic-input-textarea::placeholder {
@@ -1478,5 +1731,126 @@ defineExpose({
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+/* 文本区域包装器 */
+.textarea-wrapper {
+  position: relative;
+  flex: 1;
+  min-height: 100px;
+  overflow: hidden;
+}
+
+/* 高亮层 */
+.find-highlight-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 12px;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow: hidden;
+  pointer-events: none;
+  color: transparent;
+  z-index: 1;
+}
+
+.find-highlight-layer .find-highlight {
+  background-color: rgba(255, 200, 0, 0.4);
+  border-radius: 2px;
+}
+
+.find-highlight-layer .find-highlight-current {
+  background-color: rgba(255, 180, 0, 0.7);
+  border-radius: 2px;
+  box-shadow: 0 0 0 2px rgba(255, 180, 0, 0.5);
+}
+
+/* 查找栏 */
+.find-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 40px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 -2px 12px var(--shadow-color);
+  z-index: 10;
+}
+
+.find-close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.find-close-btn:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.find-input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 14px;
+  outline: none;
+}
+
+.find-input:focus {
+  border-color: var(--color-primary);
+}
+
+.find-nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 4px;
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.find-nav-btn:hover:not(:disabled) {
+  background: var(--color-primary);
+  color: white;
+}
+
+.find-nav-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.find-count {
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  min-width: 60px;
 }
 </style>

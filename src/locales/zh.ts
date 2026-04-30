@@ -73,6 +73,11 @@ export default {
     removeHistory: '删除记录',
     more: '更多',
     collapse: '收起',
+    find: '查找',
+    findNext: '下一个',
+    findPrev: '上一个',
+    findMatches: '{current}/{total} 个匹配',
+    findNoMatch: '无匹配',
   },
   nav: {
     notebooks: '笔记本',

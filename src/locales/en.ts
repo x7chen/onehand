@@ -73,6 +73,11 @@ export default {
     removeHistory: 'Remove Record',
     more: 'More',
     collapse: 'Collapse',
+    find: 'Find',
+    findNext: 'Next',
+    findPrev: 'Previous',
+    findMatches: '{current}/{total} matches',
+    findNoMatch: 'No matches',
   },
   nav: {
     notebooks: 'Notebooks',
