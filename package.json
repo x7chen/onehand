@@ -46,6 +46,7 @@
     "@llm-tools/embedjs": "^0.1.31",
     "@llm-tools/embedjs-interfaces": "^0.1.31",
     "@llm-tools/embedjs-libsql": "^0.1.31",
+    "@types/three": "^0.184.0",
     "debug": "^4.4.3",
     "highlight.js": "^11.11.1",
     "katex": "^0.16.25",
@@ -54,6 +55,7 @@
     "mermaid": "^11.6.0",
     "pdfjs-dist": "^4.7.76",
     "sherpa-onnx": "^1.12.29",
+    "three": "^0.184.0",
     "uuid": "^13.0.0",
     "vue-i18n": "^11.3.0",
     "vue-tsc": "^3.2.6"

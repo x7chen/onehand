@@ -268,6 +268,14 @@ export default {
     selectCanvas: '选择画布',
     canvasN: '画布 {n}',
     pageN: '第 {n} 页',
+    particleView: '粒子视图',
+  },
+  particle: {
+    scrollHint: '鼠标滚轮控制前进后退，2秒无操作自动播放',
+    speed: '速度',
+    slow: '慢',
+    medium: '中',
+    fast: '快',
   },
   voiceNote: {
     recording: '录音中',

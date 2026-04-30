@@ -268,6 +268,14 @@ export default {
     selectCanvas: 'Select canvas',
     canvasN: 'Canvas {n}',
     pageN: 'Page {n}',
+    particleView: 'Particle View',
+  },
+  particle: {
+    scrollHint: 'Scroll to navigate, auto-play after 2s idle',
+    speed: 'Speed',
+    slow: 'Slow',
+    medium: 'Medium',
+    fast: 'Fast',
   },
   voiceNote: {
     recording: 'Recording',

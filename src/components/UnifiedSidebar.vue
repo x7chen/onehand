@@ -130,6 +130,12 @@
                   </svg>
                   <span>{{ t('canvas.expandList') }}</span>
                 </button>
+                <button class="menu-item particle-view" @click="handleOpenParticlePanel(notebook, $event)">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                  </svg>
+                  <span>{{ t('canvas.particleView') }}</span>
+                </button>
                 <button class="menu-item rename" @click="startRename(notebook, $event)">
                   <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
                     <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.9959.9959 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
@@ -251,6 +257,12 @@
                         <path d="M4 4h7v7H4zm0 9h7v7H4zm9-9h7v7h-7zm0 9h7v7h-7z"/>
                       </svg>
                       <span>{{ t('canvas.expandList') }}</span>
+                    </button>
+                    <button class="menu-item particle-view" @click.stop="handleOpenParticlePanel(notebook, $event)">
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                      </svg>
+                      <span>{{ t('canvas.particleView') }}</span>
                     </button>
                     <button class="menu-item rename" @click.stop="startPopoverRename(notebook, $event)">
                       <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
@@ -417,7 +429,7 @@ const emit = defineEmits<{
   'select-tab': [tab: string]
   'select-notebook': [notebookId: string | null]
   'create-notebook': [data: { name: string; pdfPath?: string; staticContextIds: string[]; dynamicContextId?: string }]
-  'switch-view-mode': [mode: 'chat' | 'canvas']
+  'switch-view-mode': [mode: 'chat' | 'canvas' | 'particle']
   'create-note': []
 }>()
 
@@ -656,6 +668,16 @@ function handleOpenCanvasPanel(notebook: Notebook, event: MouseEvent) {
   showNotebooksPopover.value = false
   emit('select-notebook', notebook.id)
   emit('switch-view-mode', 'canvas')
+}
+
+// 打开粒子视图面板
+function handleOpenParticlePanel(notebook: Notebook, event: MouseEvent) {
+  event.stopPropagation()
+  openMenuNotebookId.value = null
+  openPopoverMenuNotebookId.value = null
+  showNotebooksPopover.value = false
+  emit('select-notebook', notebook.id)
+  emit('switch-view-mode', 'particle')
 }
 
 // 显示菜单（固定区域）

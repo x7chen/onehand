@@ -62,7 +62,7 @@
 
       <!-- 笔记本面板 -->
       <MultiChatPanel
-        v-if="(activeTab === 'notebooks' || activeTab === 'all-notebooks') && viewMode !== 'canvas'"
+        v-if="(activeTab === 'notebooks' || activeTab === 'all-notebooks') && viewMode === 'chat'"
         :notebook-id="activeNotebookId"
         :static-context-files="staticContextFiles"
         :all-static-context-files="contextStore.staticContextFiles"
@@ -96,6 +96,15 @@
         @dynamic-context-drop="handleDynamicContextDrop"
         @select-model="handleSelectModel"
         @switch-to-chat="handleSwitchViewMode('chat')"
+      />
+
+      <!-- 粒子视图面板 -->
+      <ParticleViewPanel
+        v-if="viewMode === 'particle' && activeNotebookId && (activeTab === 'notebooks' || activeTab === 'all-notebooks')"
+        :notebook-id="activeNotebookId"
+        @switch-to-chat="handleSwitchViewMode('chat')"
+        @select-node="handleParticleSelectNode"
+        @navigate="handleParticleNavigate"
       />
 
       <!-- PDF笔记本面板 -->
@@ -229,6 +238,7 @@ import SettingsPanel from '@/components/SettingsPanel.vue'
 import MultiChatPanel from '@/components/MultiChatPanel.vue'
 import PdfReaderPanel from '@/components/PdfReaderPanel.vue'
 import CanvasViewPanel from '@/components/CanvasViewPanel.vue'
+import ParticleViewPanel from '@/components/ParticleViewPanel.vue'
 import type { ContextFile, ContextType } from '@/types/context'
 import { CONTEXT_COLORS, type ContextColor } from '@/types/context'
 import type { QuickCommand } from '@/types/quickCommand'
@@ -252,8 +262,8 @@ const activeTab = ref<string>('all-notebooks')
 // 当前激活的笔记本ID
 const activeNotebookId = ref<string | null>(null)
 
-// 视图模式：'chat' | 'canvas'（仅在笔记本tab下生效）
-const viewMode = ref<'chat' | 'canvas'>('chat')
+// 视图模式：'chat' | 'canvas' | 'particle'（仅在笔记本tab下生效）
+const viewMode = ref<'chat' | 'canvas' | 'particle'>('chat')
 
 // 需要激活的节点ID（用于跳转链接）
 const activateNodeId = ref<string | null>(null)
@@ -643,8 +653,28 @@ function handleSelectModel(modelId: string) {
 }
 
 // 视图模式切换
-function handleSwitchViewMode(mode: 'chat' | 'canvas') {
+function handleSwitchViewMode(mode: 'chat' | 'canvas' | 'particle') {
   viewMode.value = mode
+}
+
+// 粒子视图选中节点
+function handleParticleSelectNode(nodeId: string) {
+  // 设置要激活的节点
+  activateNodeId.value = nodeId
+}
+
+// 粒子视图跳转到节点位置
+function handleParticleNavigate(data: { notebookId: string; nodeId: string }) {
+  // 切换到对应笔记本
+  if (data.notebookId !== activeNotebookId.value) {
+    const notebook = notebookStore.notebooks.find(n => n.id === data.notebookId)
+    if (notebook) {
+      notebookStore.setCurrentNotebook(notebook)
+      activeNotebookId.value = data.notebookId
+    }
+  }
+  // 设置要激活的节点
+  activateNodeId.value = data.nodeId
 }
 </script>
 
