@@ -71,6 +71,7 @@
         :editing-text="editingText"
         :current-page="currentPageNumber"
         :included-page-image="includedPageImage"
+        :target-notebook-id="notebookId"
         @delete="handleDeleteNode"
         @play="handlePlayNode"
         @toggle-context="handleToggleContext"
