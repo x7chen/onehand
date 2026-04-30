@@ -26,7 +26,7 @@
         <PdfViewer
           v-if="currentNotebook?.pdfPath"
           ref="pdfViewerRef"
-          :pdf-path="getFullPdfPath()"
+          :pdf-path="fullPdfPath"
           :nodes="currentPdfPageNodes"
           :active-node-id="activeNode?.id"
           @page-change="handlePageChange"
@@ -167,7 +167,7 @@ import MagicInput from '@/components/MagicInput.vue'
 import { transcribeWithSherpaOnnx } from '@/composables/useSherpaOnnx'
 import { chatWithLLM, buildFullContextMessages, buildImageAnalysisMessages } from '@/composables/useQwenAgent'
 import { loadEmbeddedImagesForTranscript, loadImageBase64 } from '@/utils/contextBuilder'
-import { getNotebookAudioDir, getNotebookDataDir } from '@/utils/userFilesPath'
+import { getNotebookAudioDir, getNotebookDataDir, getFullPdfPath } from '@/utils/userFilesPath'
 import type { CanvasNode, Notebook } from '@/types/notebook'
 import type { ContextFile } from '@/types/context'
 import type { LLMProfile } from '@/types/settings'
@@ -220,6 +220,28 @@ const isRightPanelCollapsed = ref(true)
 const currentNotebook = computed(() => {
   return notebookStore.notebooks.find(nb => nb.id === props.notebookId)
 })
+
+// 完整的 PDF 路径（处理相对路径）
+const fullPdfPath = ref('')
+
+// 监听笔记本变化，更新完整 PDF 路径和重置页码
+watch(currentNotebook, async (notebook, oldNotebook) => {
+  if (notebook?.pdfPath) {
+    fullPdfPath.value = await getFullPdfPath(notebook.pdfPath, notebook.id)
+  } else {
+    fullPdfPath.value = ''
+  }
+
+  // 当笔记本切换时，重置页码
+  if (notebook && oldNotebook && notebook.id !== oldNotebook.id) {
+    const lastPage = notebook.lastPdfPage || 1
+    currentPageNumber.value = lastPage
+    nextTick(() => {
+      pdfViewerRef.value?.goToPage(lastPage)
+      selectFirstNode()
+    })
+  }
+}, { immediate: true })
 
 const isResizing = ref(false)
 let savePanelRatioTimer: number | null = null
@@ -309,14 +331,6 @@ const currentPageNodes = computed(() => {
     .filter(n => n.pdfPage === currentPageNumber.value)
     .sort((a, b) => a.createdAt - b.createdAt)
 })
-
-function getFullPdfPath(): string {
-  if (!currentNotebook.value?.pdfPath) return ''
-  if (currentNotebook.value.pdfPath.startsWith('file://') || currentNotebook.value.pdfPath.startsWith('http')) {
-    return currentNotebook.value.pdfPath
-  }
-  return `file://${currentNotebook.value.pdfPath}`
-}
 
 function startResize(e: MouseEvent) {
   isResizing.value = true

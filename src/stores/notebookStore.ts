@@ -264,7 +264,8 @@ export const useNotebookStore = defineStore('notebook', () => {
         // 复制PDF文件
         const result = await window.electronAPI.copyFile(pdfPath, newPdfPath)
         if (result.success) {
-          finalPdfPath = newPdfPath
+          // 存储相对路径（相对于笔记本数据目录）
+          finalPdfPath = `pdf/${newPdfName}`
         } else {
           console.error('Failed to copy PDF:', result.error)
         }

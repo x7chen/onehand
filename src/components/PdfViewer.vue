@@ -1,5 +1,5 @@
 <template>
-  <div class="pdf-viewer" ref="containerRef" @mousemove="handleContainerMouseMove" @mouseleave="hideEdgeButtons" @contextmenu.prevent="handleContextMenu">
+  <div class="pdf-viewer" ref="containerRef" @contextmenu.prevent="handleContextMenu">
     <div class="pdf-toolbar">
       <button @click="toggleSidebar" class="tool-btn" :title="t('pdf.sidebar')">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
@@ -142,34 +142,7 @@
           </div>
         </div>
         
-        <button 
-          v-show="showLeftNav && currentPage > 1"
-          class="edge-nav-btn left"
-          @click.stop="handleEdgeNavClick(prevPage)"
-          @mousedown.stop="handleEdgeNavMouseDown"
-          @mouseup.stop="handleEdgeNavMouseUp"
-          @mouseleave="handleEdgeNavMouseLeave"
-          @dblclick.stop
-        >
-          <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-            <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
-          </svg>
-        </button>
-        
-        <button 
-          v-show="showRightNav && currentPage < totalPages"
-          class="edge-nav-btn right"
-          @click.stop="handleEdgeNavClick(nextPage)"
-          @mousedown.stop="handleEdgeNavMouseDown"
-          @mouseup.stop="handleEdgeNavMouseUp"
-          @mouseleave="handleEdgeNavMouseLeave"
-          @dblclick.stop
-        >
-          <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-            <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
-          </svg>
-        </button>
-      </div>
+        </div>
     </div>
 
     <RecordingIndicator
@@ -298,12 +271,10 @@ const mainRotation = ref(0)
 
 const LONG_PRESS_DURATION = 300
 const MOVE_THRESHOLD = 5
-const EDGE_ZONE_WIDTH = 60
 let longPressTimer: number | null = null
 let mouseDownPos = { x: 0, y: 0 }
 let currentMousePos = { x: 0, y: 0 }
 let mouseDownOnTextLayer = false
-let isClickingEdgeButton = false
 let isStartingRecording = false
 
 const isRecording = ref(false)
@@ -315,9 +286,6 @@ let currentRecorder: ReturnType<typeof createAudioWorkletRecorder> | null = null
 
 const draggingNodeId = ref<string | null>(null)
 const draggingNodeStartPos = ref({ x: 0, y: 0 })
-
-const showLeftNav = ref(false)
-const showRightNav = ref(false)
 
 const thumbnailCanvasesRef = ref<HTMLCanvasElement[]>([])
 
@@ -697,27 +665,6 @@ function zoomOut() {
   scale.value = Math.max(scale.value - 0.2, 0.5)
 }
 
-function handleEdgeNavClick(action: () => void) {
-  if (longPressTimer) {
-    clearTimeout(longPressTimer)
-    longPressTimer = null
-  }
-  isClickingEdgeButton = false
-  action()
-}
-
-function handleEdgeNavMouseDown() {
-  isClickingEdgeButton = true
-}
-
-function handleEdgeNavMouseUp() {
-  isClickingEdgeButton = false
-}
-
-function handleEdgeNavMouseLeave() {
-  isClickingEdgeButton = false
-}
-
 // 滚轮翻页相关状态
 const wheelPageTurnCooldown = ref(false)
 const WHEEL_PAGE_TURN_COOLDOWN_MS = 300
@@ -773,48 +720,16 @@ function handleWheel(e: WheelEvent) {
   }
 }
 
-function handleContainerMouseMove(e: MouseEvent) {
-  if (!containerRef.value) return
-  
-  const rect = containerRef.value.getBoundingClientRect()
-  const edgeZone = 60
-  const x = e.clientX - rect.left
-  
-  if (x < edgeZone) {
-    showLeftNav.value = true
-    showRightNav.value = false
-  } else if (x > rect.width - edgeZone) {
-    showLeftNav.value = false
-    showRightNav.value = true
-  } else {
-    showLeftNav.value = false
-    showRightNav.value = false
-  }
-}
-
-function hideEdgeButtons() {
-  showLeftNav.value = false
-  showRightNav.value = false
-}
-
 function handleDoubleClick(e: MouseEvent) {
   if (e.button !== 0) return
 
-  const target = e.target as HTMLElement
-  if (target.closest('.edge-nav-btn')) return
-  
-  if (!containerRef.value) return
-  const containerRect = containerRef.value.getBoundingClientRect()
-  const clientX = e.clientX - containerRect.left
-  if (clientX < EDGE_ZONE_WIDTH || clientX > containerRect.width - EDGE_ZONE_WIDTH) return
-  
   const container = pageContainerRef.value
   if (!container) return
-  
+
   const rect = container.getBoundingClientRect()
   const x = (e.clientX - rect.left) / scale.value
   const y = (e.clientY - rect.top) / scale.value
-  
+
   emit('create-node', {
     type: 'text-note',
     page: currentPage.value,
@@ -825,9 +740,6 @@ function handleDoubleClick(e: MouseEvent) {
 
 
 async function startRecording(e: MouseEvent) {
-  if (isClickingEdgeButton) return
-  if (showLeftNav.value || showRightNav.value) return
-  
   const dx = currentMousePos.x - mouseDownPos.x
   const dy = currentMousePos.y - mouseDownPos.y
   const distance = Math.sqrt(dx * dx + dy * dy)
@@ -923,15 +835,8 @@ function cancelRecording() {
 function handleMouseDown(e: MouseEvent) {
   if (e.button !== 0) return
   if (isRecording.value) return
-  
+
   const target = e.target as HTMLElement
-  if (target.closest('.edge-nav-btn')) return
-  
-  if (!containerRef.value) return
-  const containerRect = containerRef.value.getBoundingClientRect()
-  const x = e.clientX - containerRect.left
-  if (x < EDGE_ZONE_WIDTH || x > containerRect.width - EDGE_ZONE_WIDTH) return
-  
   mouseDownOnTextLayer = !!target.closest('.textLayer')
   mouseDownPos = { x: e.clientX, y: e.clientY }
   currentMousePos = { x: e.clientX, y: e.clientY }
@@ -1546,37 +1451,6 @@ async function handleIncludePageChange() {
 
 .node-marker.voice-note.selected {
   background: var(--color-error-hover);
-}
-
-.edge-nav-btn {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 48px;
-  height: 48px;
-  border: none;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.6);
-  color: white;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-  z-index: 100;
-}
-
-.edge-nav-btn:hover {
-  background: rgba(0, 0, 0, 0.8);
-  transform: translateY(-50%) scale(1.1);
-}
-
-.edge-nav-btn.left {
-  left: 20px;
-}
-
-.edge-nav-btn.right {
-  right: 20px;
 }
 
 /* 右键菜单样式 */

@@ -89,6 +89,31 @@ export async function getNotebookPdfDir(notebookId: string): Promise<string> {
 }
 
 /**
+ * 获取完整的 PDF 路径（处理相对路径和绝对路径）
+ * 相对路径是相对于笔记本数据目录，如 "pdf/xxx.pdf"
+ */
+export async function getFullPdfPath(pdfPath: string, notebookId: string): Promise<string> {
+  if (!pdfPath) return ''
+
+  // 已经是 file:// 或 http(s):// 协议的路径，直接返回
+  if (pdfPath.startsWith('file://') || pdfPath.startsWith('http://') || pdfPath.startsWith('https://')) {
+    return pdfPath
+  }
+
+  // 判断是否为相对路径（不以 / 或盘符开头，如 C:\）
+  const isRelative = !pdfPath.startsWith('/') && !pdfPath.match(/^[A-Za-z]:[\\/]/)
+
+  if (isRelative) {
+    // 相对路径：相对于笔记本数据目录
+    const notebookDir = await getNotebookDataDir(notebookId)
+    return `file://${notebookDir}/${pdfPath}`
+  } else {
+    // 绝对路径：直接添加 file:// 协议
+    return `file://${pdfPath}`
+  }
+}
+
+/**
  * 获取用户数据目录下的文件路径（用于快捷指令等）
  */
 export async function getUserDataFilePath(filename: string): Promise<string> {
