@@ -541,9 +541,11 @@ async function loadPdf() {
     if (pendingPage.value !== null && pendingPage.value >= 1 && pendingPage.value <= totalPages.value) {
       currentPage.value = pendingPage.value
       pendingPage.value = null
+      // watch(currentPage) 会自动触发渲染，无需手动调用
+    } else {
+      // 没有 pending page，直接渲染当前页
+      await renderPage()
     }
-
-    await renderPage()
     
     await Promise.all([
       loadOutline(),
@@ -912,6 +914,10 @@ watch(() => props.pdfPath, () => {
 
 watch(currentPage, async () => {
   await nextTick()
+  // 等待正在进行的渲染完成，避免因 isRendering 锁而跳过渲染
+  while (isRendering.value) {
+    await new Promise(resolve => setTimeout(resolve, 10))
+  }
   renderPage()
 })
 

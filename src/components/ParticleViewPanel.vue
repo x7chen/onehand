@@ -12,9 +12,9 @@
       <label>{{ t('particle.speed') }}</label>
       <input
         type="range"
-        min="0.05"
-        max="0.75"
-        step="0.05"
+        min="0.01"
+        max="0.3"
+        step="0.01"
         v-model="speedValue"
         @input="updateSpeed"
       />
@@ -99,8 +99,8 @@ let cardPool: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>[] = [] //
 const speedValue = ref('0.1')
 const speedLabel = computed(() => {
   const val = parseFloat(speedValue.value)
-  if (val < 0.2) return t('particle.slow')
-  if (val < 0.4) return t('particle.medium')
+  if (val < 0.1) return t('particle.slow')
+  if (val < 0.2) return t('particle.medium')
   return t('particle.fast')
 })
 
@@ -358,8 +358,8 @@ const createCards = () => {
     const layer = Math.floor(i / 8)
     const zBase = -80 - layer * 60 - Math.random() * 30
 
-    mesh.position.x = (Math.random() - 0.5) * 40
-    mesh.position.y = (Math.random() - 0.5) * 40
+    mesh.position.x = (Math.random() - 0.5) * 10
+    mesh.position.y = (Math.random() - 0.5) * 20
     mesh.position.z = zBase
 
     mesh.userData.originalZ = zBase
@@ -398,10 +398,6 @@ const createCardMesh = (node: CanvasNode, nodeIndex: number): THREE.Mesh<THREE.P
   mesh.userData.clearTexture = textures.clear
   mesh.userData.blurredTexture = textures.blurred
 
-  // 随机轻微旋转
-  mesh.rotation.x = (Math.random() - 0.5) * 0.06
-  mesh.rotation.y = (Math.random() - 0.5) * 0.06
-  mesh.rotation.z = (Math.random() - 0.5) * 0.03
 
   return mesh
 }
@@ -438,8 +434,8 @@ const updateCardTexture = (mesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasic
   mesh.geometry = new THREE.PlaneGeometry(cardWidth, cardHeight)
 
   // 新的随机位置
-  mesh.position.x = (Math.random() - 0.5) * 40
-  mesh.position.y = (Math.random() - 0.5) * 40
+  mesh.position.x = (Math.random() - 0.5) * 10
+  mesh.position.y = (Math.random() - 0.5) * 20
 
   return nodeIndex + 1 // 返回下一个索引
 }
