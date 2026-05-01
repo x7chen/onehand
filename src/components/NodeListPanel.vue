@@ -47,47 +47,33 @@
       <div v-if="showSortMenu" class="drawer-menu sort-menu" :style="sortMenuStyle">
         <button
           class="drawer-menu-item"
-          :class="{ active: sortOrder === 'createdAtAsc' }"
-          @click="setSortOrder('createdAtAsc')"
+          :class="{ active: currentSortField === 'createdAt' }"
+          @click="toggleSortField('createdAt')"
         >
-          <svg v-if="sortOrder === 'createdAtAsc'" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" class="check-icon">
-            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+          <span>{{ t('nodeList.sortCreatedAt') }}</span>
+          <svg v-if="currentSortField === 'createdAt'" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" class="sort-arrow-icon" :class="{ reversed: currentSortDirection === 'desc' }">
+            <path d="M7 10l5 5 5-5z"/>
           </svg>
-          <span v-else class="check-placeholder"></span>
-          <span>{{ t('nodeList.sortCreatedAtAsc') }}</span>
         </button>
         <button
           class="drawer-menu-item"
-          :class="{ active: sortOrder === 'createdAtDesc' }"
-          @click="setSortOrder('createdAtDesc')"
+          :class="{ active: currentSortField === 'updatedAt' }"
+          @click="toggleSortField('updatedAt')"
         >
-          <svg v-if="sortOrder === 'createdAtDesc'" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" class="check-icon">
-            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+          <span>{{ t('nodeList.sortUpdatedAt') }}</span>
+          <svg v-if="currentSortField === 'updatedAt'" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" class="sort-arrow-icon" :class="{ reversed: currentSortDirection === 'desc' }">
+            <path d="M7 10l5 5 5-5z"/>
           </svg>
-          <span v-else class="check-placeholder"></span>
-          <span>{{ t('nodeList.sortCreatedAtDesc') }}</span>
         </button>
         <button
           class="drawer-menu-item"
-          :class="{ active: sortOrder === 'updatedAtAsc' }"
-          @click="setSortOrder('updatedAtAsc')"
+          :class="{ active: currentSortField === 'title' }"
+          @click="toggleSortField('title')"
         >
-          <svg v-if="sortOrder === 'updatedAtAsc'" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" class="check-icon">
-            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+          <span>{{ t('nodeList.sortTitle') }}</span>
+          <svg v-if="currentSortField === 'title'" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" class="sort-arrow-icon" :class="{ reversed: currentSortDirection === 'desc' }">
+            <path d="M7 10l5 5 5-5z"/>
           </svg>
-          <span v-else class="check-placeholder"></span>
-          <span>{{ t('nodeList.sortUpdatedAtAsc') }}</span>
-        </button>
-        <button
-          class="drawer-menu-item"
-          :class="{ active: sortOrder === 'updatedAtDesc' }"
-          @click="setSortOrder('updatedAtDesc')"
-        >
-          <svg v-if="sortOrder === 'updatedAtDesc'" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" class="check-icon">
-            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-          </svg>
-          <span v-else class="check-placeholder"></span>
-          <span>{{ t('nodeList.sortUpdatedAtDesc') }}</span>
         </button>
       </div>
     </Teleport>
@@ -363,6 +349,36 @@ const sortOrder = computed({
   }
 })
 
+// 当前排序字段
+const currentSortField = computed(() => {
+  const order = sortOrder.value
+  if (order.startsWith('createdAt')) return 'createdAt'
+  if (order.startsWith('updatedAt')) return 'updatedAt'
+  if (order.startsWith('title')) return 'title'
+  return 'createdAt'
+})
+
+// 当前排序方向
+const currentSortDirection = computed(() => {
+  const order = sortOrder.value
+  if (order.endsWith('Asc')) return 'asc'
+  if (order.endsWith('Desc')) return 'desc'
+  return 'desc'
+})
+
+// 切换排序字段（点击同一条目切换方向）
+function toggleSortField(field: 'createdAt' | 'updatedAt' | 'title') {
+  if (currentSortField.value === field) {
+    // 同一字段，切换方向
+    const newDirection = currentSortDirection.value === 'asc' ? 'Desc' : 'Asc'
+    sortOrder.value = `${field}${newDirection}`
+  } else {
+    // 不同字段，默认倒序
+    sortOrder.value = `${field}Desc`
+  }
+  closeSortMenu()
+}
+
 // 排序后的节点列表
 const sortedNodes = computed(() => {
   const nodes = [...props.nodes]
@@ -375,6 +391,10 @@ const sortedNodes = computed(() => {
       return nodes.sort((a, b) => (a.updatedAt || a.createdAt) - (b.updatedAt || b.createdAt))
     case 'updatedAtDesc':
       return nodes.sort((a, b) => (b.updatedAt || b.createdAt) - (a.updatedAt || a.createdAt))
+    case 'titleAsc':
+      return nodes.sort((a, b) => (a.title || '').localeCompare(b.title || '', 'zh-CN'))
+    case 'titleDesc':
+      return nodes.sort((a, b) => (b.title || '').localeCompare(a.title || '', 'zh-CN'))
   }
   return nodes
 })
@@ -401,11 +421,6 @@ function toggleSortMenu(e: MouseEvent) {
 
 function closeSortMenu() {
   showSortMenu.value = false
-}
-
-function setSortOrder(order: string) {
-  sortOrder.value = order as any
-  closeSortMenu()
 }
 
 // 视图菜单控制
@@ -800,6 +815,16 @@ onUnmounted(() => {
   width: 16px;
   height: 16px;
   flex-shrink: 0;
+}
+
+.drawer-menu-item .sort-arrow-icon {
+  flex-shrink: 0;
+  margin-left: auto;
+  transition: transform 0.2s;
+}
+
+.drawer-menu-item .sort-arrow-icon.reversed {
+  transform: rotate(180deg);
 }
 
 /* 视图内容区域 */

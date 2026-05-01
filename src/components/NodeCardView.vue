@@ -49,7 +49,7 @@ const props = withDefaults(defineProps<{
   nodes: CanvasNode[]
   activeNodeId?: string | null
   panelWidth: number
-  sortOrder?: 'createdAtAsc' | 'createdAtDesc' | 'updatedAtAsc' | 'updatedAtDesc'
+  sortOrder?: 'createdAtAsc' | 'createdAtDesc' | 'updatedAtAsc' | 'updatedAtDesc' | 'titleAsc' | 'titleDesc'
 }>(), {
   activeNodeId: null,
   panelWidth: 600,

@@ -64,7 +64,7 @@ const notebookStore = useNotebookStore()
 const props = defineProps<{
   node: CanvasNode | DisplayNode
   isActive?: boolean
-  sortOrder?: 'createdAtAsc' | 'createdAtDesc' | 'updatedAtAsc' | 'updatedAtDesc'
+  sortOrder?: 'createdAtAsc' | 'createdAtDesc' | 'updatedAtAsc' | 'updatedAtDesc' | 'titleAsc' | 'titleDesc'
 }>()
 
 const emit = defineEmits<{

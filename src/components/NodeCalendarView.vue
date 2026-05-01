@@ -189,7 +189,7 @@ import type { CanvasNode } from '@/types/notebook'
 const props = withDefaults(defineProps<{
   nodes: CanvasNode[]
   activeNodeId?: string | null
-  sortOrder?: 'createdAtAsc' | 'createdAtDesc' | 'updatedAtAsc' | 'updatedAtDesc'
+  sortOrder?: 'createdAtAsc' | 'createdAtDesc' | 'updatedAtAsc' | 'updatedAtDesc' | 'titleAsc' | 'titleDesc'
 }>(), {
   activeNodeId: null,
   sortOrder: 'createdAtDesc'
