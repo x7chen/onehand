@@ -543,8 +543,14 @@ function handleRenameEnter(event: KeyboardEvent) {
 }
 
 function finishRename() {
-  if (renamingProfileId.value && renameValue.value.trim()) {
-    settingsStore.updateProfileName(renamingProfileId.value, renameValue.value.trim())
+  if (renamingProfileId.value) {
+    const trimmedName = renameValue.value.trim()
+    if (trimmedName) {
+      settingsStore.updateProfileName(renamingProfileId.value, trimmedName)
+    } else {
+      // 名称为空时删除配置
+      settingsStore.removeProfile(renamingProfileId.value)
+    }
   }
   renamingProfileId.value = null
   renameValue.value = ''
