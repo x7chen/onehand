@@ -70,6 +70,62 @@
         </div>
       </div>
 
+      <!-- 过滤器区域 -->
+      <div class="filter-bar">
+        <div class="filter-group">
+          <label class="filter-label">{{ t('common.notebook') }}</label>
+          <div class="multi-select-wrapper" ref="notebookSelectRef">
+            <button class="multi-select-btn" @click="toggleNotebookSelect">
+              <span class="multi-select-text">
+                {{ selectedNotebooksText }}
+              </span>
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" class="multi-select-arrow" :class="{ open: showNotebookSelect }">
+                <path d="M7 10l5 5 5-5z"/>
+              </svg>
+            </button>
+            <div v-if="showNotebookSelect" class="multi-select-dropdown">
+              <div class="multi-select-item" @click="toggleAllNotebooks">
+                <input type="checkbox" :checked="isAllNotebooksSelected" class="multi-select-checkbox" />
+                <span>{{ t('common.allNotebooks') }}</span>
+              </div>
+              <div
+                v-for="nb in notebooks"
+                :key="nb.id"
+                class="multi-select-item"
+                @click="toggleNotebookFilter(nb.id)"
+              >
+                <input type="checkbox" :checked="filterNotebookIds.includes(nb.id)" class="multi-select-checkbox" />
+                <span>{{ nb.name }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="filter-group">
+          <label class="filter-label">{{ t('common.timeFilter') }}</label>
+          <select v-model="filterTimeType" class="filter-select" @change="handleFilterChange">
+            <option value="">{{ t('common.allTime') }}</option>
+            <option value="createdAt">{{ t('common.createdAt') }}</option>
+            <option value="updatedAt">{{ t('common.updatedAt') }}</option>
+          </select>
+        </div>
+        <div v-if="filterTimeType" class="filter-group date-range">
+          <label class="filter-label">{{ t('common.dateRange') }}</label>
+          <input
+            type="date"
+            v-model="filterDateStart"
+            class="filter-date-input"
+            @change="handleFilterChange"
+          />
+          <span class="date-separator">-</span>
+          <input
+            type="date"
+            v-model="filterDateEnd"
+            class="filter-date-input"
+            @change="handleFilterChange"
+          />
+        </div>
+      </div>
+
       <!-- 搜索历史区域 -->
       <div v-if="!searchQuery && recentHistory.length > 0" class="search-history-section">
         <div class="search-history-list">
@@ -246,6 +302,68 @@ const indexStatus = ref<IndexStatus>({
   isIndexing: false
 })
 
+// 过滤状态
+const filterNotebookIds = ref<string[]>([])
+const filterTimeType = ref<'createdAt' | 'updatedAt' | ''>('')
+const filterDateStart = ref('')
+const filterDateEnd = ref('')
+const showNotebookSelect = ref(false)
+const notebookSelectRef = ref<HTMLElement | null>(null)
+
+// 笔记本列表
+const notebooks = computed(() => notebookStore.notebooks.filter(nb => !nb.isTrash))
+
+// 选中笔记本的显示文本
+const selectedNotebooksText = computed(() => {
+  if (filterNotebookIds.value.length === 0) {
+    return t('common.allNotebooks')
+  }
+  if (filterNotebookIds.value.length === notebooks.value.length) {
+    return t('common.allNotebooks')
+  }
+  if (filterNotebookIds.value.length <= 3) {
+    const names = filterNotebookIds.value.map(id => {
+      const nb = notebooks.value.find(n => n.id === id)
+      return nb?.name || ''
+    })
+    return names.join(', ')
+  }
+  return t('common.selectedNotebooksCount', { count: filterNotebookIds.value.length })
+})
+
+// 是否选中了全部笔记本
+const isAllNotebooksSelected = computed(() => {
+  return filterNotebookIds.value.length === notebooks.value.length
+})
+
+// 切换笔记本选择下拉菜单
+function toggleNotebookSelect() {
+  showNotebookSelect.value = !showNotebookSelect.value
+}
+
+// 全选/取消全选笔记本
+function toggleAllNotebooks() {
+  if (isAllNotebooksSelected.value || filterNotebookIds.value.length === 0) {
+    // 已全选或未选任何，则清空（显示全部）
+    filterNotebookIds.value = []
+  } else {
+    // 选中全部
+    filterNotebookIds.value = notebooks.value.map(nb => nb.id)
+  }
+  handleFilterChange()
+}
+
+// 切换单个笔记本选择
+function toggleNotebookFilter(notebookId: string) {
+  const index = filterNotebookIds.value.indexOf(notebookId)
+  if (index === -1) {
+    filterNotebookIds.value.push(notebookId)
+  } else {
+    filterNotebookIds.value.splice(index, 1)
+  }
+  handleFilterChange()
+}
+
 // Skipped nodes state
 const showSkippedDialog = ref(false)
 const skippedNodes = ref<SkippedIndexNode[]>([])
@@ -274,6 +392,8 @@ let searchTimeout: ReturnType<typeof setTimeout> | null = null
 // Load search history on mount
 onMounted(async () => {
   await searchHistoryStore.loadHistory()
+  // 添加点击外部关闭下拉菜单的事件监听
+  document.addEventListener('click', handleDocumentClick)
 })
 
 // Focus input when dialog opens
@@ -291,8 +411,19 @@ watch(() => props.visible, async (isVisible) => {
     searchQuery.value = ''
     searchResults.value = []
     showNodePopup.value = false
+    showNotebookSelect.value = false
   }
 })
+
+// 点击外部关闭笔记本下拉菜单
+function handleDocumentClick(e: MouseEvent) {
+  if (showNotebookSelect.value && notebookSelectRef.value) {
+    const target = e.target as Node
+    if (!notebookSelectRef.value.contains(target)) {
+      showNotebookSelect.value = false
+    }
+  }
+}
 
 function handleOverlayClick(e: MouseEvent) {
   if (e.target === e.currentTarget) {
@@ -308,6 +439,30 @@ function clearSearch() {
   searchQuery.value = ''
   searchResults.value = []
   searchInput.value?.focus()
+}
+
+// 过滤变化处理
+function handleFilterChange() {
+  if (searchQuery.value.trim()) {
+    handleSearch()
+  }
+}
+
+// 检查节点是否符合时间过滤条件
+function matchesTimeFilter(node: CanvasNode): boolean {
+  if (!filterTimeType.value) return true
+
+  const timestamp = filterTimeType.value === 'createdAt' ? node.createdAt : (node.updatedAt || node.createdAt)
+  if (!timestamp) return true
+
+  const nodeDate = new Date(timestamp)
+  const startDate = filterDateStart.value ? new Date(filterDateStart.value) : null
+  const endDate = filterDateEnd.value ? new Date(filterDateEnd.value + 'T23:59:59') : null
+
+  if (startDate && nodeDate < startDate) return false
+  if (endDate && nodeDate > endDate) return false
+
+  return true
 }
 
 // Search history functions
@@ -436,22 +591,40 @@ async function performSearch() {
   // Save to search history
   await searchHistoryStore.addHistoryItem(query, searchMode.value)
 
+  let results: UnifiedSearchResult[]
+
   if (searchMode.value === 'semantic') {
     // 语义搜索
-    const results = await semanticSearch(query)
-    searchResults.value = results.map(r => ({
-      ...r,
-      matchIndex: 0,
-      highlightedText: r.highlightedText || escapeHtml(r.fullText.slice(0, 100)) + (r.fullText.length > 100 ? '...' : '')
-    })) as SearchResult[]
+    results = await semanticSearch(query)
   } else {
     // 关键词搜索
-    const results = keywordSearch(query)
-    searchResults.value = results.map(r => ({
-      ...r,
-      matchIndex: r.matchIndex || 0
-    })) as SearchResult[]
+    results = keywordSearch(query)
   }
+
+  // 应用过滤条件
+  results = results.filter(result => {
+    // 笔记本过滤（多选）
+    if (filterNotebookIds.value.length > 0 && !filterNotebookIds.value.includes(result.notebookId)) {
+      return false
+    }
+
+    // 时间过滤
+    if (filterTimeType.value) {
+      const notebook = notebookStore.notebooks.find(nb => nb.id === result.notebookId)
+      const node = notebook?.nodes?.find(n => n.id === result.nodeId)
+      if (node && !matchesTimeFilter(node)) {
+        return false
+      }
+    }
+
+    return true
+  })
+
+  searchResults.value = results.map(r => ({
+    ...r,
+    matchIndex: r.matchIndex || 0,
+    highlightedText: r.highlightedText || escapeHtml(r.fullText.slice(0, 100)) + (r.fullText.length > 100 ? '...' : '')
+  })) as SearchResult[]
 }
 
 function escapeHtml(text: string): string {
@@ -628,6 +801,149 @@ function handleNavigate(data: DeepLinkData) {
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border-color);
   font-size: 13px;
+}
+
+/* Filter bar */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border-color);
+  flex-wrap: wrap;
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-group.date-range {
+  flex-wrap: wrap;
+}
+
+.filter-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.filter-select {
+  padding: 6px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  min-width: 120px;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.filter-date-input {
+  padding: 6px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.filter-date-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.date-separator {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+/* Multi select */
+.multi-select-wrapper {
+  position: relative;
+}
+
+.multi-select-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  min-width: 140px;
+  max-width: 200px;
+}
+
+.multi-select-btn:hover {
+  border-color: var(--color-primary);
+}
+
+.multi-select-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.multi-select-arrow {
+  color: var(--text-secondary);
+  transition: transform 0.2s;
+  width: 14px;
+  height: 14px;
+}
+
+.multi-select-arrow.open {
+  transform: rotate(180deg);
+}
+
+.multi-select-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  min-width: 180px;
+  max-height: 240px;
+  overflow-y: auto;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  font-size: 13px;
+}
+
+.multi-select-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: background 0.2s;
+  font-size: 13px;
+}
+
+.multi-select-item:hover {
+  background: var(--bg-secondary);
+}
+
+.multi-select-checkbox {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  accent-color: var(--color-primary);
 }
 
 /* Search history section */
