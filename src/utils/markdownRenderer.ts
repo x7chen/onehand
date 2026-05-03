@@ -75,6 +75,16 @@ interface LatexContext {
   placeholders: Map<string, { type: 'display' | 'inline', equation: string }>
 }
 
+// 预处理 LaTeX 公式，修正 \text{} 在 KaTeX 中的渲染问题
+// \text{model} → \mathrm{model}
+// \text{num_heads} → \mathrm{num\_heads}（下划线需要转义）
+function normalizeLatexText(equation: string): string {
+  return equation.replace(/\\text\{([^}]+)\}/g, (_, content) => {
+    const escapedContent = content.replace(/_/g, '\\_')
+    return `\\mathrm{${escapedContent}}`
+  })
+}
+
 // 生成不会被 marked 处理的占位符
 function createPlaceholder(id: string): string {
   return `<span class="latex-placeholder" data-latex-id="${id}"></span>`
@@ -87,20 +97,20 @@ function extractLatex(markdown: string, context: LatexContext): string {
   // 提取块级公式 $$...$$
   processed = processed.replace(/\$\$([\s\S]+?)\$\$/g, (_, equation) => {
     const id = `LATEX_DISPLAY_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-    context.placeholders.set(id, { type: 'display', equation: equation.trim() })
+    context.placeholders.set(id, { type: 'display', equation: normalizeLatexText(equation.trim()) })
     return createPlaceholder(id)
   })
 
   // 提取块级公式 \[...\] (LaTeX 标准语法)
   processed = processed.replace(/\\\[([\s\S]+?)\\\]/g, (_, equation) => {
     const id = `LATEX_DISPLAY_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-    context.placeholders.set(id, { type: 'display', equation: equation.trim() })
+    context.placeholders.set(id, { type: 'display', equation: normalizeLatexText(equation.trim()) })
     return createPlaceholder(id)
   })
 
   // 提取行内公式 \(...\) (LaTeX 标准语法) - 需要在 $...$ 之前处理
   processed = processed.replace(/\\\(([^)]+?)\\\)/g, (_, equation) => {
-    const trimmedEquation = equation.trim()
+    const trimmedEquation = normalizeLatexText(equation.trim())
     const id = `LATEX_INLINE_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     context.placeholders.set(id, { type: 'inline', equation: trimmedEquation })
     return createPlaceholder(id)
@@ -108,7 +118,7 @@ function extractLatex(markdown: string, context: LatexContext): string {
 
   // 提取行内公式 $...$
   processed = processed.replace(/([^`]|^)\$([^`\n$]+?)\$(?![`$])/g, (match, before, equation) => {
-    const trimmedEquation = equation.trim()
+    const trimmedEquation = normalizeLatexText(equation.trim())
     // 跳过可能是普通文本的情况（包含中文或过长）
     if (trimmedEquation.length > 200 || /\p{Script=Han}/u.test(trimmedEquation)) {
       return match

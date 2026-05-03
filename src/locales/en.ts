@@ -252,6 +252,8 @@ export default {
     hideAllAiAnswers: 'Hide all AI answers',
     enableAiAnswer: 'Enable AI answer',
     disableAiAnswer: 'Disable AI answer',
+    autoSelectNewNoteOn: 'Enable auto-select new notes',
+    autoSelectNewNoteOff: 'Disable auto-select new notes',
     copySelectedNotes: 'Copy {count} selected notes',
     noNotesSelected: 'No notes selected',
     clearSelection: 'Clear selection',

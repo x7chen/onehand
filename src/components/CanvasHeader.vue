@@ -184,6 +184,19 @@
         <span class="ai-icon-text">AI</span>
       </button>
 
+      <!-- 自动勾选新笔记开关 -->
+      <div
+        class="auto-select-wrapper"
+        :title="autoSelectNewNote ? t('canvas.autoSelectNewNoteOff') : t('canvas.autoSelectNewNoteOn')"
+      >
+        <input
+          type="checkbox"
+          :checked="autoSelectNewNote"
+          @change="$emit('update:autoSelectNewNote', !autoSelectNewNote)"
+          @click.stop
+        />
+      </div>
+
       <!-- 搜索按钮 -->
       <button
         class="search-btn"
@@ -290,6 +303,7 @@ const props = withDefaults(defineProps<{
   dynamicContextFile?: ContextFile
   globalHideAiResult: boolean
   aiAnswerEnabled: boolean
+  autoSelectNewNote: boolean
   showViewportControls?: boolean
   notebookModelId?: string
   allProfiles: LLMProfile[]
@@ -306,7 +320,8 @@ const props = withDefaults(defineProps<{
   allNotebooks: () => [],
   currentNotebookId: null,
   hideNavigation: false,
-  hideNotebookSelector: false
+  hideNotebookSelector: false,
+  autoSelectNewNote: false
 })
 
 const emit = defineEmits<{
@@ -315,6 +330,7 @@ const emit = defineEmits<{
   'auto-layout': []
   'update:globalHideAiResult': [value: boolean]
   'update:aiAnswerEnabled': [value: boolean]
+  'update:autoSelectNewNote': [value: boolean]
   'open-dynamic-context-editor': []
   'toggle-static-context': [contextId: string]
   'select-dynamic-context': [contextId: string]
@@ -715,6 +731,23 @@ onUnmounted(() => {
 
 .ai-answer-toggle-btn.active .ai-icon-text {
   color: white !important;
+}
+
+/* 自动勾选新笔记开关 */
+.auto-select-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  padding: 6px;
+}
+
+.auto-select-wrapper input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  accent-color: var(--color-primary);
 }
 
 .search-btn {

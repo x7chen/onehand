@@ -8,6 +8,7 @@
       :dynamic-context-file="dynamicContextFile || undefined"
       v-model:global-hide-ai-result="globalHideAiResult"
       v-model:ai-answer-enabled="aiAnswerEnabled"
+      v-model:auto-select-new-note="autoSelectNewNote"
       :show-viewport-controls="false"
       :notebook-model-id="currentNotebook?.modelId"
       :all-profiles="allProfiles"
@@ -77,6 +78,7 @@
           :static-context-files="staticContextFiles"
           :dynamic-context-file="dynamicContextFile"
           :ai-answer-enabled="aiAnswerEnabled"
+          :auto-select-new-note="autoSelectNewNote"
           :is-active="activePanel === 'left'"
           :panel-id="'left'"
           :target-notebook-id="notebookId"
@@ -122,6 +124,7 @@
           :static-context-files="staticContextFiles"
           :dynamic-context-file="dynamicContextFile"
           :ai-answer-enabled="aiAnswerEnabled"
+          :auto-select-new-note="autoSelectNewNote"
           :is-active="activePanel === 'right'"
           :panel-id="'right'"
           :target-notebook-id="notebookId"
@@ -294,6 +297,9 @@ const globalHideAiResult = ref(false)
 
 // AI 回答开关（从设置中读取默认值）
 const aiAnswerEnabled = ref(settingsStore.settings.general.autoAiAnswer ?? true)
+
+// 自动勾选新笔记开关
+const autoSelectNewNote = ref(false)
 
 // 动态上下文
 const showDynamicContextEditor = ref(false)

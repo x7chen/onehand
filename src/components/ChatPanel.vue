@@ -124,6 +124,7 @@ const props = defineProps<{
   staticContextFiles: ContextFile[]
   dynamicContextFile?: ContextFile | null
   aiAnswerEnabled: boolean
+  autoSelectNewNote?: boolean
   currentPage?: number
   includedPageImage?: { imageBase64: string; pageNumber: number } | null
   isActive?: boolean
@@ -444,7 +445,7 @@ async function handleSendInput(sendText?: string) {
     transcriptStatus: 'done',
     agentResult: null,
     agentStatus: props.aiAnswerEnabled ? 'pending' : 'pending',
-    selectedAsContext: false,
+    selectedAsContext: props.autoSelectNewNote ?? false,
     createdAt: Date.now(),
     updatedAt: Date.now(),
     pdfPage: props.currentPage,
@@ -599,7 +600,7 @@ async function handleMagicPadDrop(e: DragEvent) {
     transcriptStatus: 'done',
     agentResult: null,
     agentStatus: 'pending',
-    selectedAsContext: false,
+    selectedAsContext: props.autoSelectNewNote ?? false,
     createdAt: Date.now(),
     updatedAt: Date.now(),
     pdfPage: props.currentPage,
@@ -662,7 +663,7 @@ async function handleMagicPadImageDrop(files: File[]) {
       transcriptStatus: 'done',
       agentResult: null,
       agentStatus: 'pending',
-      selectedAsContext: false,
+      selectedAsContext: props.autoSelectNewNote ?? false,
       createdAt: Date.now(),
       updatedAt: Date.now(),
       pdfPage: props.currentPage,
@@ -964,7 +965,7 @@ async function createVoiceNode(audioBlob: Blob, duration: number) {
     transcriptStatus: 'pending',
     agentResult: null,
     agentStatus: 'pending',
-    selectedAsContext: false,
+    selectedAsContext: props.autoSelectNewNote ?? false,
     createdAt: Date.now(),
     updatedAt: Date.now(),
     duration,

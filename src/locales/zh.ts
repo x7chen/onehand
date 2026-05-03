@@ -252,6 +252,8 @@ export default {
     hideAllAiAnswers: '隐藏所有 AI 回答',
     enableAiAnswer: '开启 AI 回答',
     disableAiAnswer: '关闭 AI 回答',
+    autoSelectNewNoteOn: '开启自动勾选新笔记',
+    autoSelectNewNoteOff: '关闭自动勾选新笔记',
     copySelectedNotes: '复制已选 {count} 个笔记内容',
     noNotesSelected: '未选中笔记',
     clearSelection: '清空选择',

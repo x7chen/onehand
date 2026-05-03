@@ -7,6 +7,7 @@
       :dynamic-context-file="dynamicContextFile || undefined"
       v-model:global-hide-ai-result="globalHideAiResult"
       v-model:ai-answer-enabled="aiAnswerEnabled"
+      v-model:auto-select-new-note="autoSelectNewNote"
       :show-viewport-controls="false"
       :notebook-model-id="currentNotebook?.modelId"
       :all-profiles="allProfiles"
@@ -67,6 +68,7 @@
         :static-context-files="staticContextFiles"
         :dynamic-context-file="dynamicContextFile"
         :ai-answer-enabled="aiAnswerEnabled"
+        :auto-select-new-note="autoSelectNewNote"
         :editing-node-id="editingNodeId"
         :editing-text="editingText"
         :current-page="currentPageNumber"
@@ -260,6 +262,9 @@ const globalHideAiResult = ref(false)
 
 // AI 回答开关状态（从设置中读取默认值）
 const aiAnswerEnabled = ref(settingsStore.settings.general.autoAiAnswer ?? true)
+
+// 自动勾选新笔记开关
+const autoSelectNewNote = ref(false)
 
 const showDynamicContextEditor = ref(false)
 const dynamicContextEditContent = ref('')
@@ -607,6 +612,7 @@ function handleMagicInputSave(text: string) {
       transcriptStatus: 'done',
       agentResult: null,
       agentStatus: 'pending',
+      selectedAsContext: autoSelectNewNote.value,
       createdAt: Date.now(),
       updatedAt: Date.now(),
       pdfPage,
@@ -655,6 +661,7 @@ async function handleRecordingComplete(data: { audioBlob: Blob; duration: number
     transcriptStatus: 'done',
     agentResult: null,
     agentStatus: 'pending',
+    selectedAsContext: autoSelectNewNote.value,
     createdAt: Date.now(),
     updatedAt: Date.now(),
     pdfPage: data.page,
@@ -1167,6 +1174,7 @@ async function handleAnalyzePage(data: { imageBase64: string; pageNumber: number
     transcriptStatus: 'done',
     agentResult: null,
     agentStatus: 'processing',
+    selectedAsContext: autoSelectNewNote.value,
     createdAt: Date.now(),
     updatedAt: Date.now(),
     pdfPage: data.pageNumber,
@@ -1191,6 +1199,7 @@ async function handleExplainSelection(data: { imageBase64: string; selectedText:
     transcriptStatus: 'done',
     agentResult: null,
     agentStatus: 'processing',
+    selectedAsContext: autoSelectNewNote.value,
     createdAt: Date.now(),
     updatedAt: Date.now(),
     pdfPage: data.pageNumber,

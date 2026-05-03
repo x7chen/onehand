@@ -81,6 +81,7 @@ import { getNotebookAudioDir, getNotebookDataDir, getNotebookImagesDir } from '@
 const props = defineProps<{
   globalHideAiResult: boolean
   aiAnswerEnabled: boolean
+  autoSelectNewNote: boolean
   staticContextFiles: ContextFile[]
   dynamicContextFile?: ContextFile
   notebookModelId?: string
@@ -737,7 +738,7 @@ async function handleLongPressEnd(isCancel = false) {
       transcriptStatus: 'pending',
       agentResult: null,
       agentStatus: 'pending',
-      selectedAsContext: false,
+      selectedAsContext: props.autoSelectNewNote,
       createdAt: Date.now(),
       updatedAt: Date.now(),
       duration: recordingDuration.value
@@ -1130,7 +1131,7 @@ function handleMagicInputSave(text: string) {
       transcriptStatus: 'done',
       agentResult: null,
       agentStatus: 'pending',
-      selectedAsContext: false,
+      selectedAsContext: props.autoSelectNewNote,
       createdAt: Date.now(),
       updatedAt: Date.now()
     }
@@ -1164,7 +1165,7 @@ async function handleDropText(x: number, y: number, text: string) {
     transcriptStatus: 'done',
     agentResult: null,
     agentStatus: 'pending',
-    selectedAsContext: false,
+    selectedAsContext: props.autoSelectNewNote,
     createdAt: Date.now(),
     updatedAt: Date.now()
   }
@@ -1201,7 +1202,7 @@ async function handleDropImage(x: number, y: number, files: File[]) {
       transcriptStatus: 'done',
       agentResult: null,
       agentStatus: 'pending',
-      selectedAsContext: false,
+      selectedAsContext: props.autoSelectNewNote,
       createdAt: Date.now(),
       updatedAt: Date.now()
     }
@@ -1246,7 +1247,7 @@ async function handleAskWithNewRecording() {
         transcriptStatus: 'pending',
         agentResult: null,
         agentStatus: 'pending',
-        selectedAsContext: false,
+        selectedAsContext: props.autoSelectNewNote,
         createdAt: Date.now(),
         updatedAt: Date.now(),
         duration: recordingDuration.value
