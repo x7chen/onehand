@@ -758,8 +758,6 @@ async function saveImageToNotebook(file: File): Promise<string | null> {
     const arrayBuffer = await file.arrayBuffer()
     await window.electronAPI.saveFileBuffer(imagePath, arrayBuffer)
 
-    console.log('[VoiceNote] Image saved:', relativePath)
-
     // 返回markdown图片链接
     return `\n![${file.name}](${relativePath})\n`
   } catch (error) {
@@ -1551,24 +1549,18 @@ async function renderMermaid() {
   if (voiceNoteRef.value) {
     // 等待 DOM 完全更新
     await nextTick()
-    console.log('[VoiceNote] Calling renderMermaidCharts')
     const result = await renderMermaidCharts(voiceNoteRef.value)
-    
+
     // 如果渲染了 Mermaid 图表，触发重新测量高度
     if (result && result > 0) {
-      console.log('[VoiceNote] Mermaid rendered, emitting height update')
       // 通知父组件重新测量高度
       emit('update-node', props.node.id, {})
     }
-  } else {
-    console.warn('[VoiceNote] voiceNoteRef is null')
   }
 }
 
 // 当组件挂载时渲染 Markdown 和 Mermaid
 onMounted(async () => {
-  console.log('[VoiceNote] onMounted, rendering markdown...')
-
   // 加载图片节点的图片
   if (props.node.type === 'image-note') {
     await loadImage()
@@ -1578,7 +1570,6 @@ onMounted(async () => {
   const notebookId = props.notebookId || notebookStore.currentNotebook?.id
 
   if (props.node.transcript) {
-    console.log('[VoiceNote] Rendering transcript...')
     let html = await renderMarkdown(props.node.transcript)
     // 处理相对路径图片
     if (notebookId) {
@@ -1588,7 +1579,6 @@ onMounted(async () => {
   }
 
   if (props.node.agentResult) {
-    console.log('[VoiceNote] Rendering agent result...')
     let html = await renderMarkdown(props.node.agentResult)
     // 处理相对路径图片
     if (notebookId) {
@@ -1600,7 +1590,6 @@ onMounted(async () => {
   // 渲染 Mermaid 图表 - 等待 DOM 更新
   await nextTick()
   await nextTick()
-  console.log('[VoiceNote] onMounted calling renderMermaid')
   await renderMermaid()
 })
 

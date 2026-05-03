@@ -33,8 +33,6 @@ async function initMarked() {
   // 重写代码块渲染，支持语法高亮和 mermaid
   renderer.code = ({ text, lang }: Tokens.Code) => {
     const language = lang || 'plaintext'
-    
-    console.log('[MarkdownRenderer] Code block detected:', { lang: language, textLength: text.length })
 
     // 检测是否为 Mermaid 图表
     if (language.toLowerCase() === 'mermaid') {
@@ -46,8 +44,6 @@ async function initMarked() {
     // 普通代码块 - 使用 highlight.js 高亮
     const validLang = hljs.default.getLanguage(language) ? language : 'plaintext'
     const highlighted = hljs.default.highlight(text, { language: validLang }).value
-
-    console.log('[MarkdownRenderer] Code block:', { language, validLang, hasHighlight: highlighted.includes('<span') })
 
     return `<pre class="hljs"><code class="hljs language-${language}">${highlighted}</code></pre>`
   }
@@ -92,7 +88,6 @@ function extractLatex(markdown: string, context: LatexContext): string {
   processed = processed.replace(/\$\$([\s\S]+?)\$\$/g, (_, equation) => {
     const id = `LATEX_DISPLAY_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     context.placeholders.set(id, { type: 'display', equation: equation.trim() })
-    console.log('[MarkdownRenderer] Extracted display formula ($$):', id)
     return createPlaceholder(id)
   })
 
@@ -100,7 +95,6 @@ function extractLatex(markdown: string, context: LatexContext): string {
   processed = processed.replace(/\\\[([\s\S]+?)\\\]/g, (_, equation) => {
     const id = `LATEX_DISPLAY_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     context.placeholders.set(id, { type: 'display', equation: equation.trim() })
-    console.log('[MarkdownRenderer] Extracted display formula (\\[):', id)
     return createPlaceholder(id)
   })
 
@@ -109,7 +103,6 @@ function extractLatex(markdown: string, context: LatexContext): string {
     const trimmedEquation = equation.trim()
     const id = `LATEX_INLINE_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     context.placeholders.set(id, { type: 'inline', equation: trimmedEquation })
-    console.log('[MarkdownRenderer] Extracted inline formula (\\():', id)
     return createPlaceholder(id)
   })
 
@@ -122,20 +115,16 @@ function extractLatex(markdown: string, context: LatexContext): string {
     }
     const id = `LATEX_INLINE_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     context.placeholders.set(id, { type: 'inline', equation: trimmedEquation })
-    console.log('[MarkdownRenderer] Extracted inline formula ($):', id)
     // 保留前面的字符
     return before + createPlaceholder(id)
   })
 
-  console.log('[MarkdownRenderer] Total formulas extracted:', context.placeholders.size)
   return processed
 }
 
 // 渲染 LaTeX 公式并替换占位符
 async function renderLatex(html: string, context: LatexContext): Promise<string> {
   const katex = await import('katex')
-
-  console.log('[MarkdownRenderer] renderLatex called, placeholders:', context.placeholders.size)
 
   // 使用正则表达式查找所有占位符
   const placeholderRegex = /<span class="latex-placeholder" data-latex-id="(.+?)"><\/span>/g
@@ -150,8 +139,6 @@ async function renderLatex(html: string, context: LatexContext): Promise<string>
     })
   }
 
-  console.log('[MarkdownRenderer] Found placeholders in HTML:', matches.length)
-
   // 从后往前替换，避免索引偏移问题
   for (let i = matches.length - 1; i >= 0; i--) {
     const { id, index, full } = matches[i]
@@ -161,9 +148,7 @@ async function renderLatex(html: string, context: LatexContext): Promise<string>
       console.warn('[MarkdownRenderer] No data for placeholder:', id)
       continue
     }
-    
-    console.log('[MarkdownRenderer] Rendering formula:', id, 'type:', data.type)
-    
+
     try {
       const result = katex.default.renderToString(data.equation, {
         displayMode: data.type === 'display',
@@ -173,7 +158,6 @@ async function renderLatex(html: string, context: LatexContext): Promise<string>
       })
       // 移除 KaTeX HTML 中的换行符
       const rendered = result.replace(/\n/g, '')
-      console.log('[MarkdownRenderer] Formula rendered, length:', rendered.length)
       // 替换占位符
       html = html.substring(0, index) + rendered + html.substring(index + full.length)
     } catch (e) {
@@ -184,7 +168,6 @@ async function renderLatex(html: string, context: LatexContext): Promise<string>
     }
   }
 
-  console.log('[MarkdownRenderer] renderLatex completed')
   return html
 }
 
@@ -204,7 +187,6 @@ export async function renderMermaidCharts(container: HTMLElement): Promise<numbe
   }
 
   const mermaidWrappers = container.querySelectorAll('.mermaid-wrapper')
-  console.log('[MarkdownRenderer] Found mermaid wrappers:', mermaidWrappers.length, 'in container')
 
   if (mermaidWrappers.length === 0) return 0
 
@@ -218,8 +200,6 @@ export async function renderMermaidCharts(container: HTMLElement): Promise<numbe
     
     // 使用 Mermaid 自带的主题
     const theme = isDark ? 'dark' : 'default'
-    
-    console.log('[MarkdownRenderer] Using mermaid theme:', theme)
 
     // 初始化 mermaid，使用自带主题
     mermaid.default.initialize({
@@ -264,7 +244,6 @@ export async function renderMermaidCharts(container: HTMLElement): Promise<numbe
     for (const wrapper of mermaidWrappers) {
       // 跳过已经渲染的
       if (wrapper.classList.contains('mermaid-rendered')) {
-        console.log('[MarkdownRenderer] Skipping already rendered wrapper')
         renderedCount++
         continue
       }
@@ -291,16 +270,9 @@ export async function renderMermaidCharts(container: HTMLElement): Promise<numbe
 
       const mermaidId = mermaidEl.getAttribute('id') || `mermaid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
 
-      console.log('[MarkdownRenderer] Rendering mermaid:', {
-        mermaidId,
-        definitionLength: graphDefinition?.length,
-        definition: graphDefinition?.substring(0, 50)
-      })
-
       try {
         // 使用 mermaid 渲染
         const { svg } = await mermaid.default.render(mermaidId, graphDefinition)
-        console.log('[MarkdownRenderer] Mermaid rendered successfully, SVG length:', svg.length)
 
         // 解析 SVG
         const parser = new DOMParser()
@@ -316,8 +288,6 @@ export async function renderMermaidCharts(container: HTMLElement): Promise<numbe
           mermaidEl.style.display = 'none'
           mermaidEl.setAttribute('data-rendered', 'true')
           wrapper.appendChild(svgEl.cloneNode(true))
-          
-          console.log('[MarkdownRenderer] SVG appended to wrapper')
           renderedCount++
         } else {
           console.error('[MarkdownRenderer] No SVG element in rendered output')
@@ -363,11 +333,8 @@ export async function renderMarkdown(markdown: string): Promise<string> {
 
   // 检查缓存（开发模式可禁用）
   if (markdownCache.has(cacheKey)) {
-    console.log('[MarkdownRenderer] Cache hit for key:', cacheKey.substring(0, 50))
     return markdownCache.get(cacheKey)!
   }
-
-  console.log('[MarkdownRenderer] Cache miss, rendering markdown...')
 
   try {
     // 创建独立的 LaTeX 上下文
@@ -375,16 +342,13 @@ export async function renderMarkdown(markdown: string): Promise<string> {
 
     // 1. 提取 LaTeX 公式为占位符
     const markdownWithoutLatex = extractLatex(processedMarkdown, context)
-    console.log('[MarkdownRenderer] After extractLatex:', markdownWithoutLatex.substring(0, 100))
 
     // 2. 解析 Markdown
     const marked = await initMarked()
     let html = marked.parse(markdownWithoutLatex) as string
-    console.log('[MarkdownRenderer] After marked parse, HTML length:', html.length)
 
     // 3. 渲染 LaTeX 公式并替换占位符
     html = await renderLatex(html, context)
-    console.log('[MarkdownRenderer] After renderLatex, HTML length:', html.length)
 
     // 4. 处理 Mermaid（标记位置，稍后渲染）
     html = await processMermaid(html)
@@ -397,7 +361,6 @@ export async function renderMarkdown(markdown: string): Promise<string> {
       markdownCache.set(cacheKey, sanitized)
     }
 
-    console.log('[MarkdownRenderer] Rendering completed, cached size:', markdownCache.size)
     return sanitized
   } catch (error) {
     console.error('[MarkdownRenderer] Error rendering markdown:', error)
@@ -408,14 +371,12 @@ export async function renderMarkdown(markdown: string): Promise<string> {
 // 清除缓存
 export function clearMarkdownCache() {
   markdownCache.clear()
-  console.log('[MarkdownRenderer] Cache cleared')
 }
 
 // 开发模式下禁用缓存的辅助函数
 let disableCache = false
 export function setMarkdownCacheEnabled(enabled: boolean) {
   disableCache = !enabled
-  console.log('[MarkdownRenderer] Cache', enabled ? 'enabled' : 'disabled')
 }
 
 // 图片路径缓存
@@ -505,5 +466,4 @@ async function loadImageAsBlobUrl(relativePath: string, notebookId: string): Pro
  */
 export function clearImageCache() {
   imageBlobCache.clear()
-  console.log('[MarkdownRenderer] Image cache cleared')
 }
