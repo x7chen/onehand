@@ -110,7 +110,10 @@ export default {
     deletedAt: 'Deleted {time}',
     restore: 'Restore',
     deletePermanently: 'Delete permanently',
-    confirmEmpty: 'Are you sure you want to empty the trash? All items will be permanently deleted.',
+    confirmEmptyNotes: 'Notes in trash will be permanently deleted.',
+    confirmEmptyNotebooks: 'Notebooks and their contents in trash will be permanently deleted.',
+    confirmEmptyContexts: 'Context files in trash will be permanently deleted.',
+    confirmEmptyQuickCommands: 'Quick commands in trash will be permanently deleted.',
   },
   settings: {
     title: 'Settings',

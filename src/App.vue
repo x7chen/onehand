@@ -320,7 +320,6 @@ body {
 }
 
 :root.dark .voice-note,
-:root.dark .section-header,
 :root.dark .canvas-header {
   background: var(--bg-primary);
   box-shadow: 0 2px 8px var(--shadow-color);

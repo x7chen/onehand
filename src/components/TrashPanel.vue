@@ -210,6 +210,17 @@
         </div>
       </div>
     </div>
+
+    <!-- 清空确认对话框 -->
+    <div v-if="showConfirmDialog" class="dialog-overlay" @click="showConfirmDialog = false">
+      <div class="confirm-dialog" @click.stop>
+        <p>{{ confirmMessage }}</p>
+        <div class="dialog-actions">
+          <button class="cancel-btn" @click="showConfirmDialog = false">{{ t('common.cancel') }}</button>
+          <button class="confirm-btn" @click="executeEmpty">{{ t('common.confirm') }}</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -227,6 +238,11 @@ const { t } = useI18n()
 
 const activeTab = ref<'notes' | 'notebooks' | 'contexts' | 'quickCommands'>('notes')
 const trashNodes = ref<TrashNodeItem[]>([])
+
+// 确认对话框状态
+const showConfirmDialog = ref(false)
+const confirmMessage = ref('')
+let pendingEmptyAction: (() => Promise<void>) | null = null
 
 interface TrashNodeItem {
   nodeId: string
@@ -320,26 +336,50 @@ async function handleDeleteQuickCommandPermanently(commandId: string) {
   await quickCommandStore.deleteQuickCommandPermanently(commandId)
 }
 
-async function handleEmptyNotes() {
-  await notebookStore.emptyTrash()
+function handleEmptyNotes() {
+  confirmMessage.value = t('trash.confirmEmptyNotes')
+  pendingEmptyAction = async () => {
+    await notebookStore.emptyTrash()
+  }
+  showConfirmDialog.value = true
 }
 
-async function handleEmptyNotebooks() {
-  for (const nb of [...notebookStore.trashNotebooks]) {
-    await notebookStore.deleteNotebookPermanently(nb.originalId)
+function handleEmptyNotebooks() {
+  confirmMessage.value = t('trash.confirmEmptyNotebooks')
+  pendingEmptyAction = async () => {
+    for (const nb of [...notebookStore.trashNotebooks]) {
+      await notebookStore.deleteNotebookPermanently(nb.originalId)
+    }
   }
+  showConfirmDialog.value = true
 }
 
-async function handleEmptyContexts() {
-  for (const ctx of [...contextStore.trashContextFiles]) {
-    await contextStore.deleteContextPermanently(ctx.id)
+function handleEmptyContexts() {
+  confirmMessage.value = t('trash.confirmEmptyContexts')
+  pendingEmptyAction = async () => {
+    for (const ctx of [...contextStore.trashContextFiles]) {
+      await contextStore.deleteContextPermanently(ctx.id)
+    }
   }
+  showConfirmDialog.value = true
 }
 
-async function handleEmptyQuickCommands() {
-  for (const cmd of [...quickCommandStore.trashQuickCommands]) {
-    await quickCommandStore.deleteQuickCommandPermanently(cmd.id)
+function handleEmptyQuickCommands() {
+  confirmMessage.value = t('trash.confirmEmptyQuickCommands')
+  pendingEmptyAction = async () => {
+    for (const cmd of [...quickCommandStore.trashQuickCommands]) {
+      await quickCommandStore.deleteQuickCommandPermanently(cmd.id)
+    }
   }
+  showConfirmDialog.value = true
+}
+
+async function executeEmpty() {
+  if (pendingEmptyAction) {
+    await pendingEmptyAction()
+    pendingEmptyAction = null
+  }
+  showConfirmDialog.value = false
 }
 </script>
 
@@ -584,6 +624,58 @@ async function handleEmptyQuickCommands() {
 
 .delete-btn:hover {
   background: var(--color-error);
+  color: white;
+}
+
+/* 确认对话框 */
+.dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.confirm-dialog {
+  background: var(--bg-primary);
+  padding: 24px;
+  border-radius: 12px;
+  min-width: 400px;
+  max-width: 500px;
+}
+
+.confirm-dialog p {
+  margin: 0 0 20px 0;
+  color: var(--text-primary);
+  font-size: 16px;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.cancel-btn {
+  padding: 8px 16px;
+  background: var(--bg-secondary);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+
+.confirm-btn {
+  padding: 8px 16px;
+  background: var(--color-error);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
   color: white;
 }
 </style>

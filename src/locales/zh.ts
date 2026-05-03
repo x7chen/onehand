@@ -110,7 +110,10 @@ export default {
     deletedAt: '删除于 {time}',
     restore: '恢复',
     deletePermanently: '彻底删除',
-    confirmEmpty: '确定要清空回收站吗？所有内容将被永久删除。',
+    confirmEmptyNotes: '回收站中的笔记将被永久删除。',
+    confirmEmptyNotebooks: '回收站中的笔记本及其内容将被永久删除。',
+    confirmEmptyContexts: '回收站中的上下文文件将被永久删除。',
+    confirmEmptyQuickCommands: '回收站中的快捷指令将被永久删除。',
   },
   settings: {
     title: '设置',
