@@ -2,6 +2,7 @@
   <div class="canvas-area">
     <InfiniteCanvas
       ref="infiniteCanvasRef"
+      :class="{ 'canvas-dimmed': isLayouting }"
       :viewport="viewport"
       :is-recording="isRecording"
       :recording-position="recordingPosition"
@@ -41,6 +42,12 @@
         />
       </template>
     </InfiniteCanvas>
+
+    <!-- 布局指示器 -->
+    <div class="layout-indicator" v-if="isLayouting">
+      <div class="layout-spinner"></div>
+      <span>{{ t('canvas.layouting') }}</span>
+    </div>
 
     <!-- MagicInput 弹出框 -->
     <MagicInput
@@ -152,7 +159,55 @@ function observeRenderedNodes() {
   }
 }
 
-// 计算节点布局位置（使用测量到的实际高度）
+// 计算新节点的布局位置（基于已有位置确定列高度）
+function calculateNewNodePositions(
+  newNodes: CanvasNode[],
+  existingPositions: Map<string, { x: number; y: number }>,
+  heights: Map<string, number>
+): Map<string, { x: number; y: number }> {
+  const positions = new Map<string, { x: number; y: number }>()
+
+  if (newNodes.length === 0) return positions
+
+  // 按创建时间升序排序
+  const sortedNodes = [...newNodes].sort((a, b) => a.createdAt - b.createdAt)
+
+  // 初始化列高度：从已有位置计算各列当前高度
+  const columnHeights: number[] = Array(LAYOUT_CONFIG.COLUMN_COUNT).fill(LAYOUT_CONFIG.START_Y)
+
+  // 根据已有位置更新列高度
+  for (const [nodeId, pos] of existingPositions) {
+    const col = Math.floor((pos.x - LAYOUT_CONFIG.START_X) / (LAYOUT_CONFIG.DEFAULT_NODE_WIDTH + LAYOUT_CONFIG.COLUMN_GAP))
+    if (col >= 0 && col < LAYOUT_CONFIG.COLUMN_COUNT) {
+      const nodeHeight = heights.get(nodeId) || LAYOUT_CONFIG.DEFAULT_NODE_HEIGHT
+      columnHeights[col] = Math.max(columnHeights[col], pos.y + nodeHeight + LAYOUT_CONFIG.ROW_GAP)
+    }
+  }
+
+  // 为新节点分配位置
+  for (const node of sortedNodes) {
+    // 找最短列
+    let minColumn = 0
+    for (let col = 1; col < LAYOUT_CONFIG.COLUMN_COUNT; col++) {
+      if (columnHeights[col] < columnHeights[minColumn]) {
+        minColumn = col
+      }
+    }
+
+    // 计算节点位置
+    const x = LAYOUT_CONFIG.START_X + minColumn * (LAYOUT_CONFIG.DEFAULT_NODE_WIDTH + LAYOUT_CONFIG.COLUMN_GAP)
+    const y = columnHeights[minColumn]
+
+    positions.set(node.id, { x, y })
+
+    // 使用默认高度（新节点尚未测量）
+    columnHeights[minColumn] = y + LAYOUT_CONFIG.DEFAULT_NODE_HEIGHT + LAYOUT_CONFIG.ROW_GAP
+  }
+
+  return positions
+}
+
+// 计算节点布局位置（使用测量到的实际高度）- 用于自动布局等场景
 function calculateNodePositions(nodes: CanvasNode[], heights: Map<string, number>): Map<string, { x: number; y: number }> {
   const positions = new Map<string, { x: number; y: number }>()
 
@@ -202,14 +257,69 @@ const filteredNodes = computed(() => {
 // 用户手动拖拽的位置覆盖（临时状态，不保存）
 const manualPositions = ref<Map<string, { x: number; y: number }>>(new Map())
 
-// 布局位置（响应式计算，依赖 measuredHeights）
+// 缓存的布局位置（持久化，避免滚动后重新计算）
+const cachedPositions = ref<Map<string, { x: number; y: number }>>(new Map())
+
+// 监听笔记本切换，触发重新测量和排版
+watch(
+  () => notebookStore.currentNotebook?.id,
+  (newId, oldId) => {
+    // 笔记本切换时（oldId 有值且不同于 newId）
+    if (oldId && newId !== oldId) {
+      // 清除所有缓存
+      cachedPositions.value.clear()
+      manualPositions.value.clear()
+      measuredHeights.value.clear()
+      // 触发重新测量
+      performInitialMeasurement()
+    }
+  }
+)
+
+// 监听过滤器变化，触发重新排版
+watch(
+  () => props.filterNodeIds,
+  (newFilter, oldFilter) => {
+    // 过滤器变化时清除缓存并重新测量
+    if (newFilter !== oldFilter) {
+      cachedPositions.value.clear()
+      manualPositions.value.clear()
+      // 保留 measuredHeights，因为节点高度不变
+      performInitialMeasurement()
+    }
+  }
+)
+
+// 布局位置（优先使用缓存位置，新节点才计算）
 const nodePositions = computed(() => {
-  const basePositions = calculateNodePositions(filteredNodes.value, measuredHeights.value)
+  // 先复制缓存的位置
+  const positions = new Map(cachedPositions.value)
+
+  // 获取需要计算位置的节点（缓存中没有位置的节点）
+  const nodesWithoutPosition = filteredNodes.value.filter(node => !positions.has(node.id))
+
+  if (nodesWithoutPosition.length > 0) {
+    // 只为新节点计算位置，基于已有位置确定列高度
+    const newPositions = calculateNewNodePositions(nodesWithoutPosition, positions, measuredHeights.value)
+    // 合并新位置到结果
+    for (const [nodeId, pos] of newPositions) {
+      positions.set(nodeId, pos)
+    }
+    // 更新缓存（异步更新避免循环依赖）
+    nextTick(() => {
+      const newCache = new Map(cachedPositions.value)
+      for (const [nodeId, pos] of newPositions) {
+        newCache.set(nodeId, pos)
+      }
+      cachedPositions.value = newCache
+    })
+  }
+
   // 如果有手动位置，覆盖计算的位置
   for (const [nodeId, pos] of manualPositions.value) {
-    basePositions.set(nodeId, pos)
+    positions.set(nodeId, pos)
   }
-  return basePositions
+  return positions
 })
 
 // 显示节点（包含计算后的位置）
@@ -229,6 +339,9 @@ const activeNodeId = ref<string | null>(null)
 // 测量阶段计数器（0 = 未开始，1-5 = 正在测量，100 = 完成）
 const measurementPhase = ref(0)
 const MEASURE_COMPLETE_PHASE = 100
+
+// 是否正在排版
+const isLayouting = ref(false)
 
 // 是否禁用虚拟滚动（测量期间）
 const disableVirtualScroll = computed(() => measurementPhase.value < MEASURE_COMPLETE_PHASE)
@@ -521,9 +634,11 @@ async function performInitialMeasurement() {
 
   // 立即标记开始测量，禁用虚拟滚动
   measurementPhase.value = 1
+  isLayouting.value = true
 
   if (nodes.length === 0) {
     measurementPhase.value = MEASURE_COMPLETE_PHASE
+    isLayouting.value = false
     return
   }
 
@@ -542,7 +657,12 @@ async function performInitialMeasurement() {
 
   // 最终测量完成
   measurementPhase.value = MEASURE_COMPLETE_PHASE
-  // height 不再保存到节点数据，由 ResizeObserver 动态测量
+
+  // 测量完成后，用实际高度重新计算所有节点的位置
+  await nextTick()
+  const positions = calculateNodePositions(nodes, measuredHeights.value)
+  cachedPositions.value = positions
+  isLayouting.value = false
 }
 
 function handleViewportChange(newViewport: Viewport) {
@@ -788,6 +908,10 @@ async function handleAgentResponse(nodeId: string, transcript: string) {
 
 function handleDeleteNode(nodeId: string) {
   notebookStore.removeNode(nodeId)
+  // 从缓存中移除位置
+  const newCache = new Map(cachedPositions.value)
+  newCache.delete(nodeId)
+  cachedPositions.value = newCache
 }
 
 async function handlePlayNode(nodeId: string) {
@@ -919,12 +1043,17 @@ function handleToggleFavorite(nodeId: string) {
 }
 
 async function handleAutoLayout() {
+  // 清除手动位置和缓存位置
   manualPositions.value.clear()
+  cachedPositions.value.clear()
   viewport.value = { x: 0, y: 0, zoom: 1 }
   notebookStore.updateCurrentViewport(viewport.value)
 
   const nodes = filteredNodes.value
   if (nodes.length === 0) return
+
+  // 开始排版
+  isLayouting.value = true
 
   // 强制重新开始测量阶段（禁用虚拟滚动）
   measurementPhase.value = 1
@@ -945,10 +1074,10 @@ async function handleAutoLayout() {
   // 测量完成
   measurementPhase.value = MEASURE_COMPLETE_PHASE
 
-  // 使用最新的测量高度计算瀑布流布局
+  // 使用最新的测量高度计算瀑布流布局，并更新缓存
   const positions = calculateNodePositions(nodes, measuredHeights.value)
-  manualPositions.value = positions
-  // height 不再保存到节点数据，由 ResizeObserver 动态测量
+  cachedPositions.value = positions
+  isLayouting.value = false
 }
 
 function handleActivateNode(nodeId: string) {
@@ -1156,5 +1285,44 @@ defineExpose({
   flex: 1;
   position: relative;
   overflow: hidden;
+}
+
+/* 排版时降低画布亮度 */
+.canvas-dimmed {
+  filter: brightness(0.3);
+  transition: filter 0.3s ease;
+}
+
+/* 布局指示器 */
+.layout-indicator {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 24px;
+  background: var(--bg-primary);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px var(--shadow-color);
+  z-index: 100;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.layout-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border-color);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>

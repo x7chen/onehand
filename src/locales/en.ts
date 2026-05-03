@@ -244,6 +244,7 @@ export default {
     collapseList: 'Collapse list',
     backToOrigin: 'Back to origin',
     autoLayout: 'Auto layout',
+    layouting: 'Layouting...',
     showAllAiAnswers: 'Show all AI answers',
     hideAllAiAnswers: 'Hide all AI answers',
     enableAiAnswer: 'Enable AI answer',

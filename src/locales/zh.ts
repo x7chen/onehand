@@ -244,6 +244,7 @@ export default {
     collapseList: '折叠列表',
     backToOrigin: '回到原点',
     autoLayout: '自动排版',
+    layouting: '正在排版...',
     showAllAiAnswers: '显示所有 AI 回答',
     hideAllAiAnswers: '隐藏所有 AI 回答',
     enableAiAnswer: '开启 AI 回答',
