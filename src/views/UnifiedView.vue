@@ -256,11 +256,11 @@ const contextColors = computed(() => CONTEXT_COLORS)
 // CanvasViewPanel 的引用（用于激活节点）
 const canvasViewPanelRef = ref<InstanceType<typeof CanvasViewPanel> | null>(null)
 
-// 当前激活的 tab
-const activeTab = ref<string>('all-notebooks')
+// 当前激活的 tab - 根据默认笔记本设置决定初始值
+const activeTab = ref<string>(settingsStore.settings.general.defaultNotebookId ? 'notebooks' : 'all-notebooks')
 
-// 当前激活的笔记本ID
-const activeNotebookId = ref<string | null>(null)
+// 当前激活的笔记本ID - 如果有默认笔记本，先设置为默认（等待加载后验证）
+const activeNotebookId = ref<string | null>(settingsStore.settings.general.defaultNotebookId || null)
 
 // 视图模式：'chat' | 'canvas' | 'particle'（仅在笔记本tab下生效）
 const viewMode = ref<'chat' | 'canvas' | 'particle'>('chat')
@@ -313,6 +313,25 @@ const shouldTriggerCreateNote = ref(false)
 onMounted(async () => {
   await notebookStore.loadNotebooks()
   await contextStore.loadContextFiles()
+
+  // 验证默认笔记本是否存在
+  const defaultNotebookId = settingsStore.settings.general.defaultNotebookId
+  if (defaultNotebookId) {
+    const notebook = notebookStore.notebooks.find(nb => nb.id === defaultNotebookId)
+    if (notebook) {
+      // 默认笔记本存在，确保设置正确
+      notebookStore.setCurrentNotebook(notebook)
+      if (notebook.pdfPath) {
+        activeTab.value = 'pdf-notebook'
+      } else {
+        activeTab.value = 'notebooks'
+      }
+    } else {
+      // 默认笔记本不存在，回退到全部笔记本
+      activeTab.value = 'all-notebooks'
+      activeNotebookId.value = null
+    }
+  }
 
   // 处理路由中的 nodeId 参数
   handleRouteNodeId()
