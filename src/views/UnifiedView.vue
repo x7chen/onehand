@@ -95,7 +95,6 @@
         @select-dynamic-context="selectDynamicContext"
         @dynamic-context-drop="handleDynamicContextDrop"
         @select-model="handleSelectModel"
-        @switch-to-chat="handleSwitchViewMode('chat')"
       />
 
       <!-- 粒子视图面板 -->

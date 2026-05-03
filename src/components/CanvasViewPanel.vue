@@ -1,35 +1,29 @@
 <template>
   <div class="canvas-view-panel">
-    <div class="panel-header">
-      <button @click="emit('switch-to-chat')" class="back-btn" :title="t('common.back')">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-          <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
-        </svg>
-      </button>
-      <CanvasHeader
-        :static-context-files="staticContextFiles"
-        :all-static-context-files="allStaticContextFiles"
-        :all-dynamic-context-files="allDynamicContextFiles"
-        :dynamic-context-file="dynamicContextFile || undefined"
-        v-model:global-hide-ai-result="globalHideAiResult"
-        v-model:ai-answer-enabled="aiAnswerEnabled"
-        :notebook-model-id="currentNotebook?.modelId"
-        :all-profiles="allProfiles"
-        :active-profile-id="activeProfileId"
-        :all-notebooks="allNotebooks"
-        :current-notebook-id="currentNotebookId || null"
-        :show-viewport-controls="true"
-        :hide-navigation="true"
-        :hide-notebook-selector="true"
-        @reset-viewport="handleResetViewport"
-        @auto-layout="handleAutoLayout"
-        @open-dynamic-context-editor="openDynamicContextEditor"
-        @toggle-static-context="handleToggleStaticContext"
-        @select-dynamic-context="handleSelectDynamicContext"
-        @dynamic-context-drop="handleDynamicContextDrop"
-        @select-model="handleSelectModel"
-      />
-    </div>
+    <!-- 顶部工具栏 -->
+    <CanvasHeader
+      :static-context-files="staticContextFiles"
+      :all-static-context-files="allStaticContextFiles"
+      :all-dynamic-context-files="allDynamicContextFiles"
+      :dynamic-context-file="dynamicContextFile || undefined"
+      v-model:global-hide-ai-result="globalHideAiResult"
+      v-model:ai-answer-enabled="aiAnswerEnabled"
+      :notebook-model-id="currentNotebook?.modelId"
+      :all-profiles="allProfiles"
+      :active-profile-id="activeProfileId"
+      :all-notebooks="allNotebooks"
+      :current-notebook-id="currentNotebookId || null"
+      :show-viewport-controls="true"
+      :hide-navigation="true"
+      :hide-notebook-selector="true"
+      @reset-viewport="handleResetViewport"
+      @auto-layout="handleAutoLayout"
+      @open-dynamic-context-editor="openDynamicContextEditor"
+      @toggle-static-context="handleToggleStaticContext"
+      @select-dynamic-context="handleSelectDynamicContext"
+      @dynamic-context-drop="handleDynamicContextDrop"
+      @select-model="handleSelectModel"
+    />
 
     <!-- 主内容区域 -->
     <div class="panel-body">
@@ -132,7 +126,6 @@ const emit = defineEmits<{
   'select-dynamic-context': [contextId: string]
   'dynamic-context-drop': [text: string]
   'select-model': [modelId: string]
-  'switch-to-chat': []
 }>()
 
 const { t } = useI18n()
@@ -368,31 +361,6 @@ defineExpose({
   display: flex;
   flex-direction: column;
   background: var(--bg-secondary);
-}
-
-.panel-header {
-  display: flex;
-  align-items: center;
-  background: var(--bg-primary);
-  box-shadow: 0 2px 4px var(--shadow-color);
-}
-
-.back-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 12px;
-  background: var(--bg-primary);
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  color: var(--text-secondary);
-  transition: background 0.2s;
-}
-
-.back-btn:hover {
-  background: var(--bg-secondary);
-  color: var(--text-primary);
 }
 
 .panel-body {
