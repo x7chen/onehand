@@ -354,9 +354,9 @@ const createCards = () => {
     const node = allNodesList[nodeIndex]
     const mesh = createCardMesh(node, nodeIndex)
 
-    // 分布位置（从远处到近处）
-    const layer = Math.floor(i / 8)
-    const zBase = -80 - layer * 60 - Math.random() * 30
+    // 分布位置（从远处到近处，每层一条笔记）
+    const layer = i
+    const zBase = -120 - layer * 100 - Math.random() * 40
 
     mesh.position.x = (Math.random() - 0.5) * 10
     mesh.position.y = (Math.random() - 0.5) * 20
@@ -468,12 +468,12 @@ const startAnimation = () => {
 
     // 检测卡片是否超过相机位置，产生新卡片（始终执行）
     cardMeshes.forEach(mesh => {
-      if (mesh.position.z > -10) {
+      if (mesh.position.z > 0) {
         // 更新纹理为下一个笔记
         currentNodeIndex = updateCardTexture(mesh, currentNodeIndex)
-        // 放到远处重新飞来
-        const newLayer = Math.floor(cardMeshes.indexOf(mesh) / 8)
-        mesh.position.z = -80 - newLayer * 60 - Math.random() * 30
+        // 放到远处重新飞来（每层一条笔记）
+        const newLayer = cardMeshes.indexOf(mesh)
+        mesh.position.z = -120 - newLayer * 100 - Math.random() * 40
       }
     })
 
