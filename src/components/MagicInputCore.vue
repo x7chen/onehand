@@ -356,6 +356,9 @@ function handleInput() {
 function handleKeydown(e: KeyboardEvent) {
   if (e.key === 'Enter') {
     if (props.sendMode) {
+      // 如果正在输入法组合输入，不触发发送
+      if (e.isComposing) return
+
       // 发送模式：Enter 发送消息
       if (!e.shiftKey) {
         e.preventDefault()
