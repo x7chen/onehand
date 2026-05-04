@@ -126,7 +126,7 @@
           {{ rangeNotes.length }} {{ t('notebook.notes') }}
         </span>
       </div>
-      <div ref="notesListContainerRef" class="notes-list-container">
+      <div ref="notesListContainerRef" class="notes-list-container" @scroll="handleNotesListScroll">
         <div v-if="rangeNotes.length > 0" class="notes-list">
           <div
             v-for="node in rangeNotes"
@@ -232,6 +232,21 @@ const customRangeEnd = ref<Date | null>(null)
 const notesListContainerRef = ref<HTMLElement | null>(null)
 // 日历网格容器引用
 const calendarGridRef = ref<HTMLElement | null>(null)
+
+// 滚动条自动隐藏逻辑
+let scrollbarTimer: ReturnType<typeof setTimeout> | null = null
+
+function handleNotesListScroll() {
+  if (!notesListContainerRef.value) return
+  notesListContainerRef.value.classList.add('is-scrolling')
+  if (scrollbarTimer !== null) {
+    clearTimeout(scrollbarTimer)
+  }
+  scrollbarTimer = setTimeout(() => {
+    notesListContainerRef.value?.classList.remove('is-scrolling')
+    scrollbarTimer = null
+  }, 1000)
+}
 
 // 日期拖拽选择状态
 const isDateDragSelecting = ref(false)
@@ -848,6 +863,10 @@ onUnmounted(() => {
   // 移除日期拖拽事件监听
   document.removeEventListener('mousemove', handleDateDragMove)
   document.removeEventListener('mouseup', handleDateDragEnd)
+  if (scrollbarTimer) {
+    clearTimeout(scrollbarTimer)
+    scrollbarTimer = null
+  }
 })
 
 // 监听可见节点变化（不使用immediate，避免在selectedDate设置前emit空数组）
@@ -1154,6 +1173,32 @@ defineExpose({
 .notes-list-container {
   flex: 1;
   overflow-y: auto;
+  scrollbar-color: transparent transparent;
+}
+
+.notes-list-container.is-scrolling {
+  scrollbar-color: rgba(128, 128, 128, 0.4) transparent;
+}
+
+.notes-list-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.notes-list-container::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 2px;
+}
+
+.notes-list-container.is-scrolling::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.4);
+}
+
+:root.dark .notes-list-container.is-scrolling {
+  scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+}
+
+:root.dark .notes-list-container.is-scrolling::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .notes-list {

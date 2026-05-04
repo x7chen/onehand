@@ -94,7 +94,7 @@
     </div>
 
     <!-- 文本输入框 -->
-    <div class="textarea-wrapper">
+    <div class="textarea-wrapper" :class="{ 'fixed-height': props.fixedHeight }">
       <!-- 高亮层 -->
       <div
         v-if="showFindBar && findMatches.length > 0"
@@ -113,7 +113,7 @@
         @contextmenu.prevent="handleTextareaContextMenu"
         @input="handleInput"
         @keydown="handleKeydown"
-        @scroll="syncHighlightScroll"
+        @scroll="handleTextareaScroll"
       ></textarea>
     </div>
 
@@ -269,13 +269,15 @@ const props = withDefaults(defineProps<{
   showCancel?: boolean
   sendMode?: boolean
   nodeId?: string
+  fixedHeight?: boolean
 }>(), {
   modelValue: '',
   initialText: '',
   showCorrect: true,
   showCancel: false,
   sendMode: false,
-  nodeId: undefined
+  nodeId: undefined,
+  fixedHeight: false
 })
 
 const emit = defineEmits<{
@@ -334,6 +336,9 @@ const hasSelection = ref(false)
 
 // 自适应高度
 function autoResize() {
+  // 固定高度模式下不自动调整
+  if (props.fixedHeight) return
+
   const textarea = textareaRef.value
   const wrapper = textarea?.parentElement
   if (!textarea || !wrapper) return
@@ -350,6 +355,24 @@ function handleInput() {
   })
   emit('update:modelValue', inputText.value)
   emit('input')
+}
+
+// 滚动条自动隐藏逻辑
+let scrollTimer: number | null = null
+function handleTextareaScroll() {
+  const textarea = textareaRef.value
+  if (!textarea) return
+
+  textarea.classList.add('is-scrolling')
+
+  if (scrollTimer) {
+    clearTimeout(scrollTimer)
+  }
+
+  scrollTimer = window.setTimeout(() => {
+    textarea.classList.remove('is-scrolling')
+    scrollTimer = null
+  }, 1000)
 }
 
 // 处理键盘事件
@@ -529,6 +552,9 @@ onUnmounted(() => {
   document.removeEventListener('keydown', handleFindShortcut)
   if (recordingTimer) {
     clearInterval(recordingTimer)
+  }
+  if (scrollTimer) {
+    clearTimeout(scrollTimer)
   }
 })
 
@@ -1233,6 +1259,9 @@ function syncHighlightScroll() {
     highlightLayer.scrollTop = textarea.scrollTop
     highlightLayer.scrollLeft = textarea.scrollLeft
   }
+
+  // 同时处理滚动条显示
+  handleTextareaScroll()
 }
 
 // 处理拖放
@@ -1386,6 +1415,32 @@ defineExpose({
   box-sizing: border-box;
   overflow-y: auto;
   z-index: 2;
+  scrollbar-color: transparent transparent;
+}
+
+.magic-input-textarea.is-scrolling {
+  scrollbar-color: rgba(128, 128, 128, 0.4) transparent;
+}
+
+.magic-input-textarea::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.magic-input-textarea::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 2px;
+}
+
+.magic-input-textarea.is-scrolling::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.4);
+}
+
+:root.dark .magic-input-textarea.is-scrolling {
+  scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+}
+
+:root.dark .magic-input-textarea.is-scrolling::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .magic-input-textarea::placeholder {
@@ -1742,6 +1797,11 @@ defineExpose({
   flex: 1;
   min-height: 100px;
   overflow: hidden;
+}
+
+/* 固定高度模式：移除最小高度限制，让 textarea 填充可用空间 */
+.textarea-wrapper.fixed-height {
+  min-height: 0;
 }
 
 /* 高亮层 */

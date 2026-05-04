@@ -94,8 +94,22 @@ const useUpdatedAt = computed(() => {
 // 直接使用 props.nodes（已由父组件排序）
 const sortedNodes = computed(() => props.nodes)
 
+// 滚动条自动隐藏逻辑
+let scrollbarTimer: ReturnType<typeof setTimeout> | null = null
+
 function handleScroll() {
   // 可扩展虚拟滚动，但列表视图一般节点数量较少，暂不实现
+
+  // 滚动条显示逻辑
+  if (!nodeContainerRef.value) return
+  nodeContainerRef.value.classList.add('is-scrolling')
+  if (scrollbarTimer !== null) {
+    clearTimeout(scrollbarTimer)
+  }
+  scrollbarTimer = setTimeout(() => {
+    nodeContainerRef.value?.classList.remove('is-scrolling')
+    scrollbarTimer = null
+  }, 1000)
 }
 
 function toggleContext(nodeId: string) {
@@ -307,6 +321,10 @@ onUnmounted(() => {
   }
   document.removeEventListener('mousemove', handleDragMove)
   document.removeEventListener('mouseup', handleDragEnd)
+  if (scrollbarTimer) {
+    clearTimeout(scrollbarTimer)
+    scrollbarTimer = null
+  }
 })
 
 defineExpose({
@@ -331,6 +349,32 @@ defineExpose({
   flex: 1;
   overflow-y: auto;
   position: relative;
+  scrollbar-color: transparent transparent;
+}
+
+.node-container.is-scrolling {
+  scrollbar-color: rgba(128, 128, 128, 0.4) transparent;
+}
+
+.node-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.node-container::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 2px;
+}
+
+.node-container.is-scrolling::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.4);
+}
+
+:root.dark .node-container.is-scrolling {
+  scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+}
+
+:root.dark .node-container.is-scrolling::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .node-list-item {

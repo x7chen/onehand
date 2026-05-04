@@ -257,6 +257,16 @@ function handleScroll() {
   if (Math.abs(newScrollTop - scrollTop.value) > 5) {
     scrollTop.value = newScrollTop
   }
+
+  // 滚动条显示逻辑
+  nodeContainerRef.value.classList.add('is-scrolling')
+  if (scrollbarTimer !== null) {
+    clearTimeout(scrollbarTimer)
+  }
+  scrollbarTimer = setTimeout(() => {
+    nodeContainerRef.value?.classList.remove('is-scrolling')
+    scrollbarTimer = null
+  }, 1000)
 }
 
 function handleNodeActivate(nodeId: string) {
@@ -266,6 +276,7 @@ function handleNodeActivate(nodeId: string) {
 let scrollAnimationFrameId: number | null = null
 let scrollTimer: ReturnType<typeof setTimeout> | null = null
 let scrollRetryCount = 0
+let scrollbarTimer: ReturnType<typeof setTimeout> | null = null
 
 watch(() => props.activeNodeId, (newNodeId) => {
   if (!newNodeId) return
@@ -477,6 +488,10 @@ onUnmounted(() => {
     clearTimeout(scrollTimer)
     scrollTimer = null
   }
+  if (scrollbarTimer) {
+    clearTimeout(scrollbarTimer)
+    scrollbarTimer = null
+  }
   if (scrollAnimationFrameId !== null) {
     cancelAnimationFrame(scrollAnimationFrameId)
     scrollAnimationFrameId = null
@@ -640,6 +655,32 @@ function processNodeAtPosition(x: number, y: number) {
   flex: 1;
   overflow-y: auto;
   position: relative;
+  scrollbar-color: transparent transparent;
+}
+
+.node-container.is-scrolling {
+  scrollbar-color: rgba(128, 128, 128, 0.4) transparent;
+}
+
+.node-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.node-container::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 2px;
+}
+
+.node-container.is-scrolling::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.4);
+}
+
+:root.dark .node-container.is-scrolling {
+  scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+}
+
+:root.dark .node-container.is-scrolling::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .masonry-viewport {

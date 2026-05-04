@@ -187,7 +187,7 @@ function handleInput() {
   max-width: 800px;
   max-height: 80vh;
   background: var(--bg-primary);
-  padding: 8px;
+  padding: 2px;
   border: 1px solid var(--border-color);
   border-radius: 8px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);

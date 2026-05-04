@@ -373,25 +373,6 @@ body {
   background-color: var(--bg-secondary);
 }
 
-/* Custom scrollbar for dark mode */
-:root.dark ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-
-:root.dark ::-webkit-scrollbar-track {
-  background: var(--bg-secondary);
-}
-
-:root.dark ::-webkit-scrollbar-thumb {
-  background: var(--border-color);
-  border-radius: 5px;
-}
-
-:root.dark ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-secondary);
-}
-
 /* 全局 checkbox 主题颜色 */
 input[type="checkbox"] {
   accent-color: var(--color-primary);
@@ -399,5 +380,43 @@ input[type="checkbox"] {
 
 :root.dark input[type="checkbox"] {
   accent-color: var(--color-primary);
+}
+
+/* 全局滚动条样式 */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.3);
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(128, 128, 128, 0.5);
+}
+
+/* 深色模式滚动条 */
+:root.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+:root.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+/* Firefox 滚动条 */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(128, 128, 128, 0.3) transparent;
+}
+
+:root.dark * {
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
 }
 </style>

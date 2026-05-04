@@ -73,6 +73,7 @@
             :show-correct="!!quickModelConfig"
             :show-cancel="true"
             :send-mode="true"
+            :fixed-height="true"
             @send="handleSendInput"
             @cancel="handleCancelInput"
           />
@@ -189,6 +190,11 @@ onUnmounted(() => {
     document.removeEventListener('mousemove', handleResizeMagicPadMove)
     document.removeEventListener('mouseup', handleResizeMagicPadEnd)
   }
+  // 清理滚动条定时器
+  if (scrollbarTimer) {
+    clearTimeout(scrollbarTimer)
+    scrollbarTimer = null
+  }
 })
 
 // Get notebookId - use targetNotebookId prop if provided, otherwise use currentNotebook
@@ -298,7 +304,21 @@ function handleUserWheel(e: WheelEvent) {
 }
 
 // 节点详情区域滚动处理
+let scrollbarTimer: ReturnType<typeof setTimeout> | null = null
+
 function handleNodeDetailScroll() {
+  // 滚动条显示逻辑
+  if (nodeDetailContainerRef.value) {
+    nodeDetailContainerRef.value.classList.add('is-scrolling')
+    if (scrollbarTimer !== null) {
+      clearTimeout(scrollbarTimer)
+    }
+    scrollbarTimer = setTimeout(() => {
+      nodeDetailContainerRef.value?.classList.remove('is-scrolling')
+      scrollbarTimer = null
+    }, 1000)
+  }
+
   // 如果是程序触发的滚动，忽略
   if (isProgrammaticScroll) {
     isProgrammaticScroll = false
@@ -396,11 +416,13 @@ const quickModelConfig = computed(() => {
   return settingsStore.settings.llm.profiles.find(p => p.id === quickModelId)
 })
 
-// 当选中节点变化时，重置自动滚动状态
+// 当选中节点变化时，重置自动滚动状态并滚动到顶部
 watch(() => props.activeNode, () => {
   shouldAutoScroll.value = true
   nextTick(() => {
-    scrollToBottom()
+    if (nodeDetailContainerRef.value) {
+      nodeDetailContainerRef.value.scrollTop = 0
+    }
   })
 })
 
@@ -763,6 +785,9 @@ async function handleAgentResponseForText(nodeId: string, transcript: string) {
           agentStatus: 'processing'
         })
       }
+      if (shouldAutoScroll.value) {
+        nextTick(() => scrollToBottom())
+      }
     }, (thinkingChunk) => {
       accumulatedThinking += thinkingChunk
       if (pdfPage) {
@@ -857,6 +882,9 @@ async function handleImageAnalysisResponse(nodeId: string, imageBase64: string, 
           agentResult: accumulatedContent,
           agentStatus: 'processing'
         })
+      }
+      if (shouldAutoScroll.value) {
+        nextTick(() => scrollToBottom())
       }
     }, (thinkingChunk) => {
       accumulatedThinking += thinkingChunk
@@ -1261,6 +1289,32 @@ defineExpose({
   overflow-y: auto;
   padding: 16px;
   box-sizing: border-box;
+  scrollbar-color: transparent transparent;
+}
+
+.node-detail-container.is-scrolling {
+  scrollbar-color: rgba(128, 128, 128, 0.4) transparent;
+}
+
+.node-detail-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.node-detail-container::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 2px;
+}
+
+.node-detail-container.is-scrolling::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.4);
+}
+
+:root.dark .node-detail-container.is-scrolling {
+  scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+}
+
+:root.dark .node-detail-container.is-scrolling::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .node-detail {
