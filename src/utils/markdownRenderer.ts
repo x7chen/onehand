@@ -90,6 +90,16 @@ function createPlaceholder(id: string): string {
   return `<span class="latex-placeholder" data-latex-id="${id}"></span>`
 }
 
+// 清理公式内容中可能存在的引用块标记
+function cleanBlockquoteMarkers(equation: string): string {
+  // 移除每行开头的 '>' 和可选的空格
+  return equation
+    .split('\n')
+    .map(line => line.replace(/^>\s?/, '').trim())
+    .filter(line => line.length > 0)
+    .join('\n')
+}
+
 // 提取 LaTeX 公式为占位符
 function extractLatex(markdown: string, context: LatexContext): string {
   let processed = markdown
@@ -97,14 +107,16 @@ function extractLatex(markdown: string, context: LatexContext): string {
   // 提取块级公式 $$...$$
   processed = processed.replace(/\$\$([\s\S]+?)\$\$/g, (_, equation) => {
     const id = `LATEX_DISPLAY_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-    context.placeholders.set(id, { type: 'display', equation: normalizeLatexText(equation.trim()) })
+    const cleanedEquation = cleanBlockquoteMarkers(equation)
+    context.placeholders.set(id, { type: 'display', equation: normalizeLatexText(cleanedEquation) })
     return createPlaceholder(id)
   })
 
   // 提取块级公式 \[...\] (LaTeX 标准语法)
   processed = processed.replace(/\\\[([\s\S]+?)\\\]/g, (_, equation) => {
     const id = `LATEX_DISPLAY_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-    context.placeholders.set(id, { type: 'display', equation: normalizeLatexText(equation.trim()) })
+    const cleanedEquation = cleanBlockquoteMarkers(equation)
+    context.placeholders.set(id, { type: 'display', equation: normalizeLatexText(cleanedEquation) })
     return createPlaceholder(id)
   })
 
