@@ -2632,8 +2632,9 @@ background-color: rgba(0, 0, 0, 1);
   text-align: center;
 }
 
-.transcript-content :deep(.katex-display .katex),
-.agent-content :deep(.katex-display .katex) {
+/* 行内公式保持 inline-block */
+.transcript-content :deep(.katex:not(.katex-display .katex)),
+.agent-content :deep(.katex:not(.katex-display .katex)) {
   display: inline-block;
 }
 
