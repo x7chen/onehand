@@ -357,6 +357,23 @@ function handleInput() {
   emit('input')
 }
 
+// 统一的文本更新函数：修改文本并同步到父组件
+function updateText(
+  newText: string,
+  selectionUpdate?: { start: number; end: number }
+) {
+  inputText.value = newText
+  emit('update:modelValue', newText)
+
+  if (selectionUpdate && textareaRef.value) {
+    nextTick(() => {
+      textareaRef.value!.selectionStart = selectionUpdate.start
+      textareaRef.value!.selectionEnd = selectionUpdate.end
+      textareaRef.value!.focus()
+    })
+  }
+}
+
 // 滚动条自动隐藏逻辑
 let scrollTimer: number | null = null
 function handleTextareaScroll() {
@@ -721,14 +738,10 @@ async function handlePaste() {
       if (textarea) {
         const start = textarea.selectionStart
         const end = textarea.selectionEnd
-        const text = inputText.value
-        inputText.value = text.substring(0, start) + clipboardText + text.substring(end)
-        nextTick(() => {
-          textarea.selectionStart = textarea.selectionEnd = start + clipboardText.length
-          textarea.focus()
-        })
+        const newText = inputText.value.substring(0, start) + clipboardText + inputText.value.substring(end)
+        updateText(newText, { start: start + clipboardText.length, end: start + clipboardText.length })
       } else {
-        inputText.value += clipboardText
+        updateText(inputText.value + clipboardText)
       }
     }
   } catch (error) {
@@ -743,14 +756,10 @@ function insertQuickCommand(cmd: QuickCommand) {
   if (textarea) {
     const start = textarea.selectionStart
     const end = textarea.selectionEnd
-    const text = inputText.value
-    inputText.value = text.substring(0, start) + cmd.content + text.substring(end)
-    nextTick(() => {
-      textarea.selectionStart = textarea.selectionEnd = start + cmd.content.length
-      textarea.focus()
-    })
+    const newText = inputText.value.substring(0, start) + cmd.content + inputText.value.substring(end)
+    updateText(newText, { start: start + cmd.content.length, end: start + cmd.content.length })
   } else {
-    inputText.value += cmd.content
+    updateText(inputText.value + cmd.content)
   }
   showQuickCommandSelector.value = false
 }
@@ -806,20 +815,14 @@ async function stopRecording() {
 
     if (transcriptResult.success && transcriptResult.text) {
       const textarea = textareaRef.value
+      const insertText = transcriptResult.text
       if (textarea) {
         const start = textarea.selectionStart
         const end = textarea.selectionEnd
-        const text = inputText.value
-        const insertText = transcriptResult.text
-
-        inputText.value = text.substring(0, start) + insertText + text.substring(end)
-
-        nextTick(() => {
-          textarea.selectionStart = textarea.selectionEnd = start + insertText.length
-          textarea.focus()
-        })
+        const newText = inputText.value.substring(0, start) + insertText + inputText.value.substring(end)
+        updateText(newText, { start: start + insertText.length, end: start + insertText.length })
       } else {
-        inputText.value += transcriptResult.text
+        updateText(inputText.value + insertText)
       }
     }
   } catch (error) {
@@ -970,58 +973,21 @@ function showPreviewResult(text: string, start: number, end: number) {
 
 // 应用预览文本
 function applyPreviewText() {
-  const textarea = textareaRef.value
   const { start, end } = previewSelectionRange.value
-
-  // 替换文本
-  const beforeText = inputText.value.substring(0, start)
-  const afterText = inputText.value.substring(end)
-  inputText.value = beforeText + previewText.value + afterText
-
-  // 触发 v-model 更新
-  emit('update:modelValue', inputText.value)
-
-  // 恢复选取状态：选中替换后的文本
-  if (textarea) {
-    nextTick(() => {
-      const newEnd = start + previewText.value.length
-      textarea.selectionStart = start
-      textarea.selectionEnd = newEnd
-      textarea.focus()
-    })
-  }
-
+  const newText = inputText.value.substring(0, start) + previewText.value + inputText.value.substring(end)
+  const newEnd = start + previewText.value.length
+  updateText(newText, { start, end: newEnd })
   closePreviewPopover()
 }
 
 // 追加预览文本
 function appendPreviewText() {
-  const textarea = textareaRef.value
   const { start, end } = previewSelectionRange.value
-
-  // 判断是否有选取内容
   const hasSelection = start !== end
   const appendPosition = hasSelection ? end : inputText.value.length
-
-  // 追加文本（如果有选取内容则追加到选取内容之后，否则追加到整个文本最后）
-  const beforeText = inputText.value.substring(0, appendPosition)
-  const afterText = inputText.value.substring(appendPosition)
-  inputText.value = beforeText + previewText.value + afterText
-
-  // 触发 v-model 更新
-  emit('update:modelValue', inputText.value)
-
-  // 恢复选取状态：选中追加的文本
-  if (textarea) {
-    nextTick(() => {
-      const newStart = appendPosition
-      const newEnd = appendPosition + previewText.value.length
-      textarea.selectionStart = newStart
-      textarea.selectionEnd = newEnd
-      textarea.focus()
-    })
-  }
-
+  const newText = inputText.value.substring(0, appendPosition) + previewText.value + inputText.value.substring(appendPosition)
+  const newEnd = appendPosition + previewText.value.length
+  updateText(newText, { start: appendPosition, end: newEnd })
   closePreviewPopover()
 }
 
@@ -1288,26 +1254,17 @@ async function handleDrop(e: DragEvent) {
         const beforeDelete = currentText.substring(0, deleteStart)
         const afterDelete = currentText.substring(deleteEnd)
         const textAfterDelete = beforeDelete + afterDelete
-
-        inputText.value = textAfterDelete.substring(0, adjustedInsertPos) + text + textAfterDelete.substring(adjustedInsertPos)
-
-        nextTick(() => {
-          textarea.selectionStart = textarea.selectionEnd = adjustedInsertPos + text.length
-          textarea.focus()
-        })
-
+        const newText = textAfterDelete.substring(0, adjustedInsertPos) + text + textAfterDelete.substring(adjustedInsertPos)
+        updateText(newText, { start: adjustedInsertPos + text.length, end: adjustedInsertPos + text.length })
         internalDragSelection.value = null
       } else {
-        inputText.value = currentText.substring(0, insertPosition) + text + currentText.substring(insertPosition)
-        nextTick(() => {
-          textarea.selectionStart = textarea.selectionEnd = insertPosition + text.length
-          textarea.focus()
-        })
+        const newText = currentText.substring(0, insertPosition) + text + currentText.substring(insertPosition)
+        updateText(newText, { start: insertPosition + text.length, end: insertPosition + text.length })
       }
 
       dragCaretPosition.value = null
     } else {
-      inputText.value += text
+      updateText(inputText.value + text)
     }
     return
   }
@@ -1336,16 +1293,11 @@ async function handleDrop(e: DragEvent) {
     await window.electronAPI.saveFileBuffer(imagePath, arrayBuffer)
 
     const markdownLink = `\n![${file.name}](${relativePath})\n`
-    const textarea = textareaRef.value
     if (textarea) {
       const start = textarea.selectionStart
       const end = textarea.selectionEnd
-      const text = inputText.value
-      inputText.value = text.substring(0, start) + markdownLink + text.substring(end)
-      nextTick(() => {
-        textarea.selectionStart = textarea.selectionEnd = start + markdownLink.length
-        textarea.focus()
-      })
+      const newText = inputText.value.substring(0, start) + markdownLink + inputText.value.substring(end)
+      updateText(newText, { start: start + markdownLink.length, end: start + markdownLink.length })
     }
   }
 }
