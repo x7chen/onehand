@@ -349,10 +349,11 @@ def extract_note_content(content_xml: str) -> str:
     markdown = html_to_markdown(content)
 
     # 移除空字符和零宽字符
-    markdown = markdown.replace('\x00', '')  # \u0000
-    markdown = markdown.replace('\ufeff', '')  # 零宽无连字符
-    markdown = markdown.replace('\u200b', '')  # 零宽空格
+    markdown = markdown.replace(chr(0), "")  # null character
+    markdown = markdown.replace(chr(0xFEFF), "")  # 零宽无连字符
+    markdown = markdown.replace(chr(0x200B), "")  # 零宽空格
 
+    markdown = markdown.rstrip()  # 移除尾部残留的空白字符
     return markdown
 
 
@@ -557,6 +558,12 @@ def process_images_in_content(content: str, resources: List[Dict], images_dir: s
 
     # 转换剩余的 HTML 为 Markdown
     content = html_to_markdown(content)
+
+    # 移除空字符和零宽字符（特别是带图片笔记尾部的null字符）
+    content = content.replace(chr(0), "")  # null character
+    content = content.replace(chr(0xFEFF), "")  # 零宽无连字符
+    content = content.replace(chr(0x200B), "")  # 零宽空格
+    content = content.rstrip()  # 移除尾部残留的空白字符
 
     return content, saved_images, saved_files
 
