@@ -43,6 +43,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   indexNodes: (nodes) => ipcRenderer.invoke('index-nodes', nodes),
   indexNodesIncremental: (nodes) => ipcRenderer.invoke('index-nodes-incremental', nodes),
   deleteIndexedNodes: (sources) => ipcRenderer.invoke('delete-indexed-nodes', sources),
+  deleteIndexedNodesByTextHash: (textHash) => ipcRenderer.invoke('delete-indexed-nodes-by-text-hash', textHash),
   semanticSearch: (query, topK) => ipcRenderer.invoke('semantic-search', query, topK),
   resetVectorDb: () => ipcRenderer.invoke('reset-vector-db'),
   deleteLoader: (loaderId) => ipcRenderer.invoke('delete-loader', loaderId),

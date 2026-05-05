@@ -60,12 +60,14 @@ export class OpenAICompatibleEmbeddings extends BaseEmbeddings {
 
     if (!response.ok) {
       const errorText = await response.text()
+      console.error(`Embedding API error: ${response.status} - ${errorText}`)
       throw new Error(`Embedding API error: ${response.status} - ${errorText}`)
     }
 
     const data = await response.json() as { data: Array<{ embedding: number[] }> }
 
     if (!data.data || data.data.length === 0) {
+      console.error('No embedding data returned')
       throw new Error('No embedding data returned')
     }
 

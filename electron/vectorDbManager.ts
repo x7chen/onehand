@@ -6,6 +6,7 @@ import { NotebookLoader, NotebookNodeData } from './loaders/NotebookLoader.js'
 import { createClient } from '@libsql/client'
 import fs from 'fs'
 import path from 'path'
+import md5 from 'md5'
 
 /**
  * VectorDbManager
@@ -76,26 +77,69 @@ export class VectorDbManager {
 
   /**
    * 索引笔记本节点（指定 loaderId）
-   * 注意：如果 loaderId 已存在，会先删除再添加，确保数据更新
+   * 直接调用 LibSQL 插入，绕过 embedJs 的 addLoader（避免其内部逻辑问题）
    */
   async indexNodesWithLoaderId(nodes: NotebookNodeData[], loaderId: string): Promise<number> {
-    if (!this.ragApp || !this.initialized) {
+    if (!this.config || !this.initialized) {
       throw new Error('VectorDb not initialized')
     }
 
-    // 先尝试删除旧的 loader（如果存在），确保数据能被更新
-    // embedJs 的 addLoader 会检查 loaderId 是否已存在，如果存在会跳过
-    // 所以我们需要先删除，再添加
-    try {
-      await this.ragApp.deleteLoader(loaderId)
-    } catch (e) {
-      // loader 不存在，忽略错误
+    if (!fs.existsSync(this.dbFilePath)) {
+      return 0
     }
 
-    const loader = new NotebookLoader(nodes, loaderId)
-    const result = await this.ragApp.addLoader(loader)
+    const dbUrl = `file:${this.dbFilePath.replace(/\\/g, '/')}`
+    const client = createClient({ url: dbUrl })
+    const embeddings = new OpenAICompatibleEmbeddings(this.config)
 
-    return result.entriesAdded
+    let totalInserted = 0
+
+    for (const node of nodes) {
+      // 检查 pageContent 是否已存在（避免重复）
+      const contentCheck = await client.execute(
+        `SELECT id FROM notebook_vectors WHERE pageContent = ?`,
+        [node.text]
+      )
+
+      if (contentCheck.rows.length > 0) {
+        continue
+      }
+
+      // 获取嵌入向量
+      const embedding = await embeddings.embedQuery(node.text)
+
+      // 生成 chunk id
+      const chunkId = `${loaderId}_${totalInserted}`
+      const source = `${node.notebookId}:${node.nodeId}:${node.fieldType}`
+      const textHash = md5(node.text)
+
+      // 直接插入
+      await client.execute({
+        sql: `INSERT INTO notebook_vectors (id, pageContent, uniqueLoaderId, source, vector, metadata)
+              VALUES (?, ?, ?, ?, vector32(?), ?)`,
+        args: [
+          chunkId,
+          node.text,
+          loaderId,
+          source,
+          `[${embedding.join(',')}]`,
+          JSON.stringify({
+            type: 'NotebookLoader',
+            notebookId: node.notebookId,
+            notebookName: node.notebookName,
+            nodeId: node.nodeId,
+            nodeTitle: node.nodeTitle,
+            pdfPage: node.pdfPage,
+            fieldType: node.fieldType,
+            textHash: textHash
+          })
+        ]
+      })
+
+      totalInserted++
+    }
+
+    return totalInserted
   }
 
   /**
@@ -203,7 +247,8 @@ export class VectorDbManager {
 
   /**
    * 删除指定 source 的数据（用于增量更新）
-   * 同时删除 uniqueLoaderId 和 source 字段匹配的数据，处理可能的格式不一致问题
+   * 同时删除 uniqueLoaderId 和 source 字段匹配的数据
+   * 使用参数化查询避免特殊字符导致的 SQL 错误
    */
   async deleteBySource(source: string): Promise<boolean> {
     if (!this.ragApp || !this.initialized) {
@@ -211,25 +256,63 @@ export class VectorDbManager {
     }
 
     try {
+      let deletedByLoader = false
       // 先尝试用 source 作为 uniqueLoaderId 删除
-      const result = await this.ragApp.deleteLoader(source)
+      // 注意：ragApp.deleteLoader 使用字符串拼接，可能有特殊字符问题
+      // 所以我们主要依赖下面的参数化查询
+      try {
+        deletedByLoader = await this.ragApp.deleteLoader(source)
+      } catch (e) {
+        // loader 不存在或删除失败，继续用 SQL 删除
+        console.warn(`deleteLoader failed for ${source}:`, e)
+      }
 
-      // 同时直接查询数据库删除 source 字段匹配的数据（处理旧数据格式问题）
+      // 使用参数化查询直接删除数据库中的数据
+      // 这是更可靠的方式，可以处理特殊字符
       if (fs.existsSync(this.dbFilePath)) {
         const dbUrl = `file:${this.dbFilePath.replace(/\\/g, '/')}`
         const client = createClient({ url: dbUrl })
 
-        // 删除 uniqueLoaderId 或 source 字段匹配的数据
-        await client.execute(
+        // 删除 uniqueLoaderId 或 source 列匹配的数据
+        const result = await client.execute(
           `DELETE FROM notebook_vectors WHERE uniqueLoaderId = ? OR source = ?`,
           [source, source]
         )
+        console.log(`deleteBySource(${source}): rowsAffected=${result.rowsAffected}, deletedByLoader=${deletedByLoader}`)
+        return result.rowsAffected > 0 || deletedByLoader
       }
 
-      return result
+      return deletedByLoader
     } catch (error) {
       console.error(`Failed to delete by source ${source}:`, error)
       return false
+    }
+  }
+
+  /**
+   * 删除基于 textHash 的数据（用于删除共享内容）
+   */
+  async deleteByTextHash(textHash: string): Promise<number> {
+    if (!this.ragApp || !this.initialized) {
+      return 0
+    }
+
+    try {
+      if (fs.existsSync(this.dbFilePath)) {
+        const dbUrl = `file:${this.dbFilePath.replace(/\\/g, '/')}`
+        const client = createClient({ url: dbUrl })
+
+        const result = await client.execute(
+          `DELETE FROM notebook_vectors WHERE json_extract(metadata, '$.textHash') = ?`,
+          [textHash]
+        )
+        console.log(`deleteByTextHash(${textHash.substring(0, 8)}): rowsAffected=${result.rowsAffected}`)
+        return result.rowsAffected
+      }
+      return 0
+    } catch (error) {
+      console.error(`Failed to delete by textHash ${textHash}:`, error)
+      return 0
     }
   }
 
@@ -245,10 +328,7 @@ export class VectorDbManager {
 
     try {
       const dbUrl = `file:${this.dbFilePath.replace(/\\/g, '/')}`
-
-      const client = createClient({
-        url: dbUrl
-      })
+      const client = createClient({ url: dbUrl })
 
       const allResult = await client.execute(
         `SELECT uniqueLoaderId, metadata FROM notebook_vectors`
@@ -266,7 +346,7 @@ export class VectorDbManager {
             hashes.set(uniqueLoaderId, textHash)
           }
         } catch (e) {
-          console.warn(`getAllIndexedHashes: failed to parse metadata for ${uniqueLoaderId}`)
+          // metadata 解析失败，忽略
         }
       }
 

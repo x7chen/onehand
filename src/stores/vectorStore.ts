@@ -203,7 +203,7 @@ export const useVectorStore = defineStore('vector', () => {
         }
       }
 
-      // 让后端计算状态
+      // 让后端计算状态（基于 textHash 内容去重）
       const statusResult = await window.electronAPI.getIndexStatusFull(
         currentNodesInfo.map(n => ({ source: n.source, textHash: n.textHash }))
       )
@@ -216,58 +216,52 @@ export const useVectorStore = defineStore('vector', () => {
       }
 
       const indexedHashes = statusResult.hashes || {}
+      // indexedTextHashes = 已存在于数据库中的 textHash 集合（基于内容）
       const indexedTextHashes = new Set(Object.values(indexedHashes))
+      // 当前所有节点的 textHash 集合
+      const currentTextHashes = new Set(currentNodesInfo.map(n => n.textHash))
 
-      // 找出需要更新的节点
-      const nodesToUpdate: NotebookNodeData[] = []
-      const sourcesToDelete: string[] = []
+      console.log(`Status: totalNodes=${statusResult.totalNodes}, indexedNodes=${statusResult.indexedNodes}, outdatedNodes=${statusResult.outdatedNodes}`)
+      console.log('indexedTextHashes (sample):', Array.from(indexedTextHashes).slice(0, 5))
 
-      // 检查新增或修改的节点
-      for (const item of currentNodesInfo) {
-        if (indexedHashes[item.source]) {
-          // source 已索引，检查 hash 是否变化
-          if (indexedHashes[item.source] !== item.textHash) {
-            // 内容变化，需要先删除旧的再添加新的
-            sourcesToDelete.push(item.source)
-            nodesToUpdate.push(item.node)
-          }
-        } else {
-          // source 未索引，检查是否是重复内容
-          if (!indexedTextHashes.has(item.textHash)) {
-            // 新内容，需要索引
-            nodesToUpdate.push(item.node)
+      // 找出需要索引的新内容（textHash 不在 indexedTextHashes 中）
+      const newContentTextHashes: string[] = []
+      for (const textHash of currentTextHashes) {
+        if (!indexedTextHashes.has(textHash)) {
+          newContentTextHashes.push(textHash)
+        }
+      }
+
+      // 找出需要删除的旧内容（textHash 在 indexedTextHashes 中但不在当前）
+      const deletedTextHashes: string[] = []
+      for (const textHash of indexedTextHashes) {
+        if (!currentTextHashes.has(textHash)) {
+          deletedTextHashes.push(textHash)
+        }
+      }
+
+      console.log(`Incremental update: ${newContentTextHashes.length} new content to index, ${deletedTextHashes.length} content to delete`)
+
+      // 删除旧内容（使用 textHash 删除）
+      if (deletedTextHashes.length > 0) {
+        console.log('Deleting textHashes:', deletedTextHashes.map(h => h.substring(0, 8)))
+        for (const textHash of deletedTextHashes) {
+          try {
+            const deleteResult = await window.electronAPI.deleteIndexedNodesByTextHash(textHash)
+            console.log(`Delete textHash ${textHash.substring(0, 8)}: ${deleteResult.deletedCount} deleted`)
+          } catch (e) {
+            console.warn(`Failed to delete textHash ${textHash.substring(0, 8)}:`, e)
           }
         }
       }
 
-      // 检查已删除的节点（source 在 indexedHashes 中但不在当前）
-      const currentSources = new Set(currentNodesInfo.map(n => n.source))
-      for (const [indexedSource, indexedHash] of Object.entries(indexedHashes)) {
-        if (!currentSources.has(indexedSource)) {
-          // 检查这个内容是否还有其他节点在使用
-          const stillExists = currentNodesInfo.some(n => n.textHash === indexedHash)
-          if (!stillExists) {
-            // 内容确实不存在了，需要删除
-            sourcesToDelete.push(indexedSource)
-          }
-        }
-      }
-
-      console.log(`Incremental update: ${nodesToUpdate.length} to index, ${sourcesToDelete.length} to delete`)
-
-      // 先删除需要删除的节点（包括变化内容的旧数据）
-      if (sourcesToDelete.length > 0) {
-        console.log('sourcesToDelete:', sourcesToDelete)
-        const deleteResult = await window.electronAPI.deleteIndexedNodes(sourcesToDelete)
-        console.log(`Delete result: ${deleteResult.deletedCount} deleted`)
-      }
-
-      // 索引变化的节点（基于 textHash 去重）
+      // 索引新内容（基于 textHash 去重，每个 textHash 只需要一个节点）
       const nodesByTextHash = new Map<string, NotebookNodeData>()
-      for (const node of nodesToUpdate) {
-        const textHash = md5(node.text)
-        if (!nodesByTextHash.has(textHash)) {
-          nodesByTextHash.set(textHash, node)
+      for (const item of currentNodesInfo) {
+        if (newContentTextHashes.includes(item.textHash)) {
+          if (!nodesByTextHash.has(item.textHash)) {
+            nodesByTextHash.set(item.textHash, item.node)
+          }
         }
       }
 

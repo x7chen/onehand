@@ -936,6 +936,24 @@ ipcMain.handle('delete-indexed-nodes', async (event, sources) => {
 })
 
 /**
+ * 删除基于 textHash 的索引数据
+ * 用于删除已不存在的内容
+ */
+ipcMain.handle('delete-indexed-nodes-by-text-hash', async (event, textHash) => {
+  try {
+    if (!vectorDbManager || !vectorDbManager.isInitialized()) {
+      return { success: false, error: 'Vector DB not initialized' }
+    }
+
+    const deletedCount = await vectorDbManager.deleteByTextHash(textHash)
+    return { success: true, deletedCount }
+  } catch (error) {
+    console.error('Failed to delete indexed nodes by textHash:', error)
+    return { success: false, error: String(error) }
+  }
+})
+
+/**
  * 语义搜索
  */
 ipcMain.handle('semantic-search', async (event, query, topK = 20) => {
@@ -1039,8 +1057,8 @@ ipcMain.handle('get-loaders', async () => {
 })
 
 /**
- * 获取所有已索引数据的 source 和 textHash
- * 同时计算索引状态（后端统一计算，前端直接使用）
+ * 获取所有已索引数据的 textHash
+ * 同时计算索引状态（基于 textHash 内容去重判断）
  */
 ipcMain.handle('get-index-status-full', async (event, currentNodes) => {
   try {
@@ -1058,46 +1076,31 @@ ipcMain.handle('get-index-status-full', async (event, currentNodes) => {
     }
 
     const indexedHashes = await vectorDbManager.getAllIndexedHashes()
-    const indexedHashesObj = Object.fromEntries(indexedHashes)
+    const indexedTextHashes = new Set(Object.values(Object.fromEntries(indexedHashes)))
 
-    const indexedTextHashes = new Set(Object.values(indexedHashesObj))
-    const currentSources = new Set(currentNodes.map(n => n.source))
-    const currentNodesBySource = new Map(currentNodes.map(n => [n.source, n]))
-
-    let newSources = 0
-    let changedSources = 0
-
-    for (const [source, nodeInfo] of currentNodesBySource) {
-      if (indexedHashesObj[source]) {
-        const indexedHash = indexedHashesObj[source]
-        if (indexedHash !== nodeInfo.textHash) {
-          changedSources++
-        }
-      } else {
-        if (!indexedTextHashes.has(nodeInfo.textHash)) {
-          newSources++
-        }
+    let newContentCount = 0
+    for (const textHash of uniqueTextHashes) {
+      if (!indexedTextHashes.has(textHash)) {
+        newContentCount++
       }
     }
 
-    for (const [indexedSource, indexedHash] of Object.entries(indexedHashesObj)) {
-      if (!currentSources.has(indexedSource)) {
-        const stillExists = currentNodes.some(n => n.textHash === indexedHash)
-        if (!stillExists) {
-          changedSources++
-        }
+    let deletedContentCount = 0
+    for (const indexedTextHash of indexedTextHashes) {
+      if (!uniqueTextHashes.has(indexedTextHash)) {
+        deletedContentCount++
       }
     }
 
-    const indexedNodes = indexedHashes.size
-    const outdatedNodes = newSources + changedSources
+    const indexedNodes = indexedTextHashes.size
+    const outdatedNodes = newContentCount + deletedContentCount
 
     return {
       success: true,
       totalNodes,
       indexedNodes,
       outdatedNodes,
-      hashes: indexedHashesObj
+      hashes: Object.fromEntries(indexedHashes)
     }
   } catch (error) {
     console.error('get-index-status-full error:', error)

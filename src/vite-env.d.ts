@@ -134,6 +134,11 @@ interface ElectronAPI {
     deletedCount?: number
     error?: string
   }>
+  deleteIndexedNodesByTextHash: (textHash: string) => Promise<{
+    success: boolean
+    deletedCount?: number
+    error?: string
+  }>
   // Index progress event
   onIndexProgress: (callback: (data: { progress: number; total: number; indexed: number; failed: number }) => void) => void
   removeIndexProgressListener: () => void

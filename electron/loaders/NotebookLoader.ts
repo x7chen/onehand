@@ -49,7 +49,6 @@ export class NotebookLoader extends BaseLoader<{
   override async *getUnfilteredChunks() {
     let skippedEmpty = 0
     let skippedTooLong = 0
-    const seenHashes = new Set<string>()
 
     for (const node of this.nodes) {
       if (!node.text || node.text.trim().length === 0) {
@@ -57,15 +56,11 @@ export class NotebookLoader extends BaseLoader<{
         continue
       }
 
-      // 检查文本长度，跳过过长的文本（大多数嵌入模型限制 8192 tokens）
       const MAX_CHARS = 20000
       if (node.text.length > MAX_CHARS) {
         skippedTooLong++
         continue
       }
-
-      const textHash = md5(node.text)
-      seenHashes.add(textHash)
 
       yield {
         pageContent: node.text,
@@ -78,9 +73,13 @@ export class NotebookLoader extends BaseLoader<{
           nodeTitle: node.nodeTitle,
           pdfPage: node.pdfPage,
           fieldType: node.fieldType,
-          textHash: textHash
+          textHash: md5(node.text)
         }
       }
+    }
+
+    if (skippedEmpty > 0 || skippedTooLong > 0) {
+      console.log(`NotebookLoader: skippedEmpty=${skippedEmpty}, skippedTooLong=${skippedTooLong}`)
     }
   }
 }
