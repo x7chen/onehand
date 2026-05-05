@@ -27,6 +27,73 @@ function escapeHtml(html: string): string {
   return html.replace(/[&<>"']/g, (char) => escapeMap[char])
 }
 
+// 预处理：将 data URL 图片转换为 HTML（markdown-it 无法正确解析）
+function convertDataUrlImages(markdown: string): string {
+  let result = markdown
+  let count = 0
+
+  // 使用手动解析而非正则，以处理 data URL 中可能包含的括号
+  let i = 0
+  while (i < result.length) {
+    // 查找 ![ 的开始
+    const imgStart = result.indexOf('![', i)
+    if (imgStart === -1) break
+
+    // 查找 ] 的结束（alt text 的结束）
+    const altEnd = result.indexOf(']', imgStart + 2)
+    if (altEnd === -1) {
+      i = imgStart + 2
+      continue
+    }
+
+    // 检查后面是否有 (data:image/
+    const parenStart = altEnd + 1
+    if (result.substring(parenStart, parenStart + 6) !== '(data:') {
+      i = altEnd + 1
+      continue
+    }
+
+    // 提取 alt text
+    const alt = result.substring(imgStart + 2, altEnd)
+
+    // 找到匹配的右括号（需要处理嵌套括号）
+    let depth = 1
+    let urlEnd = parenStart + 1
+    while (urlEnd < result.length && depth > 0) {
+      const ch = result[urlEnd]
+      if (ch === '(') depth++
+      else if (ch === ')') depth--
+      urlEnd++
+    }
+
+    if (depth !== 0) {
+      i = altEnd + 1
+      continue
+    }
+
+    // 提取 URL（不包括首尾括号）
+    const url = result.substring(parenStart + 1, urlEnd - 1)
+
+    // 生成 HTML img 标签
+    const escapedAlt = alt.replace(/"/g, '&quot;')
+    const imgTag = `<img src="${url}" alt="${escapedAlt}">`
+
+    // 替换原始 markdown 图片语法
+    const fullMatch = result.substring(imgStart, urlEnd)
+    result = result.replace(fullMatch, imgTag)
+    count++
+
+    console.log('[MarkdownRenderer] Converted data URL image:', url.substring(0, 60) + '...')
+
+    // 继续查找下一个（从替换位置之后开始）
+    i = imgStart + imgTag.length
+  }
+
+  console.log('[MarkdownRenderer] Total converted data URL images:', count)
+
+  return result
+}
+
 // 常用语言列表（按需加载其他语言）
 const COMMON_LANGS = [
   'javascript',
@@ -416,7 +483,7 @@ export async function renderMarkdown(markdown: string): Promise<string> {
     .replace(/<\|begin_of_box\|>/gi, '')
     .replace(/<\|end_of_box\|>/gi, '')
 
-  const cacheKey = `v4:${processedMarkdown.length}:${processedMarkdown.substring(0, 200)}`
+  const cacheKey = `v6:${processedMarkdown.length}:${processedMarkdown.substring(0, 200)}`
 
   if (markdownCache.has(cacheKey)) {
     return markdownCache.get(cacheKey)!
@@ -425,17 +492,20 @@ export async function renderMarkdown(markdown: string): Promise<string> {
   try {
     const context: LatexContext = { placeholders: new Map() }
 
-    // 1. 提取 LaTeX 公式为占位符
+    // 1. 将 data URL 图片转换为 HTML（避免 markdown-it 解析错误）
+    processedMarkdown = convertDataUrlImages(processedMarkdown)
+
+    // 2. 提取 LaTeX 公式为占位符
     const markdownWithoutLatex = extractLatex(processedMarkdown, context)
 
-    // 2. 解析 Markdown (使用 markdown-it + shiki)
+    // 3. 解析 Markdown (使用 markdown-it + shiki)
     const md = await initMarkdownIt()
     let html = md.render(markdownWithoutLatex)
 
-    // 3. 渲染 LaTeX 公式并替换占位符
+    // 4. 渲染 LaTeX 公式并替换占位符
     html = await renderLatex(html, context)
 
-    // 4. HTML 净化
+    // 5. HTML 净化
     const sanitized = sanitizeHtml(html)
 
     if (markdownCache.size < MAX_CACHE_SIZE) {
