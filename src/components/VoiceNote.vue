@@ -400,7 +400,7 @@
       </div>
       <div v-else class="transcript-content-wrapper">
         <div
-          class="transcript-content"
+          class="transcript-content markdown"
           draggable="true"
           @dragstart="handleTextDragStart"
           @dblclick.stop="handleEditTranscript"
@@ -445,7 +445,7 @@
         </span>
       </div>
       <div v-show="isThinkingExpanded" class="thinking-content-wrapper">
-        <div class="thinking-content" v-html="sanitizedThinkingContent"></div>
+        <div class="thinking-content markdown" v-html="sanitizedThinkingContent"></div>
       </div>
     </div>
 
@@ -464,7 +464,7 @@
       </div>
       <div v-else class="agent-content-wrapper">
         <div
-          class="agent-content"
+          class="agent-content markdown"
           draggable="true"
           @dragstart="handleTextDragStart"
           @dblclick.stop="handleEditAgent"
@@ -2184,6 +2184,25 @@ watch(() => props.node.thinkingContent, async (newThinkingContent) => {
   min-height: 24px;
 }
 
+/* 代码块高亮不受父级 color 影响 */
+.transcript-content :deep(pre.shiki),
+.agent-content :deep(pre.shiki),
+.thinking-content :deep(pre.shiki) {
+  color: initial;
+}
+
+:root.dark .transcript-content :deep(pre.shiki),
+:root.dark .agent-content :deep(pre.shiki),
+:root.dark .thinking-content :deep(pre.shiki) {
+  color: var(--shiki-dark, #e1e4e8);
+}
+
+:root.dark .transcript-content :deep(pre.shiki span[style*="--shiki-dark"]),
+:root.dark .agent-content :deep(pre.shiki span[style*="--shiki-dark"]),
+:root.dark .thinking-content :deep(pre.shiki span[style*="--shiki-dark"]) {
+  color: var(--shiki-dark) !important;
+}
+
 /* LaTeX 占位符隐藏 */
 .transcript-content :deep(.latex-placeholder),
 .agent-content :deep(.latex-placeholder) {
@@ -2192,49 +2211,8 @@ watch(() => props.node.thinkingContent, async (newThinkingContent) => {
   margin: 0;
 }
 
-/* ========================================
-   Markdown 渲染样式
-   ======================================== */
-
-/* 深度选择器，确保样式应用到 v-html 渲染的内容 */
-.transcript-content :deep(h1),
-.transcript-content :deep(h2),
-.transcript-content :deep(h3),
-.transcript-content :deep(h4),
-.transcript-content :deep(h5),
-.transcript-content :deep(h6),
-.transcript-content :deep(p),
-.transcript-content :deep(ul),
-.transcript-content :deep(ol),
-.transcript-content :deep(li),
-.transcript-content :deep(code),
-.transcript-content :deep(pre),
-.transcript-content :deep(blockquote),
-.transcript-content :deep(a),
-.transcript-content :deep(img),
-.transcript-content :deep(.katex),
-.transcript-content :deep(.mermaid),
-.transcript-content :deep(.mermaid-wrapper),
-.agent-content :deep(h1),
-.agent-content :deep(h2),
-.agent-content :deep(h3),
-.agent-content :deep(h4),
-.agent-content :deep(h5),
-.agent-content :deep(h6),
-.agent-content :deep(p),
-.agent-content :deep(ul),
-.agent-content :deep(ol),
-.agent-content :deep(li),
-.agent-content :deep(code),
-.agent-content :deep(pre),
-.agent-content :deep(blockquote),
-.agent-content :deep(a),
-.agent-content :deep(img),
-.agent-content :deep(.katex),
-.agent-content :deep(.mermaid),
-.agent-content :deep(.mermaid-wrapper) {
-  all: revert;
-}
+/* Markdown 样式已移到全局 CSS 文件 (src/assets/styles/markdown.css) */
+/* 以下仅保留组件特定的布局样式 */
 
 /* 标题 */
 .transcript-content :deep(h1),
@@ -2614,43 +2592,7 @@ background-color: rgba(0, 0, 0, 1);
   color: var(--text-secondary);
 }
 
-/* ========================================
-   LaTeX 公式样式 (KaTeX)
-   ======================================== */
-.transcript-content :deep(.katex),
-.agent-content :deep(.katex) {
-  font-size: 1.1em;
-  margin: 0 0.2em;
-}
-
-.transcript-content :deep(.katex-display),
-.agent-content :deep(.katex-display) {
-  display: block;
-  margin: 0.8em 0;
-  overflow-x: auto;
-  overflow-y: hidden;
-  text-align: center;
-}
-
-/* 行内公式保持 inline-block */
-.transcript-content :deep(.katex:not(.katex-display .katex)),
-.agent-content :deep(.katex:not(.katex-display .katex)) {
-  display: inline-block;
-}
-
-.transcript-content :deep(.latex-error),
-.agent-content :deep(.latex-error) {
-  display: inline-block;
-  background: rgba(255, 68, 68, 0.1);
-  border: 1px solid rgba(255, 68, 68, 0.3);
-  color: var(--color-error);
-  padding: 0.5em 0.8em;
-  border-radius: 3px;
-  font-size: 0.85em;
-  font-style: italic;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
+/* LaTeX 公式样式已在 markdown.css 中统一定义 */
 
 /* ========================================
    Mermaid 图表样式

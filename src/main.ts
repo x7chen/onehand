@@ -5,6 +5,9 @@ import router from './router'
 import i18n, { initI18n } from '@/i18n'
 import { useSettingsStore } from '@/stores/settingsStore'
 
+// 导入全局样式
+import '@/assets/styles/markdown.css'
+
 const app = createApp(App)
 const pinia = createPinia()
 

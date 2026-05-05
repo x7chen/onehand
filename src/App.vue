@@ -13,7 +13,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, watchEffect, ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useNotebookStore } from '@/stores/notebookStore'
@@ -22,14 +22,13 @@ import { useTheme } from '@/composables/useTheme'
 import { useDeepLink } from '@/composables/useDeepLink'
 import { useLinkPaste } from '@/composables/useLinkPaste'
 import { getNotebookDataDir } from '@/utils/userFilesPath'
+import { preInitHighlighter } from '@/utils/markdownRenderer'
 import NodePopup from '@/components/NodePopup.vue'
 import TitleBar from '@/components/TitleBar.vue'
 import type { DeepLinkData } from '@/composables/useDeepLink'
 
 // 导入本地 CSS
 import 'katex/dist/katex.min.css'
-import 'highlight.js/styles/github.css'
-import 'highlight.js/styles/github-dark.css'
 
 // 平台检测 - 是否为Windows
 const isWindows = navigator.userAgent.toLowerCase().includes('windows')
@@ -157,44 +156,15 @@ onMounted(async () => {
   // 同步笔记本中的标签到 tagStore
   await tagStore.syncTagsFromNotebooks(notebookStore.notebooks)
 
+  // 预初始化 shiki highlighter（后台进行，不阻塞 UI）
+  preInitHighlighter()
+
   // Add global click handler for onehand:// links
   document.addEventListener('click', handleDeepLinkClick, true)
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', handleDeepLinkClick, true)
-})
-
-// 监听主题变化，切换 highlight.js 和 Mermaid 主题
-watchEffect(() => {
-  const isDark = document.documentElement.classList.contains('dark')
-  const styles = document.querySelectorAll('style')
-
-  // 找到 highlight.js 主题的 style 元素（最后导入的两个）
-  // github.css 和 github-dark.css 的 CSS 内容有特征可以识别
-  const lightThemeStyle: HTMLStyleElement[] = []
-  const darkThemeStyle: HTMLStyleElement[] = []
-
-  styles.forEach((style) => {
-    const cssText = style.textContent || ''
-    if (cssText.includes('.hljs-comment') && cssText.includes('#6a737d')) {
-      // GitHub light theme 特征色
-      lightThemeStyle.push(style)
-    } else if (cssText.includes('.hljs-comment') && cssText.includes('#8b949e')) {
-      // GitHub dark theme 特征色
-      darkThemeStyle.push(style)
-    }
-  })
-
-  if (isDark) {
-    // 深色模式：启用深色主题，禁用浅色主题
-    lightThemeStyle.forEach(s => { s.disabled = true })
-    darkThemeStyle.forEach(s => { s.disabled = false })
-  } else {
-    // 浅色模式：启用浅色主题，禁用深色主题
-    lightThemeStyle.forEach(s => { s.disabled = false })
-    darkThemeStyle.forEach(s => { s.disabled = true })
-  }
 })
 </script>
 
@@ -343,8 +313,8 @@ body {
   color: var(--text-primary);
 }
 
-/* 排除代码块内的元素，让 highlight.js 主题控制代码颜色 */
-:root.dark span:not(.hljs *):not(.katex *):not(.mermaid *):not(.textLayer *) {
+/* 排除代码块内的元素，让 shiki 主题控制代码颜色 */
+:root.dark span:not(.shiki *):not(.katex *):not(.mermaid *):not(.textLayer *) {
   color: var(--text-primary);
 }
 
