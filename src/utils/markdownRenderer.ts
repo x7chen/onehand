@@ -8,6 +8,8 @@ import { getNotebookDataDir } from '@/utils/userFilesPath'
 import MarkdownIt from 'markdown-it'
 import { createHighlighter } from 'shiki'
 import { fromHighlighter } from '@shikijs/markdown-it'
+// @ts-ignore - markdown-it-task-lists 没有 ESM 类型定义
+import taskLists from 'markdown-it-task-lists'
 
 // Markdown 渲染缓存
 const markdownCache = new Map<string, string>()
@@ -113,6 +115,9 @@ async function initMarkdownIt(): Promise<MarkdownIt> {
     // 其他代码块使用 shiki 默认渲染
     return defaultFenceRenderer(tokens, idx, options, env, self)
   }
+
+  // 使用 markdown-it-task-lists 插件
+  md.use(taskLists)
 
   // 自定义链接渲染，添加 target="_blank"
   const defaultLinkRenderer = md.renderer.rules.link_open || function(tokens, idx, options, env, self) {
@@ -263,7 +268,6 @@ export async function renderMermaidCharts(container: HTMLElement): Promise<numbe
   }
 
   const mermaidWrappers = container.querySelectorAll('.mermaid-wrapper')
-
   if (mermaidWrappers.length === 0) return 0
 
   let renderedCount = 0
@@ -272,43 +276,12 @@ export async function renderMermaidCharts(container: HTMLElement): Promise<numbe
     const mermaid = await import('mermaid')
 
     const isDark = document.documentElement.classList.contains('dark')
-    const theme = isDark ? 'dark' : 'default'
 
     mermaid.default.initialize({
       startOnLoad: false,
-      theme: theme,
+      theme: isDark ? 'dark' : 'default',
       securityLevel: 'loose',
       fontFamily: 'inherit',
-      flowchart: {
-        useMaxWidth: true,
-        htmlLabels: true,
-        curve: 'basis',
-      },
-      themeVariables: isDark ? {
-        fontFamily: 'inherit',
-        primaryColor: '#2d2d2d',
-        primaryTextColor: '#ffffff',
-        primaryBorderColor: '#ffffff',
-        lineColor: '#cccccc',
-        secondaryColor: '#2d2d2d',
-        tertiaryColor: '#2d2d2d',
-        mainBkg: '#2d2d2d',
-        altBackground: '#1e2328',
-        textColor: '#ffffff',
-        edgeLabelBackground: '#1e2328',
-        clusterBkg: '#1e2328',
-        clusterBorder: '#cccccc',
-        labelBoxBorderColor: '#ffffff',
-        labelBoxBkgColor: '#2d2d2d',
-        actorBorder: '#ffffff',
-        actorBkg: '#2d2d2d',
-        actorTextColor: '#ffffff',
-        messageTextColor: '#ffffff',
-        messageLineColor: '#cccccc',
-        noteBkgColor: '#2d2d2d',
-        noteTextColor: '#ffffff',
-        noteBorderColor: '#ffffff',
-      } : {}
     })
 
     for (const wrapper of mermaidWrappers) {
@@ -318,21 +291,19 @@ export async function renderMermaidCharts(container: HTMLElement): Promise<numbe
       }
 
       const mermaidEl = wrapper.querySelector('pre.mermaid') as HTMLElement
-
-      if (!mermaidEl) {
-        console.warn('[MarkdownRenderer] No mermaid pre element found in wrapper')
-        continue
-      }
+      if (!mermaidEl) continue
 
       let graphDefinition = (mermaidEl.textContent || '').trim()
-
       graphDefinition = graphDefinition
-        .replace(/[“”]/g, '"')
-        .replace(/[‘’]/g, "'")
+        .replace(/[""]/g, '"')
+        .replace(/['']/g, "'")
         .replace(/：/g, ':')
         .replace(/，/g, ',')
         .replace(/（/g, '(')
         .replace(/）/g, ')')
+
+      // 保存原始定义到 wrapper 的 data 属性，供主题切换时重新渲染使用
+      wrapper.setAttribute('data-mermaid-definition', graphDefinition)
 
       const mermaidId = mermaidEl.getAttribute('id') || `mermaid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
 
@@ -347,12 +318,10 @@ export async function renderMermaidCharts(container: HTMLElement): Promise<numbe
           svgEl.setAttribute('class', 'mermaid-svg')
           svgEl.setAttribute('style', 'max-width: 100%; height: auto; display: block; margin: 0 auto;')
 
-          mermaidEl.style.display = 'none'
-          mermaidEl.setAttribute('data-rendered', 'true')
+          // 移除 pre.mermaid 元素，只保留 SVG
+          mermaidEl.remove()
           wrapper.appendChild(svgEl.cloneNode(true))
           renderedCount++
-        } else {
-          console.error('[MarkdownRenderer] No SVG element in rendered output')
         }
 
         wrapper.classList.add('mermaid-rendered')
@@ -368,6 +337,65 @@ export async function renderMermaidCharts(container: HTMLElement): Promise<numbe
   }
 
   return renderedCount
+}
+
+// 重新渲染 Mermaid 图表（主题切换时调用）
+export async function reRenderMermaidCharts(container: HTMLElement): Promise<number> {
+  if (!container) return 0
+
+  const mermaidWrappers = container.querySelectorAll('.mermaid-wrapper')
+  if (mermaidWrappers.length === 0) return 0
+
+  let reRenderedCount = 0
+
+  try {
+    const mermaid = await import('mermaid')
+
+    const isDark = document.documentElement.classList.contains('dark')
+
+    // 先 reset 清除缓存，再 initialize
+    mermaid.default.mermaidAPI.reset()
+    mermaid.default.initialize({
+      startOnLoad: false,
+      theme: isDark ? 'dark' : 'default',
+      securityLevel: 'loose',
+      fontFamily: 'inherit',
+    })
+
+    for (const wrapper of mermaidWrappers) {
+      // 从 data 属性读取原始定义
+      const graphDefinition = wrapper.getAttribute('data-mermaid-definition')
+      if (!graphDefinition) continue
+
+      // 移除旧的 SVG
+      const oldSvg = wrapper.querySelector('.mermaid-svg')
+      if (oldSvg) oldSvg.remove()
+
+      // 使用新的 ID 强制重新渲染
+      const newMermaidId = `mermaid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+
+      try {
+        const { svg } = await mermaid.default.render(newMermaidId, graphDefinition)
+
+        const parser = new DOMParser()
+        const doc = parser.parseFromString(svg, 'image/svg+xml')
+        const svgEl = doc.querySelector('svg')
+
+        if (svgEl) {
+          svgEl.setAttribute('class', 'mermaid-svg')
+          svgEl.setAttribute('style', 'max-width: 100%; height: auto; display: block; margin: 0 auto;')
+          wrapper.appendChild(svgEl.cloneNode(true))
+          reRenderedCount++
+        }
+      } catch (e) {
+        console.error('[MarkdownRenderer] Mermaid re-render error:', e)
+      }
+    }
+  } catch (e) {
+    console.error('[MarkdownRenderer] Failed to load mermaid:', e)
+  }
+
+  return reRenderedCount
 }
 
 // 简单的 HTML 净化函数

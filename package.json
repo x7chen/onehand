@@ -52,6 +52,7 @@
     "debug": "^4.4.3",
     "katex": "^0.16.25",
     "markdown-it": "^14.1.1",
+    "markdown-it-task-lists": "^2.1.1",
     "md5": "^2.3.0",
     "mermaid": "^11.6.0",
     "pdfjs-dist": "^4.7.76",

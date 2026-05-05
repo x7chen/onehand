@@ -506,7 +506,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick, watch, computed, onMounted, onUnmounted, watchEffect } from 'vue'
+import { ref, nextTick, watch, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import NodePopup from '@/components/NodePopup.vue'
@@ -515,7 +515,7 @@ import { useTagStore } from '@/stores/tagStore'
 import { useVectorStore } from '@/stores/vectorStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { formatDuration } from '@/utils/helpers'
-import { renderMarkdown, renderMermaidCharts, processImagePaths } from '@/utils/markdownRenderer'
+import { renderMarkdown, renderMermaidCharts, reRenderMermaidCharts, processImagePaths } from '@/utils/markdownRenderer'
 import { getNotebookDataDir, getNotebookImagesDir } from '@/utils/userFilesPath'
 import { generateDeepLinkUrl, findNodeByNodeId } from '@/composables/useDeepLink'
 import type { NodePopupData } from '@/composables/useDeepLink'
@@ -1559,6 +1559,30 @@ async function renderMermaid() {
   }
 }
 
+// 主题变化 observer
+let themeObserver: MutationObserver | null = null
+
+// 监听主题变化，重新渲染 Mermaid 图表
+onMounted(() => {
+  // 使用 MutationObserver 监听 classList 变化
+  themeObserver = new MutationObserver(() => {
+    if (voiceNoteRef.value) {
+      reRenderMermaidCharts(voiceNoteRef.value)
+    }
+  })
+  themeObserver.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['class']
+  })
+})
+
+onUnmounted(() => {
+  if (themeObserver) {
+    themeObserver.disconnect()
+    themeObserver = null
+  }
+})
+
 // 当组件挂载时渲染 Markdown 和 Mermaid
 onMounted(async () => {
   // 加载图片节点的图片
@@ -2184,19 +2208,20 @@ watch(() => props.node.thinkingContent, async (newThinkingContent) => {
   min-height: 24px;
 }
 
-/* 代码块高亮不受父级 color 影响 */
+/* 代码块颜色 - 强制覆盖父级 color */
 .transcript-content :deep(pre.shiki),
 .agent-content :deep(pre.shiki),
 .thinking-content :deep(pre.shiki) {
-  color: initial;
+  color: #24292e !important;
 }
 
 :root.dark .transcript-content :deep(pre.shiki),
 :root.dark .agent-content :deep(pre.shiki),
 :root.dark .thinking-content :deep(pre.shiki) {
-  color: var(--shiki-dark, #e1e4e8);
+  color: #e1e4e8 !important;
 }
 
+/* 有语法高亮的 span 使用变量 */
 :root.dark .transcript-content :deep(pre.shiki span[style*="--shiki-dark"]),
 :root.dark .agent-content :deep(pre.shiki span[style*="--shiki-dark"]),
 :root.dark .thinking-content :deep(pre.shiki span[style*="--shiki-dark"]) {

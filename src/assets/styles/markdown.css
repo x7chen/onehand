@@ -271,15 +271,17 @@
 
 /* Shiki 高亮样式 */
 .markdown pre.shiki {
-  background-color: #f0f0f0 !important;
+  background-color: #f6f8fa !important;
   border: none;
+  color: #24292e !important;
 }
 
 :root.dark .markdown pre.shiki {
   background-color: #1a1a1a !important;
+  color: #e1e4e8 !important;
 }
 
-/* 深色模式使用 --shiki-dark 变量 */
+/* 深色模式使用 --shiki-dark 变量覆盖 */
 :root.dark .markdown pre.shiki span[style*="--shiki-dark"] {
   color: var(--shiki-dark) !important;
 }
@@ -479,17 +481,39 @@
 }
 
 /* ========================================
-   任务列表
+   任务列表 (Task List)
    ======================================== */
+
+/* 支持 markdown-it-task-lists 插件 */
+.markdown ul.contains-task-list {
+  list-style: none;
+  padding-left: 0;
+  margin: 0.5em 0;
+}
+
+.markdown li.task-list-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5em;
+  margin-bottom: 0.25em;
+}
+
+.markdown li.task-list-item input.task-list-item-checkbox {
+  flex: 0 0 auto;
+  margin-top: 0.25em;
+  cursor: pointer;
+  accent-color: var(--color-primary);
+}
+
+/* 原有样式（兼容其他格式） */
 .markdown ul[data-type='taskList'] {
   list-style: none;
-  margin-left: 0;
-  padding: 0;
+  padding-left: 0;
 }
 
 .markdown ul[data-type='taskList'] li {
-  align-items: center;
   display: flex;
+  align-items: flex-start;
   gap: 0.5em;
 }
 
