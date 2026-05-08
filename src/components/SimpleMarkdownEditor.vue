@@ -2,6 +2,35 @@
   <div class="editor-wrapper">
     <!-- 自定义工具栏 -->
     <div class="editor-toolbar">
+      <!-- 撤销 -->
+      <button
+        class="toolbar-btn"
+        :class="{ disabled: !canUndo }"
+        :disabled="!canUndo"
+        @mousedown.prevent
+        @click="undo"
+        title="撤销 (Ctrl+Z)"
+      >
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+          <path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/>
+        </svg>
+      </button>
+      <!-- 前进 -->
+      <button
+        class="toolbar-btn"
+        :class="{ disabled: !canRedo }"
+        :disabled="!canRedo"
+        @mousedown.prevent
+        @click="redo"
+        title="前进 (Ctrl+Y)"
+      >
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+          <path d="M18.4 10.6C16.55 8.99 14.15 8 11.5 8c-4.65 0-8.58 3.03-9.96 7.22L3.9 16c1.05-3.19 4.06-5.5 7.6-5.5 1.95 0 3.73.72 5.12 1.88L13 16h9V7l-3.6 3.6z"/>
+        </svg>
+      </button>
+
+      <div class="toolbar-divider"></div>
+
       <!-- 字体颜色 -->
       <div class="color-btn-wrapper">
         <button class="toolbar-btn color-btn" @mousedown.prevent="handleColorBtnMouseDown" title="字体颜色">
@@ -166,6 +195,81 @@ const currentMarkdown = ref(props.initialValue || '')
 const renderedHtml = ref('')
 const showSource = ref(true) // 默认源码模式（可编辑）
 
+// 历史记录（撤销/前进）
+const historyStack: string[] = []
+let historyIndex = -1
+const MAX_HISTORY_SIZE = 100
+let isUndoRedo = false // 标记是否正在执行撤销/前进操作
+
+const canUndo = ref(false)
+const canRedo = ref(false)
+
+// 保存当前状态到历史记录
+function saveToHistory() {
+  if (isUndoRedo) return // 撤销/前进操作不保存历史
+
+  // 如果当前不在栈顶，清除后面的历史
+  if (historyIndex < historyStack.length - 1) {
+    historyStack.splice(historyIndex + 1)
+  }
+
+  // 保存当前状态
+  historyStack.push(currentMarkdown.value)
+
+  // 限制历史记录大小
+  if (historyStack.length > MAX_HISTORY_SIZE) {
+    historyStack.shift()
+    historyIndex--
+  }
+
+  historyIndex = historyStack.length - 1
+  updateHistoryButtons()
+}
+
+// 更新撤销/前进按钮状态
+function updateHistoryButtons() {
+  canUndo.value = historyIndex > 0
+  canRedo.value = historyIndex < historyStack.length - 1
+}
+
+// 撤销
+function undo() {
+  if (historyIndex <= 0) return
+
+  saveScrollPosition()
+  historyIndex--
+  isUndoRedo = true
+  currentMarkdown.value = historyStack[historyIndex]
+  emit('change', currentMarkdown.value)
+  isUndoRedo = false
+  updateHistoryButtons()
+
+  nextTick(() => {
+    adjustTextareaHeight()
+    restoreScrollPosition()
+    if (!showSource.value) renderContent()
+  })
+}
+
+// 前进
+function redo() {
+  if (historyIndex >= historyStack.length - 1) return
+
+  saveScrollPosition()
+  historyIndex++
+  isUndoRedo = true
+  currentMarkdown.value = historyStack[historyIndex]
+  emit('change', currentMarkdown.value)
+  isUndoRedo = false
+  updateHistoryButtons()
+
+  nextTick(() => {
+    adjustTextareaHeight()
+    restoreScrollPosition()
+    if (!showSource.value) renderContent()
+  })
+}
+
 // 颜色选择器状态
 const showColorPicker = ref(false)
 const selectedColor = ref('#1890ff') // 默认蓝色
@@ -188,9 +292,179 @@ function restoreScrollPosition() {
   }
 }
 
+// 格式操作完成后的通用处理
+function afterFormatAction(newStart?: number, newEnd?: number) {
+  nextTick(() => {
+    if (sourceTextarea.value && newStart !== undefined && newEnd !== undefined) {
+      sourceTextarea.value.setSelectionRange(newStart, newEnd)
+      if (showSource.value) sourceTextarea.value.focus()
+    }
+    adjustTextareaHeight()
+    restoreScrollPosition()
+    if (!showSource.value) renderContent()
+    // 保存历史（格式操作后立即保存）
+    saveToHistory()
+  })
+}
+
 // 颜色按钮点击处理
 function handleColorBtnMouseDown() {
   showColorPicker.value = !showColorPicker.value
+}
+
+// 清理选区边缘可能包含的标签字符
+function cleanSelectionFromTags(start: number, end: number, md: string): { start: number; end: number } {
+  let newStart = start
+  let newEnd = end
+
+  // 检查选区开始位置是否在开始标签 <span style="color: ..."> 内
+  // 向前查找最近的 < 字符
+  for (let i = start - 1; i >= Math.max(0, start - 100); i--) {
+    const char = md[i]
+    if (char === '<') {
+      // 检查是否是开始标签
+      const tagMatch = md.substring(i).match(/^<span style="color:\s*[^"]+">/)
+      if (tagMatch) {
+        // 找到标签结束位置
+        const tagEndPos = i + tagMatch[0].length
+        if (start < tagEndPos) {
+          // 选区开始位置在标签内，需要调整到标签之后
+          newStart = tagEndPos
+        }
+      }
+      break
+    }
+    if (char === '>') {
+      // 找到上一个标签的结束，停止查找
+      break
+    }
+  }
+
+  // 检查选区开始位置是否刚好是 < 字符（开始标签的开始）
+  if (md[newStart] === '<') {
+    const tagMatch = md.substring(newStart).match(/^<span style="color:\s*[^"]+">/)
+    if (tagMatch) {
+      newStart = newStart + tagMatch[0].length
+    }
+  }
+
+  // 检查选区结束位置是否包含结束标签 </span>
+  // 检查选区结束位置之前的字符
+  for (let i = end - 1; i >= Math.max(newStart, end - 20); i--) {
+    if (md.substring(i, i + 7) === '</span>') {
+      // 选区包含了结束标签的开始，需要调整到标签之前
+      newEnd = i
+      break
+    }
+    if (md[i] === '>') {
+      // 找到上一个标签的结束，停止查找
+      break
+    }
+    if (md[i] === '<' && i < end) {
+      // 找到标签开始
+      break
+    }
+  }
+
+  // 确保选区有效
+  if (newStart >= newEnd) {
+    return { start, end }
+  }
+
+  return { start: newStart, end: newEnd }
+}
+
+// 查找选区所在的颜色标签范围
+function findColorTagRange(start: number, end: number, md: string): { tagStart: number; tagEnd: number; color: string } | null {
+  // 向前查找开始标签 <span style="color: ...">
+  let tagStart = -1
+  let existingColor = ''
+  let searchPos = start
+
+  // 从选区开始位置向前查找未闭合的 span 开始标签
+  let unclosedSpans: Array<{ pos: number; color: string }> = []
+
+  for (let i = start - 1; i >= 0; i--) {
+    // 查找 </span> 结束标签
+    if (md.substring(i, i + 7) === '</span>') {
+      // 找到一个闭合的 span，需要跳过对应的开始标签
+      let depth = 1
+      for (let j = i - 1; j >= 0 && depth > 0; j--) {
+        if (md.substring(j, j + 7) === '</span>') {
+          depth++
+        } else if (md.substring(j, j + 5) === '<span') {
+          // 找到开始标签，解析颜色
+          const spanMatch = md.substring(j).match(/^<span style="color:\s*([^"]+)">/)
+          if (spanMatch) {
+            depth--
+            if (depth === 0) {
+              // 找到匹配的开始标签，继续向前查找
+              break
+            }
+          }
+        }
+      }
+      continue
+    }
+
+    // 查找开始标签 <span style="color: ...">
+    const spanMatch = md.substring(i).match(/^<span style="color:\s*([^"]+)">/)
+    if (spanMatch) {
+      unclosedSpans.push({ pos: i, color: spanMatch[1].trim() })
+    }
+  }
+
+  // 检查选区结束位置之后的闭合标签
+  let closedCount = 0
+  for (let i = end; i < md.length; i++) {
+    if (md.substring(i, i + 7) === '</span>') {
+      closedCount++
+    } else if (md.substring(i, i + 5) === '<span') {
+      // 遇到新的开始标签，停止
+      break
+    }
+  }
+
+  // 找到包含选区的最内层 span（闭合标签数量匹配）
+  for (let i = unclosedSpans.length - 1; i >= 0; i--) {
+    if (closedCount > 0) {
+      closedCount--
+    } else {
+      // 这个 span 包含选区
+      const span = unclosedSpans[i]
+      tagStart = span.pos
+      existingColor = span.color
+      break
+    }
+  }
+
+  if (tagStart === -1) {
+    return null
+  }
+
+  // 从选区结束位置向后查找对应的闭合标签
+  let depth = 1
+  let tagEnd = -1
+  for (let i = end; i < md.length; i++) {
+    if (md.substring(i, i + 7) === '</span>') {
+      depth--
+      if (depth === 0) {
+        tagEnd = i + 7
+        break
+      }
+    } else if (md.substring(i, i + 5) === '<span') {
+      const spanMatch = md.substring(i).match(/^<span style="color:\s*([^"]+)">/)
+      if (spanMatch) {
+        depth++
+      }
+    }
+  }
+
+  if (tagEnd === -1) {
+    return null
+  }
+
+  return { tagStart, tagEnd, color: existingColor }
 }
 
 // 应用颜色
@@ -201,91 +475,73 @@ function applyColor(color: string) {
 
   const selection = getCurrentSelection()
   if (!selection) {
-    // 没有选区，不执行操作
     return
   }
 
-  const start = selection.start
-  const end = selection.end
   const md = currentMarkdown.value
+
+  // 清理选区边缘可能包含的标签字符
+  const cleaned = cleanSelectionFromTags(selection.start, selection.end, md)
+  const start = cleaned.start
+  const end = cleaned.end
   const selected = md.substring(start, end)
 
   if (!selected) {
-    // 没有选中文本，不执行操作
     return
   }
 
-  // 检查选区是否已经被颜色标签包裹
-  // 查找选区前后的 span 标签
-  const beforeText = md.substring(0, start)
-  const afterText = md.substring(end)
+  // 查找选区所在的颜色标签范围
+  const colorTag = findColorTagRange(start, end, md)
 
-  // 匹配开始标签 <span style="color: ...">
-  const startTagMatch = beforeText.match(/<span style="color:\s*([^"]+)">([^<]*)$/)
-  // 匹配结束标签 </span>
-  const endTagMatch = afterText.match(/^([^<]*)<\/span>/)
+  if (colorTag) {
+    const { tagStart, tagEnd, color: existingColor } = colorTag
 
-  let textToColor = selected
-  let newStart = start
-  let newEnd = end
+    // 检查选区是否完全匹配标签内容（选区从头到尾选中整个标签内容）
+    const startTagLength = md.substring(tagStart).match(/^<span style="color:\s*[^"]+">/)?.[0]?.length || 0
+    const tagContentStart = tagStart + startTagLength
+    const tagContentEnd = tagEnd - 7 // 减去 </span> 的长度
 
-  // 如果选区已经在颜色标签内，先移除原有标签
-  if (startTagMatch && endTagMatch) {
-    const existingColor = startTagMatch[1].trim()
-    const beforeContent = startTagMatch[2] || ''
-    const afterContent = endTagMatch[1] || ''
-
-    // 计算标签开始位置
-    const tagStart = start - startTagMatch[0].length
-    const tagEnd = end + endTagMatch[0].length
-
-    // 提取完整文本（包括标签前后的内容）
-    textToColor = beforeContent + selected + afterContent
-    newStart = tagStart
-    newEnd = tagEnd
-
-    // 如果是相同颜色，只移除不添加
-    if (existingColor === color) {
+    if (start === tagContentStart && end === tagContentEnd && existingColor === color) {
+      // 选区完全匹配标签内容且颜色相同，移除整个标签
+      const pureText = md.substring(tagContentStart, tagContentEnd)
       currentMarkdown.value =
         md.substring(0, tagStart) +
-        textToColor +
+        pureText +
         md.substring(tagEnd)
 
       emit('change', currentMarkdown.value)
-      internalSelection.value = { start: tagStart, end: tagStart + textToColor.length }
+      internalSelection.value = { start: tagStart, end: tagStart + pureText.length }
 
-      nextTick(() => {
-        if (sourceTextarea.value && showSource.value) {
-          sourceTextarea.value.setSelectionRange(tagStart, tagStart + textToColor.length)
-          sourceTextarea.value.focus()
-        }
-        adjustTextareaHeight()
-        restoreScrollPosition()
-        if (!showSource.value) renderContent()
-      })
+      afterFormatAction(tagStart, tagStart + pureText.length)
       return
     }
+
+    // 选区在标签内但不是完全匹配，嵌套新颜色
+    // 在选区前后添加新的 span 标签（嵌套在原有标签内）
+    const colorHtml = `<span style="color: ${color}">${selected}</span>`
+    currentMarkdown.value =
+      md.substring(0, start) +
+      colorHtml +
+      md.substring(end)
+
+    emit('change', currentMarkdown.value)
+    internalSelection.value = { start: start, end: start + colorHtml.length }
+
+    afterFormatAction(start, start + colorHtml.length)
+    return
   }
 
-  // 应用新颜色
-  const colorHtml = `<span style="color: ${color}">${textToColor}</span>`
+  // 选区不在任何颜色标签内，直接应用新颜色
+  const colorHtml = `<span style="color: ${color}">${selected}</span>`
   currentMarkdown.value =
-    md.substring(0, newStart) +
+    md.substring(0, start) +
     colorHtml +
-    md.substring(newEnd)
+    md.substring(end)
 
   emit('change', currentMarkdown.value)
-  internalSelection.value = { start: newStart, end: newStart + colorHtml.length }
+  internalSelection.value = { start: start, end: start + colorHtml.length }
 
-  nextTick(() => {
-    if (sourceTextarea.value && showSource.value) {
-      sourceTextarea.value.setSelectionRange(newStart, newStart + colorHtml.length)
-      sourceTextarea.value.focus()
-    }
-    adjustTextareaHeight()
-    restoreScrollPosition()
-    if (!showSource.value) renderContent()
-  })
+  afterFormatAction(start, start + colorHtml.length)
 }
 
 // 点击外部关闭颜色选择器
@@ -333,6 +589,8 @@ function toggleSourceView() {
 }
 
 // 源码输入处理
+let inputDebounceTimer: ReturnType<typeof setTimeout> | null = null
+
 function handleSourceInput(e: Event) {
   const target = e.target as HTMLTextAreaElement
   currentMarkdown.value = target.value
@@ -340,6 +598,14 @@ function handleSourceInput(e: Event) {
   adjustTextareaHeight()
   // 清除内部选区（因为内容已改变）
   internalSelection.value = null
+
+  // 防抖保存历史（输入停止后保存）
+  if (inputDebounceTimer) {
+    clearTimeout(inputDebounceTimer)
+  }
+  inputDebounceTimer = setTimeout(() => {
+    saveToHistory()
+  }, 500)
 }
 
 // textarea 选区变化处理
@@ -352,6 +618,18 @@ function handleTextareaSelect() {
 
 // 键盘快捷键处理
 function handleKeydown(e: KeyboardEvent) {
+  // Ctrl+Z: 撤销
+  if (e.ctrlKey && e.key === 'z' && !e.shiftKey) {
+    e.preventDefault()
+    undo()
+    return
+  }
+  // Ctrl+Y 或 Ctrl+Shift+Z: 前进
+  if ((e.ctrlKey && e.key === 'y') || (e.ctrlKey && e.shiftKey && e.key === 'z')) {
+    e.preventDefault()
+    redo()
+    return
+  }
   // Ctrl+B: 加粗
   if (e.ctrlKey && e.key === 'b') {
     e.preventDefault()
@@ -446,15 +724,7 @@ function insertFormat(before: string, after: string = '', placeholder: string = 
     currentMarkdown.value = md + insertText
     internalSelection.value = { start: md.length + before.length, end: md.length + before.length + placeholder.length }
     emit('change', currentMarkdown.value)
-    nextTick(() => {
-      if (sourceTextarea.value) {
-        sourceTextarea.value.setSelectionRange(internalSelection.value!.start, internalSelection.value!.end)
-        if (showSource.value) sourceTextarea.value.focus()
-      }
-      adjustTextareaHeight()
-      restoreScrollPosition()
-      if (!showSource.value) renderContent()
-    })
+    afterFormatAction(md.length + before.length, md.length + before.length + placeholder.length)
     return
   }
 
@@ -480,16 +750,7 @@ function insertFormat(before: string, after: string = '', placeholder: string = 
   internalSelection.value = { start: newStart, end: newEnd }
 
   emit('change', currentMarkdown.value)
-
-  nextTick(() => {
-    if (sourceTextarea.value) {
-      sourceTextarea.value.setSelectionRange(newStart, newEnd)
-      if (showSource.value) sourceTextarea.value.focus()
-    }
-    adjustTextareaHeight()
-    restoreScrollPosition()
-    if (!showSource.value) renderContent()
-  })
+  afterFormatAction(newStart, newEnd)
 }
 
 // 加粗
@@ -519,15 +780,7 @@ function toggleStrong() {
     const newEnd = end - 2
     internalSelection.value = { start: newStart, end: newEnd }
     emit('change', currentMarkdown.value)
-    nextTick(() => {
-      if (sourceTextarea.value) {
-        sourceTextarea.value.setSelectionRange(newStart, newEnd)
-        if (showSource.value) sourceTextarea.value.focus()
-      }
-      adjustTextareaHeight()
-      restoreScrollPosition()
-      if (!showSource.value) renderContent()
-    })
+    afterFormatAction(newStart, newEnd)
   } else {
     // 添加加粗
     insertFormat('**', '**', '粗体文字')
@@ -567,15 +820,7 @@ function toggleEmphasis() {
     const newEnd = end - 1
     internalSelection.value = { start: newStart, end: newEnd }
     emit('change', currentMarkdown.value)
-    nextTick(() => {
-      if (sourceTextarea.value) {
-        sourceTextarea.value.setSelectionRange(newStart, newEnd)
-        if (showSource.value) sourceTextarea.value.focus()
-      }
-      adjustTextareaHeight()
-      restoreScrollPosition()
-      if (!showSource.value) renderContent()
-    })
+    afterFormatAction(newStart, newEnd)
   } else {
     // 添加斜体
     insertFormat('*', '*', '斜体文字')
@@ -609,15 +854,7 @@ function toggleInlineCode() {
     const newEnd = end - 1
     internalSelection.value = { start: newStart, end: newEnd }
     emit('change', currentMarkdown.value)
-    nextTick(() => {
-      if (sourceTextarea.value) {
-        sourceTextarea.value.setSelectionRange(newStart, newEnd)
-        if (showSource.value) sourceTextarea.value.focus()
-      }
-      adjustTextareaHeight()
-      restoreScrollPosition()
-      if (!showSource.value) renderContent()
-    })
+    afterFormatAction(newStart, newEnd)
   } else {
     // 添加代码标记
     insertFormat('`', '`', '代码')
@@ -684,15 +921,7 @@ function toggleLink() {
     const newEnd = bracketStart + linkText.length
     internalSelection.value = { start: newStart, end: newEnd }
     emit('change', currentMarkdown.value)
-    nextTick(() => {
-      if (sourceTextarea.value) {
-        sourceTextarea.value.setSelectionRange(newStart, newEnd)
-        if (showSource.value) sourceTextarea.value.focus()
-      }
-      adjustTextareaHeight()
-      restoreScrollPosition()
-      if (!showSource.value) renderContent()
-    })
+    afterFormatAction(newStart, newEnd)
   } else {
     // 添加链接格式
     const linkMarkdown = selected
@@ -710,16 +939,7 @@ function toggleLink() {
     internalSelection.value = { start: newStart, end: newEnd }
 
     emit('change', currentMarkdown.value)
-
-    nextTick(() => {
-      if (sourceTextarea.value) {
-        sourceTextarea.value.setSelectionRange(newStart, newEnd)
-        if (showSource.value) sourceTextarea.value.focus()
-      }
-      adjustTextareaHeight()
-      restoreScrollPosition()
-      if (!showSource.value) renderContent()
-    })
+    afterFormatAction(newStart, newEnd)
   }
 }
 
@@ -730,6 +950,7 @@ function turnIntoHeading(level: number) {
   if (!selection) return
 
   const start = selection.start
+  const end = selection.end
 
   // 找到当前行的开头
   let lineStart = start
@@ -740,23 +961,26 @@ function turnIntoHeading(level: number) {
   const md = currentMarkdown.value
   const prefix = '#'.repeat(level) + ' '
 
+  let offset = 0
+
   // 检查当前行是否已经是标题
   const existingHeadingMatch = md.substring(lineStart).match(/^(#{1,6})\s*/)
   if (existingHeadingMatch) {
     const existingLevel = existingHeadingMatch[1].length
+    const existingPrefix = existingHeadingMatch[0]
     if (existingLevel === level) {
       // 已是同级别标题，移除标题标记
-      const existingPrefix = existingHeadingMatch[0]
       currentMarkdown.value =
         md.substring(0, lineStart) +
         md.substring(lineStart + existingPrefix.length)
+      offset = -existingPrefix.length
     } else {
       // 不同级别，替换为新级别
-      const existingPrefix = existingHeadingMatch[0]
       currentMarkdown.value =
         md.substring(0, lineStart) +
         prefix +
         md.substring(lineStart + existingPrefix.length)
+      offset = prefix.length - existingPrefix.length
     }
   } else {
     // 添加新标题
@@ -764,15 +988,16 @@ function turnIntoHeading(level: number) {
       md.substring(0, lineStart) +
       prefix +
       md.substring(lineStart)
+    offset = prefix.length
   }
 
   emit('change', currentMarkdown.value)
-  internalSelection.value = null
-  nextTick(() => {
-    adjustTextareaHeight()
-    restoreScrollPosition()
-    if (!showSource.value) renderContent()
-  })
+
+  const newStart = start + offset
+  const newEnd = end + offset
+  internalSelection.value = { start: newStart, end: newEnd }
+
+  afterFormatAction(newStart, newEnd)
 }
 
 // 无序列表
@@ -782,34 +1007,41 @@ function toggleBulletList() {
   if (!selection) return
 
   const start = selection.start
+  const end = selection.end
+  const md = currentMarkdown.value
 
   // 找到当前行的开头
   let lineStart = start
-  while (lineStart > 0 && currentMarkdown.value[lineStart - 1] !== '\n') {
+  while (lineStart > 0 && md[lineStart - 1] !== '\n') {
     lineStart--
   }
 
+  let offset = 0 // 选区偏移量
+
   // 检查当前行是否已经是列表项
-  if (currentMarkdown.value.substring(lineStart, lineStart + 2) === '- ') {
+  if (md.substring(lineStart, lineStart + 2) === '- ') {
     // 移除列表标记
     currentMarkdown.value =
-      currentMarkdown.value.substring(0, lineStart) +
-      currentMarkdown.value.substring(lineStart + 2)
+      md.substring(0, lineStart) +
+      md.substring(lineStart + 2)
+    offset = -2
   } else {
     // 添加列表标记
     currentMarkdown.value =
-      currentMarkdown.value.substring(0, lineStart) +
+      md.substring(0, lineStart) +
       '- ' +
-      currentMarkdown.value.substring(lineStart)
+      md.substring(lineStart)
+    offset = 2
   }
 
   emit('change', currentMarkdown.value)
-  internalSelection.value = null
-  nextTick(() => {
-    adjustTextareaHeight()
-    restoreScrollPosition()
-    if (!showSource.value) renderContent()
-  })
+
+  // 计算新选区位置
+  const newStart = start + offset
+  const newEnd = end + offset
+  internalSelection.value = { start: newStart, end: newEnd }
+
+  afterFormatAction(newStart, newEnd)
 }
 
 // 有序列表
@@ -819,42 +1051,50 @@ function toggleOrderedList() {
   if (!selection) return
 
   const start = selection.start
+  const end = selection.end
+  const md = currentMarkdown.value
 
   // 找到当前行的开头
   let lineStart = start
-  while (lineStart > 0 && currentMarkdown.value[lineStart - 1] !== '\n') {
+  while (lineStart > 0 && md[lineStart - 1] !== '\n') {
     lineStart--
   }
 
+  let offset = 0 // 选区偏移量
+
   // 检查当前行是否已经是有序列表
-  const linePrefix = currentMarkdown.value.substring(lineStart, lineStart + 3)
+  const linePrefix = md.substring(lineStart, lineStart + 3)
   const orderedMatch = linePrefix.match(/^\d+\.\s/)
   if (orderedMatch) {
     // 移除列表标记
     currentMarkdown.value =
-      currentMarkdown.value.substring(0, lineStart) +
-      currentMarkdown.value.substring(lineStart + orderedMatch[0].length)
+      md.substring(0, lineStart) +
+      md.substring(lineStart + orderedMatch[0].length)
+    offset = -orderedMatch[0].length
   } else if (linePrefix === '- ') {
     // 如果是无序列表，转为有序列表
     currentMarkdown.value =
-      currentMarkdown.value.substring(0, lineStart) +
+      md.substring(0, lineStart) +
       '1. ' +
-      currentMarkdown.value.substring(lineStart + 2)
+      md.substring(lineStart + 2)
+    offset = 1 // '- ' (2) -> '1. ' (3), 差值 +1
   } else {
     // 添加有序列表标记
     currentMarkdown.value =
-      currentMarkdown.value.substring(0, lineStart) +
+      md.substring(0, lineStart) +
       '1. ' +
-      currentMarkdown.value.substring(lineStart)
+      md.substring(lineStart)
+    offset = 3
   }
 
   emit('change', currentMarkdown.value)
-  internalSelection.value = null
-  nextTick(() => {
-    adjustTextareaHeight()
-    restoreScrollPosition()
-    if (!showSource.value) renderContent()
-  })
+
+  // 计算新选区位置
+  const newStart = start + offset
+  const newEnd = end + offset
+  internalSelection.value = { start: newStart, end: newEnd }
+
+  afterFormatAction(newStart, newEnd)
 }
 
 // 任务列表
@@ -864,47 +1104,57 @@ function toggleTaskList() {
   if (!selection) return
 
   const start = selection.start
+  const end = selection.end
+  const md = currentMarkdown.value
 
   // 找到当前行的开头
   let lineStart = start
-  while (lineStart > 0 && currentMarkdown.value[lineStart - 1] !== '\n') {
+  while (lineStart > 0 && md[lineStart - 1] !== '\n') {
     lineStart--
   }
 
-  const linePrefix = currentMarkdown.value.substring(lineStart, lineStart + 6)
+  let offset = 0 // 选区偏移量
+
+  const linePrefix = md.substring(lineStart, lineStart + 6)
 
   if (linePrefix === '- [x] ') {
     // 已完成 -> 移除
     currentMarkdown.value =
-      currentMarkdown.value.substring(0, lineStart) +
-      currentMarkdown.value.substring(lineStart + 6)
+      md.substring(0, lineStart) +
+      md.substring(lineStart + 6)
+    offset = -6
   } else if (linePrefix === '- [ ] ') {
-    // 未完成 -> 已完成
+    // 未完成 -> 已完成（长度不变）
     currentMarkdown.value =
-      currentMarkdown.value.substring(0, lineStart) +
+      md.substring(0, lineStart) +
       '- [x] ' +
-      currentMarkdown.value.substring(lineStart + 6)
-  } else if (currentMarkdown.value.substring(lineStart, lineStart + 2) === '- ') {
+      md.substring(lineStart + 6)
+    offset = 0
+  } else if (md.substring(lineStart, lineStart + 2) === '- ') {
     // 普通列表 -> 任务列表（未完成）
+    // '- ' (2) -> '- [ ] ' (6), 差值 +4
     currentMarkdown.value =
-      currentMarkdown.value.substring(0, lineStart) +
+      md.substring(0, lineStart) +
       '- [ ] ' +
-      currentMarkdown.value.substring(lineStart + 2)
+      md.substring(lineStart + 2)
+    offset = 4
   } else {
     // 添加任务列表
     currentMarkdown.value =
-      currentMarkdown.value.substring(0, lineStart) +
+      md.substring(0, lineStart) +
       '- [ ] ' +
-      currentMarkdown.value.substring(lineStart)
+      md.substring(lineStart)
+    offset = 6
   }
 
   emit('change', currentMarkdown.value)
-  internalSelection.value = null
-  nextTick(() => {
-    adjustTextareaHeight()
-    restoreScrollPosition()
-    if (!showSource.value) renderContent()
-  })
+
+  // 计算新选区位置
+  const newStart = start + offset
+  const newEnd = end + offset
+  internalSelection.value = { start: newStart, end: newEnd }
+
+  afterFormatAction(newStart, newEnd)
 }
 
 // 引用
@@ -914,33 +1164,39 @@ function toggleBlockquote() {
   if (!selection) return
 
   const start = selection.start
+  const end = selection.end
+  const md = currentMarkdown.value
 
   // 找到当前行的开头
   let lineStart = start
-  while (lineStart > 0 && currentMarkdown.value[lineStart - 1] !== '\n') {
+  while (lineStart > 0 && md[lineStart - 1] !== '\n') {
     lineStart--
   }
 
-  if (currentMarkdown.value.substring(lineStart, lineStart + 2) === '> ') {
+  let offset = 0
+
+  if (md.substring(lineStart, lineStart + 2) === '> ') {
     // 移除引用标记
     currentMarkdown.value =
-      currentMarkdown.value.substring(0, lineStart) +
-      currentMarkdown.value.substring(lineStart + 2)
+      md.substring(0, lineStart) +
+      md.substring(lineStart + 2)
+    offset = -2
   } else {
     // 添加引用标记
     currentMarkdown.value =
-      currentMarkdown.value.substring(0, lineStart) +
+      md.substring(0, lineStart) +
       '> ' +
-      currentMarkdown.value.substring(lineStart)
+      md.substring(lineStart)
+    offset = 2
   }
 
   emit('change', currentMarkdown.value)
-  internalSelection.value = null
-  nextTick(() => {
-    adjustTextareaHeight()
-    restoreScrollPosition()
-    if (!showSource.value) renderContent()
-  })
+
+  const newStart = start + offset
+  const newEnd = end + offset
+  internalSelection.value = { start: newStart, end: newEnd }
+
+  afterFormatAction(newStart, newEnd)
 }
 
 // 代码块
@@ -1018,15 +1274,7 @@ function toggleCodeBlock() {
       internalSelection.value = { start: newStart, end: newEnd }
       emit('change', currentMarkdown.value)
 
-      nextTick(() => {
-        if (sourceTextarea.value) {
-          sourceTextarea.value.setSelectionRange(newStart, newEnd)
-          if (showSource.value) sourceTextarea.value.focus()
-        }
-        adjustTextareaHeight()
-        restoreScrollPosition()
-        if (!showSource.value) renderContent()
-      })
+      afterFormatAction(newStart, newEnd)
       return
     }
   }
@@ -1042,11 +1290,7 @@ function toggleCodeBlock() {
   emit('change', currentMarkdown.value)
   internalSelection.value = null
 
-  nextTick(() => {
-    adjustTextareaHeight()
-    restoreScrollPosition()
-    if (!showSource.value) renderContent()
-  })
+  afterFormatAction()
 }
 
 // 获取当前 markdown 内容
@@ -1081,6 +1325,8 @@ onMounted(() => {
   if (props.initialValue) {
     currentMarkdown.value = props.initialValue
   }
+  // 保存初始状态到历史记录
+  saveToHistory()
   adjustTextareaHeight()
   // 监听点击外部关闭颜色选择器
   document.addEventListener('click', handleClickOutside)
@@ -1088,6 +1334,10 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
+  // 清理防抖定时器
+  if (inputDebounceTimer) {
+    clearTimeout(inputDebounceTimer)
+  }
 })
 
 // 暴露方法
@@ -1145,6 +1395,18 @@ defineExpose({
 .toolbar-btn:active {
   background: var(--color-primary-bg);
   color: var(--color-primary);
+}
+
+.toolbar-btn.disabled,
+.toolbar-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.toolbar-btn.disabled:hover,
+.toolbar-btn:disabled:hover {
+  background: transparent;
+  color: var(--text-secondary);
 }
 
 /* 颜色按钮样式 */
