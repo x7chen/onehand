@@ -98,6 +98,7 @@ function convertDataUrlImages(markdown: string): string {
 const COMMON_LANGS = [
   'javascript',
   'typescript',
+  'vue',
   'python',
   'java',
   'cpp',
@@ -155,12 +156,13 @@ async function initMarkdownIt(): Promise<MarkdownIt> {
     typographer: true,
   })
 
-  // 使用 shiki 进行代码高亮
+  // 使用 shiki 进行代码高亮，未知语言回退到 markdown（无特殊高亮）
   md.use(fromHighlighter(highlighter!, {
     themes: {
       light: 'github-light',
       dark: 'github-dark',
     },
+    fallbackLanguage: 'markdown',
   }))
 
   // 自定义代码块渲染，支持 Mermaid
