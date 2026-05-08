@@ -36,7 +36,7 @@
       <!-- 上下文面板 -->
       <ContextsPanel
         v-if="activeTab === 'contexts'"
-        @newContext="showNewContextDialog = true"
+        @newContext="handleNewContext"
         @editContext="editContextFile"
         @dragStart="handleContextDragStart"
         @dragEnd="handleContextDragEnd"
@@ -123,76 +123,15 @@
       />
     </main>
 
-    <!-- New Context Dialog -->
-    <div v-if="showNewContextDialog" class="dialog-overlay" @click="showNewContextDialog = false">
-      <div class="dialog" @click.stop>
-        <h3>{{ t('context.newContext') }}</h3>
-        <input
-          v-model="newContextName"
-          type="text"
-          :placeholder="t('context.contextNamePlaceholder')"
-        />
-        <textarea
-          v-model="newContextContent"
-          :placeholder="t('context.tagContentPlaceholder')"
-          class="content-input"
-        ></textarea>
-        <div class="form-group">
-          <label>{{ t('context.tagColor') }}</label>
-          <div class="color-picker">
-            <button
-              v-for="color in contextColors"
-              :key="color"
-              class="color-option"
-              :class="{ selected: newContextColor === color }"
-              :style="{ backgroundColor: color }"
-              @click="newContextColor = color"
-            />
-          </div>
-        </div>
-        <div class="dialog-actions">
-          <button @click="showNewContextDialog = false" class="cancel-btn">{{ t('common.cancel') }}</button>
-          <button @click="createContextFile" class="confirm-btn">{{ t('common.create') }}</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Edit Context Dialog -->
-    <div v-if="showEditContextDialog && editingContext" class="dialog-overlay" @click="closeEditDialog">
-      <div class="dialog edit-dialog" @click.stop>
-        <h3>{{ t('context.editTag') }}</h3>
-        <input
-          v-model="editingContext.name"
-          type="text"
-          :placeholder="t('context.tagName')"
-        />
-        <textarea
-          v-model="editingContext.content"
-          :placeholder="t('context.tagContentPlaceholder')"
-          class="content-input"
-        ></textarea>
-        <div class="form-group">
-          <label>{{ t('context.tagColor') }}</label>
-          <div class="color-picker">
-            <button
-              v-for="color in contextColors"
-              :key="color"
-              class="color-option"
-              :class="{ selected: editingContext.color === color }"
-              :style="{ backgroundColor: color }"
-              @click="editingContext.color = color"
-            />
-          </div>
-        </div>
-        <div class="dialog-actions">
-          <button @click="confirmDeleteContext(editingContext.id, true)" class="delete-btn">{{ t('common.delete') }}</button>
-          <div class="dialog-actions-right">
-            <button @click="closeEditDialog" class="cancel-btn">{{ t('common.cancel') }}</button>
-            <button @click="saveContextEdit" class="confirm-btn">{{ t('common.save') }}</button>
-          </div>
-        </div>
-      </div>
-    </div>
+    <!-- Context Edit Dialog (新建/编辑上下文) -->
+    <ContextEditDialog
+      :visible="showContextEditDialog"
+      :context="editingContext"
+      @update:visible="showContextEditDialog = $event"
+      @save="handleContextSave"
+      @delete="handleContextDelete"
+      @cancel="showContextEditDialog = false"
+    />
 
     <!-- Delete Confirmation Dialog -->
     <div v-if="showDeleteConfirm" class="dialog-overlay" @click="showDeleteConfirm = false">
@@ -238,6 +177,7 @@ import MultiChatPanel from '@/components/MultiChatPanel.vue'
 import PdfReaderPanel from '@/components/PdfReaderPanel.vue'
 import CanvasViewPanel from '@/components/CanvasViewPanel.vue'
 import ParticleViewPanel from '@/components/ParticleViewPanel.vue'
+import ContextEditDialog from '@/components/ContextEditDialog.vue'
 import type { ContextFile, ContextType } from '@/types/context'
 import { CONTEXT_COLORS, type ContextColor } from '@/types/context'
 import type { QuickCommand } from '@/types/quickCommand'
@@ -267,19 +207,12 @@ const viewMode = ref<'chat' | 'canvas' | 'particle'>('chat')
 // 需要激活的节点ID（用于跳转链接）
 const activateNodeId = ref<string | null>(null)
 
-// 对话框状态
-const showNewContextDialog = ref(false)
-const newContextName = ref('')
-const newContextType = ref<ContextType>('static')
-const newContextColor = ref<ContextColor>(CONTEXT_COLORS[0])
-const newContextContent = ref('')
-
-const showEditContextDialog = ref(false)
-const editingContext = ref<ContextFile | undefined>(undefined)
+// 上下文编辑对话框状态
+const showContextEditDialog = ref(false)
+const editingContext = ref<ContextFile | null>(null)
 
 const showDeleteConfirm = ref(false)
 const contextToDelete = ref<string | null>(null)
-const shouldCloseEditDialogAfterDelete = ref(false)
 
 // 拖拽删除相关
 const draggedContext = ref<ContextFile | null>(null)
@@ -522,55 +455,49 @@ function toggleSidebar() {
 }
 
 // Context file management
-async function createContextFile() {
-  if (!newContextName.value.trim()) return
-
-  const newFile = await contextStore.createContextFile(
-    newContextName.value.trim(),
-    newContextType.value,
-    newContextContent.value
-  )
-
-  // 更新颜色
-  if (newFile.color !== newContextColor.value) {
-    await contextStore.updateContextFile(newFile.id, {
-      color: newContextColor.value
-    })
-  }
-
-  showNewContextDialog.value = false
-  newContextName.value = ''
-  newContextType.value = 'static'
-  newContextColor.value = CONTEXT_COLORS[0]
-  newContextContent.value = ''
-}
-
 function editContextFile(file: ContextFile) {
-  editingContext.value = { ...file }
-  showEditContextDialog.value = true
+  editingContext.value = file
+  showContextEditDialog.value = true
 }
 
-function closeEditDialog() {
-  showEditContextDialog.value = false
-  editingContext.value = undefined
+// 处理新建上下文（从ContextsPanel emit的newContext事件）
+function handleNewContext() {
+  editingContext.value = null
+  showContextEditDialog.value = true
 }
 
-async function saveContextEdit() {
-  if (!editingContext.value) return
-
-  await contextStore.updateContextFile(editingContext.value.id, {
-    name: editingContext.value.name,
-    color: editingContext.value.color,
-    content: editingContext.value.content
-  })
-
-  closeEditDialog()
+// 处理上下文保存（新建或编辑）
+async function handleContextSave(data: { name: string; type: ContextType; color: ContextColor; content: string }) {
+  if (editingContext.value) {
+    // 编辑现有上下文
+    await contextStore.updateContextFile(editingContext.value.id, {
+      name: data.name,
+      color: data.color,
+      content: data.content
+    })
+  } else {
+    // 新建上下文
+    const newFile = await contextStore.createContextFile(
+      data.name,
+      data.type,
+      data.content
+    )
+    // 更新颜色
+    if (newFile.color !== data.color) {
+      await contextStore.updateContextFile(newFile.id, {
+        color: data.color
+      })
+    }
+  }
+  editingContext.value = null
 }
 
-function confirmDeleteContext(contextId: string, fromEditDialog = false) {
-  contextToDelete.value = contextId
-  shouldCloseEditDialogAfterDelete.value = fromEditDialog
-  showDeleteConfirm.value = true
+// 处理上下文删除
+function handleContextDelete() {
+  if (editingContext.value) {
+    contextToDelete.value = editingContext.value.id
+    showDeleteConfirm.value = true
+  }
 }
 
 async function deleteContextFile() {
@@ -579,11 +506,7 @@ async function deleteContextFile() {
   await contextStore.deleteContextFile(contextToDelete.value)
   showDeleteConfirm.value = false
   contextToDelete.value = null
-
-  if (shouldCloseEditDialogAfterDelete.value) {
-    shouldCloseEditDialogAfterDelete.value = false
-    closeEditDialog()
-  }
+  editingContext.value = null
 }
 
 // 拖拽删除功能
