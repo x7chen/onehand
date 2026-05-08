@@ -50,6 +50,27 @@
         </div>
       </div>
 
+      <!-- 高亮 -->
+      <div class="color-btn-wrapper">
+        <button class="toolbar-btn highlight-btn" @mousedown.prevent="handleHighlightBtnMouseDown" title="高亮">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+            <path d="M15.24 3.76l-9.8 9.8c-.39.39-.39 1.02 0 1.41l4.95 4.96c.39.39 1.02.39 1.41 0l9.8-9.8c.39-.39.39-1.02 0-1.41l-4.96-4.96c-.39-.39-1.02-.39-1.4 0zM16.66 5.17l3.54 3.54-8.49 8.49-3.54-3.54 8.49-8.49zM3.76 15.24l2.12-2.12 4.95 4.96-2.12 2.12-4.95-4.96z"/>
+          </svg>
+          <span class="highlight-indicator" :style="{ backgroundColor: selectedHighlightColor }"></span>
+        </button>
+        <div v-if="showHighlightPicker" class="color-picker-popup">
+          <div
+            v-for="color in HIGHLIGHT_COLORS"
+            :key="color.value"
+            class="color-option-popup"
+            :style="{ backgroundColor: color.value }"
+            :title="color.name"
+            @mousedown.prevent
+            @click="applyHighlight(color.value)"
+          ></div>
+        </div>
+      </div>
+
       <!-- 加粗 -->
       <button class="toolbar-btn" @mousedown.prevent @click="toggleStrong" title="加粗 (Ctrl+B)">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
@@ -180,6 +201,18 @@ const TEXT_COLORS = [
   { name: '黑色', value: '#000000' },
 ]
 
+// 预设高亮颜色
+const HIGHLIGHT_COLORS = [
+  { name: '黄色', value: '#ffff00' },
+  { name: '绿色', value: '#00ff00' },
+  { name: '蓝色', value: '#00bfff' },
+  { name: '粉色', value: '#ff69b4' },
+  { name: '橙色', value: '#ffa500' },
+  { name: '红色', value: '#ff6b6b' },
+  { name: '紫色', value: '#dda0dd' },
+  { name: '青色', value: '#00ffff' },
+]
+
 const props = defineProps<{
   initialValue?: string
 }>()
@@ -274,6 +307,10 @@ function redo() {
 const showColorPicker = ref(false)
 const selectedColor = ref('#1890ff') // 默认蓝色
 
+// 高亮选择器状态
+const showHighlightPicker = ref(false)
+const selectedHighlightColor = ref('#ffff00') // 默认黄色
+
 // 内部选区状态（用于渲染模式下的编辑）
 const internalSelection = ref<{ start: number; end: number } | null>(null)
 
@@ -310,6 +347,13 @@ function afterFormatAction(newStart?: number, newEnd?: number) {
 // 颜色按钮点击处理
 function handleColorBtnMouseDown() {
   showColorPicker.value = !showColorPicker.value
+  showHighlightPicker.value = false // 关闭另一个选择器
+}
+
+// 高亮按钮点击处理
+function handleHighlightBtnMouseDown() {
+  showHighlightPicker.value = !showHighlightPicker.value
+  showColorPicker.value = false // 关闭另一个选择器
 }
 
 // 清理选区边缘可能包含的标签字符
@@ -544,11 +588,45 @@ function applyColor(color: string) {
   afterFormatAction(start, start + colorHtml.length)
 }
 
+// 应用高亮
+function applyHighlight(color: string) {
+  saveScrollPosition()
+  selectedHighlightColor.value = color
+  showHighlightPicker.value = false
+
+  const selection = getCurrentSelection()
+  if (!selection) {
+    return
+  }
+
+  const md = currentMarkdown.value
+  const start = selection.start
+  const end = selection.end
+  const selected = md.substring(start, end)
+
+  if (!selected) {
+    return
+  }
+
+  // 使用 mark 标签应用高亮
+  const highlightHtml = `<mark style="background-color: ${color}">${selected}</mark>`
+  currentMarkdown.value =
+    md.substring(0, start) +
+    highlightHtml +
+    md.substring(end)
+
+  emit('change', currentMarkdown.value)
+  internalSelection.value = { start: start, end: start + highlightHtml.length }
+
+  afterFormatAction(start, start + highlightHtml.length)
+}
+
 // 点击外部关闭颜色选择器
 function handleClickOutside(e: MouseEvent) {
   const target = e.target as HTMLElement
   if (!target.closest('.color-btn-wrapper')) {
     showColorPicker.value = false
+    showHighlightPicker.value = false
   }
 }
 
@@ -578,14 +656,34 @@ function toggleSourceView() {
     nextTick(() => {
       adjustTextareaHeight()
       if (internalSelection.value && sourceTextarea.value) {
-        sourceTextarea.value.setSelectionRange(
-          internalSelection.value.start,
-          internalSelection.value.end
-        )
+        const startPos = internalSelection.value.start
+        const endPos = internalSelection.value.end
+        sourceTextarea.value.setSelectionRange(startPos, endPos)
         sourceTextarea.value.focus()
+
+        // 滚动到选区位置
+        scrollToSelection(startPos)
       }
     })
   }
+}
+
+// 滚动到选区位置
+function scrollToSelection(position: number) {
+  if (!sourceTextarea.value || !sourceContainer.value) return
+
+  const text = currentMarkdown.value
+  // 计算选区位置之前的换行符数量（估算行数）
+  const textBeforePosition = text.substring(0, position)
+  const lineCount = textBeforePosition.split('\n').length
+
+  // 获取行高（从 textarea 样式）
+  const lineHeight = parseFloat(getComputedStyle(sourceTextarea.value).lineHeight) || 24
+
+  // 计算目标滚动位置（使选区行位于视口中间偏上）
+  const targetScrollTop = Math.max(0, (lineCount - 3) * lineHeight)
+
+  sourceContainer.value.scrollTop = targetScrollTop
 }
 
 // 源码输入处理
@@ -664,17 +762,57 @@ function handleRenderMouseUp(e: MouseEvent) {
     return
   }
 
+  // 获取选区在渲染视图中的匹配索引
+  const matchIndex = getMatchIndexInRenderedView(selection)
+
   // 在 markdown 源码中查找选中的文本位置
   const positions = findTextInMarkdown(selectedText)
-  if (positions.length > 0) {
-    // 取第一个匹配位置
-    internalSelection.value = { start: positions[0].start, end: positions[0].end }
+  if (positions.length > matchIndex) {
+    // 取对应索引的匹配位置
+    internalSelection.value = { start: positions[matchIndex].start, end: positions[matchIndex].end }
 
     // 同步设置隐藏 textarea 的选区
     if (sourceTextarea.value) {
-      sourceTextarea.value.setSelectionRange(positions[0].start, positions[0].end)
+      sourceTextarea.value.setSelectionRange(positions[matchIndex].start, positions[matchIndex].end)
     }
+  } else if (positions.length > 0) {
+    // 如果找不到精确匹配，取第一个
+    internalSelection.value = { start: positions[0].start, end: positions[0].end }
   }
+}
+
+// 获取选区在渲染视图中的匹配索引（计算选区前方文本中该字符串出现的次数）
+function getMatchIndexInRenderedView(selection: Selection): number {
+  if (!renderContainer.value || !selection.rangeCount) return 0
+
+  const range = selection.getRangeAt(0)
+  const selectedText = selection.toString()
+
+  // 从选区开始位置向前遍历 DOM，收集文本
+  const textBeforeSelection = getTextBeforeRange(range, renderContainer.value)
+
+  // 计算前面的文本中，目标字符串出现了多少次
+  let count = 0
+  let searchPos = 0
+  while (true) {
+    const pos = textBeforeSelection.indexOf(selectedText, searchPos)
+    if (pos === -1) break
+    count++
+    searchPos = pos + 1
+  }
+
+  return count
+}
+
+// 获取 range 开始位置之前的所有文本
+function getTextBeforeRange(range: Range, container: HTMLElement): string {
+  // 创建一个从容器开始到 range 开始位置的 range
+  const preRange = document.createRange()
+  preRange.setStart(container, 0)
+  preRange.setEnd(range.startContainer, range.startOffset)
+
+  // 获取这个范围内的文本内容
+  return preRange.toString()
 }
 
 // 在 markdown 源码中查找文本位置
@@ -1461,6 +1599,24 @@ defineExpose({
 .color-option-popup:hover {
   transform: scale(1.1);
   border-color: var(--text-primary);
+}
+
+/* 高亮按钮样式 */
+.highlight-btn {
+  position: relative;
+  flex-direction: column;
+  padding: 2px 6px;
+}
+
+.highlight-btn svg {
+  line-height: 1;
+}
+
+.highlight-indicator {
+  width: 14px;
+  height: 3px;
+  border-radius: 1px;
+  margin-top: 2px;
 }
 
 .toolbar-divider {

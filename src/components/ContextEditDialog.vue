@@ -15,13 +15,24 @@
 
           <!-- 名称输入 -->
           <div class="form-row">
-            <label class="form-label">{{ t('context.tagName') }}</label>
             <input
               v-model="editingName"
               type="text"
               class="name-input"
               :placeholder="t('context.contextNamePlaceholder')"
             />
+          </div>
+
+          <!-- Markdown 编辑器 -->
+          <div class="form-row editor-row">
+            <div class="editor-container">
+              <MarkdownEditor
+                :key="editorKey"
+                ref="editorRef"
+                :initial-value="editingContent"
+                @change="handleContentChange"
+              />
+            </div>
           </div>
 
           <!-- 颜色选择 -->
@@ -39,32 +50,25 @@
             </div>
           </div>
 
-          <!-- Markdown 编辑器 -->
-          <div class="form-row editor-row">
-            <label class="form-label">{{ t('context.tagContent') }}</label>
-            <div class="editor-container">
-              <MarkdownEditor
-                :key="editorKey"
-                ref="editorRef"
-                :initial-value="editingContent"
-                @change="handleContentChange"
-              />
-            </div>
-          </div>
-
           <!-- 操作按钮 -->
           <div class="dialog-footer">
             <button v-if="!isNew" class="delete-btn" @click="handleDelete">
               {{ t('common.delete') }}
             </button>
-            <div class="footer-right">
+            <button v-if="isNew" class="cancel-btn" @click="handleCancel">
+              {{ t('common.cancel') }}
+            </button>
+            <div v-if="!isNew" class="footer-right">
               <button class="cancel-btn" @click="handleCancel">
                 {{ t('common.cancel') }}
               </button>
-              <button class="save-btn" @click="handleSave" :disabled="!editingName.trim()">
-                {{ isNew ? t('common.create') : t('common.save') }}
+              <button class="save-btn" @click="handleSave">
+                {{ t('common.save') }}
               </button>
             </div>
+            <button v-if="isNew" class="save-btn" @click="handleSave" :disabled="!editingName.trim()">
+              {{ t('common.create') }}
+            </button>
           </div>
         </div>
       </div>
@@ -193,8 +197,8 @@ function handleCancel() {
   background: var(--bg-primary);
   border-radius: 12px;
   width: 90%;
-  max-width: 700px;
-  max-height: 85vh;
+  max-width: 800px;
+  height: 800px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -205,14 +209,14 @@ function handleCancel() {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 24px;
-  border-bottom: 1px solid var(--border-color);
+  padding: 16px;
 }
 
 .dialog-header h3 {
   font-size: 18px;
   font-weight: 600;
   color: var(--text-primary);
+  margin: 0;
 }
 
 .close-btn {
@@ -295,7 +299,6 @@ function handleCancel() {
 .editor-container {
   flex: 1;
   min-height: 200px;
-  max-height: 400px;
   border: 1px solid var(--border-color);
   border-radius: 6px;
   background: var(--bg-primary);
@@ -308,8 +311,7 @@ function handleCancel() {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 24px;
-  border-top: 1px solid var(--border-color);
+  padding: 24px;
 }
 
 .footer-right {
