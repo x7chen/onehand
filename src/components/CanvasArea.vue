@@ -281,8 +281,35 @@ watch(
 watch(
   () => props.filterNodeIds,
   (newFilter, oldFilter) => {
-    // 过滤器变化时清除缓存并重新测量
+    // 检查内容是否真正变化（新增节点不需要重新排版，只清除被删除节点的缓存）
     if (newFilter !== oldFilter) {
+      // 如果新过滤器包含旧过滤器的所有节点，说明只是新增节点，不需要重新排版
+      if (oldFilter && newFilter) {
+        const oldIds = Array.from(oldFilter)
+        const allOldStillPresent = oldIds.every(id => newFilter.has(id))
+        if (allOldStillPresent) {
+          // 只清除被删除节点的缓存位置（如果有）
+          const deletedIds = oldIds.filter(id => !newFilter.has(id))
+          if (deletedIds.length === 0) {
+            // 没有节点被删除，无需任何操作
+            return
+          }
+          // 只清除被删除节点的缓存
+          const newCached = new Map(cachedPositions.value)
+          const newManual = new Map(manualPositions.value)
+          const newHeights = new Map(measuredHeights.value)
+          for (const id of deletedIds) {
+            newCached.delete(id)
+            newManual.delete(id)
+            newHeights.delete(id)
+          }
+          cachedPositions.value = newCached
+          manualPositions.value = newManual
+          measuredHeights.value = newHeights
+          return
+        }
+      }
+      // 过滤器内容变化（有节点被删除），清除缓存并重新测量
       cachedPositions.value.clear()
       manualPositions.value.clear()
       // 保留 measuredHeights，因为节点高度不变
@@ -745,6 +772,10 @@ async function handleLongPressEnd(isCancel = false) {
     }
 
     notebookStore.addNode(node)
+    // 设置临时位置为录音开始位置
+    if (recordingStartPosition.value) {
+      manualPositions.value.set(node.id, recordingStartPosition.value)
+    }
     isRecording.value = false
     recordingPosition.value = undefined
     recordingStartPosition.value = null
@@ -1136,6 +1167,10 @@ function handleMagicInputSave(text: string) {
       updatedAt: Date.now()
     }
     notebookStore.addNode(node)
+    // 设置临时位置为双击位置
+    if (state.position) {
+      manualPositions.value.set(node.id, state.position)
+    }
 
     if (props.aiAnswerEnabled) {
       handleAgentResponse(node.id, text)
@@ -1171,6 +1206,8 @@ async function handleDropText(x: number, y: number, text: string) {
   }
 
   notebookStore.addNode(node)
+  // 设置临时位置为拖拽释放位置
+  manualPositions.value.set(node.id, { x, y })
 
   if (props.aiAnswerEnabled) {
     await handleAgentResponse(node.id, text)
@@ -1184,6 +1221,7 @@ async function handleDropImage(x: number, y: number, files: File[]) {
   const imagesDir = await getNotebookImagesDir(notebook.id)
   await window.electronAPI.mkdir(imagesDir)
 
+  let currentY = y
   for (const file of files) {
     const nodeId = uuidv4()
     const ext = file.name.split('.').pop() || 'png'
@@ -1208,6 +1246,9 @@ async function handleDropImage(x: number, y: number, files: File[]) {
     }
 
     notebookStore.addNode(node)
+    // 设置临时位置为拖拽释放位置（多个图片垂直排列）
+    manualPositions.value.set(node.id, { x, y: currentY })
+    currentY += 150 // 垂直间距
   }
 }
 

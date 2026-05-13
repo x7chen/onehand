@@ -627,7 +627,7 @@ function emitVisibleNodes() {
 }
 
 // 监听视图模式变化和节点变化（卡片/列表视图）
-watch([viewMode, () => props.nodes], () => {
+watch([viewMode, () => props.nodes.length, () => props.nodes.map(n => n.id).join(',')], () => {
   emitVisibleNodes()
 }, { immediate: true })
 
