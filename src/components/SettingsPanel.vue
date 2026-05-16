@@ -405,8 +405,9 @@ import type { BuiltinTheme } from '@/types/settings'
 const { t } = useI18n()
 
 const emit = defineEmits<{
-  (e: 'dragStart', event: DragEvent, profileId: string): void
-  (e: 'dragEnd', event: DragEvent): void
+  'dragStart': [event: DragEvent, profileId: string]
+  'dragEnd': [event: DragEvent]
+  'sub-tab-selected': [tabId: string]
 }>()
 
 const settingsStore = useSettingsStore()
@@ -416,6 +417,11 @@ const notebooks = computed(() => notebookStore.notebooks)
 
 // 标签页状态
 const activeTab = ref<'general' | 'model'>('general')
+
+// 监听标签页变化并 emit
+watch(activeTab, (newTab) => {
+  emit('sub-tab-selected', newTab)
+}, { immediate: true })
 
 const renamingProfileId = ref<string | null>(null)
 const renameValue = ref('')

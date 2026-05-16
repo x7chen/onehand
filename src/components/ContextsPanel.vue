@@ -154,7 +154,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useContextStore } from '@/stores/contextStore'
 import { useQuickCommandStore } from '@/stores/quickCommandStore'
@@ -165,12 +165,13 @@ import type { QuickCommand } from '@/types/quickCommand'
 const { t } = useI18n()
 
 const emit = defineEmits<{
-  (e: 'newContext'): void
-  (e: 'editContext', file: ContextFile): void
-  (e: 'dragStart', event: DragEvent, file: ContextFile): void
-  (e: 'dragEnd', event: DragEvent): void
-  (e: 'quickCommandDragStart', event: DragEvent, cmd: QuickCommand): void
-  (e: 'quickCommandDragEnd', event: DragEvent): void
+  'newContext': []
+  'editContext': [file: ContextFile]
+  'dragStart': [event: DragEvent, file: ContextFile]
+  'dragEnd': [event: DragEvent]
+  'quickCommandDragStart': [event: DragEvent, cmd: QuickCommand]
+  'quickCommandDragEnd': [event: DragEvent]
+  'quick-command-editing': [status: { isCreating: boolean; name?: string } | null]
 }>()
 
 const contextStore = useContextStore()
@@ -189,6 +190,17 @@ const newQuickCommandColor = ref(quickCommandStore.getNextColor())
 
 const showEditQuickCommandDialog = ref(false)
 const editingQuickCommand = ref<QuickCommand | null>(null)
+
+// 监听快捷指令编辑状态变化并 emit
+watch([showNewQuickCommandDialog, showEditQuickCommandDialog, editingQuickCommand], () => {
+  if (showNewQuickCommandDialog.value) {
+    emit('quick-command-editing', { isCreating: true, name: newQuickCommandName.value })
+  } else if (showEditQuickCommandDialog.value && editingQuickCommand.value) {
+    emit('quick-command-editing', { isCreating: false, name: editingQuickCommand.value.name })
+  } else {
+    emit('quick-command-editing', null)
+  }
+})
 
 // 创建快捷指令
 async function createQuickCommand() {

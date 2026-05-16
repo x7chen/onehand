@@ -44,10 +44,11 @@
         @dragEnd="handleContextDragEnd"
         @quickCommandDragStart="handleQuickCommandDragStart"
         @quickCommandDragEnd="handleQuickCommandDragEnd"
+        @quick-command-editing="handleQuickCommandEditing"
       />
 
       <!-- 标签面板 -->
-      <TagsPanel v-if="activeTab === 'tags'" />
+      <TagsPanel v-if="activeTab === 'tags'" @tag-selected="handleTagSelected" />
 
       <!-- 收藏夹面板 -->
       <FavoritesPanel v-if="activeTab === 'favorites'" />
@@ -60,6 +61,7 @@
         v-if="activeTab === 'settings'"
         @dragStart="handleProfileDragStart"
         @dragEnd="handleProfileDragEnd"
+        @sub-tab-selected="handleSettingsSubTabSelected"
       />
 
       <!-- 笔记本面板 -->
@@ -127,7 +129,16 @@
     </div>
 
     <!-- 状态栏（整个界面底部） -->
-    <StatusBar />
+    <StatusBar
+      :active-tab="activeTab"
+      :view-mode="viewMode"
+      :active-notebook-id="activeNotebookId"
+      :selected-tag-name="selectedTagName"
+      :settings-sub-tab="settingsSubTab"
+      :show-context-edit-dialog="showContextEditDialog"
+      :editing-context-name="editingContext?.name"
+      :quick-command-editing-status="quickCommandEditingStatus"
+    />
 
     <!-- Context Edit Dialog (新建/编辑上下文) -->
     <ContextEditDialog
@@ -234,6 +245,15 @@ const isResizingSidebar = ref(false)
 const isSidebarCollapsed = ref(false)
 const savedSidebarWidth = ref(180)
 
+// 标签面板选中的标签名称
+const selectedTagName = ref<string | null>(null)
+
+// 设置面板选中的子标签
+const settingsSubTab = ref<string | null>(null)
+
+// 快捷指令编辑状态（用于 StatusBar 显示）
+const quickCommandEditingStatus = ref<{ isCreating: boolean; name?: string } | null>(null)
+
 // 静态上下文文件
 const staticContextFiles = computed(() => {
   const ids = notebookStore.currentNotebook?.context?.staticContextIds || []
@@ -337,6 +357,21 @@ function handleSelectTab(tab: string) {
   }
   // 切换tab时重置视图模式为chat
   viewMode.value = 'chat'
+}
+
+// 标签面板选中标签处理
+function handleTagSelected(tagName: string | null) {
+  selectedTagName.value = tagName
+}
+
+// 设置面板子标签选中处理
+function handleSettingsSubTabSelected(tabId: string) {
+  settingsSubTab.value = tabId
+}
+
+// 快捷指令编辑状态处理
+function handleQuickCommandEditing(status: { isCreating: boolean; name?: string } | null) {
+  quickCommandEditingStatus.value = status
 }
 
 // 笔记本选择处理

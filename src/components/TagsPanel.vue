@@ -101,6 +101,10 @@ import { useTagStore } from '@/stores/tagStore'
 import { generateDeepLinkUrl } from '@/composables/useDeepLink'
 import type { DeepLinkData } from '@/composables/useDeepLink'
 
+const emit = defineEmits<{
+  'tag-selected': [tagName: string | null]
+}>()
+
 const router = useRouter()
 const notebookStore = useNotebookStore()
 const tagStore = useTagStore()
@@ -196,6 +200,7 @@ async function loadTaggedNodes() {
   // Auto-select first tag if available
   if (taggedNodes.value.length > 0 && !selectedTag.value) {
     selectedTag.value = taggedNodes.value[0]
+    emit('tag-selected', selectedTag.value.tagName)
   }
 
   loading.value = false
@@ -203,6 +208,7 @@ async function loadTaggedNodes() {
 
 function selectTag(tagGroup: TagGroup) {
   selectedTag.value = tagGroup
+  emit('tag-selected', tagGroup.tagName)
 }
 
 function openNodeDetail(item: TaggedNodeItem) {
