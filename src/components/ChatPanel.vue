@@ -41,6 +41,35 @@
       </div>
     </div>
 
+    <!-- 已勾选笔记引用区域 -->
+    <div
+      v-if="selectedContextNodes.length > 0"
+      class="quote-container"
+    >
+      <div class="quote-list">
+        <div
+          v-for="item in selectedContextNodes"
+          :key="item.node.id"
+          class="quote-item"
+          @click="handleQuoteItemClick(item.node.id)"
+        >
+          <!-- 图片笔记缩略图 -->
+          <div v-if="item.node.type === 'image-note'" class="quote-thumbnail">
+            <img v-if="item.node.imageBase64" :src="item.node.imageBase64" />
+            <span v-else class="thumbnail-placeholder">图</span>
+          </div>
+          <!-- PDF页面附图缩略图 -->
+          <div v-else-if="item.node.highlightRect && item.node.imageBase64" class="quote-thumbnail">
+            <img :src="item.node.imageBase64" />
+          </div>
+          <!-- 文字笔记预览 -->
+          <div v-else class="quote-text-preview">
+            {{ getPreviewText(item.node) }}
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- MagicPad 区域 -->
     <div class="magic-pad-container" :style="{ height: magicPadHeight + 'px' }">
       <!-- 调整高度手柄 -->
@@ -144,6 +173,7 @@ const emit = defineEmits<{
   'node-updated': [node: CanvasNode]
   'start-editing': [nodeId: string]
   'activate': [panelId: 'left' | 'right']
+  'quote-click': [nodeId: string]
 }>()
 
 // 处理内容区域点击激活
@@ -218,6 +248,29 @@ const effectiveNotebook = computed(() => {
   if (!id) return null
   return notebookStore.notebooks.find(nb => nb.id === id) || null
 })
+
+// 获取已勾选笔记列表（不排除当前激活节点，保持引用列表完整）
+const selectedContextNodes = computed(() => {
+  if (props.targetNotebookId) {
+    // 单笔记本视图
+    const nodes = notebookStore.getAllSelectedContextNodes()
+    return nodes.map(node => ({ node, notebookId: props.targetNotebookId! }))
+  } else {
+    // 跨笔记本视图
+    return notebookStore.getAllNotebooksSelectedContextNodesWithNotebookId()
+  }
+})
+
+// 获取预览文本（前20字）
+function getPreviewText(node: CanvasNode): string {
+  const text = node.transcript || ''
+  return text.length > 20 ? text.slice(0, 20) + '...' : text
+}
+
+// 点击引用项跳转到原笔记
+function handleQuoteItemClick(nodeId: string) {
+  emit('quote-click', nodeId)
+}
 
 // 获取当前笔记本使用的模型配置
 const currentModelConfig = computed(() => {
@@ -1349,10 +1402,78 @@ defineExpose({
   font-size: 14px;
 }
 
+/* 已勾选笔记引用区域 */
+.quote-container {
+  max-height: 300px;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-color);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.quote-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-content: flex-start;
+}
+
+.quote-item {
+  padding: 6px 10px;
+  background: var(--bg-primary);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--border-color);
+}
+
+.quote-item:hover {
+  background: var(--color-primary-light);
+  border-color: var(--color-primary);
+}
+
+.quote-thumbnail {
+  width: 28px;
+  height: 28px;
+  overflow: hidden;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-secondary);
+}
+
+.quote-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.thumbnail-placeholder {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.quote-text-preview {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
+}
+
 /* MagicPad 区域 */
 .magic-pad-container {
   position: relative;
-  border-top: 1px solid var(--border-color);
   background: var(--bg-primary);
   min-height: 180px;
 }

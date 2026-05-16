@@ -96,6 +96,7 @@
           @node-updated="handleNodeUpdatedLeft"
           @start-editing="handleStartEditingLeft"
           @activate="handleChatPanelActivate"
+          @quote-click="handleQuoteClick"
         />
 
         <!-- 中间分隔线 -->
@@ -140,6 +141,7 @@
           @node-updated="handleNodeUpdatedRight"
           @start-editing="handleStartEditingRight"
           @activate="handleChatPanelActivate"
+          @quote-click="handleQuoteClick"
         />
       </div>
     </div>
@@ -363,6 +365,13 @@ function handleNodeActivate(nodeId: string) {
   }
   // 更新全局激活节点（用于StatusBar显示）
   notebookStore.setGlobalActiveNodeId(nodeId)
+}
+
+// 点击引用项（从 ChatPanel quote-container）
+function handleQuoteClick(nodeId: string) {
+  handleNodeActivate(nodeId)
+  // 滚动到该节点
+  scrollToNode(nodeId)
 }
 
 onMounted(() => {

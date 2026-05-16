@@ -1,39 +1,41 @@
 <template>
   <div class="unified-view">
-    <!-- 左侧标签栏 -->
-    <UnifiedSidebar
-      v-show="!isSidebarCollapsed"
-      :style="{ width: sidebarWidth + 'px' }"
-      :all-notebooks="notebookStore.notebooks"
-      :active-tab="activeTab"
-      :active-notebook-id="activeNotebookId"
-      :static-context-files="contextStore.staticContextFiles"
-      :dynamic-context-files="contextStore.dynamicContextFiles"
-      @select-tab="handleSelectTab"
-      @select-notebook="handleSelectNotebook"
-      @create-notebook="handleCreateNotebook"
-      @switch-view-mode="handleSwitchViewMode"
-      @create-note="handleCreateNote"
-    />
+    <!-- 主体内容区域（侧边栏 + 主内容） -->
+    <div class="content-row">
+      <!-- 左侧标签栏 -->
+      <UnifiedSidebar
+        v-show="!isSidebarCollapsed"
+        :style="{ width: sidebarWidth + 'px' }"
+        :all-notebooks="notebookStore.notebooks"
+        :active-tab="activeTab"
+        :active-notebook-id="activeNotebookId"
+        :static-context-files="contextStore.staticContextFiles"
+        :dynamic-context-files="contextStore.dynamicContextFiles"
+        @select-tab="handleSelectTab"
+        @select-notebook="handleSelectNotebook"
+        @create-notebook="handleCreateNotebook"
+        @switch-view-mode="handleSwitchViewMode"
+        @create-note="handleCreateNote"
+      />
 
-    <!-- 可拖动分隔线 -->
-    <div
-      class="sidebar-resizer"
-      :class="{ collapsed: isSidebarCollapsed }"
-      @mousedown="startResizeSidebar"
-      @dblclick="toggleSidebar"
-    >
-      <div class="resizer-line"></div>
-      <div v-if="isSidebarCollapsed" class="collapsed-indicator">
-        <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
-          <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/>
-        </svg>
+      <!-- 可拖动分隔线 -->
+      <div
+        class="sidebar-resizer"
+        :class="{ collapsed: isSidebarCollapsed }"
+        @mousedown="startResizeSidebar"
+        @dblclick="toggleSidebar"
+      >
+        <div class="resizer-line"></div>
+        <div v-if="isSidebarCollapsed" class="collapsed-indicator">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
+            <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/>
+          </svg>
+        </div>
       </div>
-    </div>
 
-    <!-- 右侧内容区域 -->
-    <main class="main-content">
-      <!-- 上下文面板 -->
+      <!-- 右侧内容区域 -->
+      <main class="main-content">
+        <!-- 上下文面板 -->
       <ContextsPanel
         v-if="activeTab === 'contexts'"
         @newContext="handleNewContext"
@@ -121,10 +123,11 @@
         :activate-node-id="activateNodeId"
         @node-activated="handleNodeActivated"
       />
-
-      <!-- 状态栏 -->
-      <StatusBar />
     </main>
+    </div>
+
+    <!-- 状态栏（整个界面底部） -->
+    <StatusBar />
 
     <!-- Context Edit Dialog (新建/编辑上下文) -->
     <ContextEditDialog
@@ -627,7 +630,15 @@ function handleParticleNavigate(data: { notebookId: string; nodeId: string }) {
 .unified-view {
   height: 100%;
   display: flex;
+  flex-direction: column;
   background: var(--bg-secondary);
+}
+
+/* 主体内容区域（侧边栏 + 主内容） */
+.content-row {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
 }
 
 /* 侧边栏分隔线 */
@@ -682,16 +693,10 @@ function handleParticleNavigate(data: { notebookId: string; nodeId: string }) {
 /* 主内容区域样式 */
 .main-content {
   flex: 1;
-  display: flex;
-  flex-direction: column;
   overflow: hidden;
   background: var(--bg-primary);
-}
-
-/* 主内容区域内部的视图面板 */
-.main-content > :not(.status-bar) {
-  flex: 1;
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 /* 对话框样式 */

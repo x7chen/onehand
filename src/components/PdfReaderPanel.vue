@@ -86,6 +86,7 @@
         @save-edit="handleSaveEdit"
         @cancel-edit="handleCancelEdit"
         @start-editing="handleStartEditing"
+        @quote-click="handleQuoteClick"
       />
 
       <!-- 右侧分隔线（始终显示） -->
@@ -722,6 +723,17 @@ function handleNodeActivate(nodeId: string) {
   activeNodeId.value = nodeId
   // 更新全局激活节点（用于StatusBar显示）
   notebookStore.setGlobalActiveNodeId(nodeId)
+}
+
+// 点击引用项（从 ChatPanel quote-container）
+function handleQuoteClick(nodeId: string) {
+  activeNodeId.value = nodeId
+  notebookStore.setGlobalActiveNodeId(nodeId)
+  // 查找节点所在的PDF页面并跳转
+  const node = currentNotebook.value?.nodes?.find((n: CanvasNode) => n.id === nodeId)
+  if (node?.pdfPage) {
+    currentPageNumber.value = node.pdfPage
+  }
 }
 
 // 批量删除节点
