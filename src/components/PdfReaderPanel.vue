@@ -714,10 +714,14 @@ async function handleRecordingComplete(data: { audioBlob: Blob; duration: number
 
 function handleNodeClick(node: CanvasNode) {
   activeNodeId.value = node.id
+  // 更新全局激活节点（用于StatusBar显示）
+  notebookStore.setGlobalActiveNodeId(node.id)
 }
 
 function handleNodeActivate(nodeId: string) {
   activeNodeId.value = nodeId
+  // 更新全局激活节点（用于StatusBar显示）
+  notebookStore.setGlobalActiveNodeId(nodeId)
 }
 
 // 批量删除节点
@@ -737,6 +741,8 @@ async function handleBatchSelectContext(nodeIds: string[], selected: boolean) {
 
 function handleNodeCreated(node: CanvasNode) {
   activeNodeId.value = node.id
+  // 更新全局激活节点（用于StatusBar显示）
+  notebookStore.setGlobalActiveNodeId(node.id)
 }
 
 function handleStartEditing(nodeId: string) {

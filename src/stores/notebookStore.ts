@@ -114,6 +114,9 @@ export const useNotebookStore = defineStore('notebook', () => {
   const trashNotebooks = ref<TrashNotebook[]>([])
   const trashNodes = ref<TrashNodeMeta[]>([])
 
+  // 全局激活节点ID（用于StatusBar显示）
+  const globalActiveNodeId = ref<string | null>(null)
+
   // 节点 ID 到笔记本的映射缓存（用于批量操作时快速查找）
   let nodeToNotebookMap: Map<string, Notebook> | null = null
 
@@ -882,6 +885,34 @@ export const useNotebookStore = defineStore('notebook', () => {
     removeNode(nodeId)
   }
 
+  // 获取全局激活节点
+  const globalActiveNode = computed(() => {
+    if (!globalActiveNodeId.value) return null
+    const map = getNodeToNotebookMap()
+    const notebook = map.get(globalActiveNodeId.value)
+    if (!notebook?.nodes) return null
+    return notebook.nodes.find(n => n.id === globalActiveNodeId.value) || null
+  })
+
+  // 获取全局激活节点所属笔记本
+  const globalActiveNodeNotebook = computed(() => {
+    if (!globalActiveNodeId.value) return null
+    const map = getNodeToNotebookMap()
+    return map.get(globalActiveNodeId.value) || null
+  })
+
+  // 设置全局激活节点
+  function setGlobalActiveNodeId(nodeId: string | null) {
+    globalActiveNodeId.value = nodeId
+  }
+
+  // 获取节点所属笔记本ID
+  function getNotebookIdByNodeId(nodeId: string): string | null {
+    const map = getNodeToNotebookMap()
+    const notebook = map.get(nodeId)
+    return notebook?.id || null
+  }
+
   // 获取已选中作为上下文的节点
   function getAllSelectedContextNodes(excludeNodeId?: string): CanvasNode[] {
     if (!currentNotebook.value?.nodes) return []
@@ -967,6 +998,11 @@ export const useNotebookStore = defineStore('notebook', () => {
     trashNotebooks,
     trashNodes,
     viewport,
+    globalActiveNodeId,
+    globalActiveNode,
+    globalActiveNodeNotebook,
+    setGlobalActiveNodeId,
+    getNotebookIdByNodeId,
     loadNotebooks,
     createNotebook,
     saveNotebook,

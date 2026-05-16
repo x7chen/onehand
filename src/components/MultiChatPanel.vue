@@ -361,6 +361,8 @@ function handleNodeActivate(nodeId: string) {
   } else {
     activeNodeIdRight.value = nodeId
   }
+  // 更新全局激活节点（用于StatusBar显示）
+  notebookStore.setGlobalActiveNodeId(nodeId)
 }
 
 onMounted(() => {
@@ -552,10 +554,14 @@ function toggleRightChatPanel() {
 // ChatPanel 创建节点
 function handleNodeCreatedLeft(node: CanvasNode) {
   activeNodeIdLeft.value = node.id
+  // 更新全局激活节点（用于StatusBar显示）
+  notebookStore.setGlobalActiveNodeId(node.id)
 }
 
 function handleNodeCreatedRight(node: CanvasNode) {
   activeNodeIdRight.value = node.id
+  // 更新全局激活节点（用于StatusBar显示）
+  notebookStore.setGlobalActiveNodeId(node.id)
 }
 
 // ChatPanel 更新节点

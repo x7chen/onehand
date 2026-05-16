@@ -227,6 +227,8 @@ onUnmounted(() => {
 function handleNodeActivate(nodeId: string) {
   activeNodeId.value = nodeId
   canvasAreaRef.value?.setActiveNodeId(nodeId)
+  // 更新全局激活节点（用于StatusBar显示）
+  notebookStore.setGlobalActiveNodeId(nodeId)
 }
 
 // 切换上下文选择

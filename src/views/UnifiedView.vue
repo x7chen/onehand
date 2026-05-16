@@ -121,6 +121,9 @@
         :activate-node-id="activateNodeId"
         @node-activated="handleNodeActivated"
       />
+
+      <!-- 状态栏 -->
+      <StatusBar />
     </main>
 
     <!-- Context Edit Dialog (新建/编辑上下文) -->
@@ -178,6 +181,7 @@ import PdfReaderPanel from '@/components/PdfReaderPanel.vue'
 import CanvasViewPanel from '@/components/CanvasViewPanel.vue'
 import ParticleViewPanel from '@/components/ParticleViewPanel.vue'
 import ContextEditDialog from '@/components/ContextEditDialog.vue'
+import StatusBar from '@/components/StatusBar.vue'
 import type { ContextFile, ContextType } from '@/types/context'
 import { CONTEXT_COLORS, type ContextColor } from '@/types/context'
 import type { QuickCommand } from '@/types/quickCommand'
@@ -678,8 +682,16 @@ function handleParticleNavigate(data: { notebookId: string; nodeId: string }) {
 /* 主内容区域样式 */
 .main-content {
   flex: 1;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   background: var(--bg-primary);
+}
+
+/* 主内容区域内部的视图面板 */
+.main-content > :not(.status-bar) {
+  flex: 1;
+  overflow: hidden;
 }
 
 /* 对话框样式 */
