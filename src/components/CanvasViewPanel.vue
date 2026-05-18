@@ -6,12 +6,7 @@
       :all-static-context-files="allStaticContextFiles"
       :all-dynamic-context-files="allDynamicContextFiles"
       :dynamic-context-file="dynamicContextFile || undefined"
-      v-model:global-hide-ai-result="globalHideAiResult"
-      v-model:ai-answer-enabled="aiAnswerEnabled"
-      v-model:auto-select-new-note="autoSelectNewNote"
-      :notebook-model-id="currentNotebook?.modelId"
-      :all-profiles="allProfiles"
-      :active-profile-id="activeProfileId"
+      :global-hide-ai-result="globalHideAiResult"
       :show-viewport-controls="true"
       :hide-navigation="true"
       @reset-viewport="handleResetViewport"
@@ -20,7 +15,7 @@
       @toggle-static-context="handleToggleStaticContext"
       @select-dynamic-context="handleSelectDynamicContext"
       @dynamic-context-drop="handleDynamicContextDrop"
-      @select-model="handleSelectModel"
+      @update:global-hide-ai-result="globalHideAiResult = $event"
     />
 
     <!-- 主内容区域 -->
@@ -57,8 +52,8 @@
         ref="canvasAreaRef"
         class="right-panel"
         :global-hide-ai-result="globalHideAiResult"
-        :ai-answer-enabled="aiAnswerEnabled"
-        :auto-select-new-note="autoSelectNewNote"
+        :ai-answer-enabled="props.aiAnswerEnabled ?? true"
+        :auto-select-new-note="props.autoSelectNewNote ?? false"
         :static-context-files="staticContextFiles"
         :dynamic-context-file="dynamicContextFile || undefined"
         :notebook-model-id="currentNotebook?.modelId"
@@ -106,7 +101,6 @@ import CanvasArea from '@/components/CanvasArea.vue'
 import NodeListPanel from '@/components/NodeListPanel.vue'
 import type { ContextFile } from '@/types/context'
 import type { Notebook } from '@/types/notebook'
-import type { LLMProfile } from '@/types/settings'
 
 const props = defineProps<{
   notebookId: string | null
@@ -114,15 +108,14 @@ const props = defineProps<{
   allStaticContextFiles: ContextFile[]
   allDynamicContextFiles: ContextFile[]
   dynamicContextFile?: ContextFile | null
-  allProfiles: LLMProfile[]
-  activeProfileId: string
+  aiAnswerEnabled?: boolean
+  autoSelectNewNote?: boolean
 }>()
 
 const emit = defineEmits<{
   'toggle-static-context': [contextId: string]
   'select-dynamic-context': [contextId: string]
   'dynamic-context-drop': [text: string]
-  'select-model': [modelId: string]
 }>()
 
 const { t } = useI18n()
@@ -136,12 +129,6 @@ const nodeListPanelRef = ref<InstanceType<typeof NodeListPanel> | null>(null)
 
 // 全局 AI 回答隐藏状态
 const globalHideAiResult = ref(false)
-
-// AI 回答开关状态（从设置中读取默认值）
-const aiAnswerEnabled = ref(settingsStore.settings.general.autoAiAnswer ?? true)
-
-// 自动勾选新笔记开关
-const autoSelectNewNote = ref(false)
 
 // 动态上下文编辑器
 const showDynamicContextEditor = ref(false)
@@ -300,10 +287,6 @@ function handleSelectDynamicContext(contextId: string) {
 
 function handleDynamicContextDrop(text: string) {
   emit('dynamic-context-drop', text)
-}
-
-function handleSelectModel(modelId: string) {
-  emit('select-model', modelId)
 }
 
 // 折叠/展开左侧 NodeListPanel

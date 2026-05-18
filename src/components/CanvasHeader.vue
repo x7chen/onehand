@@ -46,35 +46,6 @@
       </div>
       <span v-else class="context-placeholder">{{ t('context.selectStaticContext') }}</span>
     </div>
-
-    <!-- 模型选择器 -->
-    <div
-      ref="modelSelectorRef"
-      class="model-selector"
-      @click="toggleModelSelector"
-      :class="{ 'active': showModelSelector }"
-      :title="currentModel ? t('canvas.currentModel', { name: currentModel.name }) : t('canvas.selectModel')"
-    >
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" class="model-icon">
-        <circle cx="12" cy="12" r="2"/>
-        <ellipse cx="12" cy="12" rx="9" ry="4" fill="none" stroke="currentColor" stroke-width="1.5"/>
-        <ellipse cx="12" cy="12" rx="9" ry="4" fill="none" stroke="currentColor" stroke-width="1.5" transform="rotate(60 12 12)"/>
-        <ellipse cx="12" cy="12" rx="9" ry="4" fill="none" stroke="currentColor" stroke-width="1.5" transform="rotate(-60 12 12)"/>
-      </svg>
-      <div v-if="showModelSelector" class="model-dropdown">
-        <span
-          v-for="profile in allProfiles"
-          :key="profile.id"
-          class="model-option"
-          :class="{ selected: currentModel?.id === profile.id }"
-          @click.stop="selectModel(profile.id)"
-        >
-          {{ profile.name || t('settings.defaultModel') }}
-        </span>
-        <span v-if="allProfiles.length === 0" class="no-models-hint">{{ t('canvas.noModelConfig') }}</span>
-      </div>
-      <span v-else class="model-name">{{ currentModel ? (currentModel.name || t('settings.defaultModel')) : t('canvas.selectModel') }}</span>
-      </div>
     </div>
 
     <!-- 以下元素在宽度不足时隐藏 -->
@@ -127,29 +98,6 @@
           <path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"/>
         </svg>
       </button>
-
-      <!-- AI 回答开关 -->
-      <button
-        @click="$emit('update:aiAnswerEnabled', !aiAnswerEnabled)"
-        class="ai-answer-toggle-btn"
-        :class="{ active: aiAnswerEnabled }"
-        :title="aiAnswerEnabled ? t('canvas.disableAiAnswer') : t('canvas.enableAiAnswer')"
-      >
-        <span class="ai-icon-text">AI</span>
-      </button>
-
-      <!-- 自动勾选新笔记开关 -->
-      <div
-        class="auto-select-wrapper"
-        :title="autoSelectNewNote ? t('canvas.autoSelectNewNoteOff') : t('canvas.autoSelectNewNoteOn')"
-      >
-        <input
-          type="checkbox"
-          :checked="autoSelectNewNote"
-          @change="$emit('update:autoSelectNewNote', !autoSelectNewNote)"
-          @click.stop
-        />
-      </div>
 
       <!-- 动态上下文显示（右侧） -->
       <div
@@ -223,11 +171,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import CreateNotebookDialog from '@/components/CreateNotebookDialog.vue'
 import type { ContextFile } from '@/types/context'
-import type { LLMProfile } from '@/types/settings'
 
 const { t } = useI18n()
 
@@ -237,20 +184,11 @@ const props = withDefaults(defineProps<{
   allDynamicContextFiles: ContextFile[]
   dynamicContextFile?: ContextFile
   globalHideAiResult: boolean
-  aiAnswerEnabled: boolean
-  autoSelectNewNote: boolean
   showViewportControls?: boolean
-  notebookModelId?: string
-  allProfiles: LLMProfile[]
-  activeProfileId: string
   hideNavigation?: boolean
 }>(), {
   showViewportControls: true,
-  notebookModelId: undefined,
-  allProfiles: () => [],
-  activeProfileId: '',
-  hideNavigation: false,
-  autoSelectNewNote: false
+  hideNavigation: false
 })
 
 const emit = defineEmits<{
@@ -258,13 +196,10 @@ const emit = defineEmits<{
   'reset-viewport': []
   'auto-layout': []
   'update:globalHideAiResult': [value: boolean]
-  'update:aiAnswerEnabled': [value: boolean]
-  'update:autoSelectNewNote': [value: boolean]
   'open-dynamic-context-editor': []
   'toggle-static-context': [contextId: string]
   'select-dynamic-context': [contextId: string]
   'dynamic-context-drop': [text: string]
-  'select-model': [modelId: string]
   'create-notebook': [data: {
     name: string
     pdfPath?: string
@@ -283,16 +218,6 @@ const staticContextDisplayRef = ref<HTMLElement | null>(null)
 // 动态上下文选择器状态
 const showDynamicContextSelector = ref(false)
 const dynamicContextDisplayRef = ref<HTMLElement | null>(null)
-
-// 模型选择器状态
-const showModelSelector = ref(false)
-const modelSelectorRef = ref<HTMLElement | null>(null)
-
-// 获取当前笔记本使用的模型（如果没有指定则使用全局默认）
-const currentModel = computed(() => {
-  const modelId = props.notebookModelId || props.activeProfileId
-  return props.allProfiles.find(p => p.id === modelId)
-})
 
 // Header 宽度检测
 const headerRef = ref<HTMLElement | null>(null)
@@ -320,22 +245,7 @@ function toggleDynamicContextSelector() {
   // 关闭其他选择器
   if (showDynamicContextSelector.value) {
     showStaticContextSelector.value = false
-    showModelSelector.value = false
   }
-}
-
-function toggleModelSelector() {
-  showModelSelector.value = !showModelSelector.value
-  // 关闭其他选择器
-  if (showModelSelector.value) {
-    showStaticContextSelector.value = false
-    showDynamicContextSelector.value = false
-  }
-}
-
-function selectModel(profileId: string) {
-  emit('select-model', profileId)
-  showModelSelector.value = false
 }
 
 function handleClickOutside(e: MouseEvent) {
@@ -348,11 +258,6 @@ function handleClickOutside(e: MouseEvent) {
       dynamicContextDisplayRef.value &&
       !dynamicContextDisplayRef.value.contains(e.target as Node)) {
     showDynamicContextSelector.value = false
-  }
-  if (showModelSelector.value &&
-      modelSelectorRef.value &&
-      !modelSelectorRef.value.contains(e.target as Node)) {
-    showModelSelector.value = false
   }
 }
 
@@ -513,56 +418,6 @@ onUnmounted(() => {
 .global-hide-ai-btn.active {
   background: var(--color-info-light);
   color: var(--color-info);
-}
-
-/* AI 回答开关按钮 */
-.ai-answer-toggle-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: none;
-  border-radius: 6px;
-  background: var(--bg-secondary);
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.ai-answer-toggle-btn .ai-icon-text {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--text-secondary);
-  transition: color 0.2s;
-}
-
-.ai-answer-toggle-btn:hover {
-  background: var(--border-color);
-}
-
-.ai-answer-toggle-btn.active {
-  background: var(--color-primary);
-}
-
-.ai-answer-toggle-btn.active .ai-icon-text {
-  color: white !important;
-}
-
-/* 自动勾选新笔记开关 */
-.auto-select-wrapper {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  background: var(--bg-secondary);
-  padding: 6px;
-}
-
-.auto-select-wrapper input[type="checkbox"] {
-  width: 14px;
-  height: 14px;
-  cursor: pointer;
-  accent-color: var(--color-primary);
 }
 
 /* 左侧组件容器 */
@@ -754,85 +609,5 @@ onUnmounted(() => {
   font-size: 11px;
   color: var(--text-secondary);
   margin-left: 4px;
-}
-
-/* 模型选择器 */
-.model-selector {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  background: var(--bg-secondary);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background 0.2s;
-  min-width: 80px;
-  max-width: 150px;
-}
-
-.model-selector:hover {
-  background: var(--border-color);
-}
-
-.model-selector.active {
-  background: var(--border-color);
-}
-
-.model-icon {
-  flex-shrink: 0;
-  color: var(--color-primary);
-}
-
-.model-name {
-  font-size: 13px;
-  color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100px;
-}
-
-.model-dropdown {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  margin-top: 4px;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  padding: 4px;
-  min-width: 120px;
-  z-index: 200;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.model-option {
-  display: block;
-  padding: 6px 12px;
-  font-size: 13px;
-  color: var(--text-primary);
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.model-option:hover {
-  background: var(--bg-secondary);
-}
-
-.model-option.selected {
-  background: var(--color-primary)20;
-  color: var(--color-primary);
-  font-weight: 500;
-}
-
-.no-models-hint {
-  font-size: 12px;
-  color: var(--text-secondary);
-  font-style: italic;
-  padding: 6px 12px;
 }
 </style>

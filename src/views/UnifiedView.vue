@@ -92,12 +92,11 @@
             :all-static-context-files="contextStore.staticContextFiles"
             :all-dynamic-context-files="contextStore.dynamicContextFiles"
             :dynamic-context-file="dynamicContextFile || null"
-            :all-profiles="settingsStore.settings.llm.profiles"
-            :active-profile-id="settingsStore.settings.llm.activeProfileId"
+            :ai-answer-enabled="aiAnswerEnabled"
+            :auto-select-new-note="autoSelectNewNote"
             @toggle-static-context="toggleStaticContext"
             @select-dynamic-context="selectDynamicContext"
             @dynamic-context-drop="handleDynamicContextDrop"
-            @select-model="handleSelectModel"
           />
 
           <!-- 粒子视图面板 -->
@@ -169,6 +168,13 @@
       :show-context-edit-dialog="showContextEditDialog"
       :editing-context-name="editingContext?.name"
       :quick-command-editing-status="quickCommandEditingStatus"
+      :ai-answer-enabled="aiAnswerEnabled"
+      :auto-select-new-note="autoSelectNewNote"
+      :all-profiles="settingsStore.settings.llm.profiles"
+      :active-profile-id="settingsStore.settings.llm.activeProfileId"
+      @update:ai-answer-enabled="aiAnswerEnabled = $event"
+      @update:auto-select-new-note="autoSelectNewNote = $event"
+      @select-model="handleSelectModel"
     />
 
     <!-- Context Edit Dialog (新建/编辑上下文) -->
@@ -309,6 +315,12 @@ const trashTab = ref<'notes' | 'notebooks' | 'contexts' | 'quickCommands'>('note
 
 // 快捷指令编辑状态（用于 StatusBar 显示）
 const quickCommandEditingStatus = ref<{ isCreating: boolean; name?: string } | null>(null)
+
+// AI 回答开关状态（从设置中读取默认值）
+const aiAnswerEnabled = ref(settingsStore.settings.general.autoAiAnswer ?? true)
+
+// 自动勾选新笔记开关
+const autoSelectNewNote = ref(false)
 
 // 静态上下文文件
 const staticContextFiles = computed(() => {
