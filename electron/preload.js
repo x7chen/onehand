@@ -1,6 +1,17 @@
 const { contextBridge, ipcRenderer } = require('electron')
 
+// 平台信息 - 供渲染进程使用
+const platformInfo = {
+  isWindows: process.platform === 'win32',
+  isMacOS: process.platform === 'darwin',
+  isLinux: process.platform === 'linux',
+  platform: process.platform
+}
+
 contextBridge.exposeInMainWorld('electronAPI', {
+  // 平台信息
+  platform: platformInfo,
+
   saveFile: (filePath, data) => ipcRenderer.invoke('save-file', filePath, data),
   saveFileBuffer: (filePath, data) => ipcRenderer.invoke('save-file-buffer', filePath, data),
   readFile: (filePath, encoding = 'utf-8') => ipcRenderer.invoke('read-file', filePath, encoding),

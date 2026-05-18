@@ -143,7 +143,13 @@ function createWindow() {
   // Default to dark mode background
   const backgroundColor = '#2d2d2d'
 
-  mainWindow = new BrowserWindow({
+  // 标题栏策略：
+  // macOS: 保持原生标题栏，红绿灯按钮由系统提供
+  // Windows/Linux: 无边框窗口，使用自定义标题栏 + Window Controls Overlay (WCO)
+  const isCustomTitlebar = process.platform !== 'darwin'
+
+  // 窗口配置
+  const windowOptions = {
     width: 1400,
     height: 900,
     minWidth: 500,
@@ -154,11 +160,24 @@ function createWindow() {
       contextIsolation: true,
       webSecurity: true
     },
-    frame: process.platform !== 'win32', // Windows无边框，macOS保持原生frame
+    frame: !isCustomTitlebar, // macOS 有原生frame，Windows/Linux 无边框
     backgroundColor: backgroundColor,
     show: false, // Don't show until ready
     paintWhenInitiallyHidden: true
-  })
+  }
+
+  // Windows/Linux: 使用 titleBarStyle: 'hidden' + titleBarOverlay 启用 WCO
+  // 这样可以显示系统的 Snap Layout 选择器（悬停最大化按钮时的桌面布局选择）
+  if (isCustomTitlebar) {
+    windowOptions.titleBarStyle = 'hidden'
+    windowOptions.titleBarOverlay = {
+      height: 32,  // 标题栏高度
+      color: backgroundColor,  // 标题栏背景色
+      symbolColor: '#e0e0e0'  // 控制按钮颜色（深色背景用浅色图标）
+    }
+  }
+
+  mainWindow = new BrowserWindow(windowOptions)
 
   // In development, load from Vite dev server
   // In production, load from built files

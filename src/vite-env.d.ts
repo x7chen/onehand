@@ -30,7 +30,17 @@ interface NotebookNodeData {
   text: string
 }
 
+/** 平台信息 */
+interface PlatformInfo {
+  isWindows: boolean
+  isMacOS: boolean
+  isLinux: boolean
+  platform: 'win32' | 'darwin' | 'linux'
+}
+
 interface ElectronAPI {
+  // 平台信息
+  platform: PlatformInfo
   saveFile: (filePath: string, data: string) => Promise<{ success: boolean; error?: string }>
   saveFileBuffer: (filePath: string, data: ArrayBuffer) => Promise<{ success: boolean; error?: string }>
   readFile: (filePath: string, encoding?: string) => Promise<{ success: boolean; data?: string | ArrayBuffer; error?: string }>
