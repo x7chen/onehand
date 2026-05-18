@@ -5,18 +5,27 @@
       <img :src="iconPath" class="app-icon" alt="OneHand" />
     </div>
 
-    <!-- 中间：拖拽区域 -->
-    <div class="title-bar-drag" @dblclick="handleDoubleClick"></div>
+    <!-- 中间：搜索输入框（功能待定） -->
+    <div class="title-bar-center">
+      <!-- 下拉激活时隐藏标题栏中的输入框 -->
+      <div v-if="!dropdownStore.showDropdown" class="center-input-wrapper">
+        <input
+          ref="centerInputRef"
+          v-model="centerInputText"
+          class="center-input"
+          type="text"
+          :placeholder="centerPlaceholder"
+          @focus="handleInputFocus"
+          @blur="handleInputBlur"
+          @keydown.escape="handleInputEscape"
+        />
+      </div>
+      <!-- 下拉激活时显示占位区域，保持布局稳定 -->
+      <div v-else class="center-input-placeholder"></div>
+    </div>
 
-    <!-- 右侧功能区：搜索 + 主题 + 窗口控制 -->
+    <!-- 右侧功能区：主题 + 窗口控制 -->
     <div class="title-bar-actions">
-      <!-- 搜索按钮 -->
-      <button class="title-bar-btn search-btn" @click="handleSearch" :title="t('common.search')">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-          <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
-        </svg>
-      </button>
-
       <!-- 主题切换按钮 -->
       <button class="title-bar-btn theme-btn" @click="cycleTheme" :title="t('theme.currentTheme', { name: getThemeLabel() })">
         <svg v-if="getThemeIcon() === 'moon'" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
@@ -76,19 +85,58 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { useDropdownStore } from '@/stores/dropdownStore'
 import SearchDialog from '@/components/SearchDialog.vue'
+
+const props = defineProps<{
+  centerPlaceholder?: string
+}>()
+
+const emit = defineEmits<{
+  'input-focus': []
+  'input-blur': []
+  'input-escape': []
+}>()
 
 const { t } = useI18n()
 const settingsStore = useSettingsStore()
+const dropdownStore = useDropdownStore()
 
 const isMaximized = ref(false)
 const iconPath = ref('')
 const isInactive = ref(false)
 const isWCOEnabled = ref(false)
 const showSearchDialog = ref(false)
+const centerInputRef = ref<HTMLInputElement | null>(null)
+const centerInputText = ref('')
+
+// 输入框 placeholder - 根据下拉状态动态变化
+const centerPlaceholder = computed(() => {
+  // 如果下拉框激活，显示下拉类型的标题
+  if (dropdownStore.showDropdown && dropdownStore.dropdownType) {
+    return dropdownStore.getPlaceholder(t)
+  }
+  // 否则显示默认的搜索placeholder
+  return props.centerPlaceholder || t('common.search')
+})
+
+// 监听输入框文本变化，更新dropdownStore的filterText
+watch(centerInputText, (text) => {
+  if (dropdownStore.showDropdown) {
+    dropdownStore.updateFilterText(text)
+  }
+})
+
+// 监听下拉框状态，清空输入框
+watch(() => dropdownStore.showDropdown, (show) => {
+  if (!show) {
+    // 下拉框关闭时清空输入框
+    centerInputText.value = ''
+  }
+})
 
 // 判断是否为浅色主题
 const isLight = computed(() => {
@@ -196,6 +244,29 @@ function handleSearch() {
   showSearchDialog.value = true
 }
 
+// 中间输入框事件
+function handleInputFocus() {
+  emit('input-focus')
+  // 当下拉框激活时，保持焦点
+}
+
+function handleInputBlur() {
+  emit('input-blur')
+  // 下拉框关闭时清空输入
+  if (!dropdownStore.showDropdown) {
+    centerInputText.value = ''
+  }
+}
+
+function handleInputEscape() {
+  emit('input-escape')
+  // ESC键关闭下拉框
+  if (dropdownStore.showDropdown) {
+    dropdownStore.closeDropdown()
+    centerInputText.value = ''
+  }
+}
+
 // 主题切换
 async function cycleTheme() {
   const currentIndex = themeOrder.indexOf(currentTheme.value)
@@ -293,14 +364,55 @@ function getThemeLabel() {
   object-fit: contain;
 }
 
-/* 窗口拖拽区域 */
-.title-bar-drag {
-  flex: 1;
+/* 中间输入框区域 - 严格居中 */
+.title-bar-center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
   height: 100%;
   -webkit-app-region: drag;
 }
 
-/* 右侧功能区（搜索 + 主题按钮） */
+.center-input-wrapper {
+  width: 560px;
+  max-width: calc(100vw - 200px);
+  -webkit-app-region: no-drag;
+}
+
+.center-input {
+  width: 100%;
+  height: 24px;
+  padding: 0 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s, background 0.2s;
+  cursor: text;
+}
+
+.center-input:focus {
+  border-color: var(--color-primary);
+  background: var(--bg-secondary);
+}
+
+.center-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* 下拉激活时的占位区域 */
+.center-input-placeholder {
+  width: 600px;
+  max-width: calc(100vw - 200px);
+  height: 24px;
+}
+
+/* 右侧功能区（主题按钮） */
 .title-bar-actions {
   display: flex;
   align-items: center;

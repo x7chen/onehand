@@ -136,16 +136,24 @@
     </template>
   </div>
 
-  <!-- 下拉选项框 - 通过 Teleport 定位到标题栏中心 -->
+  <!-- 下拉选项框 - 通过 Teleport 定位到标题栏下方，输入框作为下拉框的一部分 -->
   <Teleport to="body">
     <div v-if="showDropdown" class="status-dropdown-overlay" @click="closeDropdown">
       <div class="status-dropdown" :style="dropdownStyle" @click.stop>
-        <div class="dropdown-title">{{ dropdownTitle }}</div>
+        <!-- 输入框作为下拉框的顶部 -->
+        <input
+          ref="dropdownInputRef"
+          v-model="dropdownStore.filterText"
+          class="dropdown-input"
+          type="text"
+          :placeholder="getDropdownPlaceholder()"
+          @keydown.escape="closeDropdown"
+        />
         <div class="dropdown-options">
           <!-- 模型选择下拉 -->
           <template v-if="dropdownType === 'model'">
             <div
-              v-for="profile in allProfiles"
+              v-for="profile in filteredProfiles"
               :key="profile.id"
               class="dropdown-option"
               :class="{ selected: activeProfileId === profile.id }"
@@ -154,7 +162,7 @@
               <span class="option-check" v-if="activeProfileId === profile.id">✓</span>
               <span class="option-label">{{ profile.name || t('statusBar.defaultModel') }}</span>
             </div>
-            <div v-if="allProfiles.length === 0" class="dropdown-option disabled">
+            <div v-if="filteredProfiles.length === 0" class="dropdown-option disabled">
               <span class="option-label">{{ t('statusBar.noModelConfig') }}</span>
             </div>
           </template>
@@ -184,9 +192,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, nextTick, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useNotebookStore } from '@/stores/notebookStore'
+import { useDropdownStore } from '@/stores/dropdownStore'
 import type { LLMProfile } from '@/types/settings'
 
 const props = defineProps<{
@@ -212,29 +221,32 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const notebookStore = useNotebookStore()
+const dropdownStore = useDropdownStore()
 
 const activeNode = computed(() => notebookStore.globalActiveNode)
 
-// 下拉选项状态
-const showDropdown = ref(false)
-const dropdownType = ref<'ai' | 'autoSelect' | 'model'>('ai')
+// 使用 dropdownStore 的状态
+const showDropdown = computed(() => dropdownStore.showDropdown && dropdownStore.dropdownType)
+const dropdownType = computed(() => dropdownStore.dropdownType)
+
+// 下拉输入框引用
+const dropdownInputRef = ref<HTMLInputElement | null>(null)
+
+// 下拉框样式 - 紧贴标题栏底部
 const dropdownStyle = ref<{ top: string; left: string }>({ top: '0px', left: '0px' })
 
 const allProfiles = computed(() => props.allProfiles || [])
 
+const filteredProfiles = computed(() => {
+  const profiles = allProfiles.value
+  const filter = dropdownStore.filterText.toLowerCase().trim()
+  if (!filter) return profiles
+  return profiles.filter(p => (p.name || '').toLowerCase().includes(filter))
+})
+
 const currentModelName = computed(() => {
   const profile = allProfiles.value.find(p => p.id === props.activeProfileId)
   return profile?.name || t('statusBar.defaultModel')
-})
-
-const dropdownTitle = computed(() => {
-  if (dropdownType.value === 'ai') {
-    return t('statusBar.aiAnswer')
-  }
-  if (dropdownType.value === 'model') {
-    return t('statusBar.currentModel')
-  }
-  return t('statusBar.autoSelect')
 })
 
 const dropdownValue = computed(() => {
@@ -320,31 +332,51 @@ function formatDate(timestamp: number): string {
   return `${year}-${month}-${day} ${hours}:${minutes}`
 }
 
+// 获取下拉框输入框的 placeholder
+function getDropdownPlaceholder(): string {
+  switch (dropdownType.value) {
+    case 'model':
+      return t('statusBar.currentModel')
+    case 'ai':
+      return t('statusBar.aiAnswer')
+    case 'autoSelect':
+      return t('statusBar.autoSelect')
+    default:
+      return t('common.search')
+  }
+}
+
+// 监听下拉框打开，自动聚焦输入框
+watch(showDropdown, (show) => {
+  if (show) {
+    nextTick(() => {
+      dropdownInputRef.value?.focus()
+    })
+  }
+})
+
 function toggleModelDropdown() {
-  dropdownType.value = 'model'
-  showDropdown.value = true
+  dropdownStore.openDropdown('model')
   calculateDropdownPosition()
 }
 
 function toggleAiDropdown() {
-  dropdownType.value = 'ai'
-  showDropdown.value = true
+  dropdownStore.openDropdown('ai')
   calculateDropdownPosition()
 }
 
 function toggleAutoSelectDropdown() {
-  dropdownType.value = 'autoSelect'
-  showDropdown.value = true
+  dropdownStore.openDropdown('autoSelect')
   calculateDropdownPosition()
 }
 
 function calculateDropdownPosition() {
-  // 定位在标题栏中心位置（标题栏高度 32px）
+  // 定位在标题栏下方（下拉框紧贴标题栏）
   const windowWidth = window.innerWidth
   const dropdownWidth = 600
   const left = windowWidth / 2 - dropdownWidth / 2
   dropdownStyle.value = {
-    top: '32px',
+    top: '0px', // 标题栏底部
     left: `${left}px`
   }
 }
@@ -364,7 +396,7 @@ function selectOption(value: boolean) {
 }
 
 function closeDropdown() {
-  showDropdown.value = false
+  dropdownStore.closeDropdown()
 }
 </script>
 
@@ -476,7 +508,7 @@ function closeDropdown() {
   flex-shrink: 0;
 }
 
-/* 下拉选项框 */
+/* 下拉选项框 - 紧贴标题栏底部，输入框作为顶部 */
 .status-dropdown-overlay {
   position: fixed;
   top: 0;
@@ -497,12 +529,29 @@ function closeDropdown() {
   box-shadow: 0 4px 16px var(--shadow-color);
 }
 
-.dropdown-title {
-  font-size: 13px;
-  font-weight: 600;
+/* 下拉框中的输入框 - 与标题栏输入框样式一致 */
+.dropdown-input {
+  width: 100%;
+  height: 24px;
+  padding: 0 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-primary);
   color: var(--text-primary);
-  padding: 4px 8px;
-  margin-bottom: 4px;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s, background 0.2s;
+  box-sizing: border-box;
+  margin-bottom: 8px;
+}
+
+.dropdown-input:focus {
+  border-color: var(--color-primary);
+  background: var(--bg-secondary);
+}
+
+.dropdown-input::placeholder {
+  color: var(--text-tertiary);
 }
 
 .dropdown-options {
