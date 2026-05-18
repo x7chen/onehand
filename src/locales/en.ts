@@ -212,6 +212,15 @@ export default {
     minutesAgo: '{count} minutes ago',
     hoursAgo: '{count} hours ago',
     daysAgo: '{count} days ago',
+    // Context menu
+    openCanvas: 'Canvas View',
+    openParticle: 'Particle View',
+    pin: 'Pin',
+    unpin: 'Unpin',
+    unpinAll: 'Unpin All',
+    rename: 'Rename',
+    delete: 'Delete',
+    deleteConfirm: 'Are you sure you want to delete notebook "{name}"?',
   },
   context: {
     static: 'Static Context',

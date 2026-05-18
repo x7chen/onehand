@@ -1,11 +1,37 @@
 <template>
   <div class="title-bar" :class="{ maximized: isMaximized, inactive: isInactive, light: isLight, 'wco-enabled': isWCOEnabled }">
-    <!-- 窗口拖拽区域 -->
-    <div class="title-bar-drag" @dblclick="handleDoubleClick">
+    <!-- 左侧：应用图标 -->
+    <div class="title-bar-left">
       <img :src="iconPath" class="app-icon" alt="OneHand" />
     </div>
-    <!-- 窗口控制按钮容器 - 仅在 WCO 未启用时显示自定义按钮 -->
-    <!-- 当 WCO 启用时，系统会自动绘制控制按钮，包括 Snap Layout 选择器 -->
+
+    <!-- 中间：拖拽区域 -->
+    <div class="title-bar-drag" @dblclick="handleDoubleClick"></div>
+
+    <!-- 右侧功能区：搜索 + 主题 + 窗口控制 -->
+    <div class="title-bar-actions">
+      <!-- 搜索按钮 -->
+      <button class="title-bar-btn search-btn" @click="handleSearch" :title="t('common.search')">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+          <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+        </svg>
+      </button>
+
+      <!-- 主题切换按钮 -->
+      <button class="title-bar-btn theme-btn" @click="cycleTheme" :title="t('theme.currentTheme', { name: getThemeLabel() })">
+        <svg v-if="getThemeIcon() === 'moon'" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+          <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-3.03 0-5.5-2.47-5.5-5.5 0-1.82.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/>
+        </svg>
+        <svg v-else-if="getThemeIcon() === 'sun'" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+          <path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0 .39-.39.39-1.03 0-1.41l-1.06-1.06zm1.06-10.96c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41.39.39 1.03.39 1.41 0l1.06-1.06zM7.05 18.36c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41.39.39 1.03.39 1.41 0l1.06-1.06z"/>
+        </svg>
+        <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+          <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zm-7-2h2v-4h4v-2h-4V7h-2v4H8v2h4v4z"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- 窗口控制按钮容器 -->
     <div v-if="!isWCOEnabled" class="window-controls-container">
       <!-- 最小化按钮 -->
       <button class="window-icon window-minimize" @click="minimize" :title="t('common.minimize')">
@@ -23,7 +49,7 @@
         <svg v-if="!isMaximized" viewBox="0 0 16 16" width="16" height="16" fill="currentColor">
           <path d="M3 3v10h10V3H3zm1 1h8v8H4V4z"/>
         </svg>
-        <!-- 恢复图标 - 两个叠加的窗口 -->
+        <!-- 恢复图标 -->
         <svg v-else viewBox="0 0 16 16" width="16" height="16" fill="currentColor">
           <path d="M5 5v10h10V5H5zm1 1h8v8H6V6z"/>
           <path d="M3 3v10h2V5h8V3H3z" fill="var(--bg-secondary)"/>
@@ -37,10 +63,15 @@
         </svg>
       </button>
     </div>
+
     <!-- WCO 启用时：预留系统控制按钮的空间 -->
     <div v-else class="window-controls-container wco-placeholder"></div>
+
     <!-- 窗口调整大小区域（仅未最大化时显示） -->
     <div v-if="!isMaximized" class="title-bar-resizer"></div>
+
+    <!-- 搜索对话框 -->
+    <SearchDialog :visible="showSearchDialog" @close="showSearchDialog = false" />
   </div>
 </template>
 
@@ -48,6 +79,7 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '@/stores/settingsStore'
+import SearchDialog from '@/components/SearchDialog.vue'
 
 const { t } = useI18n()
 const settingsStore = useSettingsStore()
@@ -56,19 +88,22 @@ const isMaximized = ref(false)
 const iconPath = ref('')
 const isInactive = ref(false)
 const isWCOEnabled = ref(false)
+const showSearchDialog = ref(false)
 
 // 判断是否为浅色主题
 const isLight = computed(() => {
   const theme = settingsStore.settings.general.theme
   if (theme === 'system') {
-    // 系统主题：检查 CSS 变量或 document 类
     return !document.documentElement.classList.contains('dark')
   }
   return theme === 'light'
 })
 
+// 当前主题
+const currentTheme = computed(() => settingsStore.settings.general.theme)
+const themeOrder: ('dark' | 'light' | 'system')[] = ['dark', 'light', 'system']
+
 // 检测 Window Controls Overlay 是否启用
-// 参考 VSCode: navigator.windowControlsOverlay?.visible
 function checkWCOEnabled() {
   const nav = navigator as Navigator & {
     windowControlsOverlay?: { visible: boolean }
@@ -155,6 +190,61 @@ async function close() {
 async function handleDoubleClick() {
   await maximize()
 }
+
+// 搜索
+function handleSearch() {
+  showSearchDialog.value = true
+}
+
+// 主题切换
+async function cycleTheme() {
+  const currentIndex = themeOrder.indexOf(currentTheme.value)
+  const nextIndex = (currentIndex + 1) % themeOrder.length
+  const nextTheme = themeOrder[nextIndex]
+
+  settingsStore.updateSettings({
+    general: {
+      ...settingsStore.settings.general,
+      theme: nextTheme
+    }
+  })
+
+  // 更新 Electron 窗口主题
+  const isDark = nextTheme === 'dark' || (nextTheme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+  try {
+    if (window.electronAPI.setTheme) {
+      await window.electronAPI.setTheme(isDark)
+    }
+  } catch {
+    // 忽略错误
+  }
+}
+
+function getThemeIcon() {
+  switch (currentTheme.value) {
+    case 'dark':
+      return 'moon'
+    case 'light':
+      return 'sun'
+    case 'system':
+      return 'auto'
+    default:
+      return 'auto'
+  }
+}
+
+function getThemeLabel() {
+  switch (currentTheme.value) {
+    case 'dark':
+      return t('settings.themeDark')
+    case 'light':
+      return t('settings.themeLight')
+    case 'system':
+      return t('settings.themeSystem')
+    default:
+      return t('settings.themeSystem')
+  }
+}
 </script>
 
 <style scoped>
@@ -175,6 +265,7 @@ async function handleDoubleClick() {
   user-select: none;
   -webkit-user-select: none;
   box-shadow: var(--shadow-color);
+  transition: background-color 0.3s, border-color 0.3s;
 }
 
 .title-bar.maximized {
@@ -186,14 +277,13 @@ async function handleDoubleClick() {
   opacity: 0.6;
 }
 
-/* 窗口拖拽区域 */
-.title-bar-drag {
+/* 左侧图标区域 */
+.title-bar-left {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 12px;
+  padding: 0 8px;
   height: 100%;
-  flex: 1;
+  flex-shrink: 0;
   -webkit-app-region: drag;
 }
 
@@ -201,6 +291,41 @@ async function handleDoubleClick() {
   width: 16px;
   height: 16px;
   object-fit: contain;
+}
+
+/* 窗口拖拽区域 */
+.title-bar-drag {
+  flex: 1;
+  height: 100%;
+  -webkit-app-region: drag;
+}
+
+/* 右侧功能区（搜索 + 主题按钮） */
+.title-bar-actions {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  flex-shrink: 0;
+  -webkit-app-region: no-drag;
+}
+
+.title-bar-btn {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  width: 32px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-secondary);
+  padding: 0;
+  transition: color 0.2s, background 0.2s;
+}
+
+.title-bar-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
 }
 
 /* 窗口控制按钮容器 - 参考 VSCode window-controls-container */
@@ -214,20 +339,17 @@ async function handleDoubleClick() {
   height: 100%;
 }
 
-/* WCO 启用时的占位容器 - 参考 VSCode CSS
-   使用 CSS env() 函数获取系统控制按钮的位置 */
+/* WCO 启用时的占位容器 */
 .window-controls-container.wco-placeholder {
-  /* Windows/Linux Desktop: 使用固定宽度预留空间 */
   width: 138px;
 }
 
-/* WCO 启用时，使用 env() 获取实际区域大小 */
 .title-bar.wco-enabled .window-controls-container.wco-placeholder {
   width: calc(100vw - env(titlebar-area-width, 100vw) - env(titlebar-area-x, 0px));
   height: env(titlebar-area-height, 32px);
 }
 
-/* 窗口控制按钮图标 - 参考 VSCode window-icon */
+/* 窗口控制按钮图标 */
 .window-icon {
   display: flex;
   justify-content: center;
@@ -239,30 +361,23 @@ async function handleDoubleClick() {
   cursor: pointer;
   color: var(--text-primary);
   padding: 0;
+  transition: background 0.2s, color 0.3s;
 }
 
-/* 非活动状态按钮颜色 */
 .title-bar.inactive .window-icon {
   color: var(--text-secondary);
 }
 
-/* Hover 效果 - 参考 VSCode (深色主题使用白色半透明) */
 .window-icon:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+  background: var(--bg-hover);
 }
 
-/* 浅色主题 Hover 效果 - 参考 VSCode (浅色主题使用黑色半透明) */
-.title-bar.light .window-icon:hover {
-  background-color: rgba(0, 0, 0, 0.1);
-}
-
-/* 关闭按钮特殊 Hover 效果 - 参考 VSCode 红色背景 rgba(232, 17, 35, 0.9) */
 .window-icon.window-close:hover {
-  background-color: rgba(232, 17, 35, 0.9);
+  background-color: var(--titlebar-close-hover);
   color: white;
 }
 
-/* 窗口调整大小区域 - 参考 VSCode resizer */
+/* 窗口调整大小区域 */
 .title-bar-resizer {
   position: absolute;
   top: 0;

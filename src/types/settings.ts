@@ -58,6 +58,10 @@ export interface GeneralSettings {
   evernoteLinkPrefix?: string  // 印象笔记链接前缀（用于跳转到印象笔记）
   pinnedNotebookIds?: string[]  // 固定的笔记本ID列表（侧边栏快捷访问）
   pinnedAllNotebooks?: boolean  // 是否固定全部笔记本视图
+  // VSCode风格布局设置
+  sidebarWidth?: number  // 主侧边栏宽度，默认 200，范围 150-300
+  sidebarCollapsed?: boolean  // 主侧边栏是否折叠，默认 false
+  activeActivityItem?: string  // 活动栏选中项，默认 'notebooks'
 }
 
 export interface ViewSettings {
@@ -125,7 +129,11 @@ export const defaultSettings: Settings = {
     magicPadDefaultMode: 'drag',  // 默认为拖拽/录音模式
     evernoteLinkPrefix: 'evernote:///view/3248616/s15/',  // 默认印象笔记链接前缀
     pinnedNotebookIds: [],  // 默认无固定笔记本
-    pinnedAllNotebooks: false  // 默认不固定全部笔记本
+    pinnedAllNotebooks: false,  // 默认不固定全部笔记本
+    // VSCode风格布局设置
+    sidebarWidth: 200,  // 默认侧边栏宽度
+    sidebarCollapsed: false,  // 默认不折叠
+    activeActivityItem: 'notebooks'  // 默认选中笔记本
   },
   view: {
     chatViewLeftPanelRatio: 0.6,

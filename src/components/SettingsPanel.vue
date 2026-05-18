@@ -1,30 +1,11 @@
 <template>
   <div class="settings-panel">
     <div class="panel-header">
-      <h2>{{ t('settings.title') }}</h2>
+      <h2>{{ activeTab === 'general' ? t('settings.generalTab') : t('settings.modelTab') }}</h2>
     </div>
 
-    <div class="settings-body">
-      <!-- 左侧标签栏 -->
-      <div class="settings-tabs">
-        <button
-          class="settings-tab"
-          :class="{ active: activeTab === 'general' }"
-          @click="activeTab = 'general'"
-        >
-          {{ t('settings.generalTab') }}
-        </button>
-        <button
-          class="settings-tab"
-          :class="{ active: activeTab === 'model' }"
-          @click="activeTab = 'model'"
-        >
-          {{ t('settings.modelTab') }}
-        </button>
-      </div>
-
-      <!-- 右侧内容区域 -->
-      <div class="settings-content">
+    <!-- 右侧内容区域 -->
+    <div class="settings-content">
         <!-- General Settings Tab -->
         <div v-show="activeTab === 'general'" class="settings-section">
           <div class="form-group">
@@ -390,7 +371,6 @@
             <p class="form-hint">{{ t('settings.embeddingDimensionHint') }}</p>
           </div>
         </div>
-      </div>
     </div>
   </div>
 </template>
@@ -402,26 +382,21 @@ import { useSettingsStore } from '@/stores/settingsStore'
 import { useNotebookStore } from '@/stores/notebookStore'
 import type { BuiltinTheme } from '@/types/settings'
 
-const { t } = useI18n()
+const props = defineProps<{
+  activeTab: 'general' | 'model'
+}>()
 
 const emit = defineEmits<{
   'dragStart': [event: DragEvent, profileId: string]
   'dragEnd': [event: DragEvent]
-  'sub-tab-selected': [tabId: string]
 }>()
+
+const { t } = useI18n()
 
 const settingsStore = useSettingsStore()
 const notebookStore = useNotebookStore()
 
 const notebooks = computed(() => notebookStore.notebooks)
-
-// 标签页状态
-const activeTab = ref<'general' | 'model'>('general')
-
-// 监听标签页变化并 emit
-watch(activeTab, (newTab) => {
-  emit('sub-tab-selected', newTab)
-}, { immediate: true })
 
 const renamingProfileId = ref<string | null>(null)
 const renameValue = ref('')
@@ -680,44 +655,6 @@ function updateEvernoteLinkPrefix(prefix: string) {
   font-size: 20px;
   color: var(--text-primary);
   line-height: 1;
-}
-
-.settings-body {
-  flex: 1;
-  display: flex;
-  overflow: hidden;
-}
-
-/* 左侧标签栏 */
-.settings-tabs {
-  display: flex;
-  flex-direction: column;
-  width: 180px;
-  border-right: 1px solid var(--border-color);
-  background: var(--bg-primary);
-}
-
-.settings-tab {
-  padding: 12px 16px;
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 14px;
-  cursor: pointer;
-  text-align: left;
-  transition: all 0.2s;
-  border-left: 3px solid transparent;
-}
-
-.settings-tab:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
-
-.settings-tab.active {
-  background: var(--bg-secondary);
-  color: var(--color-primary);
-  border-left-color: var(--color-primary);
 }
 
 /* 右侧内容区域 */

@@ -410,7 +410,18 @@ ipcMain.handle('save-file-buffer', async (event, filePath, buffer) => {
 
 ipcMain.handle('set-theme', async (event, isDark) => {
   if (mainWindow) {
-    mainWindow.setBackgroundColor(isDark ? '#2d2d2d' : '#f5f5f5')
+    const bgColor = isDark ? '#2d2d2d' : '#f5f5f5'
+    const symbolColor = isDark ? '#e0e0e0' : '#333333'
+    mainWindow.setBackgroundColor(bgColor)
+
+    // 更新 titleBarOverlay 颜色（仅 Windows/Linux）
+    if (process.platform !== 'darwin') {
+      mainWindow.setTitleBarOverlay({
+        height: 32,
+        color: bgColor,
+        symbolColor: symbolColor
+      })
+    }
   }
   return { success: true }
 })

@@ -212,6 +212,15 @@ export default {
     minutesAgo: '{count}分钟前',
     hoursAgo: '{count}小时前',
     daysAgo: '{count}天前',
+    // 右键菜单
+    openCanvas: '画布视图',
+    openParticle: '粒子视图',
+    pin: '固定',
+    unpin: '取消固定',
+    unpinAll: '取消固定全部',
+    rename: '重命名',
+    delete: '删除',
+    deleteConfirm: '确定要删除笔记本 "{name}" 吗？',
   },
   context: {
     static: '静态上下文',

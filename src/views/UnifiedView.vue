@@ -1,140 +1,177 @@
 <template>
   <div class="unified-view">
-    <!-- 主体内容区域（侧边栏 + 主内容） -->
+    <!-- 主体内容区域（活动栏 + 侧边栏 + 主内容） -->
     <div class="content-row">
-      <!-- 左侧标签栏 -->
-      <UnifiedSidebar
-        v-show="!isSidebarCollapsed"
-        :style="{ width: sidebarWidth + 'px' }"
-        :all-notebooks="notebookStore.notebooks"
-        :active-tab="activeTab"
-        :active-notebook-id="activeNotebookId"
-        :static-context-files="contextStore.staticContextFiles"
-        :dynamic-context-files="contextStore.dynamicContextFiles"
-        @select-tab="handleSelectTab"
-        @select-notebook="handleSelectNotebook"
-        @create-notebook="handleCreateNotebook"
-        @switch-view-mode="handleSwitchViewMode"
+      <!-- 活动栏 -->
+      <ActivityBar
+        :active-item="activeActivity"
+        @select="handleActivitySelect"
         @create-note="handleCreateNote"
+        @toggle-collapse="toggleSidebar"
       />
 
-      <!-- 可拖动分隔线 -->
-      <div
-        class="sidebar-resizer"
-        :class="{ collapsed: isSidebarCollapsed }"
-        @mousedown="startResizeSidebar"
-        @dblclick="toggleSidebar"
-      >
-        <div class="resizer-line"></div>
-        <div v-if="isSidebarCollapsed" class="collapsed-indicator">
-          <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
-            <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/>
-          </svg>
-        </div>
-      </div>
+      <!-- 主侧边栏 -->
+      <MainSidebar
+        :active-activity="activeActivity"
+        :sidebar-width="sidebarWidth"
+        :sidebar-collapsed="sidebarCollapsed"
+        :notebooks="notebookStore.notebooks"
+        :active-notebook-id="activeNotebookId"
+        :pinned-notebook-ids="settingsStore.settings.general.pinnedNotebookIds || []"
+        :pinned-all-notebooks="settingsStore.settings.general.pinnedAllNotebooks || false"
+        :static-contexts="contextStore.staticContextFiles"
+        :dynamic-contexts="contextStore.dynamicContextFiles"
+        :quick-commands="quickCommandStore.quickCommands"
+        :tags="tagGroups"
+        :selected-context-id="selectedContextId"
+        :selected-quick-command-id="selectedQuickCommandId"
+        :selected-tag-name="selectedTagName"
+        :filter-notebook-id="favoriteFilterNotebookId"
+        :filter-time-type="favoriteFilterTimeType"
+        :settings-tab="settingsTab"
+        :trash-tab="trashTab"
+        @toggle-collapse="toggleSidebar"
+        @select-notebook="handleSelectNotebook"
+        @create-notebook="handleCreateNotebook"
+        @open-canvas="handleOpenCanvas"
+        @open-particle="handleOpenParticle"
+        @create-context="handleCreateContext"
+        @select-context="handleSelectContext"
+        @create-quick-command="handleCreateQuickCommand"
+        @select-quick-command="handleSelectQuickCommand"
+        @select-tag="handleSelectTag"
+        @update-filter="handleUpdateFavoriteFilter"
+        @select-settings-tab="handleSelectSettingsTab"
+        @select-trash-tab="handleSelectTrashTab"
+        @edit-context="editContextFile"
+        @edit-quick-command="editQuickCommand"
+        @rename-notebook="handleRenameNotebook"
+        @delete-notebook="handleDeleteNotebook"
+        @toggle-pin="handleTogglePin"
+        @toggle-pin-all="handleTogglePinAll"
+      />
 
       <!-- 右侧内容区域 -->
       <main class="main-content">
-        <!-- 上下文面板 -->
-      <ContextsPanel
-        v-if="activeTab === 'contexts'"
-        @newContext="handleNewContext"
-        @editContext="editContextFile"
-        @dragStart="handleContextDragStart"
-        @dragEnd="handleContextDragEnd"
-        @quickCommandDragStart="handleQuickCommandDragStart"
-        @quickCommandDragEnd="handleQuickCommandDragEnd"
-        @quick-command-editing="handleQuickCommandEditing"
-      />
+        <!-- 笔记本内容 -->
+        <template v-if="activeActivity === 'notebooks'">
+          <!-- 上下文面板 -->
+          <ContextsPanel
+            v-if="false"
+            @newContext="handleNewContext"
+            @editContext="editContextFile"
+            @dragStart="handleContextDragStart"
+            @dragEnd="handleContextDragEnd"
+            @quickCommandDragStart="handleQuickCommandDragStart"
+            @quickCommandDragEnd="handleQuickCommandDragEnd"
+            @quick-command-editing="handleQuickCommandEditing"
+          />
 
-      <!-- 标签面板 -->
-      <TagsPanel v-if="activeTab === 'tags'" @tag-selected="handleTagSelected" />
+          <!-- MultiChatPanel -->
+          <MultiChatPanel
+            v-if="viewMode === 'chat' && activeNotebookId && !currentNotebook?.pdfPath"
+            :notebook-id="activeNotebookId"
+            :static-context-files="staticContextFiles"
+            :all-static-context-files="contextStore.staticContextFiles"
+            :all-dynamic-context-files="contextStore.dynamicContextFiles"
+            :dynamic-context-file="dynamicContextFile || null"
+            :all-profiles="settingsStore.settings.llm.profiles"
+            :active-profile-id="settingsStore.settings.llm.activeProfileId"
+            :all-notebooks="notebookStore.notebooks"
+            :current-notebook-id="activeNotebookId || null"
+            :activate-node-id="activateNodeId"
+            :trigger-create-note="shouldTriggerCreateNote"
+            @node-activated="handleNodeActivated"
+            @create-note-triggered="handleCreateNoteTriggered"
+          />
 
-      <!-- 收藏夹面板 -->
-      <FavoritesPanel v-if="activeTab === 'favorites'" />
+          <!-- Canvas画布面板 -->
+          <CanvasViewPanel
+            ref="canvasViewPanelRef"
+            v-if="viewMode === 'canvas' && activeNotebookId"
+            :notebook-id="activeNotebookId"
+            :static-context-files="staticContextFiles"
+            :all-static-context-files="contextStore.staticContextFiles"
+            :all-dynamic-context-files="contextStore.dynamicContextFiles"
+            :dynamic-context-file="dynamicContextFile || null"
+            :all-profiles="settingsStore.settings.llm.profiles"
+            :active-profile-id="settingsStore.settings.llm.activeProfileId"
+            :all-notebooks="notebookStore.notebooks"
+            :current-notebook-id="activeNotebookId"
+            @toggle-static-context="toggleStaticContext"
+            @select-dynamic-context="selectDynamicContext"
+            @dynamic-context-drop="handleDynamicContextDrop"
+            @select-model="handleSelectModel"
+          />
 
-      <!-- 回收站面板 -->
-      <TrashPanel v-if="activeTab === 'trash'" />
+          <!-- 粒子视图面板 -->
+          <ParticleViewPanel
+            v-if="viewMode === 'particle' && activeNotebookId"
+            :notebook-id="activeNotebookId"
+            @switch-to-chat="handleSwitchViewMode('chat')"
+            @select-node="handleParticleSelectNode"
+            @navigate="handleParticleNavigate"
+          />
 
-      <!-- 设置面板 -->
-      <SettingsPanel
-        v-if="activeTab === 'settings'"
-        @dragStart="handleProfileDragStart"
-        @dragEnd="handleProfileDragEnd"
-        @sub-tab-selected="handleSettingsSubTabSelected"
-      />
+          <!-- PDF笔记本面板 -->
+          <PdfReaderPanel
+            v-if="viewMode === 'chat' && activeNotebookId && currentNotebook?.pdfPath"
+            :notebook-id="activeNotebookId"
+            :static-context-files="staticContextFiles"
+            :all-static-context-files="contextStore.staticContextFiles"
+            :all-dynamic-context-files="contextStore.dynamicContextFiles"
+            :dynamic-context-file="dynamicContextFile || null"
+            :all-profiles="settingsStore.settings.llm.profiles"
+            :active-profile-id="settingsStore.settings.llm.activeProfileId"
+            :all-notebooks="notebookStore.notebooks"
+            :current-notebook-id="activeNotebookId"
+            :activate-node-id="activateNodeId"
+            @node-activated="handleNodeActivated"
+          />
+        </template>
 
-      <!-- 笔记本面板 -->
-      <MultiChatPanel
-        v-if="(activeTab === 'notebooks' || activeTab === 'all-notebooks') && viewMode === 'chat'"
-        :notebook-id="activeNotebookId"
-        :static-context-files="staticContextFiles"
-        :all-static-context-files="contextStore.staticContextFiles"
-        :all-dynamic-context-files="contextStore.dynamicContextFiles"
-        :dynamic-context-file="dynamicContextFile || null"
-        :all-profiles="settingsStore.settings.llm.profiles"
-        :active-profile-id="settingsStore.settings.llm.activeProfileId"
-        :all-notebooks="notebookStore.notebooks"
-        :current-notebook-id="activeNotebookId || null"
-        :activate-node-id="activateNodeId"
-        :trigger-create-note="shouldTriggerCreateNote"
-        @node-activated="handleNodeActivated"
-        @create-note-triggered="handleCreateNoteTriggered"
-      />
+        <!-- 上下文编辑面板 -->
+        <ContextEditPanel
+          v-if="activeActivity === 'contexts'"
+          :context="selectedContext"
+          :quick-command="selectedQuickCommand"
+          @save="handleContextSavePanel"
+          @delete="handleContextDelete"
+        />
 
-      <!-- Canvas画布面板 -->
-      <CanvasViewPanel
-        ref="canvasViewPanelRef"
-        v-if="viewMode === 'canvas' && activeNotebookId && (activeTab === 'notebooks' || activeTab === 'all-notebooks' || activeTab === 'pdf-notebook')"
-        :notebook-id="activeNotebookId"
-        :static-context-files="staticContextFiles"
-        :all-static-context-files="contextStore.staticContextFiles"
-        :all-dynamic-context-files="contextStore.dynamicContextFiles"
-        :dynamic-context-file="dynamicContextFile || null"
-        :all-profiles="settingsStore.settings.llm.profiles"
-        :active-profile-id="settingsStore.settings.llm.activeProfileId"
-        :all-notebooks="notebookStore.notebooks"
-        :current-notebook-id="activeNotebookId"
-        @toggle-static-context="toggleStaticContext"
-        @select-dynamic-context="selectDynamicContext"
-        @dynamic-context-drop="handleDynamicContextDrop"
-        @select-model="handleSelectModel"
-      />
+        <!-- 标签面板 -->
+        <TagsPanel
+          v-if="activeActivity === 'tags'"
+          :selected-tag-name="selectedTagName"
+          @tag-selected="handleTagSelected"
+        />
 
-      <!-- 粒子视图面板 -->
-      <ParticleViewPanel
-        v-if="viewMode === 'particle' && activeNotebookId && (activeTab === 'notebooks' || activeTab === 'all-notebooks')"
-        :notebook-id="activeNotebookId"
-        @switch-to-chat="handleSwitchViewMode('chat')"
-        @select-node="handleParticleSelectNode"
-        @navigate="handleParticleNavigate"
-      />
+        <!-- 收藏夹面板 -->
+        <FavoritesPanel v-if="activeActivity === 'favorites'" />
 
-      <!-- PDF笔记本面板 -->
-      <PdfReaderPanel
-        v-if="activeTab === 'pdf-notebook' && viewMode !== 'canvas' && activeNotebookId"
-        :notebook-id="activeNotebookId"
-        :static-context-files="staticContextFiles"
-        :all-static-context-files="contextStore.staticContextFiles"
-        :all-dynamic-context-files="contextStore.dynamicContextFiles"
-        :dynamic-context-file="dynamicContextFile || null"
-        :all-profiles="settingsStore.settings.llm.profiles"
-        :active-profile-id="settingsStore.settings.llm.activeProfileId"
-        :all-notebooks="notebookStore.notebooks"
-        :current-notebook-id="activeNotebookId"
-        :activate-node-id="activateNodeId"
-        @node-activated="handleNodeActivated"
-      />
-    </main>
+        <!-- 回收站面板 -->
+        <TrashPanel
+          v-if="activeActivity === 'trash'"
+          :active-tab="trashTab"
+        />
+
+        <!-- 设置面板 -->
+        <SettingsPanel
+          v-if="activeActivity === 'settings'"
+          :active-tab="settingsTab"
+          @dragStart="handleProfileDragStart"
+          @dragEnd="handleProfileDragEnd"
+        />
+      </main>
     </div>
 
     <!-- 状态栏（整个界面底部） -->
     <StatusBar
-      :active-tab="activeTab"
+      :active-tab="activeActivity"
       :view-mode="viewMode"
       :active-notebook-id="activeNotebookId"
       :selected-tag-name="selectedTagName"
-      :settings-sub-tab="settingsSubTab"
+      :settings-tab="settingsTab"
       :show-context-edit-dialog="showContextEditDialog"
       :editing-context-name="editingContext?.name"
       :quick-command-editing-status="quickCommandEditingStatus"
@@ -184,7 +221,9 @@ import { useNotebookStore } from '@/stores/notebookStore'
 import { useContextStore } from '@/stores/contextStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useQuickCommandStore } from '@/stores/quickCommandStore'
-import UnifiedSidebar from '@/components/UnifiedSidebar.vue'
+import { useTagStore } from '@/stores/tagStore'
+import ActivityBar from '@/components/ActivityBar.vue'
+import MainSidebar from '@/components/MainSidebar.vue'
 import ContextsPanel from '@/components/ContextsPanel.vue'
 import FavoritesPanel from '@/components/FavoritesPanel.vue'
 import TrashPanel from '@/components/TrashPanel.vue'
@@ -195,6 +234,7 @@ import PdfReaderPanel from '@/components/PdfReaderPanel.vue'
 import CanvasViewPanel from '@/components/CanvasViewPanel.vue'
 import ParticleViewPanel from '@/components/ParticleViewPanel.vue'
 import ContextEditDialog from '@/components/ContextEditDialog.vue'
+import ContextEditPanel from '@/components/ContextEditPanel.vue'
 import StatusBar from '@/components/StatusBar.vue'
 import type { ContextFile, ContextType } from '@/types/context'
 import { CONTEXT_COLORS, type ContextColor } from '@/types/context'
@@ -207,16 +247,17 @@ const notebookStore = useNotebookStore()
 const contextStore = useContextStore()
 const settingsStore = useSettingsStore()
 const quickCommandStore = useQuickCommandStore()
+const tagStore = useTagStore()
 
 const contextColors = computed(() => CONTEXT_COLORS)
 
 // CanvasViewPanel 的引用（用于激活节点）
 const canvasViewPanelRef = ref<InstanceType<typeof CanvasViewPanel> | null>(null)
 
-// 当前激活的 tab - 根据默认笔记本设置决定初始值
-const activeTab = ref<string>(settingsStore.settings.general.defaultNotebookId ? 'notebooks' : 'all-notebooks')
+// 活动栏选中项（从settingsStore获取）
+const activeActivity = ref(settingsStore.settings.general.activeActivityItem || 'notebooks')
 
-// 当前激活的笔记本ID - 如果有默认笔记本，先设置为默认（等待加载后验证）
+// 当前激活的笔记本ID
 const activeNotebookId = ref<string | null>(settingsStore.settings.general.defaultNotebookId || null)
 
 // 视图模式：'chat' | 'canvas' | 'particle'（仅在笔记本tab下生效）
@@ -239,17 +280,38 @@ const draggedQuickCommand = ref<QuickCommand | null>(null)
 const showQuickCommandDeleteConfirm = ref(false)
 const quickCommandToDelete = ref<QuickCommand | null>(null)
 
-// 侧边栏宽度拖拽
-const sidebarWidth = ref(180)
-const isResizingSidebar = ref(false)
-const isSidebarCollapsed = ref(false)
-const savedSidebarWidth = ref(180)
+// 侧边栏状态（从settingsStore获取）
+const sidebarWidth = ref(settingsStore.settings.general.sidebarWidth || 200)
+const sidebarCollapsed = ref(settingsStore.settings.general.sidebarCollapsed || false)
+
+// 选中的上下文/快捷指令（用于上下文视图）
+const selectedContextId = ref<string | null>(null)
+const selectedQuickCommandId = ref<string | null>(null)
+
+// 选中的上下文/快捷指令对象
+const selectedContext = computed(() => {
+  if (!selectedContextId.value) return null
+  return contextStore.staticContextFiles.find(f => f.id === selectedContextId.value) ||
+         contextStore.dynamicContextFiles.find(f => f.id === selectedContextId.value) || null
+})
+
+const selectedQuickCommand = computed(() => {
+  if (!selectedQuickCommandId.value) return null
+  return quickCommandStore.quickCommands.find(c => c.id === selectedQuickCommandId.value) || null
+})
 
 // 标签面板选中的标签名称
 const selectedTagName = ref<string | null>(null)
 
-// 设置面板选中的子标签
-const settingsSubTab = ref<string | null>(null)
+// 收藏过滤器
+const favoriteFilterNotebookId = ref<string | null>(null)
+const favoriteFilterTimeType = ref<string | null>(null)
+
+// 设置tab
+const settingsTab = ref<'general' | 'model'>('general')
+
+// 回收站tab
+const trashTab = ref<'notes' | 'notebooks' | 'contexts' | 'quickCommands'>('notes')
 
 // 快捷指令编辑状态（用于 StatusBar 显示）
 const quickCommandEditingStatus = ref<{ isCreating: boolean; name?: string } | null>(null)
@@ -269,25 +331,69 @@ const dynamicContextFile = computed(() => {
 // 触发创建笔记输入
 const shouldTriggerCreateNote = ref(false)
 
+// 当前笔记本
+const currentNotebook = computed(() => notebookStore.currentNotebook)
+
+// 标签列表（用于标签侧边栏）- 需要从笔记本中计算
+interface TaggedNodeItem {
+  notebookId: string
+  notebookName: string
+  nodeId: string
+  nodeTitle: string
+  pdfPage?: number
+  fullText: string
+}
+
+interface TagGroup {
+  tagName: string
+  tagColor: string
+  nodes: TaggedNodeItem[]
+}
+
+const tagGroups = computed(() => {
+  const groups: Map<string, TagGroup> = new Map()
+
+  notebookStore.notebooks.forEach(notebook => {
+    notebook.nodes?.forEach(node => {
+      if (node.tags && node.tags.length > 0) {
+        node.tags.forEach((tagName: string) => {
+          if (!groups.has(tagName)) {
+            const tag = tagStore.tags.find(t => t.name === tagName)
+            groups.set(tagName, {
+              tagName,
+              tagColor: tag?.color || '#66bb6a',
+              nodes: []
+            })
+          }
+          groups.get(tagName)!.nodes.push({
+            notebookId: notebook.id,
+            notebookName: notebook.name,
+            nodeId: node.id,
+            nodeTitle: node.title || '',
+            pdfPage: node.pdfPage,
+            fullText: node.transcript || ''
+          })
+        })
+      }
+    })
+  })
+
+  return Array.from(groups.values())
+})
+
 onMounted(async () => {
   await notebookStore.loadNotebooks()
   await contextStore.loadContextFiles()
+  await quickCommandStore.loadQuickCommands()
+  await tagStore.loadTags()
 
   // 验证默认笔记本是否存在
   const defaultNotebookId = settingsStore.settings.general.defaultNotebookId
   if (defaultNotebookId) {
     const notebook = notebookStore.notebooks.find(nb => nb.id === defaultNotebookId)
     if (notebook) {
-      // 默认笔记本存在，确保设置正确
       notebookStore.setCurrentNotebook(notebook)
-      if (notebook.pdfPath) {
-        activeTab.value = 'pdf-notebook'
-      } else {
-        activeTab.value = 'notebooks'
-      }
     } else {
-      // 默认笔记本不存在，回退到全部笔记本
-      activeTab.value = 'all-notebooks'
       activeNotebookId.value = null
     }
   }
@@ -322,14 +428,9 @@ function handleNodeActivation(nodeId: string, notebookId: string) {
   notebookStore.setCurrentNotebook(notebook)
   activeNotebookId.value = notebookId
 
-  // 设置 tab 和视图模式
-  if (notebook.pdfPath) {
-    activeTab.value = 'pdf-notebook'
-    viewMode.value = 'chat'  // PDF笔记跳转到 PdfReaderPanel
-  } else {
-    activeTab.value = 'notebooks'
-    viewMode.value = 'chat'  // 普通笔记跳转到 MultiChatPanel
-  }
+  // 设置活动栏和视图模式
+  activeActivity.value = 'notebooks'
+  viewMode.value = 'chat'
 
   // 等待组件渲染后激活节点
   setTimeout(() => {
@@ -349,76 +450,127 @@ function handleNodeActivated() {
   activateNodeId.value = null
 }
 
-// 标签选择处理
-function handleSelectTab(tab: string) {
-  activeTab.value = tab
-  if (tab !== 'notebooks' && tab !== 'all-notebooks' && tab !== 'pdf-notebook') {
-    activeNotebookId.value = null
+// 活动栏选中处理
+function handleActivitySelect(itemId: string) {
+  activeActivity.value = itemId
+
+  // 保存到settingsStore
+  settingsStore.updateSettings({
+    general: {
+      ...settingsStore.settings.general,
+      activeActivityItem: itemId
+    }
+  })
+
+  // 如果不是笔记本视图，清除笔记本选中
+  if (itemId !== 'notebooks') {
+    // 保持笔记本状态但不显示
   }
-  // 切换tab时重置视图模式为chat
+
+  // 重置视图模式为chat
   viewMode.value = 'chat'
 }
 
-// 标签面板选中标签处理
-function handleTagSelected(tagName: string | null) {
-  selectedTagName.value = tagName
-}
+// 切换侧边栏显示/隐藏
+function toggleSidebar() {
+  sidebarCollapsed.value = !sidebarCollapsed.value
 
-// 设置面板子标签选中处理
-function handleSettingsSubTabSelected(tabId: string) {
-  settingsSubTab.value = tabId
-}
-
-// 快捷指令编辑状态处理
-function handleQuickCommandEditing(status: { isCreating: boolean; name?: string } | null) {
-  quickCommandEditingStatus.value = status
+  // 保存到settingsStore
+  settingsStore.updateSettings({
+    general: {
+      ...settingsStore.settings.general,
+      sidebarCollapsed: sidebarCollapsed.value
+    }
+  })
 }
 
 // 笔记本选择处理
 function handleSelectNotebook(notebookId: string | null) {
   activeNotebookId.value = notebookId
-  // 选择笔记本时默认为chat模式
   viewMode.value = 'chat'
 
   if (notebookId) {
     const notebook = notebookStore.notebooks.find(nb => nb.id === notebookId)
     if (notebook) {
       notebookStore.setCurrentNotebook(notebook)
-
-      if (notebook.pdfPath) {
-        activeTab.value = 'pdf-notebook'
-      } else {
-        activeTab.value = 'notebooks'
-      }
     }
-  } else {
-    activeTab.value = 'all-notebooks'
   }
 }
 
-// 创建笔记 - 触发输入模式
-function handleCreateNote() {
-  // 确定目标笔记本
-  let targetNotebookId: string | null = activeNotebookId.value
+// 打开画布视图
+function handleOpenCanvas(notebookId: string) {
+  handleSelectNotebook(notebookId)
+  viewMode.value = 'canvas'
+}
 
-  if (!targetNotebookId) {
-    // 如果没有选中笔记本，使用默认笔记本
-    const defaultId = settingsStore.settings.general.defaultNotebookId
-    if (!defaultId) {
-      // 如果没有默认笔记本，提示用户
-      alert(t('settings.defaultNotebookNone'))
-      return
-    }
-    targetNotebookId = defaultId
-    // 设置为默认笔记本
-    handleSelectNotebook(targetNotebookId)
+// 打开粒子视图
+function handleOpenParticle(notebookId: string) {
+  handleSelectNotebook(notebookId)
+  viewMode.value = 'particle'
+}
+
+// 处理上下文选择
+function handleSelectContext(contextId: string | null) {
+  selectedContextId.value = contextId
+  selectedQuickCommandId.value = null
+}
+
+// 处理快捷指令选择
+function handleSelectQuickCommand(commandId: string | null) {
+  selectedQuickCommandId.value = commandId
+  selectedContextId.value = null
+}
+
+// 处理创建上下文
+function handleCreateContext(type: 'static' | 'dynamic') {
+  editingContext.value = null
+  showContextEditDialog.value = true
+}
+
+// 处理创建快捷指令
+function handleCreateQuickCommand() {
+  quickCommandEditingStatus.value = { isCreating: true }
+}
+
+// 处理编辑快捷指令
+function editQuickCommand(cmd: QuickCommand) {
+  selectedQuickCommandId.value = cmd.id
+  quickCommandEditingStatus.value = { isCreating: false, name: cmd.name }
+}
+
+// 处理标签选择
+function handleSelectTag(tagName: string | null) {
+  selectedTagName.value = tagName
+}
+
+// 标签面板选中标签处理（保持兼容）
+function handleTagSelected(tagName: string | null) {
+  selectedTagName.value = tagName
+}
+
+// 处理收藏过滤器更新
+function handleUpdateFavoriteFilter(filter: { notebookId?: string | null; timeType?: string | null }) {
+  if (filter.notebookId !== undefined) {
+    favoriteFilterNotebookId.value = filter.notebookId
   }
+  if (filter.timeType !== undefined) {
+    favoriteFilterTimeType.value = filter.timeType
+  }
+}
 
-  // 确保视图模式为 chat
-  viewMode.value = 'chat'
+// 处理设置tab选择
+function handleSelectSettingsTab(tab: 'general' | 'model') {
+  settingsTab.value = tab
+}
 
-  // 触发创建笔记输入
-  shouldTriggerCreateNote.value = true
+// 处理回收站tab选择
+function handleSelectTrashTab(tab: 'notes' | 'notebooks' | 'contexts' | 'quickCommands') {
+  trashTab.value = tab
+}
+
+// 快捷指令编辑状态处理
+function handleQuickCommandEditing(status: { isCreating: boolean; name?: string } | null) {
+  quickCommandEditingStatus.value = status
 }
 
 // 创建笔记触发完成
@@ -450,50 +602,83 @@ async function handleCreateNotebook(data: {
 
   notebookStore.setCurrentNotebook(notebook)
   activeNotebookId.value = notebook.id
+  activeActivity.value = 'notebooks'
+}
 
-  // 根据笔记本类型设置 tab
-  if (notebook.pdfPath) {
-    activeTab.value = 'pdf-notebook'
-  } else {
-    activeTab.value = 'notebooks'
+// 创建笔记 - 触发输入模式
+function handleCreateNote() {
+  // 确定目标笔记本
+  let targetNotebookId: string | null = activeNotebookId.value
+
+  if (!targetNotebookId) {
+    // 如果没有选中笔记本，使用默认笔记本
+    const defaultId = settingsStore.settings.general.defaultNotebookId
+    if (!defaultId) {
+      // 如果没有默认笔记本，提示用户
+      alert(t('settings.defaultNotebookNone'))
+      return
+    }
+    targetNotebookId = defaultId
+    handleSelectNotebook(targetNotebookId)
+  }
+
+  // 确保视图模式为 chat
+  viewMode.value = 'chat'
+
+  // 触发创建笔记输入
+  shouldTriggerCreateNote.value = true
+}
+
+// 重命名笔记本
+async function handleRenameNotebook(notebookId: string, newName: string) {
+  const notebook = notebookStore.notebooks.find(n => n.id === notebookId)
+  if (notebook) {
+    notebook.name = newName
+    await notebookStore.saveNotebook(notebook)
   }
 }
 
-// 侧边栏拖拽调整
-function startResizeSidebar(e: MouseEvent) {
-  if (isSidebarCollapsed.value) return
-  isResizingSidebar.value = true
-  document.addEventListener('mousemove', handleResizeSidebar)
-  document.addEventListener('mouseup', stopResizeSidebar)
-  document.body.style.cursor = 'col-resize'
-  document.body.style.userSelect = 'none'
-}
-
-function handleResizeSidebar(e: MouseEvent) {
-  if (!isResizingSidebar.value) return
-
-  const minWidth = 150
-  const maxWidth = 300
-
-  sidebarWidth.value = Math.max(minWidth, Math.min(maxWidth, e.clientX))
-}
-
-function stopResizeSidebar() {
-  isResizingSidebar.value = false
-  document.removeEventListener('mousemove', handleResizeSidebar)
-  document.removeEventListener('mouseup', stopResizeSidebar)
-  document.body.style.cursor = ''
-  document.body.style.userSelect = ''
-}
-
-// 双击切换侧边栏显示/隐藏
-function toggleSidebar() {
-  isSidebarCollapsed.value = !isSidebarCollapsed.value
-  if (isSidebarCollapsed.value) {
-    savedSidebarWidth.value = sidebarWidth.value
-  } else {
-    sidebarWidth.value = savedSidebarWidth.value
+// 删除笔记本
+async function handleDeleteNotebook(notebookId: string) {
+  await notebookStore.deleteNotebook(notebookId)
+  if (activeNotebookId.value === notebookId) {
+    activeNotebookId.value = null
   }
+}
+
+// 固定/取消固定笔记本
+function handleTogglePin(notebookId: string) {
+  const pinnedIds = settingsStore.settings.general.pinnedNotebookIds || []
+  const index = pinnedIds.indexOf(notebookId)
+
+  if (index === -1) {
+    settingsStore.updateSettings({
+      general: {
+        ...settingsStore.settings.general,
+        pinnedNotebookIds: [...pinnedIds, notebookId]
+      }
+    })
+  } else {
+    const newIds = [...pinnedIds]
+    newIds.splice(index, 1)
+    settingsStore.updateSettings({
+      general: {
+        ...settingsStore.settings.general,
+        pinnedNotebookIds: newIds
+      }
+    })
+  }
+}
+
+// 固定/取消固定全部笔记本
+function handleTogglePinAll() {
+  const currentState = settingsStore.settings.general.pinnedAllNotebooks || false
+  settingsStore.updateSettings({
+    general: {
+      ...settingsStore.settings.general,
+      pinnedAllNotebooks: !currentState
+    }
+  })
 }
 
 // Context file management
@@ -532,6 +717,11 @@ async function handleContextSave(data: { name: string; type: ContextType; color:
     }
   }
   editingContext.value = null
+}
+
+// 处理ContextEditPanel保存（编辑完成）
+function handleContextSavePanel() {
+  // ContextEditPanel内部已处理保存，这里只需要刷新状态
 }
 
 // 处理上下文删除

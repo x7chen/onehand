@@ -92,9 +92,9 @@
       <div class="status-item">
         <span class="status-value path-value">{{ t('statusBar.settings') }}</span>
       </div>
-      <div class="status-separator" v-if="settingsSubTabLabel"></div>
-      <div class="status-item" v-if="settingsSubTabLabel">
-        <span class="status-value">{{ settingsSubTabLabel }}</span>
+      <div class="status-separator" v-if="settingsTabLabel"></div>
+      <div class="status-item" v-if="settingsTabLabel">
+        <span class="status-value">{{ settingsTabLabel }}</span>
       </div>
     </template>
 
@@ -117,7 +117,7 @@ const props = defineProps<{
   viewMode: 'chat' | 'canvas' | 'particle'
   activeNotebookId: string | null
   selectedTagName?: string | null
-  settingsSubTab?: string | null
+  settingsTab?: 'general' | 'model'
   showContextEditDialog?: boolean
   editingContextName?: string
   quickCommandEditingStatus?: { isCreating: boolean; name?: string } | null
@@ -159,13 +159,13 @@ const viewModeLabel = computed(() => {
 })
 
 // 设置子标签显示名称
-const settingsSubTabLabel = computed(() => {
-  if (!props.settingsSubTab) return null
-  const subTabNames: Record<string, string> = {
+const settingsTabLabel = computed(() => {
+  if (!props.settingsTab) return null
+  const tabNames: Record<string, string> = {
     'general': t('statusBar.general'),
     'model': t('statusBar.model')
   }
-  return subTabNames[props.settingsSubTab] || props.settingsSubTab
+  return tabNames[props.settingsTab] || props.settingsTab
 })
 
 // 其他面板标签

@@ -5,7 +5,7 @@
         <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" class="tag-icon">
           <path d="M17.63 5.84C17.27 5.33 16.67 5 16 5L5 5.01C3.9 5.01 3 5.9 3 7v10c0 1.1.9 1.99 2 1.99L16 19c.67 0 1.27-.33 1.63-.84L22 12l-4.37-6.16z"/>
         </svg>
-        <h2>{{ t('nav.tags') }}</h2>
+        <h2>{{ selectedTagName ? `${t('nav.tags')} - ${selectedTagName}` : t('nav.tags') }}</h2>
       </div>
     </div>
 
@@ -22,61 +22,43 @@
         <p>{{ t('nav.noTags') }}</p>
       </div>
 
-      <div v-else class="tags-layout">
-        <!-- 左侧标签列表 -->
-        <div class="tags-sidebar">
+      <div v-else class="nodes-panel">
+        <div v-if="selectedTag" class="nodes-header">
+          <span class="nodes-count">
+            {{ t('tag.tagNNotes', { count: selectedTag.nodes.length }) }}
+          </span>
+        </div>
+        <div v-if="selectedTag" class="nodes-list">
           <div
-            v-for="tagGroup in taggedNodes"
-            :key="tagGroup.tagName"
-            class="tag-item"
-            :class="{ active: selectedTag?.tagName === tagGroup.tagName }"
-            @click="selectTag(tagGroup)"
+            v-for="item in selectedTag.nodes"
+            :key="`${item.notebookId}-${item.nodeId}`"
+            class="node-item"
           >
-            <span class="tag-color-dot" :style="{ backgroundColor: tagGroup.tagColor }"></span>
-            <span class="tag-name">{{ tagGroup.tagName }}</span>
-            <span class="tag-count">{{ tagGroup.nodes.length }}</span>
+            <div class="node-content" @click="openNodeDetail(item)">
+              <div class="node-meta">
+                <span class="notebook-name">{{ item.notebookName }}</span>
+                <template v-if="item.pdfPage">
+                  <span class="separator">·</span>
+                  <span class="canvas-info">{{ t('common.pageN', { n: item.pdfPage }) }}</span>
+                </template>
+                <template v-if="item.nodeTitle">
+                  <span class="separator">·</span>
+                  <span class="node-title">{{ item.nodeTitle }}</span>
+                </template>
+              </div>
+              <div class="node-text" :title="item.fullText">
+                {{ item.fullText }}
+              </div>
+            </div>
+            <button class="detail-btn" @click="openNodeDetail(item)" :title="t('voiceNote.viewDetails')">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                <path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/>
+              </svg>
+            </button>
           </div>
         </div>
-
-        <!-- 右侧节点列表 -->
-        <div class="nodes-panel">
-          <div v-if="selectedTag" class="nodes-header">
-            <span class="nodes-count">
-              {{ t('tag.tagNNotes', { count: selectedTag.nodes.length }) }}
-            </span>
-          </div>
-          <div v-if="selectedTag" class="nodes-list">
-            <div
-              v-for="item in selectedTag.nodes"
-              :key="`${item.notebookId}-${item.nodeId}`"
-              class="node-item"
-            >
-              <div class="node-content" @click="openNodeDetail(item)">
-                <div class="node-meta">
-                  <span class="notebook-name">{{ item.notebookName }}</span>
-                  <template v-if="item.pdfPage">
-                    <span class="separator">·</span>
-                    <span class="canvas-info">{{ t('common.pageN', { n: item.pdfPage }) }}</span>
-                  </template>
-                  <template v-if="item.nodeTitle">
-                    <span class="separator">·</span>
-                    <span class="node-title">{{ item.nodeTitle }}</span>
-                  </template>
-                </div>
-                <div class="node-text" :title="item.fullText">
-                  {{ item.fullText }}
-                </div>
-              </div>
-              <button class="detail-btn" @click="openNodeDetail(item)" :title="t('voiceNote.viewDetails')">
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                  <path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/>
-                </svg>
-              </button>
-            </div>
-          </div>
-          <div v-else class="select-hint">
-            <p>{{ t('tag.selectTagToView') }}</p>
-          </div>
+        <div v-else class="select-hint">
+          <p>{{ t('tag.selectTagToView') }}</p>
         </div>
       </div>
     </div>
@@ -92,7 +74,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import NodePopup from '@/components/NodePopup.vue'
@@ -100,6 +82,10 @@ import { useNotebookStore } from '@/stores/notebookStore'
 import { useTagStore } from '@/stores/tagStore'
 import { generateDeepLinkUrl } from '@/composables/useDeepLink'
 import type { DeepLinkData } from '@/composables/useDeepLink'
+
+const props = defineProps<{
+  selectedTagName: string | null
+}>()
 
 const emit = defineEmits<{
   'tag-selected': [tagName: string | null]
@@ -111,7 +97,6 @@ const tagStore = useTagStore()
 const { t } = useI18n()
 const loading = ref(false)
 const taggedNodes = ref<TagGroup[]>([])
-const selectedTag = ref<TagGroup | null>(null)
 const showNodePopup = ref(false)
 const selectedNodeUrl = ref('')
 
@@ -129,6 +114,12 @@ interface TagGroup {
   tagColor: string
   nodes: TaggedNodeItem[]
 }
+
+// 根据外部传入的 selectedTagName 计算当前选中的标签组
+const selectedTag = computed(() => {
+  if (!props.selectedTagName) return null
+  return taggedNodes.value.find(g => g.tagName === props.selectedTagName)
+})
 
 onMounted(async () => {
   await tagStore.loadTags()
@@ -197,18 +188,7 @@ async function loadTaggedNodes() {
     a.tagName.localeCompare(b.tagName)
   )
 
-  // Auto-select first tag if available
-  if (taggedNodes.value.length > 0 && !selectedTag.value) {
-    selectedTag.value = taggedNodes.value[0]
-    emit('tag-selected', selectedTag.value.tagName)
-  }
-
   loading.value = false
-}
-
-function selectTag(tagGroup: TagGroup) {
-  selectedTag.value = tagGroup
-  emit('tag-selected', tagGroup.tagName)
 }
 
 function openNodeDetail(item: TaggedNodeItem) {
@@ -314,68 +294,7 @@ function handleNavigate(data: DeepLinkData) {
   color: var(--text-secondary);
 }
 
-.tags-layout {
-  display: flex;
-  flex: 1;
-  overflow: hidden;
-}
-
-/* 左侧标签栏 */
-.tags-sidebar {
-  width: 180px;
-  border-right: 1px solid var(--border-color);
-  overflow-y: auto;
-  padding: 12px 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.tag-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.tag-item:hover {
-  background: var(--bg-hover);
-}
-
-.tag-item.active {
-  background: var(--color-primary);
-  color: white;
-}
-
-.tag-item.active .tag-count {
-  color: rgba(255, 255, 255, 0.8);
-}
-
-.tag-color-dot {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.tag-name {
-  flex: 1;
-  font-size: 14px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.tag-count {
-  font-size: 12px;
-  color: var(--text-secondary);
-  flex-shrink: 0;
-}
-
-/* 右侧节点面板 */
+/* 节点面板 */
 .nodes-panel {
   flex: 1;
   overflow-y: auto;

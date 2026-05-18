@@ -222,6 +222,9 @@ body {
   --bg-thinking: rgba(156, 124, 244, 0.08);
   --bg-thinking-dark: rgba(156, 124, 244, 0.15);
 
+  /* 标题栏颜色 */
+  --titlebar-close-hover: #e81123;
+
   /* 引用块颜色 */
   --blockquote-border: #cccccc;
   --blockquote-text: #666666;
