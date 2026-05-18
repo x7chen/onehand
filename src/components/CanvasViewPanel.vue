@@ -12,11 +12,8 @@
       :notebook-model-id="currentNotebook?.modelId"
       :all-profiles="allProfiles"
       :active-profile-id="activeProfileId"
-      :all-notebooks="allNotebooks"
-      :current-notebook-id="currentNotebookId || null"
       :show-viewport-controls="true"
       :hide-navigation="true"
-      :hide-notebook-selector="true"
       @reset-viewport="handleResetViewport"
       @auto-layout="handleAutoLayout"
       @open-dynamic-context-editor="openDynamicContextEditor"
@@ -119,8 +116,6 @@ const props = defineProps<{
   dynamicContextFile?: ContextFile | null
   allProfiles: LLMProfile[]
   activeProfileId: string
-  allNotebooks: Notebook[]
-  currentNotebookId: string | null
 }>()
 
 const emit = defineEmits<{

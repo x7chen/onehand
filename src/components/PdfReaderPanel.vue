@@ -12,8 +12,6 @@
       :notebook-model-id="currentNotebook?.modelId"
       :all-profiles="allProfiles"
       :active-profile-id="activeProfileId"
-      :all-notebooks="allNotebooks"
-      :current-notebook-id="notebookId"
       :hide-navigation="true"
       @open-dynamic-context-editor="openDynamicContextEditor"
       @toggle-static-context="toggleStaticContext"
@@ -183,8 +181,6 @@ const props = withDefaults(defineProps<{
   dynamicContextFile: ContextFile | null
   allProfiles: LLMProfile[]
   activeProfileId: string
-  allNotebooks: Notebook[]
-  currentNotebookId: string
   activateNodeId?: string | null
 }>(), {
   notebookId: '',
@@ -194,8 +190,6 @@ const props = withDefaults(defineProps<{
   dynamicContextFile: null,
   allProfiles: () => [],
   activeProfileId: '',
-  allNotebooks: () => [],
-  currentNotebookId: '',
   activateNodeId: null
 })
 
