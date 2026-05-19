@@ -2,7 +2,7 @@
   <div class="tags-panel">
     <div class="panel-header">
       <div class="header-title">
-        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" class="tag-icon">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" class="tag-icon" :style="selectedTag ? { color: selectedTag.tagColor } : {}">
           <path d="M17.63 5.84C17.27 5.33 16.67 5 16 5L5 5.01C3.9 5.01 3 5.9 3 7v10c0 1.1.9 1.99 2 1.99L16 19c.67 0 1.27-.33 1.63-.84L22 12l-4.37-6.16z"/>
         </svg>
         <h2>{{ selectedTagName ? `${t('nav.tags')} - ${selectedTagName}` : t('nav.tags') }}</h2>
