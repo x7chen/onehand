@@ -141,7 +141,7 @@ function createRecognizer() {
 
 function createWindow() {
   // Default to dark mode background
-  const backgroundColor = '#2d2d2d'
+  const backgroundColor = '#202020'
 
   // 标题栏策略：
   // macOS: 保持原生标题栏，红绿灯按钮由系统提供
@@ -410,7 +410,7 @@ ipcMain.handle('save-file-buffer', async (event, filePath, buffer) => {
 
 ipcMain.handle('set-theme', async (event, isDark) => {
   if (mainWindow) {
-    const bgColor = isDark ? '#2d2d2d' : '#f5f5f5'
+    const bgColor = isDark ? '#202020' : '#f5f5f5'
     const symbolColor = isDark ? '#e0e0e0' : '#333333'
     mainWindow.setBackgroundColor(bgColor)
 

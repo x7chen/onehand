@@ -257,8 +257,8 @@ body {
 
 :root.dark {
   /* 基础背景和文本色 */
-  --bg-primary: #1a1a1a;
-  --bg-secondary: #2d2d2d;
+  --bg-primary: #181818;
+  --bg-secondary: #202020;
   --bg-hover: #3d3d3d;
   --bg-tertiary: #4d4d4d;
   --text-primary: #e0e0e0;
@@ -269,8 +269,8 @@ body {
   --grid-line: rgba(255, 255, 255, 0.05);
 
   /* 深色模式下的语义化变量 */
-  --bg-node-transcript: #2d2d2d;
-  --bg-node-agent: #2d2d2d;
+  --bg-node-transcript: #202020;
+  --bg-node-agent: #202020;
   --bg-active-shadow: rgba(66, 153, 225, 0.4);
 
   /* 引用块颜色 */

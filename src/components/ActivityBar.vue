@@ -146,16 +146,15 @@ function handleSelect(itemId: string) {
   border: none;
   cursor: pointer;
   color: var(--text-secondary);
+  opacity: 0.5;
   transition: all 0.2s;
   position: relative;
 }
 
-.activity-item:hover {
-  color: var(--text-primary);
-}
-
+.activity-item:hover,
 .activity-item.active {
   color: var(--text-primary);
+  opacity: 1;
 }
 
 /* 选中项左侧边框高亮（VSCode风格） */
@@ -172,6 +171,7 @@ function handleSelect(itemId: string) {
 /* 创建笔记按钮特殊样式 */
 .create-note-item {
   color: var(--color-primary);
+  opacity: 1;
 }
 
 .create-note-item:hover {
