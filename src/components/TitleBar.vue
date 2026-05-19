@@ -24,8 +24,14 @@
       <div v-else class="center-input-placeholder"></div>
     </div>
 
-    <!-- 右侧功能区：主题 + 窗口控制 -->
+    <!-- 右侧功能区：搜索 + 主题 + 窗口控制 -->
     <div class="title-bar-actions">
+      <!-- 搜索按钮 -->
+      <button class="title-bar-btn search-btn" @click="handleSearch" :title="t('common.search')">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+          <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 7 9.5 7 14 9.01 14 9.5 11.99 14 9.5 14z"/>
+        </svg>
+      </button>
       <!-- 主题切换按钮 -->
       <button class="title-bar-btn theme-btn" @click="cycleTheme" :title="t('theme.currentTheme', { name: getThemeLabel() })">
         <svg v-if="getThemeIcon() === 'moon'" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
@@ -337,6 +343,8 @@ function getThemeLabel() {
   -webkit-user-select: none;
   box-shadow: var(--shadow-color);
   transition: background-color 0.3s, border-color 0.3s;
+  /* 整体可拖拽 */
+  -webkit-app-region: drag;
 }
 
 .title-bar.maximized {
@@ -348,14 +356,16 @@ function getThemeLabel() {
   opacity: 0.6;
 }
 
-/* 左侧图标区域 */
+/* 左侧图标区域 - 确保不被中间区域覆盖 */
 .title-bar-left {
   display: flex;
   align-items: center;
   padding: 0 8px;
   height: 100%;
   flex-shrink: 0;
-  -webkit-app-region: drag;
+  /* 确保左侧区域在中间输入框之上 */
+  z-index: 10;
+  position: relative;
 }
 
 .app-icon {
@@ -364,7 +374,7 @@ function getThemeLabel() {
   object-fit: contain;
 }
 
-/* 中间输入框区域 - 严格居中 */
+/* 中间输入框区域 - 严格居中，不影响左右布局 */
 .title-bar-center {
   position: absolute;
   left: 50%;
@@ -373,12 +383,16 @@ function getThemeLabel() {
   justify-content: center;
   align-items: center;
   height: 100%;
-  -webkit-app-region: drag;
+  /* pointer-events: none 让点击穿透到下层，输入框wrapper单独设置 pointer-events: auto */
+  pointer-events: none;
 }
 
 .center-input-wrapper {
   width: 560px;
   max-width: calc(100vw - 200px);
+  /* 输入框区域恢复点击事件 */
+  pointer-events: auto;
+  /* 输入框区域不可拖拽 */
   -webkit-app-region: no-drag;
 }
 
@@ -412,12 +426,18 @@ function getThemeLabel() {
   height: 24px;
 }
 
-/* 右侧功能区（主题按钮） */
+/* 右侧功能区（搜索 + 主题按钮） - 不可拖拽，确保不被中间区域覆盖，靠右显示 */
 .title-bar-actions {
   display: flex;
   align-items: center;
   height: 100%;
   flex-shrink: 0;
+  /* 靠右显示 */
+  margin-left: auto;
+  /* 确保按钮区域在中间输入框之上 */
+  z-index: 10;
+  position: relative;
+  /* 按钮区域不可拖拽 */
   -webkit-app-region: no-drag;
 }
 
@@ -440,15 +460,18 @@ function getThemeLabel() {
   background: var(--bg-hover);
 }
 
-/* 窗口控制按钮容器 - 参考 VSCode window-controls-container */
+/* 窗口控制按钮容器 - 参考 VSCode window-controls-container，不可拖拽 */
 .window-controls-container {
   display: flex;
   flex-grow: 0;
   flex-shrink: 0;
   text-align: center;
-  z-index: 3000;
-  -webkit-app-region: no-drag;
+  /* 确保按钮区域在中间输入框之上 */
+  z-index: 10;
+  position: relative;
   height: 100%;
+  /* 窗口控制按钮区域不可拖拽 */
+  -webkit-app-region: no-drag;
 }
 
 /* WCO 启用时的占位容器 */
@@ -489,14 +512,15 @@ function getThemeLabel() {
   color: white;
 }
 
-/* 窗口调整大小区域 */
+/* 窗口调整大小区域 - 不可拖拽，允许调整窗口高度 */
 .title-bar-resizer {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   height: 4px;
-  -webkit-app-region: no-drag;
   cursor: n-resize;
+  /* 调整大小区域不可拖拽 */
+  -webkit-app-region: no-drag;
 }
 </style>
