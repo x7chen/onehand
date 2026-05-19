@@ -55,7 +55,6 @@
         @mousedown="startResizeLeft"
         @dblclick="toggleLeftPanel"
       >
-        <div class="resizer-line"></div>
       </div>
 
       <!-- 折叠状态的分隔线 -->
@@ -64,7 +63,6 @@
         class="panel-resizer-collapsed"
         @dblclick="toggleLeftPanel"
       >
-        <div class="resizer-line-collapsed"></div>
       </div>
 
       <!-- 右侧双 ChatPanel 区域 -->
@@ -104,7 +102,6 @@
           @mousedown="startResizeChat"
           @dblclick="toggleRightChatPanel"
         >
-          <div class="resizer-line"></div>
         </div>
 
         <!-- 折叠状态的分隔线 -->
@@ -113,7 +110,6 @@
           class="chat-resizer-collapsed"
           @dblclick="toggleRightChatPanel"
         >
-          <div class="resizer-line"></div>
         </div>
 
         <!-- 右侧 ChatPanel -->
@@ -1026,12 +1022,9 @@ async function handleCopySelectedContext() {
 
 /* 可拖动分隔线 */
 .panel-resizer {
-  width: 8px;
+  width: 4px;
   background: var(--bg-primary);
   cursor: col-resize;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   flex-shrink: 0;
   transition: background 0.2s;
 }
@@ -1040,44 +1033,17 @@ async function handleCopySelectedContext() {
   background: var(--border-color);
 }
 
-.resizer-line {
-  width: 2px;
-  height: 40px;
-  background: var(--border-color);
-  border-radius: 1px;
-  transition: background 0.2s;
-}
-
-.panel-resizer:hover .resizer-line {
-  background: var(--color-primary);
-}
-
 /* 折叠状态的分隔线 */
 .panel-resizer-collapsed {
-  width: 8px;
+  width: 4px;
   background: var(--bg-primary);
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   flex-shrink: 0;
   transition: background 0.2s;
 }
 
 .panel-resizer-collapsed:hover {
   background: var(--border-color);
-}
-
-.resizer-line-collapsed {
-  width: 2px;
-  height: 40px;
-  background: var(--border-color);
-  border-radius: 1px;
-  transition: background 0.2s;
-}
-
-.panel-resizer-collapsed:hover .resizer-line-collapsed {
-  background: var(--color-primary);
 }
 
 /* 双 ChatPanel 容器 */
@@ -1108,12 +1074,9 @@ async function handleCopySelectedContext() {
 
 /* ChatPanel 分隔线 */
 .chat-resizer {
-  width: 8px;
+  width: 4px;
   background: var(--bg-primary);
   cursor: col-resize;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   flex-shrink: 0;
   transition: background 0.2s;
   z-index: 10;
@@ -1123,18 +1086,11 @@ async function handleCopySelectedContext() {
   background: var(--border-color);
 }
 
-.chat-resizer:hover .resizer-line {
-  background: var(--color-primary);
-}
-
 /* 折叠状态的 ChatPanel 分隔线 */
 .chat-resizer-collapsed {
-  width: 8px;
+  width: 4px;
   background: var(--bg-primary);
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   flex-shrink: 0;
   transition: background 0.2s;
   z-index: 10;
@@ -1142,10 +1098,6 @@ async function handleCopySelectedContext() {
 
 .chat-resizer-collapsed:hover {
   background: var(--border-color);
-}
-
-.chat-resizer-collapsed:hover .resizer-line {
-  background: var(--color-primary);
 }
 
 /* 对话框 */

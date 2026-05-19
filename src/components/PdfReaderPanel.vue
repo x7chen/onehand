@@ -49,7 +49,6 @@
         @mousedown="startResize"
         @dblclick="togglePdfPanel"
       >
-        <div class="resizer-line"></div>
       </div>
 
       <!-- 折叠状态的分隔线 -->
@@ -58,7 +57,6 @@
         class="panel-resizer-collapsed"
         @dblclick="togglePdfPanel"
       >
-        <div class="resizer-line"></div>
       </div>
 
       <ChatPanel
@@ -94,12 +92,6 @@
         @mousedown="!isRightPanelCollapsed && startResizeRight($event)"
         @dblclick="toggleRightPanel"
       >
-        <div class="resizer-line"></div>
-        <div v-if="isRightPanelCollapsed" class="collapsed-indicator">
-          <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
-            <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/>
-          </svg>
-        </div>
       </div>
 
       <!-- 右侧 NodeListPanel -->
@@ -1340,12 +1332,9 @@ function handleIncludePageChange(data: { include: boolean; imageBase64?: string;
 }
 
 .panel-resizer {
-  width: 8px;
+  width: 4px;
   background: var(--bg-primary);
   cursor: col-resize;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   flex-shrink: 0;
   transition: background 0.2s;
 }
@@ -1354,25 +1343,10 @@ function handleIncludePageChange(data: { include: boolean; imageBase64?: string;
   background: var(--border-color);
 }
 
-.resizer-line {
-  width: 2px;
-  height: 40px;
-  background: var(--border-color);
-  border-radius: 1px;
-  transition: background 0.2s;
-}
-
-.panel-resizer:hover .resizer-line {
-  background: var(--color-primary);
-}
-
 .panel-resizer-collapsed {
-  width: 8px;
+  width: 4px;
   background: var(--bg-primary);
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   flex-shrink: 0;
   transition: background 0.2s;
 }
@@ -1381,34 +1355,14 @@ function handleIncludePageChange(data: { include: boolean; imageBase64?: string;
   background: var(--border-color);
 }
 
-.panel-resizer-collapsed:hover .resizer-line {
-  background: var(--color-primary);
-}
-
 /* 右侧分隔线 */
 .panel-resizer.right-resizer {
   /* 分隔线始终在 ChatPanel 右侧 */
 }
 
 .panel-resizer.right-resizer.collapsed {
-  width: 12px;
+  width: 4px;
   cursor: pointer;
-}
-
-.panel-resizer.right-resizer.collapsed .resizer-line {
-  opacity: 0;
-}
-
-.panel-resizer.right-resizer.collapsed .collapsed-indicator {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-secondary);
-  transition: color 0.2s;
-}
-
-.panel-resizer.right-resizer.collapsed:hover .collapsed-indicator {
-  color: var(--color-primary);
 }
 
 .dialog-overlay {

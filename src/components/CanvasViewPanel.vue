@@ -44,7 +44,6 @@
         @mousedown="!isLeftPanelCollapsed && startResizeLeft($event)"
         @dblclick="toggleLeftPanel"
       >
-        <div class="resizer-line"></div>
       </div>
 
       <!-- 右侧：CanvasArea -->
@@ -360,12 +359,9 @@ defineExpose({
 
 /* 左侧分隔线 */
 .panel-resizer.left-resizer {
-  width: 8px;
+  width: 4px;
   background: var(--bg-primary);
   cursor: col-resize;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   flex-shrink: 0;
   transition: background 0.2s;
 }
@@ -374,19 +370,8 @@ defineExpose({
   background: var(--border-color);
 }
 
-.panel-resizer.left-resizer .resizer-line {
-  width: 2px;
-  height: 40px;
-  background: var(--border-color);
-  border-radius: 1px;
-  transition: background 0.2s;
-}
-
-.panel-resizer.left-resizer:hover .resizer-line {
-  background: var(--color-primary);
-}
-
 .panel-resizer.left-resizer.collapsed {
+  width: 4px;
   cursor: pointer;
 }
 
