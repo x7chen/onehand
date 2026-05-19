@@ -190,6 +190,13 @@ body {
 }
 
 :root {
+  /* 字体大小规范 */
+  --font-size-title: 12px;
+  --font-size-heading: 12px;
+  --font-size-body: 12px;
+  --font-size-small: 12px;
+  --font-size-mini: 10px;
+
   /* 基础背景和文本色 */
   --bg-primary: #ffffff;
   --bg-secondary: #f5f5f5;

@@ -71,7 +71,7 @@ function handleClick(item: OutlineItem) {
 
 <style scoped>
 .outline-tree {
-  font-size: 13px;
+  font-size: var(--font-size-body);
 }
 
 .outline-item {

@@ -409,7 +409,7 @@ defineExpose({
 
 .dialog h3 {
   margin-bottom: 16px;
-  font-size: 20px;
+  font-size: var(--font-size-title);
   color: var(--text-primary);
 }
 
@@ -420,7 +420,7 @@ defineExpose({
 }
 
 .no-dynamic-context .hint {
-  font-size: 13px;
+  font-size: var(--font-size-body);
   margin-top: 8px;
   font-style: italic;
   color: var(--text-secondary);
@@ -432,7 +432,7 @@ defineExpose({
   padding: 12px;
   border: 1px solid var(--border-color);
   border-radius: 6px;
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   background: var(--bg-secondary);
   color: var(--text-primary);
   resize: vertical;

@@ -212,7 +212,7 @@ function handleCreate() {
 
 .dialog h3 {
   margin-bottom: 16px;
-  font-size: 18px;
+  font-size: var(--font-size-title);
   color: var(--text-primary);
 }
 
@@ -222,7 +222,7 @@ function handleCreate() {
   padding: 10px 12px;
   border: 1px solid var(--border-color);
   border-radius: 6px;
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   background: var(--bg-secondary);
   color: var(--text-primary);
   box-sizing: border-box;
@@ -242,7 +242,7 @@ function handleCreate() {
 .form-group label {
   display: block;
   margin-bottom: 8px;
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   color: var(--text-secondary);
 }
 
@@ -283,7 +283,7 @@ function handleCreate() {
   background: var(--bg-secondary);
   cursor: pointer;
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: var(--font-size-body);
   transition: all 0.2s;
 }
 
@@ -303,7 +303,7 @@ function handleCreate() {
   padding: 4px 10px;
   border-radius: 12px;
   border: 1px solid;
-  font-size: 13px;
+  font-size: var(--font-size-body);
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -317,7 +317,7 @@ function handleCreate() {
 }
 
 .no-context-hint {
-  font-size: 13px;
+  font-size: var(--font-size-body);
   color: var(--text-secondary);
   font-style: italic;
 }

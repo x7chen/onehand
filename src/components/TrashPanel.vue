@@ -385,7 +385,7 @@ async function executeEmpty() {
 
 .header-title h2 {
   margin: 0;
-  font-size: 20px;
+  font-size: var(--font-size-title);
   font-weight: 500;
   color: var(--text-primary);
   line-height: 1;
@@ -422,7 +422,7 @@ async function executeEmpty() {
 }
 
 .section-title {
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   font-weight: 500;
   color: var(--text-primary);
 }
@@ -434,7 +434,7 @@ async function executeEmpty() {
   border-radius: 6px;
   cursor: pointer;
   color: var(--color-error);
-  font-size: 13px;
+  font-size: var(--font-size-body);
   transition: all 0.2s;
 }
 
@@ -479,7 +479,7 @@ async function executeEmpty() {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   color: var(--text-primary);
   margin-bottom: 4px;
 }
@@ -495,7 +495,7 @@ async function executeEmpty() {
 }
 
 .type-tag {
-  font-size: 11px;
+  font-size: var(--font-size-mini);
   padding: 2px 6px;
   border-radius: 4px;
   background: var(--border-color);
@@ -506,7 +506,7 @@ async function executeEmpty() {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: var(--font-size-small);
   color: var(--text-secondary);
 }
 
@@ -520,7 +520,7 @@ async function executeEmpty() {
 }
 
 .item-preview {
-  font-size: 13px;
+  font-size: var(--font-size-body);
   color: var(--text-secondary);
   white-space: nowrap;
   overflow: hidden;
@@ -584,7 +584,7 @@ async function executeEmpty() {
 .confirm-dialog p {
   margin: 0 0 20px 0;
   color: var(--text-primary);
-  font-size: 16px;
+  font-size: var(--font-size-title);
 }
 
 .dialog-actions {

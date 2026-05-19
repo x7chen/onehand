@@ -1393,7 +1393,7 @@ function handleIncludePageChange(data: { include: boolean; imageBase64?: string;
 
 .dialog h3 {
   margin-bottom: 16px;
-  font-size: 20px;
+  font-size: var(--font-size-title);
   color: var(--text-primary);
 }
 
@@ -1404,7 +1404,7 @@ function handleIncludePageChange(data: { include: boolean; imageBase64?: string;
 }
 
 .no-dynamic-context .hint {
-  font-size: 13px;
+  font-size: var(--font-size-body);
 }
 
 .content-input {
@@ -1415,7 +1415,7 @@ function handleIncludePageChange(data: { include: boolean; imageBase64?: string;
   border-radius: 8px;
   background: var(--bg-secondary);
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   resize: vertical;
   outline: none;
   font-family: inherit;

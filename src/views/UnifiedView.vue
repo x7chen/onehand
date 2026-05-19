@@ -1018,7 +1018,7 @@ function handleParticleNavigate(data: { notebookId: string; nodeId: string }) {
 
 .dialog h3 {
   margin-bottom: 16px;
-  font-size: 20px;
+  font-size: var(--font-size-title);
   color: var(--text-primary);
 }
 
@@ -1027,7 +1027,7 @@ function handleParticleNavigate(data: { notebookId: string; nodeId: string }) {
   padding: 12px;
   border: 1px solid var(--border-color);
   border-radius: 6px;
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   margin-bottom: 16px;
   background: var(--bg-secondary);
   color: var(--text-primary);
@@ -1041,7 +1041,7 @@ function handleParticleNavigate(data: { notebookId: string; nodeId: string }) {
 .form-group label {
   display: block;
   margin-bottom: 8px;
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   color: var(--text-secondary);
 }
 
@@ -1050,7 +1050,7 @@ function handleParticleNavigate(data: { notebookId: string; nodeId: string }) {
   padding: 10px 12px;
   border: 1px solid var(--border-color);
   border-radius: 6px;
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   background: var(--bg-secondary);
   color: var(--text-primary);
   cursor: pointer;
@@ -1062,7 +1062,7 @@ function handleParticleNavigate(data: { notebookId: string; nodeId: string }) {
   padding: 12px;
   border: 1px solid var(--border-color);
   border-radius: 6px;
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   background: var(--bg-secondary);
   color: var(--text-primary);
   resize: vertical;

@@ -221,7 +221,7 @@ function handleClick() {
 }
 
 .small-title {
-  font-size: 12px;
+  font-size: var(--font-size-small);
   font-weight: 500;
   color: var(--text-primary);
   white-space: nowrap;
@@ -236,7 +236,7 @@ function handleClick() {
 }
 
 .small-date {
-  font-size: 10px;
+  font-size: var(--font-size-mini);
   color: var(--text-secondary);
 }
 
@@ -302,7 +302,7 @@ function handleClick() {
 }
 
 .small-transcript-content {
-  font-size: 12px;
+  font-size: var(--font-size-small);
   line-height: 1.5;
   color: var(--text-primary);
   word-wrap: break-word;
@@ -326,13 +326,13 @@ function handleClick() {
 }
 
 .status-text {
-  font-size: 11px;
+  font-size: var(--font-size-mini);
   color: var(--text-secondary);
   font-style: italic;
 }
 
 .error-text {
-  font-size: 11px;
+  font-size: var(--font-size-mini);
   color: var(--color-error);
 }
 
@@ -351,7 +351,7 @@ function handleClick() {
 }
 
 .small-image-loading {
-  font-size: 11px;
+  font-size: var(--font-size-mini);
   color: var(--text-secondary);
   text-align: center;
   padding: 20px 0;

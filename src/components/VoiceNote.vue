@@ -1840,7 +1840,7 @@ watch(() => props.node.thinkingContent, async (newThinkingContent) => {
 }
 
 .recording-duration {
-  font-size: 12px;
+  font-size: var(--font-size-small);
   color: var(--text-secondary);
   font-weight: 500;
   white-space: nowrap;
@@ -1848,7 +1848,7 @@ watch(() => props.node.thinkingContent, async (newThinkingContent) => {
 }
 
 .node-title {
-  font-size: 13px;
+  font-size: var(--font-size-body);
   font-weight: 500;
   color: var(--text-primary);
   white-space: nowrap;
@@ -1876,7 +1876,7 @@ watch(() => props.node.thinkingContent, async (newThinkingContent) => {
 }
 
 .node-title-input {
-  font-size: 13px;
+  font-size: var(--font-size-body);
   font-weight: 500;
   color: var(--text-primary);
   background: var(--bg-secondary);
@@ -1896,7 +1896,7 @@ watch(() => props.node.thinkingContent, async (newThinkingContent) => {
   margin-right: 8px;
   min-width: 0;
   flex-shrink: 1;
-  font-size: 12px;
+  font-size: var(--font-size-small);
   color: var(--text-secondary);
   overflow: hidden;
 }
@@ -1976,7 +1976,7 @@ watch(() => props.node.thinkingContent, async (newThinkingContent) => {
   background: transparent;
   cursor: pointer;
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   text-align: left;
   transition: background 0.2s;
 }
@@ -2115,7 +2115,7 @@ watch(() => props.node.thinkingContent, async (newThinkingContent) => {
   justify-content: center;
   min-height: 100px;
   color: var(--text-secondary);
-  font-size: 14px;
+  font-size: var(--font-size-heading);
 }
 
 .transcript-box {
@@ -2195,7 +2195,7 @@ watch(() => props.node.thinkingContent, async (newThinkingContent) => {
 .transcript-content,
 .agent-content,
 .thinking-content {
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   line-height: 1.6;
   color: var(--text-primary);
   white-space: normal;
@@ -2405,7 +2405,7 @@ background-color: rgba(0, 0, 0, 1);
   background: rgba(255, 255, 255, 0.98);
   color: var(--text-primary);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   line-height: 1.6;
   resize: none;
   outline: none;
@@ -2457,7 +2457,7 @@ background-color: rgba(0, 0, 0, 1);
 }
 
 .thinking-label {
-  font-size: 12px;
+  font-size: var(--font-size-small);
   color: var(--color-thinking);
   font-weight: 500;
 }
@@ -2509,7 +2509,7 @@ background-color: rgba(0, 0, 0, 1);
 }
 
 .agent-label {
-  font-size: 12px;
+  font-size: var(--font-size-small);
   color: var(--color-success);
   font-weight: 500;
 }
@@ -2561,13 +2561,13 @@ background-color: rgba(0, 0, 0, 1);
    状态和错误样式
    ======================================== */
 .status-text {
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   color: var(--text-secondary);
   font-style: italic;
 }
 
 .error-text {
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   color: var(--color-error);
   display: flex;
   align-items: center;
@@ -2581,7 +2581,7 @@ background-color: rgba(0, 0, 0, 1);
   padding: 2px 8px;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--font-size-small);
 }
 
 .error-text button:hover {
@@ -2606,7 +2606,7 @@ background-color: rgba(0, 0, 0, 1);
   background: var(--bg-primary);
   color: var(--text-primary);
   font-family: inherit;
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   line-height: 1.6;
   resize: vertical;
   outline: none;
@@ -2725,7 +2725,7 @@ background-color: rgba(0, 0, 0, 1);
 }
 
 .tag-popover-title {
-  font-size: 13px;
+  font-size: var(--font-size-body);
   font-weight: 500;
   color: var(--text-primary);
 }
@@ -2768,7 +2768,7 @@ background-color: rgba(0, 0, 0, 1);
   padding: 4px 8px;
   border-radius: 12px;
   border: 1px solid;
-  font-size: 12px;
+  font-size: var(--font-size-small);
   transition: all 0.2s;
 }
 
@@ -2817,7 +2817,7 @@ background-color: rgba(0, 0, 0, 1);
   background: var(--bg-secondary);
   color: var(--text-secondary);
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--font-size-small);
   transition: all 0.2s;
 }
 
@@ -2839,7 +2839,7 @@ background-color: rgba(0, 0, 0, 1);
   padding: 6px 8px;
   border: 1px solid var(--border-color);
   border-radius: 4px;
-  font-size: 12px;
+  font-size: var(--font-size-small);
   background: var(--bg-secondary);
   color: var(--text-primary);
   outline: none;
@@ -2868,7 +2868,7 @@ background-color: rgba(0, 0, 0, 1);
   display: flex;
   align-items: center;
   padding: 6px 8px;
-  font-size: 12px;
+  font-size: var(--font-size-small);
   cursor: pointer;
   transition: background 0.2s;
 }
@@ -2950,13 +2950,13 @@ background-color: rgba(0, 0, 0, 1);
 }
 
 .related-notes-title {
-  font-size: 13px;
+  font-size: var(--font-size-body);
   font-weight: 500;
   color: var(--text-primary);
 }
 
 .related-notes-count {
-  font-size: 12px;
+  font-size: var(--font-size-small);
   color: var(--color-primary);
   background: rgba(255, 152, 0, 0.1);
   padding: 2px 8px;
@@ -2982,7 +2982,7 @@ background-color: rgba(0, 0, 0, 1);
 }
 
 .related-notes-loading span {
-  font-size: 12px;
+  font-size: var(--font-size-small);
   color: var(--text-secondary);
 }
 
@@ -3010,7 +3010,7 @@ background-color: rgba(0, 0, 0, 1);
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: var(--font-size-small);
   margin-bottom: 4px;
 }
 
@@ -3039,7 +3039,7 @@ background-color: rgba(0, 0, 0, 1);
 }
 
 .related-note-preview {
-  font-size: 13px;
+  font-size: var(--font-size-body);
   color: var(--text-secondary);
   line-height: 1.4;
   overflow: hidden;
@@ -3052,7 +3052,7 @@ background-color: rgba(0, 0, 0, 1);
   align-items: center;
   justify-content: center;
   padding: 20px;
-  font-size: 13px;
+  font-size: var(--font-size-body);
   color: var(--text-secondary);
 }
 
@@ -3088,7 +3088,7 @@ background-color: rgba(0, 0, 0, 1);
 }
 
 .details-title {
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   font-weight: 600;
   color: var(--text-primary);
 }
@@ -3126,14 +3126,14 @@ background-color: rgba(0, 0, 0, 1);
 }
 
 .details-label {
-  font-size: 13px;
+  font-size: var(--font-size-body);
   color: var(--text-secondary);
   min-width: 70px;
   flex-shrink: 0;
 }
 
 .details-value {
-  font-size: 13px;
+  font-size: var(--font-size-body);
   color: var(--text-primary);
   word-break: break-word;
 }
@@ -3183,7 +3183,7 @@ background-color: rgba(0, 0, 0, 1);
   border: none;
   background: transparent;
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: var(--font-size-body);
   cursor: pointer;
   text-align: left;
 }

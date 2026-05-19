@@ -473,7 +473,7 @@ function toggleSidebar() {
   border-radius: 6px;
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: var(--font-size-body);
   outline: none;
   transition: border-color 0.2s, background 0.2s;
   cursor: text;
@@ -505,6 +505,7 @@ function toggleSidebar() {
   flex-shrink: 0;
   /* 靠右显示 */
   margin-left: auto;
+  margin-right: 24px;
   /* 确保按钮区域在中间输入框之上 */
   z-index: 10;
   position: relative;

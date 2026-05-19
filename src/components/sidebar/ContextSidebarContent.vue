@@ -256,7 +256,7 @@ function handleScroll() {
 }
 
 .section-title {
-  font-size: 12px;
+  font-size: var(--font-size-title);
   font-weight: 600;
   color: var(--text-tertiary);
 }
@@ -283,41 +283,39 @@ function handleScroll() {
 .tags-wrapper {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 6px;
   padding: 8px 12px;
 }
 
 .context-tag {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-radius: 20px;
-  border: 2px solid;
+  padding: 3px 8px;
+  border-radius: 12px;
+  border: 1px solid;
+  font-size: var(--font-size-small);
+  font-weight: 500;
+  white-space: nowrap;
   cursor: pointer;
   transition: all 0.2s;
   user-select: none;
 }
 
 .context-tag:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  transform: scale(1.05);
 }
 
 .context-tag.active {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  font-weight: 600;
 }
 
 .tag-name {
-  font-size: 14px;
-  font-weight: 500;
   color: var(--text-primary);
 }
 
 .empty-hint {
   padding: 12px;
-  font-size: 13px;
+  font-size: var(--font-size-body);
   color: var(--text-tertiary);
   text-align: center;
 }

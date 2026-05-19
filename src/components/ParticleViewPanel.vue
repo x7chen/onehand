@@ -749,7 +749,7 @@ onUnmounted(() => {
   background: rgba(0, 0, 0, 0.5);
   border-radius: 6px;
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: var(--font-size-small);
   z-index: 10;
 }
 
@@ -793,12 +793,12 @@ onUnmounted(() => {
   background: rgba(0, 0, 0, 0.5);
   border-radius: 6px;
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: var(--font-size-small);
   z-index: 10;
 }
 
 .scroll-hint {
-  font-size: 10px;
+  font-size: var(--font-size-mini);
   opacity: 0.8;
 }
 
@@ -811,7 +811,7 @@ onUnmounted(() => {
   background: rgba(0, 0, 0, 0.4);
   border-radius: 6px;
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: var(--font-size-body);
   z-index: 10;
 }
 </style>

@@ -240,7 +240,7 @@ function handleNavigate(data: DeepLinkData) {
 
 .header-title h2 {
   margin: 0;
-  font-size: 20px;
+  font-size: var(--font-size-title);
   font-weight: 500;
   color: var(--text-primary);
   line-height: 1;
@@ -294,7 +294,7 @@ function handleNavigate(data: DeepLinkData) {
 }
 
 .results-count {
-  font-size: 12px;
+  font-size: var(--font-size-small);
   color: var(--text-secondary);
   margin-bottom: 12px;
   padding: 0 4px;
@@ -330,7 +330,7 @@ function handleNavigate(data: DeepLinkData) {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: var(--font-size-small);
   color: var(--text-secondary);
   margin-bottom: 4px;
 }
@@ -357,7 +357,7 @@ function handleNavigate(data: DeepLinkData) {
 }
 
 .node-text {
-  font-size: 13px;
+  font-size: var(--font-size-body);
   color: var(--text-primary);
   line-height: 1.4;
   white-space: nowrap;

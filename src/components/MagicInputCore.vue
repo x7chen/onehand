@@ -1360,7 +1360,7 @@ defineExpose({
   background: var(--bg-primary) !important;
   color: var(--text-primary);
   font-family: inherit;
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   line-height: 1.5;
   resize: none;
   outline: none;
@@ -1430,7 +1430,7 @@ defineExpose({
 
 .magic-input-menu-bar .menu-btn .btn-text {
   display: none;
-  font-size: 13px;
+  font-size: var(--font-size-body);
   font-weight: 500;
 }
 
@@ -1493,7 +1493,7 @@ defineExpose({
 }
 
 .magic-input-menu-bar .record-btn .record-time {
-  font-size: 12px;
+  font-size: var(--font-size-small);
   font-weight: 500;
 }
 
@@ -1533,7 +1533,7 @@ defineExpose({
 }
 
 .quick-command-name {
-  font-size: 13px;
+  font-size: var(--font-size-body);
   font-weight: 500;
 }
 
@@ -1566,7 +1566,7 @@ defineExpose({
   border: none;
   background: transparent;
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   cursor: pointer;
   border-radius: 4px;
   width: 100%;
@@ -1610,7 +1610,7 @@ defineExpose({
 
 .preview-content {
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   line-height: 1.5;
   white-space: pre-wrap;
   word-wrap: break-word;
@@ -1628,7 +1628,7 @@ defineExpose({
 }
 
 .preview-menu-path {
-  font-size: 12px;
+  font-size: var(--font-size-small);
   font-weight: 700;
   color: var(--color-primary) !important;
   white-space: nowrap;
@@ -1724,7 +1724,7 @@ defineExpose({
   border: none;
   background: transparent;
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   cursor: pointer;
   border-radius: 4px;
   width: 100%;
@@ -1765,7 +1765,7 @@ defineExpose({
   bottom: 0;
   padding: 12px;
   font-family: inherit;
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   line-height: 1.5;
   white-space: pre-wrap;
   word-wrap: break-word;
@@ -1830,7 +1830,7 @@ defineExpose({
   border-radius: 4px;
   background: var(--bg-secondary);
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   outline: none;
 }
 
@@ -1863,7 +1863,7 @@ defineExpose({
 }
 
 .find-count {
-  font-size: 13px;
+  font-size: var(--font-size-body);
   color: var(--text-secondary);
   white-space: nowrap;
   min-width: 60px;

@@ -241,7 +241,7 @@ function handleInput() {
   color: var(--color-warning, #eab308);
   padding: 8px 16px;
   border-radius: 6px;
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   white-space: nowrap;
   z-index: 20;
 }

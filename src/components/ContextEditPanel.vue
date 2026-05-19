@@ -213,7 +213,7 @@ function handleCancel() {
 }
 
 .panel-header h3 {
-  font-size: 18px;
+  font-size: var(--font-size-title);
   font-weight: 600;
   color: var(--text-primary);
   margin: 0;
@@ -245,7 +245,7 @@ function handleCancel() {
 }
 
 .form-label {
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   font-weight: 500;
   color: var(--text-secondary);
   margin-bottom: 8px;
@@ -255,7 +255,7 @@ function handleCancel() {
   padding: 12px;
   border: 1px solid var(--border-color);
   border-radius: 6px;
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   background: var(--bg-secondary);
   color: var(--text-primary);
   outline: none;
@@ -276,7 +276,7 @@ function handleCancel() {
   border-radius: 6px;
   background: var(--bg-secondary);
   color: var(--text-secondary);
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -296,7 +296,7 @@ function handleCancel() {
   padding: 12px;
   background: var(--bg-secondary);
   border-radius: 6px;
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   color: var(--text-primary);
 }
 
@@ -361,7 +361,7 @@ function handleCancel() {
   border-radius: 6px;
   cursor: pointer;
   color: var(--color-error);
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   transition: all 0.2s;
 }
 
@@ -376,7 +376,7 @@ function handleCancel() {
   border-radius: 6px;
   cursor: pointer;
   color: var(--text-secondary);
-  font-size: 14px;
+  font-size: var(--font-size-heading);
 }
 
 .cancel-btn:hover {
@@ -391,7 +391,7 @@ function handleCancel() {
   border-radius: 6px;
   cursor: pointer;
   color: white;
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   font-weight: 500;
 }
 

@@ -671,7 +671,7 @@ function handleNavigate(data: DeepLinkData) {
   
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: var(--font-size-body);
   outline: none;
   transition: border-color 0.2s, background 0.2s;
   box-sizing: border-box;
@@ -685,7 +685,7 @@ function handleNavigate(data: DeepLinkData) {
   border-radius: 6px;
   background: transparent;
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   outline: none;
   /* 确保可以接收输入 */
   pointer-events: auto;
@@ -737,7 +737,7 @@ function handleNavigate(data: DeepLinkData) {
   border-radius: 6px;
   background: var(--bg-secondary);
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: var(--font-size-body);
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -757,7 +757,7 @@ function handleNavigate(data: DeepLinkData) {
   padding: 6px 8px;
   background: var(--bg-secondary);
   border-radius: 6px;
-  font-size: 12px;
+  font-size: var(--font-size-small);
 }
 
 .indexing-progress {
@@ -797,7 +797,7 @@ function handleNavigate(data: DeepLinkData) {
   border-radius: 4px;
   background: var(--color-primary);
   color: white;
-  font-size: 12px;
+  font-size: var(--font-size-small);
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -819,7 +819,7 @@ function handleNavigate(data: DeepLinkData) {
   border-radius: 4px;
   background: transparent;
   color: var(--color-primary);
-  font-size: 12px;
+  font-size: var(--font-size-small);
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -855,7 +855,7 @@ function handleNavigate(data: DeepLinkData) {
 }
 
 .filter-label {
-  font-size: 12px;
+  font-size: var(--font-size-small);
   color: var(--text-secondary);
   white-space: nowrap;
 }
@@ -866,7 +866,7 @@ function handleNavigate(data: DeepLinkData) {
   border-radius: 4px;
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-size: 12px;
+  font-size: var(--font-size-small);
   cursor: pointer;
   min-width: 100px;
 }
@@ -882,7 +882,7 @@ function handleNavigate(data: DeepLinkData) {
   border-radius: 4px;
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-size: 12px;
+  font-size: var(--font-size-small);
   cursor: pointer;
   width: 110px;
 }
@@ -906,7 +906,7 @@ function handleNavigate(data: DeepLinkData) {
   border-radius: 4px;
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-size: 12px;
+  font-size: var(--font-size-small);
   cursor: pointer;
   min-width: 120px;
   max-width: 200px;
@@ -921,7 +921,7 @@ function handleNavigate(data: DeepLinkData) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 12px;
+  font-size: var(--font-size-small);
 }
 
 .multi-select-arrow {
@@ -948,7 +948,7 @@ function handleNavigate(data: DeepLinkData) {
   border-radius: 4px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   z-index: 100;
-  font-size: 12px;
+  font-size: var(--font-size-small);
 }
 
 .multi-select-item {
@@ -958,7 +958,7 @@ function handleNavigate(data: DeepLinkData) {
   padding: 4px 8px;
   cursor: pointer;
   transition: background 0.2s;
-  font-size: 12px;
+  font-size: var(--font-size-small);
 }
 
 .multi-select-item:hover {
@@ -1006,7 +1006,7 @@ function handleNavigate(data: DeepLinkData) {
   border-radius: 4px;
   background: transparent;
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: var(--font-size-small);
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -1042,7 +1042,7 @@ function handleNavigate(data: DeepLinkData) {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: var(--font-size-small);
   color: var(--text-primary);
 }
 
@@ -1065,12 +1065,12 @@ function handleNavigate(data: DeepLinkData) {
 }
 
 .history-time {
-  font-size: 11px;
+  font-size: var(--font-size-mini);
   color: var(--text-secondary);
 }
 
 .history-mode-badge {
-  font-size: 10px;
+  font-size: var(--font-size-mini);
   padding: 2px 4px;
   border-radius: 3px;
   background: var(--border-color);
@@ -1159,11 +1159,11 @@ function handleNavigate(data: DeepLinkData) {
 .no-results p,
 .search-placeholder p {
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: var(--font-size-body);
 }
 
 .results-count {
-  font-size: 11px;
+  font-size: var(--font-size-mini);
   color: var(--text-secondary);
   margin-bottom: 8px;
   padding: 0 4px;
@@ -1199,7 +1199,7 @@ function handleNavigate(data: DeepLinkData) {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 11px;
+  font-size: var(--font-size-mini);
   color: var(--text-secondary);
   margin-bottom: 4px;
 }
@@ -1227,7 +1227,7 @@ function handleNavigate(data: DeepLinkData) {
 }
 
 .result-text {
-  font-size: 12px;
+  font-size: var(--font-size-small);
   color: var(--text-primary);
   line-height: 1.4;
   display: -webkit-box;
@@ -1278,7 +1278,7 @@ function handleNavigate(data: DeepLinkData) {
   border-radius: 4px;
   background: transparent;
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: var(--font-size-small);
   cursor: pointer;
   transition: all 0.2s;
 }

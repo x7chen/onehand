@@ -408,7 +408,7 @@ function closeDropdown() {
   display: flex;
   align-items: center;
   padding: 0 12px;
-  font-size: 12px;
+  font-size: var(--font-size-small);
   color: var(--text-secondary);
   flex-shrink: 0;
   gap: 0;
@@ -440,12 +440,12 @@ function closeDropdown() {
 
 .status-label {
   color: var(--text-tertiary);
-  font-size: 11px;
+  font-size: var(--font-size-mini);
 }
 
 .status-value {
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: var(--font-size-small);
 }
 
 .toggle-value {
@@ -488,7 +488,7 @@ function closeDropdown() {
   color: var(--color-primary);
   padding: 1px 6px;
   border-radius: 4px;
-  font-size: 11px;
+  font-size: var(--font-size-mini);
   white-space: nowrap;
 }
 
@@ -538,7 +538,7 @@ function closeDropdown() {
   border-radius: 6px;
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: var(--font-size-body);
   outline: none;
   transition: border-color 0.2s, background 0.2s;
   box-sizing: border-box;
@@ -585,13 +585,13 @@ function closeDropdown() {
 
 .option-check {
   width: 16px;
-  font-size: 12px;
+  font-size: var(--font-size-small);
   color: var(--color-primary);
   font-weight: bold;
 }
 
 .option-label {
-  font-size: 13px;
+  font-size: var(--font-size-body);
   color: var(--text-primary);
 }
 

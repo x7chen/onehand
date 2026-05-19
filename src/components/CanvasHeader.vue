@@ -469,7 +469,7 @@ onUnmounted(() => {
   padding: 3px 8px;
   border-radius: 12px;
   border: 1px solid;
-  font-size: 12px;
+  font-size: var(--font-size-small);
   font-weight: 500;
   white-space: nowrap;
   cursor: pointer;
@@ -499,7 +499,7 @@ onUnmounted(() => {
   padding: 2px 6px;
   border-radius: 10px;
   border: 1px solid;
-  font-size: 12px;
+  font-size: var(--font-size-small);
   font-weight: 500;
   white-space: nowrap;
   max-width: 80px;
@@ -508,7 +508,7 @@ onUnmounted(() => {
 }
 
 .context-name {
-  font-size: 13px;
+  font-size: var(--font-size-body);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -517,7 +517,7 @@ onUnmounted(() => {
 }
 
 .context-count {
-  font-size: 11px;
+  font-size: var(--font-size-mini);
   color: var(--text-secondary);
   background: var(--bg-secondary);
   padding: 1px 4px;
@@ -526,7 +526,7 @@ onUnmounted(() => {
 }
 
 .context-placeholder {
-  font-size: 13px;
+  font-size: var(--font-size-body);
   color: var(--text-secondary);
   font-style: italic;
 }
@@ -600,13 +600,13 @@ onUnmounted(() => {
 }
 
 .no-contexts-hint {
-  font-size: 12px;
+  font-size: var(--font-size-small);
   color: var(--text-secondary);
   font-style: italic;
 }
 
 .word-count {
-  font-size: 11px;
+  font-size: var(--font-size-mini);
   color: var(--text-secondary);
   margin-left: 4px;
 }

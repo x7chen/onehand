@@ -697,7 +697,7 @@ onUnmounted(() => {
 }
 
 .panel-title {
-  font-size: 16px;
+  font-size: var(--font-size-title);
   font-weight: 600;
   color: var(--text-primary);
   margin: 0;
@@ -707,7 +707,7 @@ onUnmounted(() => {
 }
 
 .note-count {
-  font-size: 13px;
+  font-size: var(--font-size-body);
   color: var(--text-secondary);
   white-space: nowrap;
 }
@@ -793,7 +793,7 @@ onUnmounted(() => {
   color: var(--text-primary);
   background: transparent;
   border: none;
-  font-size: 13px;
+  font-size: var(--font-size-body);
   text-align: left;
   transition: background 0.2s;
 }
@@ -851,7 +851,7 @@ onUnmounted(() => {
   border-radius: 6px;
   background: var(--bg-secondary);
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: var(--font-size-body);
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -861,7 +861,7 @@ onUnmounted(() => {
 }
 
 .selected-count {
-  font-size: 13px;
+  font-size: var(--font-size-body);
   color: var(--text-secondary);
   flex: 1;
 }
@@ -907,12 +907,12 @@ onUnmounted(() => {
 }
 
 .move-notebook-menu .notebook-item {
-  font-size: 13px;
+  font-size: var(--font-size-body);
 }
 
 .empty-notebooks {
   padding: 12px;
-  font-size: 13px;
+  font-size: var(--font-size-body);
   color: var(--text-secondary);
   text-align: center;
 }
@@ -950,7 +950,7 @@ onUnmounted(() => {
 
 .delete-dialog .dialog-header h3 {
   margin: 0;
-  font-size: 16px;
+  font-size: var(--font-size-title);
   font-weight: 500;
   color: var(--text-primary);
 }
@@ -966,7 +966,7 @@ onUnmounted(() => {
 .delete-dialog .dialog-body p {
   margin: 0;
   color: var(--text-secondary);
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   line-height: 1.5;
 }
 
@@ -984,7 +984,7 @@ onUnmounted(() => {
   border-radius: 6px;
   background: var(--bg-secondary);
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -999,7 +999,7 @@ onUnmounted(() => {
   border-radius: 6px;
   background: var(--color-error);
   color: white;
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   cursor: pointer;
   transition: all 0.2s;
 }

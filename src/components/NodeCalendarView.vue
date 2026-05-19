@@ -918,7 +918,7 @@ defineExpose({
   border-radius: 4px;
   background: transparent;
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
@@ -936,7 +936,7 @@ defineExpose({
   border-radius: 4px;
   background: transparent;
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: var(--font-size-small);
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -978,7 +978,7 @@ defineExpose({
   border-radius: 4px;
   background: var(--bg-secondary);
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: var(--font-size-body);
   cursor: pointer;
   transition: all 0.2s;
   flex: 0 0 calc(33.33% - 4px);
@@ -1004,7 +1004,7 @@ defineExpose({
 
 .weekday-label {
   text-align: center;
-  font-size: 12px;
+  font-size: var(--font-size-small);
   color: var(--text-secondary);
   padding: 4px;
 }
@@ -1090,7 +1090,7 @@ defineExpose({
 }
 
 .day-number {
-  font-size: 13px;
+  font-size: var(--font-size-body);
   color: var(--text-primary);
 }
 
@@ -1115,7 +1115,7 @@ defineExpose({
 
 .notes-header {
   padding: 8px 12px;
-  font-size: 13px;
+  font-size: var(--font-size-body);
   color: var(--text-primary);
   font-weight: 500;
   border-bottom: 1px solid var(--border-color);
@@ -1140,7 +1140,7 @@ defineExpose({
   border-radius: 3px;
   background: transparent;
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: var(--font-size-small);
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -1164,7 +1164,7 @@ defineExpose({
 }
 
 .notes-count {
-  font-size: 12px;
+  font-size: var(--font-size-small);
   color: var(--text-secondary);
   font-weight: 500;
   margin-left: auto;
@@ -1210,7 +1210,7 @@ defineExpose({
   padding: 24px 12px;
   text-align: center;
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: var(--font-size-body);
 }
 
 /* 笔记条目 */
@@ -1294,7 +1294,7 @@ defineExpose({
 }
 
 .note-title {
-  font-size: 13px;
+  font-size: var(--font-size-body);
   color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
@@ -1304,7 +1304,7 @@ defineExpose({
 }
 
 .note-time {
-  font-size: 12px;
+  font-size: var(--font-size-small);
   color: var(--text-secondary);
   flex-shrink: 0;
 }

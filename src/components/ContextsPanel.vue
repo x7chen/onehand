@@ -283,7 +283,6 @@ function handleQuickCommandDragEnd(e: DragEvent) {
 }
 
 .panel-header h2 {
-  font-size: 20px;
   color: var(--text-primary);
 }
 
@@ -315,7 +314,6 @@ function handleQuickCommandDragEnd(e: DragEvent) {
 }
 
 .context-category h3 {
-  font-size: 16px;
   color: var(--text-secondary);
   margin-bottom: 16px;
   text-transform: uppercase;
@@ -325,29 +323,29 @@ function handleQuickCommandDragEnd(e: DragEvent) {
 .tags-wrapper {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 6px;
 }
 
 .context-tag {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-radius: 20px;
-  border: 2px solid;
+  padding: 3px 8px;
+  border-radius: 12px;
+  border: 1px solid;
+  font-size: var(--font-size-small);
+  font-weight: 500;
+  white-space: nowrap;
   cursor: pointer;
   transition: all 0.2s;
   user-select: none;
 }
 
 .context-tag:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  transform: scale(1.05);
 }
 
 .tag-name {
-  font-size: 14px;
-  font-weight: 500;
+  color: var(--text-primary);
 }
 
 /* 快捷指令区域 */
@@ -381,7 +379,6 @@ function handleQuickCommandDragEnd(e: DragEvent) {
 
 .dialog h3 {
   margin-bottom: 16px;
-  font-size: 20px;
   color: var(--text-primary);
 }
 
@@ -390,7 +387,6 @@ function handleQuickCommandDragEnd(e: DragEvent) {
   padding: 12px;
   border: 1px solid var(--border-color);
   border-radius: 6px;
-  font-size: 14px;
   margin-bottom: 16px;
   background: var(--bg-secondary);
   color: var(--text-primary);
@@ -403,7 +399,6 @@ function handleQuickCommandDragEnd(e: DragEvent) {
   padding: 12px;
   border: 1px solid var(--border-color);
   border-radius: 6px;
-  font-size: 14px;
   background: var(--bg-secondary);
   color: var(--text-primary);
   resize: vertical;
@@ -420,7 +415,6 @@ function handleQuickCommandDragEnd(e: DragEvent) {
 .form-group label {
   display: block;
   margin-bottom: 8px;
-  font-size: 14px;
   color: var(--text-secondary);
 }
 

@@ -652,7 +652,7 @@ function updateEvernoteLinkPrefix(prefix: string) {
 
 .panel-header h2 {
   margin: 0;
-  font-size: 20px;
+  font-size: var(--font-size-title);
   color: var(--text-primary);
   line-height: 1;
 }
@@ -673,7 +673,7 @@ function updateEvernoteLinkPrefix(prefix: string) {
 }
 
 .settings-section h3 {
-  font-size: 18px;
+  font-size: var(--font-size-title);
   color: var(--text-primary);
   margin-bottom: 20px;
   padding-bottom: 12px;
@@ -715,7 +715,7 @@ function updateEvernoteLinkPrefix(prefix: string) {
 }
 
 .tab-name {
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   max-width: 120px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -733,7 +733,7 @@ function updateEvernoteLinkPrefix(prefix: string) {
   border-radius: 6px;
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   box-sizing: border-box;
   z-index: 1;
 }
@@ -741,7 +741,7 @@ function updateEvernoteLinkPrefix(prefix: string) {
 .add-tab {
   min-width: 36px;
   justify-content: center;
-  font-size: 16px;
+  font-size: var(--font-size-title);
   font-weight: bold;
   color: var(--text-secondary);
 }
@@ -756,7 +756,7 @@ function updateEvernoteLinkPrefix(prefix: string) {
 
 .form-group label {
   display: block;
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   color: var(--text-secondary);
   margin-bottom: 8px;
 }
@@ -769,7 +769,7 @@ function updateEvernoteLinkPrefix(prefix: string) {
   padding: 10px 12px;
   border: 1px solid var(--border-color);
   border-radius: 6px;
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   transition: border-color 0.2s;
   background: var(--bg-secondary);
   color: var(--text-primary);
@@ -797,7 +797,7 @@ function updateEvernoteLinkPrefix(prefix: string) {
   border-radius: 6px;
   background: var(--bg-secondary);
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: var(--font-size-body);
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -902,7 +902,7 @@ function updateEvernoteLinkPrefix(prefix: string) {
   border: none;
   cursor: pointer;
   padding: 4px 8px;
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   opacity: 0.7;
   transition: opacity 0.2s;
 }
@@ -953,7 +953,7 @@ function updateEvernoteLinkPrefix(prefix: string) {
 }
 
 .toggle-label {
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   color: var(--text-secondary);
 }
 
@@ -989,7 +989,7 @@ function updateEvernoteLinkPrefix(prefix: string) {
 
 .temperature-value {
   min-width: 36px;
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   font-weight: 500;
   color: var(--text-primary);
   text-align: center;
@@ -1015,7 +1015,7 @@ function updateEvernoteLinkPrefix(prefix: string) {
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: 8px;
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   color: var(--text-primary);
   cursor: pointer;
   user-select: none;
@@ -1055,7 +1055,7 @@ function updateEvernoteLinkPrefix(prefix: string) {
 }
 
 .form-hint {
-  font-size: 12px;
+  font-size: var(--font-size-small);
   color: var(--text-secondary);
   margin-top: 6px;
   opacity: 0.7;

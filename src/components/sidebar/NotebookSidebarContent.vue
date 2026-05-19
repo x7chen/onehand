@@ -464,7 +464,7 @@ onUnmounted(() => {
   border-radius: 6px;
   cursor: pointer;
   color: var(--color-primary);
-  font-size: 13px;
+  font-size: var(--font-size-body);
   font-weight: 500;
   transition: all 0.2s;
   margin-bottom: 8px;
@@ -491,7 +491,7 @@ onUnmounted(() => {
   border-radius: 6px;
   cursor: pointer;
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: var(--font-size-body);
   transition: all 0.2s;
   text-align: left;
   width: 100%;
@@ -529,7 +529,7 @@ onUnmounted(() => {
   height: 16px;
   background: #e53e3e;
   color: white;
-  font-size: 10px;
+  font-size: var(--font-size-mini);
   font-weight: 600;
   border-radius: 3px;
 }
@@ -586,7 +586,7 @@ onUnmounted(() => {
   border-radius: 6px;
   cursor: pointer;
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: var(--font-size-body);
   transition: all 0.2s;
   text-align: left;
   width: 100%;
@@ -607,7 +607,7 @@ onUnmounted(() => {
 
 .count {
   margin-left: auto;
-  font-size: 12px;
+  font-size: var(--font-size-small);
   color: var(--text-tertiary);
 }
 
@@ -649,7 +649,7 @@ onUnmounted(() => {
   border-radius: 6px;
   cursor: pointer;
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: var(--font-size-body);
   transition: all 0.2s;
   text-align: left;
   width: 100%;
@@ -697,7 +697,7 @@ onUnmounted(() => {
 
 .rename-dialog h3 {
   margin: 0 0 16px 0;
-  font-size: 16px;
+  font-size: var(--font-size-title);
   color: var(--text-primary);
 }
 
@@ -706,7 +706,7 @@ onUnmounted(() => {
   padding: 10px 12px;
   border: 1px solid var(--border-color);
   border-radius: 6px;
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   background: var(--bg-secondary);
   color: var(--text-primary);
   box-sizing: border-box;
@@ -731,7 +731,7 @@ onUnmounted(() => {
   border-radius: 6px;
   cursor: pointer;
   color: var(--text-secondary);
-  font-size: 14px;
+  font-size: var(--font-size-heading);
 }
 
 .confirm-btn {
@@ -741,7 +741,7 @@ onUnmounted(() => {
   border-radius: 6px;
   cursor: pointer;
   color: white;
-  font-size: 14px;
+  font-size: var(--font-size-heading);
 }
 
 .confirm-btn.danger {
@@ -771,13 +771,13 @@ onUnmounted(() => {
 
 .delete-dialog h3 {
   margin: 0 0 12px 0;
-  font-size: 16px;
+  font-size: var(--font-size-title);
   color: var(--text-primary);
 }
 
 .delete-dialog p {
   margin: 0 0 16px 0;
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   color: var(--text-secondary);
 }
 </style>

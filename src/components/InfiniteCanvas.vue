@@ -523,7 +523,7 @@ defineExpose({
   color: white;
   padding: 8px 12px;
   border-radius: 6px;
-  font-size: 12px;
+  font-size: var(--font-size-small);
   font-weight: 500;
   pointer-events: none;
   z-index: 9999;

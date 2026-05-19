@@ -726,7 +726,7 @@ function handleNavigate(data: DeepLinkData) {
   flex: 1;
   border: none;
   background: transparent;
-  font-size: 16px;
+  font-size: var(--font-size-title);
   color: var(--text-primary);
   outline: none;
 }
@@ -809,7 +809,7 @@ function handleNavigate(data: DeepLinkData) {
   padding: 8px 16px;
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border-color);
-  font-size: 13px;
+  font-size: var(--font-size-body);
 }
 
 /* Filter bar */
@@ -842,7 +842,7 @@ function handleNavigate(data: DeepLinkData) {
 }
 
 .filter-label {
-  font-size: 13px;
+  font-size: var(--font-size-body);
   color: var(--text-secondary);
   white-space: nowrap;
 }
@@ -853,7 +853,7 @@ function handleNavigate(data: DeepLinkData) {
   border-radius: 6px;
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: var(--font-size-body);
   cursor: pointer;
   min-width: 120px;
 }
@@ -869,7 +869,7 @@ function handleNavigate(data: DeepLinkData) {
   border-radius: 6px;
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: var(--font-size-body);
   cursor: pointer;
 }
 
@@ -880,7 +880,7 @@ function handleNavigate(data: DeepLinkData) {
 
 .date-separator {
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: var(--font-size-body);
 }
 
 /* Multi select */
@@ -897,7 +897,7 @@ function handleNavigate(data: DeepLinkData) {
   border-radius: 6px;
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: var(--font-size-body);
   cursor: pointer;
   min-width: 400px;
   max-width: 500px;
@@ -912,7 +912,7 @@ function handleNavigate(data: DeepLinkData) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 13px;
+  font-size: var(--font-size-body);
 }
 
 .multi-select-arrow {
@@ -939,7 +939,7 @@ function handleNavigate(data: DeepLinkData) {
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   z-index: 100;
-  font-size: 13px;
+  font-size: var(--font-size-body);
 }
 
 .multi-select-item {
@@ -949,7 +949,7 @@ function handleNavigate(data: DeepLinkData) {
   padding: 6px 10px;
   cursor: pointer;
   transition: background 0.2s;
-  font-size: 13px;
+  font-size: var(--font-size-body);
 }
 
 .multi-select-item:hover {
@@ -989,7 +989,7 @@ function handleNavigate(data: DeepLinkData) {
 }
 
 .search-history-title {
-  font-size: 12px;
+  font-size: var(--font-size-small);
   color: var(--text-secondary);
   font-weight: 500;
 }
@@ -1003,7 +1003,7 @@ function handleNavigate(data: DeepLinkData) {
   border-radius: 4px;
   background: transparent;
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: var(--font-size-small);
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -1039,7 +1039,7 @@ function handleNavigate(data: DeepLinkData) {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   color: var(--text-primary);
 }
 
@@ -1062,12 +1062,12 @@ function handleNavigate(data: DeepLinkData) {
 }
 
 .history-time {
-  font-size: 12px;
+  font-size: var(--font-size-small);
   color: var(--text-secondary);
 }
 
 .history-mode-badge {
-  font-size: 11px;
+  font-size: var(--font-size-mini);
   padding: 2px 6px;
   border-radius: 4px;
   background: var(--border-color);
@@ -1148,7 +1148,7 @@ function handleNavigate(data: DeepLinkData) {
   border-radius: 4px;
   background: var(--color-primary);
   color: white;
-  font-size: 12px;
+  font-size: var(--font-size-small);
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -1170,7 +1170,7 @@ function handleNavigate(data: DeepLinkData) {
   border-radius: 4px;
   background: transparent;
   color: var(--color-primary);
-  font-size: 12px;
+  font-size: var(--font-size-small);
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -1226,7 +1226,7 @@ function handleNavigate(data: DeepLinkData) {
 }
 
 .results-count {
-  font-size: 12px;
+  font-size: var(--font-size-small);
   color: var(--text-secondary);
   margin-bottom: 12px;
   padding: 0 4px;
@@ -1262,7 +1262,7 @@ function handleNavigate(data: DeepLinkData) {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: var(--font-size-small);
   color: var(--text-secondary);
   margin-bottom: 6px;
 }
@@ -1290,7 +1290,7 @@ function handleNavigate(data: DeepLinkData) {
 }
 
 .result-text {
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   color: var(--text-primary);
   line-height: 1.5;
   display: -webkit-box;
@@ -1341,7 +1341,7 @@ function handleNavigate(data: DeepLinkData) {
   border-radius: 4px;
   background: transparent;
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: var(--font-size-small);
   cursor: pointer;
   transition: all 0.2s;
 }

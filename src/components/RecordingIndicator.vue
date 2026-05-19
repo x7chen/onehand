@@ -45,7 +45,7 @@ const formattedTime = computed(() => formatDuration(props.duration || 0))
 }
 
 .recording-time {
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   font-weight: 500;
   color: var(--text-primary);
 }

@@ -1350,7 +1350,7 @@ defineExpose({
   box-shadow: 0 4px 12px var(--shadow-color);
   z-index: 100;
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: var(--font-size-heading);
 }
 
 .layout-spinner {

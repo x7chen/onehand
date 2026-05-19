@@ -147,7 +147,7 @@ function handleNavigate(data: { notebookId: string; nodeId: string }) {
 
 .dialog-header h3 {
   margin: 0;
-  font-size: 16px;
+  font-size: var(--font-size-title);
   font-weight: 500;
   color: var(--text-primary);
 }
@@ -179,7 +179,7 @@ function handleNavigate(data: { notebookId: string; nodeId: string }) {
 
 .hint-text {
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: var(--font-size-body);
   margin-bottom: 12px;
 }
 
@@ -206,7 +206,7 @@ function handleNavigate(data: { notebookId: string; nodeId: string }) {
   align-items: center;
   flex-wrap: wrap;
   gap: 6px;
-  font-size: 12px;
+  font-size: var(--font-size-small);
   color: var(--text-secondary);
   margin-bottom: 4px;
 }
@@ -229,7 +229,7 @@ function handleNavigate(data: { notebookId: string; nodeId: string }) {
 }
 
 .item-reason {
-  font-size: 13px;
+  font-size: var(--font-size-body);
   color: var(--text-secondary);
 }
 

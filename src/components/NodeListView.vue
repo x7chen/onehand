@@ -457,7 +457,7 @@ defineExpose({
 }
 
 .node-title {
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
@@ -467,7 +467,7 @@ defineExpose({
 }
 
 .node-date {
-  font-size: 12px;
+  font-size: var(--font-size-small);
   color: var(--text-secondary);
   flex-shrink: 0;
 }

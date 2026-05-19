@@ -1228,7 +1228,7 @@ async function handleIncludePageChange() {
   justify-content: center;
   height: 100px;
   color: var(--text-secondary);
-  font-size: 14px;
+  font-size: var(--font-size-heading);
 }
 
 .sidebar-loading-overlay {
@@ -1242,12 +1242,12 @@ async function handleIncludePageChange() {
   justify-content: center;
   background: var(--bg-primary);
   color: var(--text-secondary);
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   z-index: 10;
 }
 
 .outline-container {
-  font-size: 13px;
+  font-size: var(--font-size-body);
 }
 
 .thumbnails-container {
@@ -1293,7 +1293,7 @@ async function handleIncludePageChange() {
 
 .thumbnail-label {
   margin-top: 4px;
-  font-size: 11px;
+  font-size: var(--font-size-mini);
   color: var(--text-secondary);
 }
 
@@ -1328,7 +1328,7 @@ async function handleIncludePageChange() {
 }
 
 .page-info {
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   color: var(--text-primary);
   min-width: 60px;
   text-align: center;
@@ -1342,7 +1342,7 @@ async function handleIncludePageChange() {
 }
 
 .zoom-level {
-  font-size: 13px;
+  font-size: var(--font-size-body);
   color: var(--text-secondary);
   min-width: 45px;
   text-align: center;
@@ -1362,7 +1362,7 @@ async function handleIncludePageChange() {
   align-items: center;
   justify-content: center;
   color: var(--text-secondary);
-  font-size: 16px;
+  font-size: var(--font-size-title);
   padding: 40px;
 }
 
@@ -1417,7 +1417,7 @@ async function handleIncludePageChange() {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
+  font-size: var(--font-size-small);
   font-weight: 500;
   cursor: pointer;
   pointer-events: auto;
@@ -1479,7 +1479,7 @@ async function handleIncludePageChange() {
   color: var(--text-primary);
   cursor: pointer;
   transition: background 0.2s;
-  font-size: 14px;
+  font-size: var(--font-size-heading);
 }
 
 .context-menu-item:hover {
@@ -1497,7 +1497,7 @@ async function handleIncludePageChange() {
   align-items: center;
   gap: 4px;
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--font-size-body);
   color: var(--text-secondary);
   user-select: none;
 }

@@ -837,7 +837,7 @@ function handleTrashClick() {
   border-radius: 8px;
   cursor: pointer;
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   font-weight: 500;
   transition: all 0.2s;
   box-sizing: border-box;
@@ -900,7 +900,7 @@ function handleTrashClick() {
   border-radius: 8px;
   cursor: pointer;
   color: var(--text-secondary);
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   transition: all 0.2s;
   text-align: left;
   width: 100%;
@@ -957,7 +957,7 @@ function handleTrashClick() {
   border-radius: 6px;
   cursor: pointer;
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: var(--font-size-body);
   transition: all 0.2s;
   text-align: left;
   width: 100%;
@@ -985,7 +985,7 @@ function handleTrashClick() {
   border-radius: 4px;
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: var(--font-size-body);
   outline: none;
 }
 
@@ -1007,7 +1007,7 @@ function handleTrashClick() {
   height: 16px;
   background: #e53e3e;
   color: white;
-  font-size: 10px;
+  font-size: var(--font-size-mini);
   font-weight: 600;
   border-radius: 3px;
   flex-shrink: 0;
@@ -1050,7 +1050,7 @@ function handleTrashClick() {
   border-radius: 6px;
   cursor: pointer;
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: var(--font-size-body);
   transition: all 0.2s;
   text-align: left;
   width: 100%;
@@ -1189,7 +1189,7 @@ function handleTrashClick() {
   border: none;
   background: transparent;
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: var(--font-size-body);
   cursor: pointer;
   transition: all 0.2s;
   text-align: left;
@@ -1297,7 +1297,7 @@ function handleTrashClick() {
 
 .delete-dialog .dialog-header h3 {
   margin: 0;
-  font-size: 16px;
+  font-size: var(--font-size-title);
   font-weight: 500;
   color: var(--text-primary);
 }
@@ -1313,7 +1313,7 @@ function handleTrashClick() {
 .delete-dialog .dialog-body p {
   margin: 0;
   color: var(--text-secondary);
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   line-height: 1.5;
 }
 
@@ -1331,7 +1331,7 @@ function handleTrashClick() {
   border-radius: 6px;
   background: var(--bg-secondary);
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -1346,7 +1346,7 @@ function handleTrashClick() {
   border-radius: 6px;
   background: var(--color-error);
   color: white;
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   cursor: pointer;
   transition: all 0.2s;
 }

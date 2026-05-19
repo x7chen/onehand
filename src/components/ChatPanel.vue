@@ -1399,7 +1399,7 @@ defineExpose({
 }
 
 .empty-node p {
-  font-size: 14px;
+  font-size: var(--font-size-heading);
 }
 
 /* 已勾选笔记引用区域 */
@@ -1458,12 +1458,12 @@ defineExpose({
 }
 
 .thumbnail-placeholder {
-  font-size: 12px;
+  font-size: var(--font-size-small);
   color: var(--text-tertiary);
 }
 
 .quote-text-preview {
-  font-size: 12px;
+  font-size: var(--font-size-small);
   color: var(--text-secondary);
   white-space: nowrap;
   overflow: hidden;
@@ -1514,7 +1514,7 @@ defineExpose({
   align-items: center;
   justify-content: center;
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: var(--font-size-small);
   opacity: 0.6;
   transition: all 0.2s;
 }
@@ -1552,7 +1552,7 @@ defineExpose({
   background: var(--bg-primary) !important;
   color: var(--text-primary);
   font-family: inherit;
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   line-height: 1.5;
   resize: none;
   outline: none;
@@ -1675,7 +1675,7 @@ defineExpose({
 }
 
 .quick-command-name {
-  font-size: 13px;
+  font-size: var(--font-size-body);
   font-weight: 500;
 }
 
@@ -1698,7 +1698,7 @@ defineExpose({
 }
 
 .input-menu-bar .record-btn .record-time {
-  font-size: 12px;
+  font-size: var(--font-size-small);
   font-weight: 500;
 }
 
@@ -1748,7 +1748,7 @@ defineExpose({
   background: transparent;
   cursor: pointer;
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   text-align: left;
   transition: background 0.2s;
 }

@@ -121,7 +121,7 @@ function handleFilterChange() {
 }
 
 .filter-item label {
-  font-size: 12px;
+  font-size: var(--font-size-small);
   font-weight: 600;
   color: var(--text-tertiary);
 }
@@ -132,7 +132,7 @@ function handleFilterChange() {
   border-radius: 6px;
   background: var(--bg-secondary);
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: var(--font-size-body);
   cursor: pointer;
   width: 100%;
   box-sizing: border-box;
@@ -155,7 +155,7 @@ function handleFilterChange() {
   border-radius: 6px;
   background: var(--bg-secondary);
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: var(--font-size-body);
   cursor: pointer;
   width: 100%;
   box-sizing: border-box;

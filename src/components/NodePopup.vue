@@ -278,7 +278,7 @@ function handleUpdateNode(nodeId: string, updates: Partial<CanvasNode>) {
 
 .popup-header h3 {
   margin: 0;
-  font-size: 16px;
+  font-size: var(--font-size-title);
   font-weight: 500;
   color: var(--text-primary);
   overflow: hidden;
@@ -301,7 +301,7 @@ function handleUpdateNode(nodeId: string, updates: Partial<CanvasNode>) {
   border-radius: 6px;
   background: var(--bg-secondary);
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: var(--font-size-body);
   cursor: pointer;
   transition: all 0.2s;
 }

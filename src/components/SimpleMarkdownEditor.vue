@@ -1521,7 +1521,7 @@ defineExpose({
   color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.15s ease;
-  font-size: 12px;
+  font-size: var(--font-size-small);
   font-weight: 600;
 }
 
@@ -1559,7 +1559,7 @@ defineExpose({
 }
 
 .color-letter {
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   font-weight: 600;
   line-height: 1;
 }
@@ -1653,7 +1653,7 @@ defineExpose({
   outline: none;
   resize: none;
   box-sizing: border-box;
-  font-size: 14px;
+  font-size: var(--font-size-body);
   line-height: 1.6;
   background: transparent !important;
   color: var(--text-primary);
@@ -1669,5 +1669,6 @@ defineExpose({
   padding: 12px;
   background: transparent;
   user-select: text;
+  font-size: var(--font-size-body);
 }
 </style>

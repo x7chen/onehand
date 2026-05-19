@@ -79,7 +79,7 @@ function handleSelectTab(tab: 'notes' | 'notebooks' | 'contexts' | 'quickCommand
   border-radius: 6px;
   cursor: pointer;
   color: var(--text-secondary);
-  font-size: 14px;
+  font-size: var(--font-size-heading);
   transition: all 0.2s;
   text-align: left;
   width: 100%;

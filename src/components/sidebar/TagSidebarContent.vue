@@ -130,7 +130,7 @@ function handleScroll() {
 }
 
 .tag-name {
-  font-size: 13px;
+  font-size: var(--font-size-body);
   color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -139,14 +139,14 @@ function handleScroll() {
 }
 
 .tag-count {
-  font-size: 12px;
+  font-size: var(--font-size-small);
   color: var(--text-tertiary);
   flex-shrink: 0;
 }
 
 .empty-hint {
   padding: 12px;
-  font-size: 13px;
+  font-size: var(--font-size-body);
   color: var(--text-tertiary);
   text-align: center;
 }
