@@ -10,20 +10,20 @@
           </svg>
         </button>
       </div>
-      <div class="context-list">
+      <div class="tags-wrapper">
         <div
           v-for="ctx in staticContexts"
           :key="ctx.id"
-          class="context-item"
+          class="context-tag"
           :class="{ active: selectedContextId === ctx.id }"
+          :style="{ backgroundColor: ctx.color + '20', borderColor: ctx.color }"
           draggable="true"
           @click="handleSelectContext(ctx.id)"
           @dblclick="handleEditContext(ctx)"
           @dragstart="handleDragStart($event, ctx)"
           @dragend="handleDragEnd($event)"
         >
-          <span class="color-dot" :style="{ backgroundColor: ctx.color }"></span>
-          <span class="item-name">{{ ctx.name }}</span>
+          <span class="tag-name">{{ ctx.name }}</span>
         </div>
         <div v-if="staticContexts.length === 0" class="empty-hint">
           {{ t('context.noContexts') }}
@@ -41,23 +41,23 @@
           </svg>
         </button>
       </div>
-      <div class="context-list">
+      <div class="tags-wrapper">
         <div
           v-for="ctx in dynamicContexts"
           :key="ctx.id"
-          class="context-item"
+          class="context-tag"
           :class="{ active: selectedContextId === ctx.id }"
+          :style="{ backgroundColor: ctx.color + '20', borderColor: ctx.color }"
           draggable="true"
           @click="handleSelectContext(ctx.id)"
           @dblclick="handleEditContext(ctx)"
           @dragstart="handleDragStart($event, ctx)"
           @dragend="handleDragEnd($event)"
         >
-          <span class="color-dot" :style="{ backgroundColor: ctx.color }"></span>
-          <span class="item-name">{{ ctx.name }}</span>
+          <span class="tag-name">{{ ctx.name }}</span>
         </div>
         <div v-if="dynamicContexts.length === 0" class="empty-hint">
-          {{ t('context.noContexts') }}
+          {{ t('context.noDynamicContexts') }}
         </div>
       </div>
     </div>
@@ -75,20 +75,20 @@
           </svg>
         </button>
       </div>
-      <div class="context-list">
+      <div class="tags-wrapper">
         <div
           v-for="cmd in quickCommands"
           :key="cmd.id"
-          class="context-item"
+          class="context-tag"
           :class="{ active: selectedQuickCommandId === cmd.id }"
+          :style="{ backgroundColor: cmd.color + '20', borderColor: cmd.color }"
           draggable="true"
           @click="handleSelectQuickCommand(cmd.id)"
           @dblclick="handleEditQuickCommand(cmd)"
           @dragstart="handleQuickCommandDragStart($event, cmd)"
           @dragend="handleQuickCommandDragEnd($event)"
         >
-          <span class="color-dot" :style="{ backgroundColor: cmd.color }"></span>
-          <span class="item-name">{{ cmd.name }}</span>
+          <span class="tag-name">{{ cmd.name }}</span>
         </div>
         <div v-if="quickCommands.length === 0" class="empty-hint">
           {{ t('quickCommand.noCommands') }}
@@ -280,46 +280,39 @@ function handleScroll() {
   background: var(--color-primary-light);
 }
 
-.context-list {
+.tags-wrapper {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 8px 12px;
 }
 
-.context-item {
+.context-tag {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  background: transparent;
-  border-radius: 6px;
+  border-radius: 20px;
+  border: 2px solid;
   cursor: pointer;
   transition: all 0.2s;
+  user-select: none;
 }
 
-.context-item:hover {
-  background: var(--bg-secondary);
+.context-tag:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
-.context-item.active {
-  background: var(--bg-secondary);
-  border-left: 2px solid var(--color-primary);
-  padding-left: 10px;
+.context-tag.active {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
-.color-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.item-name {
-  font-size: 13px;
+.tag-name {
+  font-size: 14px;
+  font-weight: 500;
   color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .empty-hint {

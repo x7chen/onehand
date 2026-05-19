@@ -57,18 +57,6 @@
       <main class="main-content">
         <!-- 笔记本内容 -->
         <template v-if="activeActivity === 'notebooks'">
-          <!-- 上下文面板 -->
-          <ContextsPanel
-            v-if="false"
-            @newContext="handleNewContext"
-            @editContext="editContextFile"
-            @dragStart="handleContextDragStart"
-            @dragEnd="handleContextDragEnd"
-            @quickCommandDragStart="handleQuickCommandDragStart"
-            @quickCommandDragEnd="handleQuickCommandDragEnd"
-            @quick-command-editing="handleQuickCommandEditing"
-          />
-
           <!-- MultiChatPanel -->
           <MultiChatPanel
             v-if="viewMode === 'chat' && activeNotebookId && !currentNotebook?.pdfPath"
@@ -130,8 +118,10 @@
           v-if="activeActivity === 'contexts'"
           :context="selectedContext"
           :quick-command="selectedQuickCommand"
+          :is-creating="isCreatingContext"
           @save="handleContextSavePanel"
-          @delete="handleContextDelete"
+          @delete="handleContextDeletePanel"
+          @cancel="handleContextEditCancel"
         />
 
         <!-- 标签面板 -->
@@ -173,9 +163,6 @@
       :active-notebook-id="activeNotebookId"
       :selected-tag-name="selectedTagName"
       :settings-tab="settingsTab"
-      :show-context-edit-dialog="showContextEditDialog"
-      :editing-context-name="editingContext?.name"
-      :quick-command-editing-status="quickCommandEditingStatus"
       :ai-answer-enabled="aiAnswerEnabled"
       :auto-select-new-note="autoSelectNewNote"
       :all-profiles="settingsStore.settings.llm.profiles"
@@ -183,16 +170,6 @@
       @update:ai-answer-enabled="aiAnswerEnabled = $event"
       @update:auto-select-new-note="autoSelectNewNote = $event"
       @select-model="handleSelectModel"
-    />
-
-    <!-- Context Edit Dialog (新建/编辑上下文) -->
-    <ContextEditDialog
-      :visible="showContextEditDialog"
-      :context="editingContext"
-      @update:visible="showContextEditDialog = $event"
-      @save="handleContextSave"
-      @delete="handleContextDelete"
-      @cancel="showContextEditDialog = false"
     />
 
     <!-- Delete Confirmation Dialog -->
@@ -232,7 +209,6 @@ import { useQuickCommandStore } from '@/stores/quickCommandStore'
 import { useTagStore } from '@/stores/tagStore'
 import ActivityBar from '@/components/ActivityBar.vue'
 import MainSidebar from '@/components/MainSidebar.vue'
-import ContextsPanel from '@/components/ContextsPanel.vue'
 import FavoritesPanel from '@/components/FavoritesPanel.vue'
 import TrashPanel from '@/components/TrashPanel.vue'
 import TagsPanel from '@/components/TagsPanel.vue'
@@ -241,7 +217,6 @@ import MultiChatPanel from '@/components/MultiChatPanel.vue'
 import PdfReaderPanel from '@/components/PdfReaderPanel.vue'
 import CanvasViewPanel from '@/components/CanvasViewPanel.vue'
 import ParticleViewPanel from '@/components/ParticleViewPanel.vue'
-import ContextEditDialog from '@/components/ContextEditDialog.vue'
 import ContextEditPanel from '@/components/ContextEditPanel.vue'
 import StatusBar from '@/components/StatusBar.vue'
 import type { ContextFile, ContextType } from '@/types/context'
@@ -274,17 +249,11 @@ const viewMode = ref<'chat' | 'canvas' | 'particle'>('chat')
 // 需要激活的节点ID（用于跳转链接）
 const activateNodeId = ref<string | null>(null)
 
-// 上下文编辑对话框状态
-const showContextEditDialog = ref(false)
-const editingContext = ref<ContextFile | null>(null)
-
 const showDeleteConfirm = ref(false)
 const contextToDelete = ref<string | null>(null)
 
-// 拖拽删除相关
-const draggedContext = ref<ContextFile | null>(null)
+// 拖拽相关
 const draggedProfileId = ref<string | null>(null)
-const draggedQuickCommand = ref<QuickCommand | null>(null)
 const showQuickCommandDeleteConfirm = ref(false)
 const quickCommandToDelete = ref<QuickCommand | null>(null)
 
@@ -295,6 +264,9 @@ const sidebarCollapsed = ref(settingsStore.settings.general.sidebarCollapsed || 
 // 选中的上下文/快捷指令（用于上下文视图）
 const selectedContextId = ref<string | null>(null)
 const selectedQuickCommandId = ref<string | null>(null)
+
+// 新建上下文/快捷指令状态
+const isCreatingContext = ref<'static' | 'dynamic' | 'quickCommand' | false>(false)
 
 // 选中的上下文/快捷指令对象
 const selectedContext = computed(() => {
@@ -322,9 +294,6 @@ const settingsTab = ref<'general' | 'model'>('general')
 
 // 回收站tab
 const trashTab = ref<'notes' | 'notebooks' | 'contexts' | 'quickCommands'>('notes')
-
-// 快捷指令编辑状态（用于 StatusBar 显示）
-const quickCommandEditingStatus = ref<{ isCreating: boolean; name?: string } | null>(null)
 
 // AI 回答开关状态（从设置中读取默认值）
 const aiAnswerEnabled = ref(settingsStore.settings.general.autoAiAnswer ?? true)
@@ -529,29 +498,46 @@ function handleOpenParticle(notebookId: string) {
 function handleSelectContext(contextId: string | null) {
   selectedContextId.value = contextId
   selectedQuickCommandId.value = null
+  isCreatingContext.value = false
 }
 
 // 处理快捷指令选择
 function handleSelectQuickCommand(commandId: string | null) {
   selectedQuickCommandId.value = commandId
   selectedContextId.value = null
+  isCreatingContext.value = false
 }
 
 // 处理创建上下文
 function handleCreateContext(type: 'static' | 'dynamic') {
-  editingContext.value = null
-  showContextEditDialog.value = true
+  // 切换到上下文视图
+  activeActivity.value = 'contexts'
+  settingsStore.updateSettings({
+    general: {
+      ...settingsStore.settings.general,
+      activeActivityItem: 'contexts'
+    }
+  })
+  // 清除选中，设置新建状态
+  selectedContextId.value = null
+  selectedQuickCommandId.value = null
+  isCreatingContext.value = type
 }
 
 // 处理创建快捷指令
 function handleCreateQuickCommand() {
-  quickCommandEditingStatus.value = { isCreating: true }
-}
-
-// 处理编辑快捷指令
-function editQuickCommand(cmd: QuickCommand) {
-  selectedQuickCommandId.value = cmd.id
-  quickCommandEditingStatus.value = { isCreating: false, name: cmd.name }
+  // 切换到上下文视图
+  activeActivity.value = 'contexts'
+  settingsStore.updateSettings({
+    general: {
+      ...settingsStore.settings.general,
+      activeActivityItem: 'contexts'
+    }
+  })
+  // 清除选中，设置新建状态
+  selectedContextId.value = null
+  selectedQuickCommandId.value = null
+  isCreatingContext.value = 'quickCommand'
 }
 
 // 处理标签选择
@@ -590,11 +576,6 @@ function handleSelectTrashTab(tab: 'notes' | 'notebooks' | 'contexts' | 'quickCo
   trashTab.value = tab
 }
 
-// 快捷指令编辑状态处理
-function handleQuickCommandEditing(status: { isCreating: boolean; name?: string } | null) {
-  quickCommandEditingStatus.value = status
-}
-
 // 创建笔记触发完成
 function handleCreateNoteTriggered() {
   shouldTriggerCreateNote.value = false
@@ -629,6 +610,17 @@ async function handleCreateNotebook(data: {
 
 // 创建笔记 - 触发输入模式
 function handleCreateNote() {
+  // 如果当前不在笔记本视图，切换到笔记本视图
+  if (activeActivity.value !== 'notebooks') {
+    activeActivity.value = 'notebooks'
+    settingsStore.updateSettings({
+      general: {
+        ...settingsStore.settings.general,
+        activeActivityItem: 'notebooks'
+      }
+    })
+  }
+
   // 确定目标笔记本
   let targetNotebookId: string | null = activeNotebookId.value
 
@@ -705,52 +697,85 @@ function handleTogglePinAll() {
 
 // Context file management
 function editContextFile(file: ContextFile) {
-  editingContext.value = file
-  showContextEditDialog.value = true
+  selectedContextId.value = file.id
+  selectedQuickCommandId.value = null
+  isCreatingContext.value = false
 }
 
-// 处理新建上下文（从ContextsPanel emit的newContext事件）
-function handleNewContext() {
-  editingContext.value = null
-  showContextEditDialog.value = true
+// 处理编辑快捷指令
+function editQuickCommand(cmd: QuickCommand) {
+  selectedQuickCommandId.value = cmd.id
+  selectedContextId.value = null
+  isCreatingContext.value = false
 }
 
 // 处理上下文保存（新建或编辑）
-async function handleContextSave(data: { name: string; type: ContextType; color: ContextColor; content: string }) {
-  if (editingContext.value) {
-    // 编辑现有上下文
-    await contextStore.updateContextFile(editingContext.value.id, {
-      name: data.name,
-      color: data.color,
-      content: data.content
-    })
+async function handleContextSavePanel(data: { name: string; type: ContextType; color: ContextColor; content: string; isNew: boolean }) {
+  if (data.isNew) {
+    // 新建上下文或快捷指令
+    if (isCreatingContext.value === 'quickCommand') {
+      const newCmd = await quickCommandStore.createQuickCommand(data.name, data.content)
+      if (newCmd.color !== data.color) {
+        await quickCommandStore.updateQuickCommand(newCmd.id, { color: data.color })
+      }
+      // 选中新创建的快捷指令
+      selectedQuickCommandId.value = newCmd.id
+    } else {
+      const newFile = await contextStore.createContextFile(
+        data.name,
+        data.type,
+        data.content
+      )
+      if (newFile.color !== data.color) {
+        await contextStore.updateContextFile(newFile.id, { color: data.color })
+      }
+      // 选中新创建的上下文
+      selectedContextId.value = newFile.id
+    }
+    isCreatingContext.value = false
   } else {
-    // 新建上下文
-    const newFile = await contextStore.createContextFile(
-      data.name,
-      data.type,
-      data.content
-    )
-    // 更新颜色
-    if (newFile.color !== data.color) {
-      await contextStore.updateContextFile(newFile.id, {
-        color: data.color
+    // 编辑现有上下文或快捷指令
+    if (selectedQuickCommand.value) {
+      await quickCommandStore.updateQuickCommand(selectedQuickCommand.value.id, {
+        name: data.name,
+        color: data.color,
+        content: data.content
+      })
+    } else if (selectedContext.value) {
+      await contextStore.updateContextFile(selectedContext.value.id, {
+        name: data.name,
+        type: data.type,
+        color: data.color,
+        content: data.content
       })
     }
   }
-  editingContext.value = null
 }
 
-// 处理ContextEditPanel保存（编辑完成）
-function handleContextSavePanel() {
-  // ContextEditPanel内部已处理保存，这里只需要刷新状态
-}
-
-// 处理上下文删除
-function handleContextDelete() {
-  if (editingContext.value) {
-    contextToDelete.value = editingContext.value.id
+// 处理上下文/快捷指令删除（从面板）
+function handleContextDeletePanel(itemId: string, type: 'context' | 'quickCommand') {
+  if (type === 'context') {
+    contextToDelete.value = itemId
     showDeleteConfirm.value = true
+  } else {
+    const cmd = quickCommandStore.quickCommands.find(c => c.id === itemId)
+    if (cmd) {
+      quickCommandToDelete.value = cmd
+      showQuickCommandDeleteConfirm.value = true
+    }
+  }
+}
+
+// 处理上下文编辑取消
+function handleContextEditCancel() {
+  isCreatingContext.value = false
+  // 如果没有选中的项目，选中第一个上下文
+  if (!selectedContextId.value && !selectedQuickCommandId.value) {
+    if (contextStore.staticContextFiles.length > 0) {
+      selectedContextId.value = contextStore.staticContextFiles[0].id
+    } else if (contextStore.dynamicContextFiles.length > 0) {
+      selectedContextId.value = contextStore.dynamicContextFiles[0].id
+    }
   }
 }
 
@@ -760,23 +785,10 @@ async function deleteContextFile() {
   await contextStore.deleteContextFile(contextToDelete.value)
   showDeleteConfirm.value = false
   contextToDelete.value = null
-  editingContext.value = null
-}
-
-// 拖拽删除功能
-function handleContextDragStart(e: DragEvent, context: ContextFile) {
-  draggedContext.value = context
-  if (e.dataTransfer) {
-    e.dataTransfer.effectAllowed = 'move'
-    const target = e.target as HTMLElement
-    target.style.opacity = '0.5'
+  // 清除选中状态
+  if (selectedContextId.value === contextToDelete.value) {
+    selectedContextId.value = null
   }
-}
-
-function handleContextDragEnd(e: DragEvent) {
-  const target = e.target as HTMLElement
-  target.style.opacity = '1'
-  draggedContext.value = null
 }
 
 function handleProfileDragStart(e: DragEvent, profileId: string) {
@@ -785,14 +797,6 @@ function handleProfileDragStart(e: DragEvent, profileId: string) {
 
 function handleProfileDragEnd(e: DragEvent) {
   draggedProfileId.value = null
-}
-
-function handleQuickCommandDragStart(e: DragEvent, cmd: QuickCommand) {
-  draggedQuickCommand.value = cmd
-}
-
-function handleQuickCommandDragEnd(e: DragEvent) {
-  draggedQuickCommand.value = null
 }
 
 async function confirmDeleteQuickCommand() {
