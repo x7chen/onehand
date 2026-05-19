@@ -27,7 +27,6 @@
               <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
             </svg>
           </button>
-          <button @click="selectPdfFile" class="browse-btn">{{ t('common.browse') }}</button>
         </div>
       </div>
 
@@ -219,7 +218,7 @@ function handleCreate() {
 .dialog input[type="text"],
 .dialog select {
   width: 100%;
-  padding: 10px 12px;
+  padding: 6px 12px;
   border: 1px solid var(--border-color);
   border-radius: 6px;
   font-size: var(--font-size-heading);
@@ -249,46 +248,34 @@ function handleCreate() {
 .pdf-file-selector {
   display: flex;
   gap: 8px;
-  align-items: center;
+  align-items: stretch;
 }
 
 .pdf-input {
   flex: 1;
   cursor: pointer;
+  margin-bottom: 0;
+  padding: 6px 12px;
+  box-sizing: border-box;
 }
 
 .clear-pdf-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
-  border-radius: 4px;
+  padding: 6px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
   background: var(--bg-secondary);
   cursor: pointer;
   color: var(--text-secondary);
+  box-sizing: border-box;
   transition: all 0.2s;
 }
 
 .clear-pdf-btn:hover {
   background: var(--color-error-light);
   color: var(--color-error);
-}
-
-.browse-btn {
-  padding: 8px 12px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  background: var(--bg-secondary);
-  cursor: pointer;
-  color: var(--text-primary);
-  font-size: var(--font-size-body);
-  transition: all 0.2s;
-}
-
-.browse-btn:hover {
-  background: var(--border-color);
 }
 
 .context-tags-selector {
