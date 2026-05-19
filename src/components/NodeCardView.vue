@@ -175,12 +175,10 @@ function calculateLayout() {
       const estimatedHeight = nodeHeights.value[node.id] || 200
       const left = CONTAINER_PADDING + minCol * (colWidth + COLUMN_GAP)
 
-      // 当前节点的 top 就是该列当前的高度
+      // 传递原始节点引用，确保响应式更新能正确传递到子组件
+      // displayPosition 在 NodeCardView 中被 CSS 覆盖，不影响显示
       items.set(node.id, {
-        node: {
-          ...node,
-          displayPosition: { x: left, y: colHeights[minCol] }
-        },
+        node: node as DisplayNode,
         top: colHeights[minCol],
         left,
         width: colWidth,
