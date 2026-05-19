@@ -1,5 +1,5 @@
 <template>
-  <div class="notebook-sidebar-content">
+  <div ref="scrollContainerRef" class="notebook-sidebar-content" @scroll="handleScroll">
     <!-- 新建笔记本按钮 -->
     <button class="create-notebook-btn" @click="showCreateDialog = true">
       <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
@@ -200,6 +200,9 @@ const { t } = useI18n()
 const settingsStore = useSettingsStore()
 const notebookStore = useNotebookStore()
 
+const scrollContainerRef = ref<HTMLElement | null>(null)
+let scrollbarTimer: ReturnType<typeof setTimeout> | null = null
+
 const isExpanded = ref(true)
 const showCreateDialog = ref(false)
 
@@ -335,6 +338,19 @@ function handleCreateNotebook(data: { name: string; pdfPath?: string; staticCont
   showCreateDialog.value = false
 }
 
+// 滚动条显示逻辑
+function handleScroll() {
+  if (!scrollContainerRef.value) return
+  scrollContainerRef.value.classList.add('is-scrolling')
+  if (scrollbarTimer !== null) {
+    clearTimeout(scrollbarTimer)
+  }
+  scrollbarTimer = setTimeout(() => {
+    scrollContainerRef.value?.classList.remove('is-scrolling')
+    scrollbarTimer = null
+  }, 1000)
+}
+
 // 点击其他地方关闭右键菜单
 function handleClickOutside() {
   if (contextMenu.value.visible) {
@@ -358,6 +374,37 @@ onUnmounted(() => {
   height: 100%;
   padding: 8px;
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.notebook-sidebar-content.is-scrolling {
+  scrollbar-color: rgba(128, 128, 128, 0.4) transparent;
+}
+
+.notebook-sidebar-content::-webkit-scrollbar {
+  width: 4px;
+}
+
+.notebook-sidebar-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.notebook-sidebar-content::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 2px;
+}
+
+.notebook-sidebar-content.is-scrolling::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.4);
+}
+
+:root.dark .notebook-sidebar-content.is-scrolling {
+  scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+}
+
+:root.dark .notebook-sidebar-content.is-scrolling::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .create-notebook-btn {

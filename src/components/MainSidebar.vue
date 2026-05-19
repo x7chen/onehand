@@ -78,17 +78,11 @@
     @mousedown="startResize"
     @dblclick="toggleSidebar"
   >
-    <div class="resizer-line"></div>
-    <div v-if="sidebarCollapsed" class="collapsed-indicator">
-      <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
-        <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/>
-      </svg>
-    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useNotebookStore } from '@/stores/notebookStore'
@@ -151,10 +145,17 @@ const notebookStore = useNotebookStore()
 
 // 从settingsStore获取侧边栏状态
 const sidebarWidth = ref(settingsStore.settings.general.sidebarWidth || 200)
-const sidebarCollapsed = ref(settingsStore.settings.general.sidebarCollapsed || false)
+const sidebarCollapsed = computed(() => settingsStore.settings.general.sidebarCollapsed || false)
 
 const isResizing = ref(false)
 const savedSidebarWidth = ref(200)
+
+// 监听 settingsStore 的 sidebarWidth 变化，同步本地状态
+watch(() => settingsStore.settings.general.sidebarWidth, (newWidth) => {
+  if (newWidth && !sidebarCollapsed.value) {
+    sidebarWidth.value = newWidth
+  }
+})
 
 // 处理笔记本相关事件
 function handleSelectNotebook(notebookId: string | null) {
@@ -273,18 +274,19 @@ function stopResize() {
 
 // 双击切换侧边栏显示/隐藏
 function toggleSidebar() {
-  sidebarCollapsed.value = !sidebarCollapsed.value
-  if (sidebarCollapsed.value) {
+  const newCollapsed = !sidebarCollapsed.value
+  if (newCollapsed) {
     savedSidebarWidth.value = sidebarWidth.value
   } else {
     sidebarWidth.value = savedSidebarWidth.value
   }
 
-  // 保存折叠状态到settingsStore
+  // 通过 settingsStore 更新折叠状态
   settingsStore.updateSettings({
     general: {
       ...settingsStore.settings.general,
-      sidebarCollapsed: sidebarCollapsed.value
+      sidebarCollapsed: newCollapsed,
+      sidebarWidth: sidebarWidth.value
     }
   })
 
@@ -297,9 +299,9 @@ function handleExternalToggle() {
 }
 
 onMounted(() => {
-  // 初始化时同步状态
+  // 初始化时同步侧边栏宽度
   sidebarWidth.value = settingsStore.settings.general.sidebarWidth || 200
-  sidebarCollapsed.value = settingsStore.settings.general.sidebarCollapsed || false
+  savedSidebarWidth.value = sidebarWidth.value
 })
 </script>
 
@@ -315,12 +317,9 @@ onMounted(() => {
 
 /* 侧边栏分隔线 */
 .sidebar-resizer {
-  width: 8px;
+  width: 4px;
   background: var(--bg-primary);
   cursor: col-resize;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   flex-shrink: 0;
   transition: background 0.2s, width 0.2s;
 }
@@ -329,36 +328,8 @@ onMounted(() => {
   background: var(--border-color);
 }
 
-.sidebar-resizer .resizer-line {
-  width: 2px;
-  height: 40px;
-  background: var(--border-color);
-  border-radius: 1px;
-  transition: background 0.2s, opacity 0.2s;
-}
-
-.sidebar-resizer:hover .resizer-line {
-  background: var(--color-primary);
-}
-
 .sidebar-resizer.collapsed {
-  width: 12px;
+  width: 4px;
   cursor: pointer;
-}
-
-.sidebar-resizer.collapsed .resizer-line {
-  opacity: 0;
-}
-
-.sidebar-resizer.collapsed .collapsed-indicator {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-secondary);
-  transition: color 0.2s;
-}
-
-.sidebar-resizer.collapsed:hover .collapsed-indicator {
-  color: var(--color-primary);
 }
 </style>

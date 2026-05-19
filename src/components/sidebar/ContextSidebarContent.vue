@@ -1,5 +1,5 @@
 <template>
-  <div class="context-sidebar-content">
+  <div ref="scrollContainerRef" class="context-sidebar-content" @scroll="handleScroll">
     <!-- 静态上下文区域 -->
     <div class="context-section">
       <div class="section-header">
@@ -99,6 +99,7 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { ContextFile } from '@/types/context'
 import type { QuickCommand } from '@/types/quickCommand'
@@ -125,6 +126,9 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+
+const scrollContainerRef = ref<HTMLElement | null>(null)
+let scrollbarTimer: ReturnType<typeof setTimeout> | null = null
 
 function handleCreateStatic() {
   emit('create-context', 'static')
@@ -183,6 +187,19 @@ function handleQuickCommandDragEnd(e: DragEvent) {
   const target = e.target as HTMLElement
   target.style.opacity = '1'
 }
+
+// 滚动条显示逻辑
+function handleScroll() {
+  if (!scrollContainerRef.value) return
+  scrollContainerRef.value.classList.add('is-scrolling')
+  if (scrollbarTimer !== null) {
+    clearTimeout(scrollbarTimer)
+  }
+  scrollbarTimer = setTimeout(() => {
+    scrollContainerRef.value?.classList.remove('is-scrolling')
+    scrollbarTimer = null
+  }, 1000)
+}
 </script>
 
 <style scoped>
@@ -192,6 +209,37 @@ function handleQuickCommandDragEnd(e: DragEvent) {
   height: 100%;
   padding: 8px;
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.context-sidebar-content.is-scrolling {
+  scrollbar-color: rgba(128, 128, 128, 0.4) transparent;
+}
+
+.context-sidebar-content::-webkit-scrollbar {
+  width: 4px;
+}
+
+.context-sidebar-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.context-sidebar-content::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 2px;
+}
+
+.context-sidebar-content.is-scrolling::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.4);
+}
+
+:root.dark .context-sidebar-content.is-scrolling {
+  scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+}
+
+:root.dark .context-sidebar-content.is-scrolling::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .context-section {

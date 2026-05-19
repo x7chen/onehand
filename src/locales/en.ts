@@ -366,6 +366,10 @@ export default {
   theme: {
     currentTheme: 'Current: {name} (click to switch)',
   },
+  sidebar: {
+    show: 'Show Sidebar',
+    hide: 'Hide Sidebar',
+  },
   quickCommand: {
     title: 'Quick Commands',
     noCommands: 'No quick commands',

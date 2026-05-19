@@ -2,9 +2,6 @@
   <div class="search-dropdown">
     <!-- 搜索输入框 -->
     <div class="search-input-wrapper">
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" class="search-icon">
-        <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
-      </svg>
       <input
         ref="searchInputRef"
         v-model="dropdownStore.filterText"
@@ -652,6 +649,7 @@ function handleNavigate(data: DeepLinkData) {
 <style scoped>
 .search-dropdown {
   background: var(--bg-primary);
+  padding: 8px;
   border-radius: 8px;
   width: 600px;
   max-height: 500px;
@@ -669,22 +667,22 @@ function handleNavigate(data: DeepLinkData) {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 12px;
+  padding: 0 4px;
+  
   background: var(--bg-primary);
-  border-bottom: 1px solid var(--border-color);
-  /* 确保不受 Electron 拖拽区域影响 */
-  -webkit-app-region: no-drag;
-}
-
-.search-icon {
-  color: var(--text-secondary);
-  flex-shrink: 0;
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s, background 0.2s;
+  box-sizing: border-box;
+  margin-bottom: 8px;
 }
 
 .search-input {
   flex: 1;
   height: 24px;
-  border: none;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
   background: transparent;
   color: var(--text-primary);
   font-size: 14px;

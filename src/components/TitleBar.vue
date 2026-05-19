@@ -44,6 +44,23 @@
           <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zm-7-2h2v-4h4v-2h-4V7h-2v4H8v2h4v4z"/>
         </svg>
       </button>
+      <!-- 侧边栏显示/隐藏按钮 -->
+      <button class="title-bar-btn sidebar-btn" @click="toggleSidebar" :title="sidebarCollapsed ? t('sidebar.show') : t('sidebar.hide')">
+        <!-- 显示侧边栏：左边实心 -->
+        <svg v-if="!sidebarCollapsed" viewBox="0 0 15 15" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1">
+          <!-- 外框 -->
+          <rect x="0.5" y="0.5" width="14" height="14" rx="2.5"/>
+          <!-- 左侧填充（约40%宽度，2:3比例），带左上和左下圆角 -->
+          <path d="M 0.5 3 A 2.5 2.5 0 0 1 3 0.5 L 6 0.5 L 6 14.5 L 3 14.5 A 2.5 2.5 0 0 1 0.5 12 Z" fill="currentColor" stroke="none"/>
+        </svg>
+        <!-- 隐藏侧边栏：两部分都空心 -->
+        <svg v-else viewBox="0 0 15 15" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1">
+          <!-- 外框 -->
+          <rect x="0.5" y="0.5" width="14" height="14" rx="2.5"/>
+          <!-- 分隔线（约40%位置，2:3比例） -->
+          <line x1="6" y1="0.5" x2="6" y2="14.5"/>
+        </svg>
+      </button>
     </div>
 
     <!-- 窗口控制按钮容器 -->
@@ -124,6 +141,9 @@ const isWCOEnabled = ref(false)
 const centerInputRef = ref<HTMLInputElement | null>(null)
 const centerInputText = ref('')
 const dropdownStyle = ref<{ top: string; left: string }>({ top: '0px', left: '0px' })
+
+// 侧边栏折叠状态（从 settingsStore 获取）
+const sidebarCollapsed = computed(() => settingsStore.settings.general.sidebarCollapsed || false)
 
 // 是否显示搜索下拉框
 const showSearchDropdown = computed(() => dropdownStore.showDropdown && dropdownStore.dropdownType === 'search')
@@ -344,6 +364,16 @@ function getThemeLabel() {
     default:
       return t('settings.themeSystem')
   }
+}
+
+// 切换侧边栏显示/隐藏
+function toggleSidebar() {
+  settingsStore.updateSettings({
+    general: {
+      ...settingsStore.settings.general,
+      sidebarCollapsed: !sidebarCollapsed.value
+    }
+  })
 }
 </script>
 

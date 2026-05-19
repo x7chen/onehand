@@ -366,6 +366,10 @@ export default {
   theme: {
     currentTheme: '当前: {name} (点击切换)',
   },
+  sidebar: {
+    show: '显示侧边栏',
+    hide: '隐藏侧边栏',
+  },
   quickCommand: {
     title: '快捷指令',
     noCommands: '暂无快捷指令',

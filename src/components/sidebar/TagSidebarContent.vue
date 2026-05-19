@@ -1,5 +1,5 @@
 <template>
-  <div class="tag-sidebar-content">
+  <div ref="scrollContainerRef" class="tag-sidebar-content" @scroll="handleScroll">
     <div class="tag-list">
       <div
         v-for="tag in tags"
@@ -20,6 +20,7 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 const props = defineProps<{
@@ -33,8 +34,24 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 
+const scrollContainerRef = ref<HTMLElement | null>(null)
+let scrollbarTimer: ReturnType<typeof setTimeout> | null = null
+
 function handleSelectTag(tagName: string) {
   emit('select-tag', tagName)
+}
+
+// 滚动条显示逻辑
+function handleScroll() {
+  if (!scrollContainerRef.value) return
+  scrollContainerRef.value.classList.add('is-scrolling')
+  if (scrollbarTimer !== null) {
+    clearTimeout(scrollbarTimer)
+  }
+  scrollbarTimer = setTimeout(() => {
+    scrollContainerRef.value?.classList.remove('is-scrolling')
+    scrollbarTimer = null
+  }, 1000)
 }
 </script>
 
@@ -45,6 +62,37 @@ function handleSelectTag(tagName: string) {
   height: 100%;
   padding: 8px;
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.tag-sidebar-content.is-scrolling {
+  scrollbar-color: rgba(128, 128, 128, 0.4) transparent;
+}
+
+.tag-sidebar-content::-webkit-scrollbar {
+  width: 4px;
+}
+
+.tag-sidebar-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tag-sidebar-content::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 2px;
+}
+
+.tag-sidebar-content.is-scrolling::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.4);
+}
+
+:root.dark .tag-sidebar-content.is-scrolling {
+  scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+}
+
+:root.dark .tag-sidebar-content.is-scrolling::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .tag-list {
