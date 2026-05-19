@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-export type DropdownType = 'model' | 'ai' | 'autoSelect' | null
+export type DropdownType = 'model' | 'ai' | 'autoSelect' | 'search' | null
 
 export const useDropdownStore = defineStore('dropdown', () => {
   const showDropdown = ref(false)
@@ -18,6 +18,8 @@ export const useDropdownStore = defineStore('dropdown', () => {
         return t('statusBar.aiAnswer')
       case 'autoSelect':
         return t('statusBar.autoSelect')
+      case 'search':
+        return t('common.search')
       default:
         return t('common.search')
     }

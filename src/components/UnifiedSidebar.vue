@@ -359,12 +359,6 @@
       <span>{{ t('nav.trash') }}</span>
     </div>
 
-    <!-- 搜索对话框 -->
-    <SearchDialog
-      :visible="showSearchDialog"
-      @close="showSearchDialog = false"
-    />
-
     <!-- 创建笔记本对话框 -->
     <CreateNotebookDialog
       :visible="showCreateNotebookDialog"
@@ -406,7 +400,7 @@ import { ref, computed, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useNotebookStore } from '@/stores/notebookStore'
-import SearchDialog from '@/components/SearchDialog.vue'
+import { useDropdownStore } from '@/stores/dropdownStore'
 import CreateNotebookDialog from '@/components/CreateNotebookDialog.vue'
 import type { Notebook } from '@/types/notebook'
 import type { ContextFile } from '@/types/context'
@@ -469,9 +463,7 @@ const renameInputValue = ref('')
 
 // 输入框引用
 const renameInput = ref<HTMLInputElement | null>(null)
-
-// 搜索对话框状态
-const showSearchDialog = ref(false)
+const dropdownStore = useDropdownStore()
 
 // 创建笔记本对话框状态
 const showCreateNotebookDialog = ref(false)
@@ -559,7 +551,7 @@ function getThemeLabel() {
 
 // 搜索点击
 function handleSearchClick() {
-  showSearchDialog.value = true
+  dropdownStore.openDropdown('search')
 }
 
 // 笔记本标签点击（显示/隐藏弹出菜单）

@@ -5,10 +5,10 @@
       <img :src="iconPath" class="app-icon" alt="OneHand" />
     </div>
 
-    <!-- 中间：搜索输入框（功能待定） -->
+    <!-- 中间：搜索输入框 -->
     <div class="title-bar-center">
-      <!-- 下拉激活时隐藏标题栏中的输入框 -->
-      <div v-if="!dropdownStore.showDropdown" class="center-input-wrapper">
+      <!-- 搜索下拉框打开时隐藏输入框，显示占位区域 -->
+      <div v-if="!showSearchDropdown" class="center-input-wrapper">
         <input
           ref="centerInputRef"
           v-model="centerInputText"
@@ -20,7 +20,7 @@
           @keydown.escape="handleInputEscape"
         />
       </div>
-      <!-- 下拉激活时显示占位区域，保持布局稳定 -->
+      <!-- 搜索下拉框打开时显示占位区域 -->
       <div v-else class="center-input-placeholder"></div>
     </div>
 
@@ -85,8 +85,14 @@
     <!-- 窗口调整大小区域（仅未最大化时显示） -->
     <div v-if="!isMaximized" class="title-bar-resizer"></div>
 
-    <!-- 搜索对话框 -->
-    <SearchDialog :visible="showSearchDialog" @close="showSearchDialog = false" />
+    <!-- 搜索下拉框 -->
+    <Teleport to="body">
+      <div v-if="showSearchDropdown" class="search-dropdown-overlay" @click="closeSearchDropdown">
+        <div class="search-dropdown-wrapper" :style="dropdownStyle" @click.stop>
+          <SearchDropdown />
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -95,7 +101,7 @@ import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useDropdownStore } from '@/stores/dropdownStore'
-import SearchDialog from '@/components/SearchDialog.vue'
+import SearchDropdown from '@/components/SearchDropdown.vue'
 
 const props = defineProps<{
   centerPlaceholder?: string
@@ -115,9 +121,12 @@ const isMaximized = ref(false)
 const iconPath = ref('')
 const isInactive = ref(false)
 const isWCOEnabled = ref(false)
-const showSearchDialog = ref(false)
 const centerInputRef = ref<HTMLInputElement | null>(null)
 const centerInputText = ref('')
+const dropdownStyle = ref<{ top: string; left: string }>({ top: '0px', left: '0px' })
+
+// 是否显示搜索下拉框
+const showSearchDropdown = computed(() => dropdownStore.showDropdown && dropdownStore.dropdownType === 'search')
 
 // 输入框 placeholder - 根据下拉状态动态变化
 const centerPlaceholder = computed(() => {
@@ -127,13 +136,6 @@ const centerPlaceholder = computed(() => {
   }
   // 否则显示默认的搜索placeholder
   return props.centerPlaceholder || t('common.search')
-})
-
-// 监听输入框文本变化，更新dropdownStore的filterText
-watch(centerInputText, (text) => {
-  if (dropdownStore.showDropdown) {
-    dropdownStore.updateFilterText(text)
-  }
 })
 
 // 监听下拉框状态，清空输入框
@@ -247,13 +249,34 @@ async function handleDoubleClick() {
 
 // 搜索
 function handleSearch() {
-  showSearchDialog.value = true
+  dropdownStore.openDropdown('search')
+  calculateDropdownPosition()
+}
+
+// 计算下拉框位置 - 靠窗口顶部显示
+function calculateDropdownPosition() {
+  const windowWidth = window.innerWidth
+  const dropdownWidth = 600
+  const left = windowWidth / 2 - dropdownWidth / 2
+  dropdownStyle.value = {
+    top: '0px', // 紧贴窗口顶部
+    left: `${left}px`
+  }
+}
+
+// 关闭搜索下拉框
+function closeSearchDropdown() {
+  dropdownStore.closeDropdown()
 }
 
 // 中间输入框事件
 function handleInputFocus() {
   emit('input-focus')
-  // 当下拉框激活时，保持焦点
+  // 点击输入框时打开搜索下拉框
+  if (!dropdownStore.showDropdown) {
+    dropdownStore.openDropdown('search')
+    calculateDropdownPosition()
+  }
 }
 
 function handleInputBlur() {
@@ -419,11 +442,13 @@ function getThemeLabel() {
   color: var(--text-tertiary);
 }
 
-/* 下拉激活时的占位区域 */
+/* 搜索下拉框打开时的占位区域 */
 .center-input-placeholder {
   width: 600px;
   max-width: calc(100vw - 200px);
   height: 24px;
+  /* 确保点击穿透到下拉框 */
+  pointer-events: none;
 }
 
 /* 右侧功能区（搜索 + 主题按钮） - 不可拖拽，确保不被中间区域覆盖，靠右显示 */
@@ -521,6 +546,26 @@ function getThemeLabel() {
   height: 4px;
   cursor: n-resize;
   /* 调整大小区域不可拖拽 */
+  -webkit-app-region: no-drag;
+}
+
+/* 搜索下拉框 - 与 StatusBar 下拉框样式一致 */
+.search-dropdown-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10000;
+  background: transparent;
+  /* 确保不受 Electron 拖拽区域影响 */
+  -webkit-app-region: no-drag;
+}
+
+.search-dropdown-wrapper {
+  position: absolute;
+  z-index: 10001;
+  /* 确保不受 Electron 拖拽区域影响 */
   -webkit-app-region: no-drag;
 }
 </style>

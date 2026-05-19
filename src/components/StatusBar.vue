@@ -225,8 +225,8 @@ const dropdownStore = useDropdownStore()
 
 const activeNode = computed(() => notebookStore.globalActiveNode)
 
-// 使用 dropdownStore 的状态
-const showDropdown = computed(() => dropdownStore.showDropdown && dropdownStore.dropdownType)
+// 使用 dropdownStore 的状态（排除 search 类型，search 由 TitleBar 处理）
+const showDropdown = computed(() => dropdownStore.showDropdown && dropdownStore.dropdownType && dropdownStore.dropdownType !== 'search')
 const dropdownType = computed(() => dropdownStore.dropdownType)
 
 // 下拉输入框引用
