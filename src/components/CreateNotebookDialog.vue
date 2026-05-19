@@ -218,7 +218,7 @@ function handleCreate() {
 .dialog input[type="text"],
 .dialog select {
   width: 100%;
-  padding: 6px 12px;
+  padding: 12px;
   border: 1px solid var(--border-color);
   border-radius: 6px;
   font-size: var(--font-size-heading);
@@ -255,7 +255,7 @@ function handleCreate() {
   flex: 1;
   cursor: pointer;
   margin-bottom: 0;
-  padding: 6px 12px;
+  padding: 12px;
   box-sizing: border-box;
 }
 
@@ -263,7 +263,7 @@ function handleCreate() {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 6px;
+  padding: 12px;
   border: 1px solid var(--border-color);
   border-radius: 6px;
   background: var(--bg-secondary);
