@@ -15,19 +15,19 @@
         <p>{{ t('common.loading') }}</p>
       </div>
 
-      <div v-else-if="favoriteNodes.length === 0" class="no-results">
+      <div v-else-if="filteredFavorites.length === 0" class="no-results">
         <svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor" class="empty-icon">
           <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
         </svg>
-        <p>{{ t('nav.noFavorites') }}</p>
+        <p>{{ favoriteNodes.length === 0 ? t('nav.noFavorites') : t('common.noResults') }}</p>
       </div>
 
       <div v-else class="results-list">
         <div class="results-count">
-          {{ t('common.totalFavorites', { count: favoriteNodes.length }) }}
+          {{ t('common.totalFavorites', { count: filteredFavorites.length }) }}
         </div>
         <div
-          v-for="item in favoriteNodes"
+          v-for="item in filteredFavorites"
           :key="`${item.notebookId}-${item.nodeId}`"
           class="node-item"
         >
@@ -41,6 +41,10 @@
               <template v-if="item.nodeTitle">
                 <span class="separator">·</span>
                 <span class="node-title">{{ item.nodeTitle }}</span>
+              </template>
+              <template v-if="item.createdAt">
+                <span class="separator">·</span>
+                <span class="time-info">{{ formatDate(item.createdAt) }}</span>
               </template>
             </div>
             <div class="node-text" :title="item.fullText">
@@ -67,13 +71,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import NodePopup from '@/components/NodePopup.vue'
 import { useNotebookStore } from '@/stores/notebookStore'
 import { generateDeepLinkUrl } from '@/composables/useDeepLink'
 import type { DeepLinkData } from '@/composables/useDeepLink'
+
+const props = defineProps<{
+  filterNotebookId?: string | null
+  filterTimeType?: string | null
+  filterDateStart?: string
+  filterDateEnd?: string
+}>()
 
 const router = useRouter()
 const notebookStore = useNotebookStore()
@@ -90,11 +101,51 @@ interface FavoriteNodeItem {
   nodeTitle: string
   pdfPage?: number
   fullText: string
+  createdAt?: number
+  updatedAt?: number
 }
+
+// 过滤后的收藏列表
+const filteredFavorites = computed(() => {
+  let results = favoriteNodes.value
+
+  // 笔记本过滤
+  if (props.filterNotebookId) {
+    results = results.filter(item => item.notebookId === props.filterNotebookId)
+  }
+
+  // 时间过滤
+  if (props.filterTimeType) {
+    results = results.filter(item => {
+      const timestamp = props.filterTimeType === 'createdAt' ? item.createdAt : (item.updatedAt || item.createdAt)
+      if (!timestamp) return true
+
+      const nodeDate = new Date(timestamp)
+      const startDate = props.filterDateStart ? new Date(props.filterDateStart) : null
+      const endDate = props.filterDateEnd ? new Date(props.filterDateEnd + 'T23:59:59') : null
+
+      if (startDate && nodeDate < startDate) return false
+      if (endDate && nodeDate > endDate) return false
+
+      return true
+    })
+  }
+
+  return results
+})
 
 onMounted(async () => {
   await loadFavorites()
 })
+
+// 格式化日期
+function formatDate(timestamp: number): string {
+  const date = new Date(timestamp)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
 
 // Reload when notebooks change
 watch(() => notebookStore.notebooks, () => {
@@ -118,7 +169,9 @@ async function loadFavorites() {
           nodeId: node.id,
           nodeTitle: node.title || '',
           pdfPage: node.pdfPage,
-          fullText
+          fullText,
+          createdAt: node.createdAt,
+          updatedAt: node.updatedAt
         })
       }
     }
@@ -297,6 +350,10 @@ function handleNavigate(data: DeepLinkData) {
 
 .node-title {
   font-weight: 500;
+}
+
+.time-info {
+  opacity: 0.7;
 }
 
 .node-text {

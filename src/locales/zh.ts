@@ -38,6 +38,8 @@ export default {
     createdAt: '创建时间',
     updatedAt: '更新时间',
     dateRange: '日期范围',
+    startDate: '起始',
+    endDate: '结束',
     totalFavorites: '共 {count} 个收藏',
     totalTags: '共 {count} 个标签',
     noteDetails: '笔记详情',

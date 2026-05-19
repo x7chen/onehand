@@ -38,6 +38,8 @@ export default {
     createdAt: 'Created time',
     updatedAt: 'Updated time',
     dateRange: 'Date range',
+    startDate: 'Start',
+    endDate: 'End',
     totalFavorites: '{count} favorites',
     totalTags: '{count} tags',
     noteDetails: 'Note Details',

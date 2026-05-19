@@ -51,6 +51,8 @@
       :notebooks="notebooks"
       :filter-notebook-id="filterNotebookId"
       :filter-time-type="filterTimeType"
+      :filter-date-start="filterDateStart"
+      :filter-date-end="filterDateEnd"
       @update-filter="handleUpdateFavoriteFilter"
     />
 
@@ -115,6 +117,8 @@ const props = defineProps<{
   selectedTagName: string | null
   filterNotebookId: string | null
   filterTimeType: string | null
+  filterDateStart?: string
+  filterDateEnd?: string
   settingsTab: 'general' | 'model'
   trashTab: 'notes' | 'notebooks' | 'contexts' | 'quickCommands'
 }>()
@@ -136,7 +140,7 @@ const emit = defineEmits<{
   (e: 'edit-context', context: ContextFile): void
   (e: 'edit-quick-command', command: QuickCommand): void
   (e: 'select-tag', tagName: string | null): void
-  (e: 'update-filter', filter: { notebookId?: string | null; timeType?: string | null }): void
+  (e: 'update-filter', filter: { notebookId?: string | null; timeType?: string | null; dateStart?: string; dateEnd?: string }): void
   (e: 'select-settings-tab', tab: 'general' | 'model'): void
   (e: 'select-trash-tab', tab: 'notes' | 'notebooks' | 'contexts' | 'quickCommands'): void
 }>()

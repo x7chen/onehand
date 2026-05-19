@@ -28,6 +28,8 @@
         :selected-tag-name="selectedTagName"
         :filter-notebook-id="favoriteFilterNotebookId"
         :filter-time-type="favoriteFilterTimeType"
+        :filter-date-start="favoriteFilterDateStart"
+        :filter-date-end="favoriteFilterDateEnd"
         :settings-tab="settingsTab"
         :trash-tab="trashTab"
         @toggle-collapse="toggleSidebar"
@@ -140,7 +142,13 @@
         />
 
         <!-- 收藏夹面板 -->
-        <FavoritesPanel v-if="activeActivity === 'favorites'" />
+        <FavoritesPanel
+          v-if="activeActivity === 'favorites'"
+          :filter-notebook-id="favoriteFilterNotebookId"
+          :filter-time-type="favoriteFilterTimeType"
+          :filter-date-start="favoriteFilterDateStart"
+          :filter-date-end="favoriteFilterDateEnd"
+        />
 
         <!-- 回收站面板 -->
         <TrashPanel
@@ -306,6 +314,8 @@ const selectedTagName = ref<string | null>(null)
 // 收藏过滤器
 const favoriteFilterNotebookId = ref<string | null>(null)
 const favoriteFilterTimeType = ref<string | null>(null)
+const favoriteFilterDateStart = ref<string>('')
+const favoriteFilterDateEnd = ref<string>('')
 
 // 设置tab
 const settingsTab = ref<'general' | 'model'>('general')
@@ -555,12 +565,18 @@ function handleTagSelected(tagName: string | null) {
 }
 
 // 处理收藏过滤器更新
-function handleUpdateFavoriteFilter(filter: { notebookId?: string | null; timeType?: string | null }) {
+function handleUpdateFavoriteFilter(filter: { notebookId?: string | null; timeType?: string | null; dateStart?: string; dateEnd?: string }) {
   if (filter.notebookId !== undefined) {
     favoriteFilterNotebookId.value = filter.notebookId
   }
   if (filter.timeType !== undefined) {
     favoriteFilterTimeType.value = filter.timeType
+  }
+  if (filter.dateStart !== undefined) {
+    favoriteFilterDateStart.value = filter.dateStart
+  }
+  if (filter.dateEnd !== undefined) {
+    favoriteFilterDateEnd.value = filter.dateEnd
   }
 }
 
