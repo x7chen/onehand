@@ -1,8 +1,8 @@
 <template>
   <div class="title-bar" :class="{ maximized: isMaximized, inactive: isInactive, light: isLight, 'wco-enabled': isWCOEnabled }">
-    <!-- 左侧：应用图标 -->
-    <div class="title-bar-left">
-      <img :src="iconPath" class="app-icon" alt="OneHand" />
+    <!-- 左侧：应用图标（macOS 为红绿灯按钮预留空间） -->
+    <div class="title-bar-left" :class="{ 'macos-traffic-light-space': isMacOS }">
+      <img v-if="!isMacOS" :src="iconPath" class="app-icon" alt="OneHand" />
     </div>
 
     <!-- 中间：搜索输入框 -->
@@ -63,8 +63,8 @@
       </button>
     </div>
 
-    <!-- 窗口控制按钮容器 -->
-    <div v-if="!isWCOEnabled" class="window-controls-container">
+    <!-- 窗口控制按钮容器（macOS 不显示，已有红绿灯按钮） -->
+    <div v-if="!isMacOS && !isWCOEnabled" class="window-controls-container">
       <!-- 最小化按钮 -->
       <button class="window-icon window-minimize" @click="minimize" :title="t('common.minimize')">
         <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor">
@@ -96,11 +96,11 @@
       </button>
     </div>
 
-    <!-- WCO 启用时：预留系统控制按钮的空间 -->
-    <div v-else class="window-controls-container wco-placeholder"></div>
+    <!-- WCO 启用时：预留系统控制按钮的空间（macOS 不需要） -->
+    <div v-if="!isMacOS && isWCOEnabled" class="window-controls-container wco-placeholder"></div>
 
-    <!-- 窗口调整大小区域（仅未最大化时显示） -->
-    <div v-if="!isMaximized" class="title-bar-resizer"></div>
+    <!-- 窗口调整大小区域（仅非 macOS 且未最大化时显示） -->
+    <div v-if="!isMacOS && !isMaximized" class="title-bar-resizer"></div>
 
     <!-- 搜索下拉框 -->
     <Teleport to="body">
@@ -133,6 +133,9 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const settingsStore = useSettingsStore()
 const dropdownStore = useDropdownStore()
+
+// 直接检测 macOS 平台
+const isMacOS = ref(false)
 
 const isMaximized = ref(false)
 const iconPath = ref('')
@@ -188,6 +191,14 @@ function checkWCOEnabled() {
 }
 
 onMounted(async () => {
+  // 检测 macOS 平台
+  if (window.electronAPI?.platform) {
+    isMacOS.value = window.electronAPI.platform.isMacOS
+  } else {
+    // 兜底：通过 userAgent 检测
+    isMacOS.value = navigator.userAgent.toLowerCase().includes('mac')
+  }
+
   // 获取图标 DataURL
   try {
     if (window.electronAPI.getIconDataUrl) {
@@ -425,6 +436,11 @@ function toggleSidebar() {
   width: 16px;
   height: 16px;
   object-fit: contain;
+}
+
+/* macOS 红绿灯按钮预留空间 */
+.title-bar-left.macos-traffic-light-space {
+  width: 70px;
 }
 
 /* 中间输入框区域 - 严格居中，不影响左右布局 */

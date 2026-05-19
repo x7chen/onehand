@@ -144,9 +144,10 @@ function createWindow() {
   const backgroundColor = '#202020'
 
   // 标题栏策略：
-  // macOS: 保持原生标题栏，红绿灯按钮由系统提供
+  // macOS: 使用 hiddenInset 保留红绿灯按钮，显示自定义标题栏功能按钮
   // Windows/Linux: 无边框窗口，使用自定义标题栏 + Window Controls Overlay (WCO)
-  const isCustomTitlebar = process.platform !== 'darwin'
+  const isMacOS = process.platform === 'darwin'
+  const isWindowsOrLinux = !isMacOS
 
   // 窗口配置
   const windowOptions = {
@@ -160,15 +161,20 @@ function createWindow() {
       contextIsolation: true,
       webSecurity: true
     },
-    frame: !isCustomTitlebar, // macOS 有原生frame，Windows/Linux 无边框
+    frame: !isWindowsOrLinux, // macOS 有原生frame，Windows/Linux 无边框
     backgroundColor: backgroundColor,
     show: false, // Don't show until ready
     paintWhenInitiallyHidden: true
   }
 
+  // macOS: 使用 hiddenInset 保留红绿灯按钮但隐藏标题栏
+  if (isMacOS) {
+    windowOptions.titleBarStyle = 'hiddenInset'
+  }
+
   // Windows/Linux: 使用 titleBarStyle: 'hidden' + titleBarOverlay 启用 WCO
   // 这样可以显示系统的 Snap Layout 选择器（悬停最大化按钮时的桌面布局选择）
-  if (isCustomTitlebar) {
+  if (isWindowsOrLinux) {
     windowOptions.titleBarStyle = 'hidden'
     windowOptions.titleBarOverlay = {
       height: 32,  // 标题栏高度

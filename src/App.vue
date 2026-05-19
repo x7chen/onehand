@@ -1,6 +1,6 @@
 <template>
-  <TitleBar v-if="isCustomTitlebar" />
-  <div class="app-content" :class="{ 'with-title-bar': isCustomTitlebar }">
+  <TitleBar />
+  <div class="app-content">
     <router-view />
   </div>
   <!-- Node popup for in-app deep link clicks -->
@@ -29,10 +29,6 @@ import type { DeepLinkData } from '@/composables/useDeepLink'
 
 // 导入本地 CSS
 import 'katex/dist/katex.min.css'
-
-// 平台检测 - 是否需要自定义标题栏
-// macOS 使用原生标题栏，Windows/Linux 使用自定义标题栏
-const isCustomTitlebar = ref(false)
 
 const settingsStore = useSettingsStore()
 const notebookStore = useNotebookStore()
@@ -164,14 +160,6 @@ function handleSelectAll(event: KeyboardEvent) {
 
 // 在应用启动时加载设置
 onMounted(async () => {
-  // 检测平台
-  if (window.electronAPI?.platform) {
-    isCustomTitlebar.value = !window.electronAPI.platform.isMacOS
-  } else {
-    // 兜底：通过 userAgent 检测
-    isCustomTitlebar.value = navigator.userAgent.toLowerCase().includes('windows')
-  }
-
   settingsStore.loadSettings()
   await tagStore.loadTags()
   await notebookStore.loadNotebooks()
@@ -296,10 +284,6 @@ body {
 
 .app-content {
   width: 100%;
-  height: 100%;
-}
-
-.app-content.with-title-bar {
   height: calc(100vh - 32px);
   margin-top: 32px;
 }
