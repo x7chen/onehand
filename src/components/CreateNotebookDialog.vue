@@ -55,15 +55,28 @@
         </div>
       </div>
 
-      <!-- 选择动态上下文 -->
+      <!-- 选择动态上下文（标签方式，单选） -->
       <div class="form-group">
         <label>{{ t('notebook.dynamicContext') }}：</label>
-        <select v-model="selectedDynamicContext">
-          <option value="">{{ t('notebook.noDynamicContext') }}</option>
-          <option v-for="file in dynamicContextFiles" :key="file.id" :value="file.id">
+        <div v-if="dynamicContextFiles.length > 0" class="context-tags-selector">
+          <span
+            v-for="file in dynamicContextFiles"
+            :key="file.id"
+            class="context-tag-selectable"
+            :class="{ selected: selectedDynamicContext === file.id }"
+            :style="{
+              backgroundColor: selectedDynamicContext === file.id ? file.color + '40' : 'var(--bg-secondary)',
+              borderColor: selectedDynamicContext === file.id ? file.color : 'var(--border-color)',
+              color: selectedDynamicContext === file.id ? file.color : 'var(--text-secondary)'
+            }"
+            @click="toggleDynamicContext(file.id)"
+          >
             {{ file.name }}
-          </option>
-        </select>
+          </span>
+        </div>
+        <div v-else class="no-context-hint">
+          <span>{{ t('notebook.noDynamicContext') }}</span>
+        </div>
       </div>
 
       <div class="dialog-actions">
@@ -133,13 +146,22 @@ function clearPdfFile() {
   pdfFileName.value = ''
 }
 
-// 静态上下文选择
+// 静态上下文选择（多选）
 function toggleStaticContext(contextId: string) {
   const index = selectedStaticContexts.value.indexOf(contextId)
   if (index === -1) {
     selectedStaticContexts.value.push(contextId)
   } else {
     selectedStaticContexts.value.splice(index, 1)
+  }
+}
+
+// 动态上下文选择（单选）
+function toggleDynamicContext(contextId: string) {
+  if (selectedDynamicContext.value === contextId) {
+    selectedDynamicContext.value = ''
+  } else {
+    selectedDynamicContext.value = contextId
   }
 }
 
@@ -181,6 +203,7 @@ function handleCreate() {
 .dialog {
   background: var(--bg-primary);
   padding: 24px;
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   min-width: 400px;
   max-width: 500px;

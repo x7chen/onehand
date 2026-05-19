@@ -19,6 +19,7 @@
       @delete-notebook="handleDeleteNotebook"
       @toggle-pin="handleTogglePin"
       @toggle-pin-all="handleTogglePinAll"
+      @reorder-pinned="handleReorderPinned"
     />
 
     <!-- 上下文视图侧边栏 -->
@@ -127,6 +128,7 @@ const emit = defineEmits<{
   (e: 'delete-notebook', notebookId: string): void
   (e: 'toggle-pin', notebookId: string): void
   (e: 'toggle-pin-all'): void
+  (e: 'reorder-pinned', pinnedIds: string[]): void
   (e: 'create-context', type: 'static' | 'dynamic'): void
   (e: 'select-context', contextId: string | null): void
   (e: 'create-quick-command'): void
@@ -188,6 +190,10 @@ function handleTogglePin(notebookId: string) {
 
 function handleTogglePinAll() {
   emit('toggle-pin-all')
+}
+
+function handleReorderPinned(pinnedIds: string[]) {
+  emit('reorder-pinned', pinnedIds)
 }
 
 // 处理上下文相关事件

@@ -29,9 +29,14 @@
         v-for="notebook in pinnedNotebooks"
         :key="notebook.id"
         class="notebook-item"
-        :class="{ active: activeNotebookId === notebook.id }"
+        :class="{ active: activeNotebookId === notebook.id, dragging: draggedPinnedId === notebook.id }"
+        draggable="true"
         @click="handleSelectNotebook(notebook.id)"
         @contextmenu.prevent="handleContextMenu($event, notebook, 'pinned')"
+        @dragstart="handlePinnedDragStart($event, notebook.id)"
+        @dragover.prevent="handlePinnedDragOver($event, notebook.id)"
+        @drop.prevent="handlePinnedDrop(notebook.id)"
+        @dragend="handlePinnedDragEnd"
       >
         <span v-if="notebook.pdfPath" class="pdf-badge">PDF</span>
         <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
@@ -133,8 +138,8 @@
   <!-- 创建笔记本对话框 -->
   <CreateNotebookDialog
     :visible="showCreateDialog"
-    :static-context-files="[]"
-    :dynamic-context-files="[]"
+    :static-context-files="contextStore.staticContextFiles"
+    :dynamic-context-files="contextStore.dynamicContextFiles"
     @close="showCreateDialog = false"
     @create="handleCreateNotebook"
   />
@@ -175,6 +180,7 @@ import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useNotebookStore } from '@/stores/notebookStore'
+import { useContextStore } from '@/stores/contextStore'
 import CreateNotebookDialog from '@/components/CreateNotebookDialog.vue'
 import type { Notebook } from '@/types/notebook'
 
@@ -194,11 +200,13 @@ const emit = defineEmits<{
   (e: 'delete-notebook', notebookId: string): void
   (e: 'toggle-pin', notebookId: string): void
   (e: 'toggle-pin-all'): void
+  (e: 'reorder-pinned', pinnedIds: string[]): void
 }>()
 
 const { t } = useI18n()
 const settingsStore = useSettingsStore()
 const notebookStore = useNotebookStore()
+const contextStore = useContextStore()
 
 const scrollContainerRef = ref<HTMLElement | null>(null)
 let scrollbarTimer: ReturnType<typeof setTimeout> | null = null
@@ -229,6 +237,10 @@ const renameInputRef = ref<HTMLInputElement | null>(null)
 // 删除确认对话框状态
 const showDeleteDialog = ref(false)
 const deleteNotebookName = ref('')
+
+// 拖动排序状态
+const draggedPinnedId = ref<string | null>(null)
+const dragOverPinnedId = ref<string | null>(null)
 
 // 固定的笔记本列表
 const pinnedNotebooks = computed(() => {
@@ -336,6 +348,41 @@ function confirmDelete() {
 function handleCreateNotebook(data: { name: string; pdfPath?: string; staticContextIds: string[]; dynamicContextId?: string }) {
   emit('create-notebook', data)
   showCreateDialog.value = false
+}
+
+// 拖动排序函数
+function handlePinnedDragStart(e: DragEvent, notebookId: string) {
+  draggedPinnedId.value = notebookId
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', notebookId)
+  }
+}
+
+function handlePinnedDragOver(e: DragEvent, notebookId: string) {
+  if (draggedPinnedId.value && draggedPinnedId.value !== notebookId) {
+    dragOverPinnedId.value = notebookId
+  }
+}
+
+function handlePinnedDrop(targetId: string) {
+  if (!draggedPinnedId.value || draggedPinnedId.value === targetId) return
+
+  const currentIds = [...props.pinnedNotebookIds]
+  const draggedIndex = currentIds.indexOf(draggedPinnedId.value)
+  const targetIndex = currentIds.indexOf(targetId)
+
+  if (draggedIndex !== -1 && targetIndex !== -1) {
+    // 移动 dragged 到 target 位置
+    currentIds.splice(draggedIndex, 1)
+    currentIds.splice(targetIndex, 0, draggedPinnedId.value)
+    emit('reorder-pinned', currentIds)
+  }
+}
+
+function handlePinnedDragEnd() {
+  draggedPinnedId.value = null
+  dragOverPinnedId.value = null
 }
 
 // 滚动条显示逻辑
@@ -460,7 +507,12 @@ onUnmounted(() => {
   color: var(--text-primary);
 }
 
-.notebook-item span {
+.notebook-item.dragging {
+  opacity: 0.5;
+  background: var(--bg-hover);
+}
+
+.notebook-item span:not(.pdf-badge) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -471,6 +523,8 @@ onUnmounted(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex: none;
+  min-width: 28px;
   width: 28px;
   height: 16px;
   background: #e53e3e;
@@ -478,7 +532,6 @@ onUnmounted(() => {
   font-size: 10px;
   font-weight: 600;
   border-radius: 3px;
-  flex-shrink: 0;
 }
 
 .item-actions {

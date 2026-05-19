@@ -258,7 +258,7 @@ function handleUpdateNode(nodeId: string, updates: Partial<CanvasNode>) {
 
 .node-popup-dialog {
   background: var(--bg-primary);
-  border: none;
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   min-width: 400px;
   max-width: 650px;

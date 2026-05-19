@@ -51,6 +51,7 @@
         @delete-notebook="handleDeleteNotebook"
         @toggle-pin="handleTogglePin"
         @toggle-pin-all="handleTogglePinAll"
+        @reorder-pinned="handleReorderPinned"
       />
 
       <!-- 右侧内容区域 -->
@@ -691,6 +692,16 @@ function handleTogglePinAll() {
     general: {
       ...settingsStore.settings.general,
       pinnedAllNotebooks: !currentState
+    }
+  })
+}
+
+// 重新排序固定的笔记本
+function handleReorderPinned(pinnedIds: string[]) {
+  settingsStore.updateSettings({
+    general: {
+      ...settingsStore.settings.general,
+      pinnedNotebookIds: pinnedIds
     }
   })
 }
