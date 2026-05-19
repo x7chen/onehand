@@ -149,6 +149,19 @@ function handleNavigate(data: DeepLinkData) {
   }
 }
 
+// Handle Ctrl+A - prevent selecting all UI content, only select input/textarea content
+function handleSelectAll(event: KeyboardEvent) {
+  if ((event.ctrlKey || event.metaKey) && event.key === 'a') {
+    const target = event.target as HTMLElement
+    // 如果焦点在输入框或文本区域，允许默认的全选行为
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+      return
+    }
+    // 否则阻止默认的全选行为
+    event.preventDefault()
+  }
+}
+
 // 在应用启动时加载设置
 onMounted(async () => {
   // 检测平台
@@ -170,10 +183,13 @@ onMounted(async () => {
 
   // Add global click handler for onehand:// links
   document.addEventListener('click', handleDeepLinkClick, true)
+  // Add global keydown handler for Ctrl+A
+  document.addEventListener('keydown', handleSelectAll, true)
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', handleDeepLinkClick, true)
+  document.removeEventListener('keydown', handleSelectAll, true)
 })
 </script>
 
