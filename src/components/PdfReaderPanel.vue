@@ -1340,7 +1340,8 @@ function handleIncludePageChange(data: { include: boolean; imageBase64?: string;
 }
 
 .panel-resizer:hover {
-  background: var(--border-color);
+  background: var(--color-primary);
+  opacity: 0.5;
 }
 
 .panel-resizer-collapsed {

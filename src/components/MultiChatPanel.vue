@@ -1030,7 +1030,8 @@ async function handleCopySelectedContext() {
 }
 
 .panel-resizer:hover {
-  background: var(--border-color);
+  background: var(--color-primary);
+  opacity: 0.5;
 }
 
 /* 折叠状态的分隔线 */
@@ -1083,7 +1084,8 @@ async function handleCopySelectedContext() {
 }
 
 .chat-resizer:hover {
-  background: var(--border-color);
+  background: var(--color-primary);
+  opacity: 0.5;
 }
 
 /* 折叠状态的 ChatPanel 分隔线 */

@@ -920,28 +920,8 @@ function handleParticleNavigate(data: { notebookId: string; nodeId: string }) {
 }
 
 .sidebar-resizer:hover {
-  background: var(--border-color);
-}
-
-.sidebar-resizer .resizer-line {
-  width: 2px;
-  height: 40px;
-  background: var(--border-color);
-  border-radius: 1px;
-  transition: background 0.2s, opacity 0.2s;
-}
-
-.sidebar-resizer:hover .resizer-line {
   background: var(--color-primary);
-}
-
-.sidebar-resizer.collapsed {
-  width: 12px;
-  cursor: pointer;
-}
-
-.sidebar-resizer.collapsed .resizer-line {
-  opacity: 0;
+  opacity: 0.5;
 }
 
 .sidebar-resizer.collapsed .collapsed-indicator {

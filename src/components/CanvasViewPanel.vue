@@ -367,7 +367,8 @@ defineExpose({
 }
 
 .panel-resizer.left-resizer:hover {
-  background: var(--border-color);
+  background: var(--color-primary);
+  opacity: 0.5;
 }
 
 .panel-resizer.left-resizer.collapsed {

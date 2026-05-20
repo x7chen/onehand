@@ -331,7 +331,8 @@ onMounted(() => {
 }
 
 .sidebar-resizer:hover {
-  background: var(--border-color);
+  background: var(--color-primary);
+  opacity: 0.5;
 }
 
 .sidebar-resizer.collapsed {
