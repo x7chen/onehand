@@ -20,43 +20,15 @@
 
     <!-- 主内容区域 -->
     <div class="panel-body">
-      <!-- 左侧：NodeListPanel -->
-      <NodeListPanel
-        v-if="!isLeftPanelCollapsed"
-        ref="nodeListPanelRef"
-        class="left-panel"
-        :nodes="filteredNodes"
-        :notebook-name="currentNotebook?.name || ''"
-        :active-node-id="activeNodeId"
-        :panel-width="leftPanelWidth"
-        @toggle-context="handleToggleContext"
-        @toggle-favorite="handleToggleFavorite"
-        @activate="handleNodeActivate"
-        @batch-delete="handleBatchDelete"
-        @batch-select-context="handleBatchSelectContext"
-        @visible-nodes-change="handleVisibleNodesChange"
-      />
-
-      <!-- 左侧分隔线 -->
-      <div
-        class="panel-resizer left-resizer"
-        :class="{ collapsed: isLeftPanelCollapsed }"
-        @mousedown="!isLeftPanelCollapsed && startResizeLeft($event)"
-        @dblclick="toggleLeftPanel"
-      >
-      </div>
-
-      <!-- 右侧：CanvasArea -->
+      <!-- CanvasArea -->
       <CanvasArea
         ref="canvasAreaRef"
-        class="right-panel"
         :global-hide-ai-result="globalHideAiResult"
         :ai-answer-enabled="props.aiAnswerEnabled ?? true"
         :auto-select-new-note="props.autoSelectNewNote ?? false"
         :static-context-files="staticContextFiles"
         :dynamic-context-file="dynamicContextFile || undefined"
         :notebook-model-id="currentNotebook?.modelId"
-        :filter-node-ids="filteredNodeIds"
       />
     </div>
 
@@ -97,7 +69,6 @@ import { useContextStore } from '@/stores/contextStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import CanvasHeader from '@/components/CanvasHeader.vue'
 import CanvasArea from '@/components/CanvasArea.vue'
-import NodeListPanel from '@/components/NodeListPanel.vue'
 import type { ContextFile } from '@/types/context'
 import type { Notebook } from '@/types/notebook'
 
@@ -124,7 +95,6 @@ const settingsStore = useSettingsStore()
 
 // 组件引用
 const canvasAreaRef = ref<InstanceType<typeof CanvasArea> | null>(null)
-const nodeListPanelRef = ref<InstanceType<typeof NodeListPanel> | null>(null)
 
 // 全局 AI 回答隐藏状态
 const globalHideAiResult = ref(false)
@@ -132,21 +102,6 @@ const globalHideAiResult = ref(false)
 // 动态上下文编辑器
 const showDynamicContextEditor = ref(false)
 const dynamicContextEditContent = ref('')
-
-// 左侧面板宽度
-const leftPanelWidth = ref(400)
-
-// 左侧面板折叠状态
-const isLeftPanelCollapsed = ref(false)
-
-// 左侧面板拖拽状态
-const isResizingLeft = ref(false)
-const savedLeftPanelWidth = ref(400)
-const resizeStartX = ref(0)
-const resizeStartWidth = ref(0)
-
-// 活跃节点 ID
-const activeNodeId = ref<string | null>(null)
 
 // 当前笔记本
 const currentNotebook = computed(() => {
@@ -160,18 +115,6 @@ const allNodes = computed(() => {
   return currentNotebook.value.nodes || []
 })
 
-// NodeListPanel 中可见的节点 ID 集合（用于过滤 Canvas 显示）
-// undefined 表示未初始化，显示全部；空 Set 表示已筛选但无节点
-const filteredNodeIds = ref<Set<string> | undefined>(undefined)
-
-// 过滤后的节点
-const filteredNodes = computed(() => allNodes.value)
-
-// 处理可见节点变化
-function handleVisibleNodesChange(nodeIds: string[]) {
-  filteredNodeIds.value = new Set(nodeIds)
-}
-
 // 监听笔记本切换
 watch(() => props.notebookId, (newId) => {
   if (newId) {
@@ -180,8 +123,6 @@ watch(() => props.notebookId, (newId) => {
       notebookStore.setCurrentNotebook(notebook)
     }
   }
-  // 清除活跃节点
-  activeNodeId.value = null
 }, { immediate: true })
 
 onMounted(async () => {
@@ -193,24 +134,7 @@ onMounted(async () => {
       notebookStore.setCurrentNotebook(notebook)
     }
   }
-
-  // 添加拖拽事件监听
-  window.addEventListener('mousemove', handleResizeLeftMove)
-  window.addEventListener('mouseup', handleResizeLeftEnd)
 })
-
-onUnmounted(() => {
-  window.removeEventListener('mousemove', handleResizeLeftMove)
-  window.removeEventListener('mouseup', handleResizeLeftEnd)
-})
-
-// 节点激活
-function handleNodeActivate(nodeId: string) {
-  activeNodeId.value = nodeId
-  canvasAreaRef.value?.setActiveNodeId(nodeId)
-  // 更新全局激活节点（用于StatusBar显示）
-  notebookStore.setGlobalActiveNodeId(nodeId)
-}
 
 // 切换上下文选择
 function handleToggleContext(nodeId: string) {
@@ -288,52 +212,10 @@ function handleDynamicContextDrop(text: string) {
   emit('dynamic-context-drop', text)
 }
 
-// 折叠/展开左侧 NodeListPanel
-function toggleLeftPanel() {
-  isLeftPanelCollapsed.value = !isLeftPanelCollapsed.value
-  if (isLeftPanelCollapsed.value) {
-    // 折叠时保存当前宽度
-    savedLeftPanelWidth.value = leftPanelWidth.value
-  } else {
-    // 展开时恢复保存的宽度
-    leftPanelWidth.value = savedLeftPanelWidth.value
-  }
-}
-
-// 左侧分隔线拖拽
-function startResizeLeft(e: MouseEvent) {
-  e.preventDefault()
-  isResizingLeft.value = true
-  resizeStartX.value = e.clientX
-  resizeStartWidth.value = leftPanelWidth.value
-  document.body.style.cursor = 'col-resize'
-  document.body.style.userSelect = 'none'
-}
-
-function handleResizeLeftMove(e: MouseEvent) {
-  if (!isResizingLeft.value) return
-
-  const minWidth = 298  // 匹配 NodeListPanel 的 min-width
-  const maxWidth = 600
-
-  const deltaX = e.clientX - resizeStartX.value
-  const newWidth = resizeStartWidth.value + deltaX
-
-  leftPanelWidth.value = Math.max(minWidth, Math.min(maxWidth, newWidth))
-}
-
-function handleResizeLeftEnd() {
-  if (!isResizingLeft.value) return
-  isResizingLeft.value = false
-  document.body.style.cursor = ''
-  document.body.style.userSelect = ''
-}
-
 // 导出方法供父组件调用
 defineExpose({
   openDynamicContextEditor,
   setActiveNodeId: (nodeId: string) => {
-    activeNodeId.value = nodeId
     canvasAreaRef.value?.setActiveNodeId(nodeId)
   }
 })
@@ -351,34 +233,6 @@ defineExpose({
   flex: 1;
   display: flex;
   overflow: hidden;
-}
-
-.left-panel {
-  flex-shrink: 0;
-}
-
-/* 左侧分隔线 */
-.panel-resizer.left-resizer {
-  width: 4px;
-  background: var(--bg-primary);
-  cursor: col-resize;
-  flex-shrink: 0;
-  transition: background 0.2s;
-}
-
-.panel-resizer.left-resizer:hover {
-  background: var(--color-primary);
-  opacity: 0.5;
-}
-
-.panel-resizer.left-resizer.collapsed {
-  width: 4px;
-  cursor: pointer;
-}
-
-.right-panel {
-  flex: 1;
-  min-width: 0;
 }
 
 /* 对话框通用样式 */

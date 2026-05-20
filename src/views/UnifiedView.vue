@@ -52,6 +52,7 @@
         @toggle-pin="handleTogglePin"
         @toggle-pin-all="handleTogglePinAll"
         @reorder-pinned="handleReorderPinned"
+        @activate-node="handleActivateNodeFromSidebar"
       />
 
       <!-- 右侧内容区域 -->
@@ -708,6 +709,11 @@ function handleReorderPinned(pinnedIds: string[]) {
       pinnedNotebookIds: pinnedIds
     }
   })
+}
+
+// 从侧边栏激活节点
+function handleActivateNodeFromSidebar(nodeId: string) {
+  activateNodeId.value = nodeId
 }
 
 // Context file management

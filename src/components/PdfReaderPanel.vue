@@ -84,30 +84,6 @@
         @start-editing="handleStartEditing"
         @quote-click="handleQuoteClick"
       />
-
-      <!-- 右侧分隔线（始终显示） -->
-      <div
-        class="panel-resizer right-resizer"
-        :class="{ collapsed: isRightPanelCollapsed }"
-        @mousedown="!isRightPanelCollapsed && startResizeRight($event)"
-        @dblclick="toggleRightPanel"
-      >
-      </div>
-
-      <!-- 右侧 NodeListPanel -->
-      <NodeListPanel
-        v-if="!isRightPanelCollapsed"
-        ref="nodeListPanelRef"
-        :nodes="currentNotebook?.nodes || []"
-        :notebook-name="currentNotebook?.name || ''"
-        :active-node-id="activeNodeId"
-        :panel-width="rightPanelWidth"
-        @toggle-context="handleToggleContext"
-        @toggle-favorite="handleToggleFavorite"
-        @activate="handleNodeActivate"
-        @batch-delete="handleBatchDeleteNodes"
-        @batch-select-context="handleBatchSelectContext"
-      />
     </div>
 
     <div v-if="showDynamicContextEditor" class="dialog-overlay" @click="showDynamicContextEditor = false">
@@ -155,7 +131,6 @@ import { useContextStore } from '@/stores/contextStore'
 import CanvasHeader from '@/components/CanvasHeader.vue'
 import PdfViewer from '@/components/PdfViewer.vue'
 import ChatPanel from '@/components/ChatPanel.vue'
-import NodeListPanel from '@/components/NodeListPanel.vue'
 import MagicInput from '@/components/MagicInput.vue'
 import { transcribeWithSherpaOnnx } from '@/composables/useSherpaOnnx'
 import { chatWithLLM, buildFullContextMessages, buildImageAnalysisMessages } from '@/composables/useQwenAgent'
@@ -195,15 +170,10 @@ const settingsStore = useSettingsStore()
 const contextStore = useContextStore()
 
 const leftPanelWidth = ref(800)
-const rightPanelWidth = ref(300)
 const pdfViewerRef = ref<InstanceType<typeof PdfViewer> | null>(null)
-const nodeListPanelRef = ref<InstanceType<typeof NodeListPanel> | null>(null)
 
 // PDF面板折叠状态
 const isPdfPanelCollapsed = ref(false)
-
-// 右侧NodeListPanel折叠状态（默认折叠）
-const isRightPanelCollapsed = ref(true)
 
 // 当前笔记本
 const currentNotebook = computed(() => {
@@ -389,43 +359,6 @@ function togglePdfPanel() {
   isPdfPanelCollapsed.value = !isPdfPanelCollapsed.value
 }
 
-// 折叠/展开右侧 NodeListPanel
-function toggleRightPanel() {
-  isRightPanelCollapsed.value = !isRightPanelCollapsed.value
-}
-
-// 调整右侧面板宽度
-const isResizingRight = ref(false)
-
-function startResizeRight(e: MouseEvent) {
-  isResizingRight.value = true
-  document.addEventListener('mousemove', handleResizeRight)
-  document.addEventListener('mouseup', stopResizeRight)
-  document.body.style.cursor = 'col-resize'
-  document.body.style.userSelect = 'none'
-}
-
-function handleResizeRight(e: MouseEvent) {
-  if (!isResizingRight.value) return
-
-  const containerRect = document.querySelector('.panel-container')?.getBoundingClientRect()
-  if (!containerRect) return
-
-  const newWidth = containerRect.right - e.clientX
-  const minWidth = 200
-  const maxWidth = 500
-
-  rightPanelWidth.value = Math.max(minWidth, Math.min(maxWidth, newWidth))
-}
-
-function stopResizeRight() {
-  isResizingRight.value = false
-  document.removeEventListener('mousemove', handleResizeRight)
-  document.removeEventListener('mouseup', stopResizeRight)
-  document.body.style.cursor = ''
-  document.body.style.userSelect = ''
-}
-
 // 监听 activateNodeId prop 变化，用于跳转链接激活节点
 watch(() => props.activateNodeId, (nodeId) => {
   if (nodeId) {
@@ -475,8 +408,6 @@ onUnmounted(() => {
 
   document.removeEventListener('mousemove', handleResize)
   document.removeEventListener('mouseup', stopResize)
-  document.removeEventListener('mousemove', handleResizeRight)
-  document.removeEventListener('mouseup', stopResizeRight)
   document.removeEventListener('click', handleClickOutsideEditing)
   window.removeEventListener('keydown', handleKeyDown)
 
@@ -705,12 +636,6 @@ function handleNodeClick(node: CanvasNode) {
   notebookStore.setGlobalActiveNodeId(node.id)
 }
 
-function handleNodeActivate(nodeId: string) {
-  activeNodeId.value = nodeId
-  // 更新全局激活节点（用于StatusBar显示）
-  notebookStore.setGlobalActiveNodeId(nodeId)
-}
-
 // 点击引用项（从 ChatPanel quote-container）
 function handleQuoteClick(nodeId: string) {
   activeNodeId.value = nodeId
@@ -720,21 +645,6 @@ function handleQuoteClick(nodeId: string) {
   if (node?.pdfPage) {
     currentPageNumber.value = node.pdfPage
   }
-}
-
-// 批量删除节点
-function handleBatchDeleteNodes(nodeIds: string[]) {
-  for (const nodeId of nodeIds) {
-    notebookStore.removeNodeAuto(nodeId)
-    if (activeNodeId.value === nodeId) {
-      activeNodeId.value = null
-    }
-  }
-}
-
-// 批量选择上下文
-async function handleBatchSelectContext(nodeIds: string[], selected: boolean) {
-  await notebookStore.batchUpdateContextSelection(nodeIds, selected)
 }
 
 function handleNodeCreated(node: CanvasNode) {
@@ -1354,16 +1264,6 @@ function handleIncludePageChange(data: { include: boolean; imageBase64?: string;
 
 .panel-resizer-collapsed:hover {
   background: var(--border-color);
-}
-
-/* 右侧分隔线 */
-.panel-resizer.right-resizer {
-  /* 分隔线始终在 ChatPanel 右侧 */
-}
-
-.panel-resizer.right-resizer.collapsed {
-  width: 4px;
-  cursor: pointer;
 }
 
 .dialog-overlay {

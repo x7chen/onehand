@@ -20,6 +20,7 @@
       @toggle-pin="handleTogglePin"
       @toggle-pin-all="handleTogglePinAll"
       @reorder-pinned="handleReorderPinned"
+      @activate-node="handleActivateNode"
     />
 
     <!-- 上下文视图侧边栏 -->
@@ -139,6 +140,7 @@ const emit = defineEmits<{
   (e: 'update-filter', filter: { notebookId?: string | null; timeType?: string | null; dateStart?: string; dateEnd?: string }): void
   (e: 'select-settings-tab', tab: 'general' | 'model'): void
   (e: 'select-trash-tab', tab: 'notes' | 'notebooks' | 'contexts' | 'quickCommands'): void
+  (e: 'activate-node', nodeId: string): void
 }>()
 
 const { t } = useI18n()
@@ -194,6 +196,10 @@ function handleTogglePinAll() {
 
 function handleReorderPinned(pinnedIds: string[]) {
   emit('reorder-pinned', pinnedIds)
+}
+
+function handleActivateNode(nodeId: string) {
+  emit('activate-node', nodeId)
 }
 
 // 处理上下文相关事件

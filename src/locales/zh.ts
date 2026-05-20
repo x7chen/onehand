@@ -91,6 +91,7 @@ export default {
   },
   nav: {
     notebooks: '笔记本',
+    notes: '笔记',
     contexts: '上下文',
     favorites: '收藏夹',
     tags: '标签',

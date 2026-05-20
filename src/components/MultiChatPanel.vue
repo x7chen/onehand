@@ -23,49 +23,7 @@
 
     <!-- 主内容区域 -->
     <div class="panel-container">
-      <!-- 左侧面板：笔记列表容器 -->
-      <NodeListPanel
-        v-if="!isLeftPanelCollapsed"
-        ref="nodePanelRef"
-        :nodes="displayNodes"
-        :notebook-name="props.notebookId ? (currentNotebook?.name || '') : t('canvas.allNotebooks')"
-        :active-node-id="currentActiveNodeId"
-        :playing-node-id="playingNodeId"
-        :panel-width="leftPanelWidth"
-        @delete="handleDeleteNode"
-        @batch-delete="handleBatchDeleteNodes"
-        @batch-move="handleBatchMoveNodes"
-        @batch-favorite="handleBatchFavoriteNodes"
-        @batch-select-context="handleBatchSelectContext"
-        @play="handlePlayNode"
-        @toggle-context="handleToggleContext"
-        @retry-transcription="handleRetryTranscription"
-        @retry-agent="handleRetryAgent"
-        @regenerate-agent="handleRegenerateAgent"
-        @toggle-favorite="handleToggleFavorite"
-        @drag-start="handleDragStart"
-        @update-node="handleUpdateNode"
-        @activate="handleNodeActivate"
-      />
-
-      <!-- 可拖动分隔线（展开状态） -->
-      <div
-        v-if="!isLeftPanelCollapsed"
-        class="panel-resizer"
-        @mousedown="startResizeLeft"
-        @dblclick="toggleLeftPanel"
-      >
-      </div>
-
-      <!-- 折叠状态的分隔线 -->
-      <div
-        v-if="isLeftPanelCollapsed"
-        class="panel-resizer-collapsed"
-        @dblclick="toggleLeftPanel"
-      >
-      </div>
-
-      <!-- 右侧双 ChatPanel 区域 -->
+      <!-- 双 ChatPanel 区域 -->
       <div class="chat-panels-container" :class="{ 'right-collapsed': isRightChatPanelCollapsed }">
         <!-- 左侧 ChatPanel -->
         <ChatPanel
@@ -174,7 +132,6 @@ import { useNotebookStore } from '@/stores/notebookStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useContextStore } from '@/stores/contextStore'
 import CanvasHeader from '@/components/CanvasHeader.vue'
-import NodeListPanel from '@/components/NodeListPanel.vue'
 import ChatPanel from '@/components/ChatPanel.vue'
 import { chatWithLLM, buildFullContextMessages } from '@/composables/useQwenAgent'
 import { loadEmbeddedImagesForTranscript, loadImageBase64 } from '@/utils/contextBuilder'
@@ -217,17 +174,10 @@ const settingsStore = useSettingsStore()
 const contextStore = useContextStore()
 
 // 面板宽度相关
-const leftPanelWidth = ref(600)
 const leftChatPanelWidth = ref(400)
-
-// 左侧面板折叠状态
-const isLeftPanelCollapsed = ref(false)
 
 // 右侧 ChatPanel 折叠状态（默认折叠）
 const isRightChatPanelCollapsed = ref(true)
-
-// NodeListPanel 组件引用
-const nodePanelRef = ref<InstanceType<typeof NodeListPanel> | null>(null)
 
 // ChatPanel 组件引用
 const chatPanelRef = ref<InstanceType<typeof ChatPanel> | null>(null)
@@ -250,9 +200,7 @@ const displayNodes = computed(() => {
 })
 
 // 拖拽调整宽度相关
-const isResizingLeft = ref(false)
 const isResizingChat = ref(false)
-let savePanelRatioTimer: number | null = null
 
 // 当前激活的面板
 const activePanel = ref<'left' | 'right'>('left')
@@ -273,11 +221,6 @@ const activeNodeLeft = computed(() => {
 const activeNodeRight = computed(() => {
   if (!activeNodeIdRight.value) return null
   return displayNodes.value.find(n => n.id === activeNodeIdRight.value) || null
-})
-
-// 当前激活节点 ID（用于 NodeListPanel 高亮）
-const currentActiveNodeId = computed(() => {
-  return activePanel.value === 'left' ? activeNodeIdLeft.value : activeNodeIdRight.value
 })
 
 // 音频播放
@@ -334,13 +277,6 @@ function clearNodeSelection() {
   activeNodeIdRight.value = null
 }
 
-// 滚动到指定节点
-function scrollToNode(nodeId: string) {
-  nextTick(() => {
-    nodePanelRef.value?.scrollToNode(nodeId)
-  })
-}
-
 // ChatPanel 激活处理
 function handleChatPanelActivate(panelId: 'left' | 'right') {
   activePanel.value = panelId
@@ -360,8 +296,6 @@ function handleNodeActivate(nodeId: string) {
 // 点击引用项（从 ChatPanel quote-container）
 function handleQuoteClick(nodeId: string) {
   handleNodeActivate(nodeId)
-  // 滚动到该节点
-  scrollToNode(nodeId)
 }
 
 onMounted(() => {
@@ -394,9 +328,7 @@ watch(() => props.triggerCreateNote, (shouldTrigger) => {
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyDown)
-  document.removeEventListener('mousemove', handleResizeLeft)
   document.removeEventListener('mousemove', handleResizeChat)
-  document.removeEventListener('mouseup', stopResizeLeft)
   document.removeEventListener('mouseup', stopResizeChat)
 
   if (currentAudio.value) {
@@ -410,46 +342,8 @@ function initPanelWidths() {
   const containerRect = document.querySelector('.panel-container')?.getBoundingClientRect()
   if (!containerRect) return
 
-  const leftRatio = settingsStore.settings.view?.nodeListViewLeftPanelRatio || 0.4
-  const minWidth = 298
-  const maxWidth = containerRect.width - 600
-
-  leftPanelWidth.value = Math.max(minWidth, Math.min(maxWidth, containerRect.width * leftRatio))
-
-  // 初始化 ChatPanel 宽度
-  const chatContainerWidth = containerRect.width - leftPanelWidth.value - 8
-  leftChatPanelWidth.value = chatContainerWidth / 2
-}
-
-// 左侧面板拖拽调整
-function startResizeLeft(e: MouseEvent) {
-  isResizingLeft.value = true
-  document.addEventListener('mousemove', handleResizeLeft)
-  document.addEventListener('mouseup', stopResizeLeft)
-  document.body.style.cursor = 'col-resize'
-  document.body.style.userSelect = 'none'
-}
-
-function handleResizeLeft(e: MouseEvent) {
-  if (!isResizingLeft.value) return
-
-  const containerRect = document.querySelector('.panel-container')?.getBoundingClientRect()
-  if (!containerRect) return
-
-  const newWidth = e.clientX - containerRect.left
-  const minWidth = 298
-  const maxWidth = containerRect.width - 600
-
-  leftPanelWidth.value = Math.max(minWidth, Math.min(maxWidth, newWidth))
-}
-
-function stopResizeLeft() {
-  isResizingLeft.value = false
-  document.removeEventListener('mousemove', handleResizeLeft)
-  document.removeEventListener('mouseup', stopResizeLeft)
-  document.body.style.cursor = ''
-  document.body.style.userSelect = ''
-  savePanelRatio()
+  // 初始化 ChatPanel 宽度（各占一半）
+  leftChatPanelWidth.value = containerRect.width / 2
 }
 
 // ChatPanel 分隔线拖拽调整
@@ -482,25 +376,6 @@ function stopResizeChat() {
   document.body.style.userSelect = ''
 }
 
-function savePanelRatio() {
-  if (savePanelRatioTimer) {
-    clearTimeout(savePanelRatioTimer)
-  }
-  savePanelRatioTimer = window.setTimeout(() => {
-    const containerRect = document.querySelector('.panel-container')?.getBoundingClientRect()
-    if (!containerRect) return
-
-    const ratio = leftPanelWidth.value / containerRect.width
-    settingsStore.updateSettings({
-      view: {
-        ...settingsStore.settings.view,
-        nodeListViewLeftPanelRatio: ratio
-      }
-    })
-    savePanelRatioTimer = null
-  }, 500)
-}
-
 // 键盘事件处理
 function handleKeyDown(event: KeyboardEvent) {
   const target = event.target as HTMLElement
@@ -524,7 +399,7 @@ function handleKeyDown(event: KeyboardEvent) {
     event.preventDefault()
 
     const sortedNodes = [...nodes].sort((a, b) => a.createdAt - b.createdAt)
-    const currentActiveId = currentActiveNodeId.value
+    const currentActiveId = activePanel.value === 'left' ? activeNodeIdLeft.value : activeNodeIdRight.value
     const currentIndex = currentActiveId
       ? sortedNodes.findIndex(n => n.id === currentActiveId)
       : -1
@@ -538,11 +413,6 @@ function handleKeyDown(event: KeyboardEvent) {
 
     handleNodeActivate(sortedNodes[newIndex].id)
   }
-}
-
-// 折叠/展开左侧面板
-function toggleLeftPanel() {
-  isLeftPanelCollapsed.value = !isLeftPanelCollapsed.value
 }
 
 // 折叠/展开右侧 ChatPanel
@@ -1018,33 +888,6 @@ async function handleCopySelectedContext() {
   display: flex;
   flex: 1;
   overflow: hidden;
-}
-
-/* 可拖动分隔线 */
-.panel-resizer {
-  width: 4px;
-  background: var(--bg-primary);
-  cursor: col-resize;
-  flex-shrink: 0;
-  transition: background 0.2s;
-}
-
-.panel-resizer:hover {
-  background: var(--color-primary);
-  opacity: 0.5;
-}
-
-/* 折叠状态的分隔线 */
-.panel-resizer-collapsed {
-  width: 4px;
-  background: var(--bg-primary);
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: background 0.2s;
-}
-
-.panel-resizer-collapsed:hover {
-  background: var(--border-color);
 }
 
 /* 双 ChatPanel 容器 */

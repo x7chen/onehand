@@ -91,6 +91,7 @@ export default {
   },
   nav: {
     notebooks: 'Notebooks',
+    notes: 'Notes',
     contexts: 'Contexts',
     favorites: 'Favorites',
     tags: 'Tags',
