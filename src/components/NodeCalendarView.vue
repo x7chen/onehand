@@ -875,7 +875,7 @@ watch(rangeNotes, (notes) => {
 })
 
 defineExpose({
-  scrollToNode: () => {
+  scrollToNode: (nodeId: string) => {
     // 日历视图不需要滚动到节点
   },
   getVisibleNodes: () => {

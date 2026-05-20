@@ -2,7 +2,6 @@
   <div
     ref="panelRef"
     class="node-list-panel"
-    :style="{ width: panelWidth + 'px' }"
   >
     <!-- 标题栏 -->
     <div class="panel-title-bar">
@@ -15,12 +14,8 @@
           class="view-toggle-btn"
           @click="toggleViewMenu"
         >
-          <!-- 卡片图标 -->
-          <svg v-if="viewMode === 'card'" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-            <path d="M4 4h7v7H4zm0 9h7v7H4zm9-9h7v7h-7zm0 9h7v7h-7z"/>
-          </svg>
           <!-- 列表图标 -->
-          <svg v-else-if="viewMode === 'list'" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+          <svg v-if="viewMode === 'list'" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
             <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
           </svg>
           <!-- 日历图标 -->
@@ -84,16 +79,6 @@
       <div v-if="showViewMenu" class="drawer-menu view-menu" :style="viewMenuStyle">
         <button
           class="drawer-menu-item"
-          :class="{ active: viewMode === 'card' }"
-          @click="setViewMode('card')"
-        >
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-            <path d="M4 4h7v7H4zm0 9h7v7H4zm9-9h7v7h-7zm0 9h7v7h-7z"/>
-          </svg>
-          <span>{{ t('nodeList.cardView') }}</span>
-        </button>
-        <button
-          class="drawer-menu-item"
           :class="{ active: viewMode === 'list' }"
           @click="setViewMode('list')"
         >
@@ -117,20 +102,6 @@
 
     <!-- 视图内容区域 -->
     <div class="view-content">
-      <!-- 卡片视图 -->
-      <NodeCardView
-        v-if="viewMode === 'card'"
-        ref="cardViewRef"
-        :nodes="sortedNodes"
-        :active-node-id="activeNodeId"
-        :panel-width="panelWidth"
-        :sort-order="sortOrder"
-        @toggle-context="$emit('toggle-context', $event)"
-        @toggle-favorite="$emit('toggle-favorite', $event)"
-        @activate="handleNodeActivate"
-        @batch-select-context="handleBatchSelectContext"
-      />
-
       <!-- 列表视图 -->
       <NodeListView
         v-if="viewMode === 'list'"
@@ -268,7 +239,6 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useNotebookStore } from '@/stores/notebookStore'
-import NodeCardView from '@/components/NodeCardView.vue'
 import NodeListView from '@/components/NodeListView.vue'
 import NodeCalendarView from '@/components/NodeCalendarView.vue'
 import type { CanvasNode } from '@/types/notebook'
@@ -277,10 +247,8 @@ const props = withDefaults(defineProps<{
   nodes: CanvasNode[]
   notebookName: string
   activeNodeId?: string | null
-  panelWidth: number
 }>(), {
-  activeNodeId: null,
-  panelWidth: 600
+  activeNodeId: null
 })
 
 const { t } = useI18n()
@@ -299,7 +267,6 @@ const emit = defineEmits<{
 }>()
 
 const panelRef = ref<HTMLElement | null>(null)
-const cardViewRef = ref<InstanceType<typeof NodeCardView> | null>(null)
 const listViewRef = ref<InstanceType<typeof NodeListView> | null>(null)
 const calendarViewRef = ref<InstanceType<typeof NodeCalendarView> | null>(null)
 
@@ -333,7 +300,7 @@ const pendingDeleteCount = computed(() => pendingDeleteIds.value.length)
 
 // 视图模式：从设置中读取
 const viewMode = computed({
-  get: () => settingsStore.settings.general.nodeListViewMode || 'card',
+  get: () => settingsStore.settings.general.nodeListViewMode || 'list',
   set: (value) => {
     settingsStore.settings.general.nodeListViewMode = value
     settingsStore.saveSettings()
@@ -640,14 +607,11 @@ function handleBatchSelectContext(nodeIds: string[], selected: boolean) {
 }
 
 defineExpose({
-  updateNodeHeights: () => {
-    cardViewRef.value?.updateNodeHeights()
-  },
   scrollToNode: (nodeId: string) => {
-    if (viewMode.value === 'card') {
-      cardViewRef.value?.scrollToNode(nodeId)
-    } else if (viewMode.value === 'list') {
+    if (viewMode.value === 'list') {
       listViewRef.value?.scrollToNode(nodeId)
+    } else if (viewMode.value === 'calendar') {
+      calendarViewRef.value?.scrollToNode(nodeId)
     }
   }
 })

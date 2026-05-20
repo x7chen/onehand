@@ -72,10 +72,7 @@
         <span class="panel-count">{{ currentNodes.length }}</span>
         <!-- 视图切换按钮 -->
         <button class="view-toggle-btn" @click.stop="toggleViewMenu">
-          <svg v-if="viewMode === 'card'" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-            <path d="M4 4h7v7H4zm0 9h7v7H4zm9-9h7v7h-7zm0 9h7v7h-7z"/>
-          </svg>
-          <svg v-else-if="viewMode === 'list'" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+          <svg v-if="viewMode === 'list'" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
             <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
           </svg>
           <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
@@ -94,7 +91,6 @@
           ref="notePanelRef"
           :nodes="currentNodes"
           :active-node-id="activeNodeId"
-          :panel-width="panelWidth"
           @toggle-context="handleToggleContext"
           @toggle-favorite="handleToggleFavorite"
           @activate="handleNodeActivate"
@@ -113,16 +109,6 @@
     <Teleport to="body">
       <div v-if="showViewMenu" class="menu-overlay" @click="closeViewMenu"></div>
       <div v-if="showViewMenu" class="drawer-menu view-menu" :style="viewMenuStyle">
-        <button
-          class="drawer-menu-item"
-          :class="{ active: viewMode === 'card' }"
-          @click="setViewMode('card')"
-        >
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-            <path d="M4 4h7v7H4zm0 9h7v7H4zm9-9h7v7h-7zm0 9h7v7h-7z"/>
-          </svg>
-          <span>{{ t('nodeList.cardView') }}</span>
-        </button>
         <button
           class="drawer-menu-item"
           :class="{ active: viewMode === 'list' }"
@@ -232,9 +218,6 @@ const contextStore = useContextStore()
 
 const notePanelRef = ref<InstanceType<typeof NotePanel> | null>(null)
 
-// 侧边栏宽度（从 MainSidebar 传入或默认）
-const panelWidth = ref(300)
-
 // 折叠状态
 const notebookCollapsed = ref(false)
 const noteCollapsed = ref(false)
@@ -323,7 +306,7 @@ const showCreateDialog = ref(false)
 
 // 视图模式：从设置中读取
 const viewMode = computed({
-  get: () => settingsStore.settings.general.nodeListViewMode || 'card',
+  get: () => settingsStore.settings.general.nodeListViewMode || 'list',
   set: (value) => {
     settingsStore.settings.general.nodeListViewMode = value
     settingsStore.saveSettings()

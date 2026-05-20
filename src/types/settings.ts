@@ -50,7 +50,7 @@ export interface GeneralSettings {
   customPrimaryColor?: string  // 自定义主题色（仅当colorTheme为custom时有效）
   fontSize?: number  // 字体大小：12-16px
   notebooksViewMode?: 'grid' | 'list'  // 笔记本面板视图模式
-  nodeListViewMode?: 'card' | 'list' | 'calendar'  // 笔记列表视图模式
+  nodeListViewMode?: 'list' | 'calendar'  // 笔记列表视图模式
   nodeListSortOrder?: 'createdAtAsc' | 'createdAtDesc' | 'updatedAtAsc' | 'updatedAtDesc' | 'titleAsc' | 'titleDesc'  // 笔记列表排序方式
   userFilesPath?: string  // 用户文件目录（笔记本、PDF、图片、音频、上下文等）
   defaultNotebookId?: string  // 默认笔记本ID（全部笔记本视图下创建笔记时使用）
@@ -125,7 +125,7 @@ export const defaultSettings: Settings = {
     customPrimaryColor: undefined,
     fontSize: 13,  // 默认13px
     notebooksViewMode: 'grid',
-    nodeListViewMode: 'card',
+    nodeListViewMode: 'list',
     nodeListSortOrder: 'createdAtDesc',  // 默认按创建时间倒序（最新在前）
     autoAiAnswer: true,  // 默认开启自动AI回答
     magicPadDefaultMode: 'drag',  // 默认为拖拽/录音模式

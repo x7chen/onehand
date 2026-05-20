@@ -2,20 +2,6 @@
   <div class="note-panel">
     <!-- 视图内容区域 -->
     <div class="view-content">
-      <!-- 卡片视图 -->
-      <NodeCardView
-        v-if="viewMode === 'card'"
-        ref="cardViewRef"
-        :nodes="sortedNodes"
-        :active-node-id="activeNodeId"
-        :panel-width="panelWidth"
-        :sort-order="sortOrder"
-        @toggle-context="$emit('toggle-context', $event)"
-        @toggle-favorite="$emit('toggle-favorite', $event)"
-        @activate="handleNodeActivate"
-        @batch-select-context="handleBatchSelectContext"
-      />
-
       <!-- 列表视图 -->
       <NodeListView
         v-if="viewMode === 'list'"
@@ -153,7 +139,6 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useNotebookStore } from '@/stores/notebookStore'
-import NodeCardView from '@/components/NodeCardView.vue'
 import NodeListView from '@/components/NodeListView.vue'
 import NodeCalendarView from '@/components/NodeCalendarView.vue'
 import type { CanvasNode } from '@/types/notebook'
@@ -161,10 +146,8 @@ import type { CanvasNode } from '@/types/notebook'
 const props = withDefaults(defineProps<{
   nodes: CanvasNode[]
   activeNodeId?: string | null
-  panelWidth: number
 }>(), {
-  activeNodeId: null,
-  panelWidth: 300
+  activeNodeId: null
 })
 
 const { t } = useI18n()
@@ -182,7 +165,6 @@ const emit = defineEmits<{
   'visible-nodes-change': [nodeIds: string[]]
 }>()
 
-const cardViewRef = ref<InstanceType<typeof NodeCardView> | null>(null)
 const listViewRef = ref<InstanceType<typeof NodeListView> | null>(null)
 const calendarViewRef = ref<InstanceType<typeof NodeCalendarView> | null>(null)
 
@@ -206,7 +188,7 @@ const pendingDeleteCount = computed(() => pendingDeleteIds.value.length)
 
 // 视图模式：从设置中读取
 const viewMode = computed({
-  get: () => settingsStore.settings.general.nodeListViewMode || 'card',
+  get: () => settingsStore.settings.general.nodeListViewMode || 'list',
   set: (value) => {
     settingsStore.settings.general.nodeListViewMode = value
     settingsStore.saveSettings()
@@ -436,14 +418,11 @@ function handleBatchSelectContext(nodeIds: string[], selected: boolean) {
 }
 
 defineExpose({
-  updateNodeHeights: () => {
-    cardViewRef.value?.updateNodeHeights()
-  },
   scrollToNode: (nodeId: string) => {
-    if (viewMode.value === 'card') {
-      cardViewRef.value?.scrollToNode(nodeId)
-    } else if (viewMode.value === 'list') {
+    if (viewMode.value === 'list') {
       listViewRef.value?.scrollToNode(nodeId)
+    } else if (viewMode.value === 'calendar') {
+      calendarViewRef.value?.scrollToNode(nodeId)
     }
   }
 })
