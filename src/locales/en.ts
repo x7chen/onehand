@@ -182,6 +182,10 @@ export default {
     evernoteLinkPrefix: 'Evernote Link Prefix',
     evernoteLinkPrefixPlaceholder: 'Example: evernote:///view/3248616/s15/',
     evernoteLinkPrefixHint: "Used to jump from notes to Evernote, final link format: {'prefix'}{'ever_id'}/{'ever_id'}/",
+    fontSize: 'Font Size',
+    fontSizeSmall: 'Small',
+    fontSizeMedium: 'Medium',
+    fontSizeLarge: 'Large',
   },
   notebook: {
     newNotebook: 'New Notebook',

@@ -13,7 +13,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useNotebookStore } from '@/stores/notebookStore'
@@ -36,6 +36,33 @@ const tagStore = useTagStore()
 const router = useRouter()
 const route = useRoute()
 useTheme(settingsStore)
+
+// 字体大小映射
+const fontSizeMap: Record<'small' | 'medium' | 'large', number> = {
+  small: 12,
+  medium: 13,
+  large: 15
+}
+
+// 应用字体大小
+function applyFontSize(fontSize: 'small' | 'medium' | 'large' | undefined) {
+  const size = fontSizeMap[fontSize || 'medium']
+  const root = document.documentElement
+  root.style.setProperty('--font-size-title', `${size}px`)
+  root.style.setProperty('--font-size-heading', `${size}px`)
+  root.style.setProperty('--font-size-body', `${size}px`)
+  root.style.setProperty('--font-size-small', `${size}px`)
+  root.style.setProperty('--font-size-mini', `${size}px`)
+}
+
+// 监听字体大小变化
+watch(
+  () => settingsStore.settings.general.fontSize,
+  (fontSize) => {
+    applyFontSize(fontSize)
+  },
+  { immediate: true }
+)
 
 // Initialize deep link handler
 useDeepLink()
@@ -190,12 +217,12 @@ body {
 }
 
 :root {
-  /* 字体大小规范 */
-  --font-size-title: 12px;
-  --font-size-heading: 12px;
-  --font-size-body: 12px;
-  --font-size-small: 12px;
-  --font-size-mini: 10px;
+  /* 字体大小规范 - 默认中等(13px)，可通过设置调整 */
+  --font-size-title: 13px;
+  --font-size-heading: 13px;
+  --font-size-body: 13px;
+  --font-size-small: 13px;
+  --font-size-mini: 13px;
 
   /* 基础背景和文本色 */
   --bg-primary: #ffffff;

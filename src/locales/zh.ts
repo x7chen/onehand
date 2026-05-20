@@ -182,6 +182,10 @@ export default {
     evernoteLinkPrefix: '印象笔记链接前缀',
     evernoteLinkPrefixPlaceholder: '示例: evernote:///view/3248616/s15/',
     evernoteLinkPrefixHint: "用于从笔记跳转到印象笔记，最终链接格式为: {'前缀'}{'ever_id'}/{'ever_id'}/",
+    fontSize: '字体大小',
+    fontSizeSmall: '小',
+    fontSizeMedium: '中',
+    fontSizeLarge: '大',
   },
   notebook: {
     newNotebook: '新建笔记本',

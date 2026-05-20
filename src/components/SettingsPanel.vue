@@ -109,6 +109,33 @@
           </div>
 
           <div class="form-group">
+            <label>{{ t('settings.fontSize') }}</label>
+            <div class="font-size-selector">
+              <button
+                class="font-size-btn"
+                :class="{ active: settingsStore.settings.general.fontSize === 'small' }"
+                @click="updateFontSize('small')"
+              >
+                <span>{{ t('settings.fontSizeSmall') }}</span>
+              </button>
+              <button
+                class="font-size-btn"
+                :class="{ active: settingsStore.settings.general.fontSize === 'medium' || !settingsStore.settings.general.fontSize }"
+                @click="updateFontSize('medium')"
+              >
+                <span>{{ t('settings.fontSizeMedium') }}</span>
+              </button>
+              <button
+                class="font-size-btn"
+                :class="{ active: settingsStore.settings.general.fontSize === 'large' }"
+                @click="updateFontSize('large')"
+              >
+                <span>{{ t('settings.fontSizeLarge') }}</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="form-group">
             <label>{{ t('settings.userFilesPath') }}</label>
             <div class="path-input-wrapper">
               <input
@@ -632,6 +659,16 @@ function updateEvernoteLinkPrefix(prefix: string) {
   })
 }
 
+// 更新字体大小
+function updateFontSize(size: 'small' | 'medium' | 'large') {
+  settingsStore.updateSettings({
+    general: {
+      ...settingsStore.settings.general,
+      fontSize: size
+    }
+  })
+}
+
 </script>
 
 <style scoped>
@@ -1059,5 +1096,35 @@ function updateEvernoteLinkPrefix(prefix: string) {
   color: var(--text-secondary);
   margin-top: 6px;
   opacity: 0.7;
+}
+
+/* Font size selector */
+.font-size-selector {
+  display: flex;
+  gap: 8px;
+}
+
+.font-size-btn {
+  display: flex;
+  align-items: center;
+  padding: 8px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: var(--font-size-body);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.font-size-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.font-size-btn.active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: white;
 }
 </style>
