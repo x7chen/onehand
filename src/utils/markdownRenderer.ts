@@ -238,9 +238,9 @@ function createPlaceholder(id: string): string {
   return `<span class="latex-placeholder" data-latex-id="${id}"></span>`
 }
 
-// 生成代码块占位符
+// 生成代码块占位符（使用 HTML 注释格式，不会被 markdown-it 解析）
 function createCodeBlockPlaceholder(id: string): string {
-  return `__CODEBLOCK_PLACEHOLDER_${id}__`
+  return `<!--CODEBLOCK_PLACEHOLDER_${id}-->`
 }
 
 // 清理公式内容中可能存在的引用块标记
