@@ -49,6 +49,11 @@
       @mousedown="startResize"
     ></div>
 
+    <!-- 拖拽遮罩层 -->
+    <Teleport to="body">
+      <div v-if="isResizing" class="resize-overlay"></div>
+    </Teleport>
+
     <!-- 笔记部分 -->
     <div
       class="panel-section note-section"
@@ -257,9 +262,13 @@ const contentStyle = computed(() => {
 
 // 拖拽调整高度
 const isResizing = ref(false)
+const resizeStartY = ref(0)
+const resizeStartHeight = ref(0)
 
 function startResize(e: MouseEvent) {
   isResizing.value = true
+  resizeStartY.value = e.clientY
+  resizeStartHeight.value = notebookHeight.value
   document.addEventListener('mousemove', handleResize)
   document.addEventListener('mouseup', stopResize)
   document.body.style.cursor = 'row-resize'
@@ -278,8 +287,9 @@ function handleResize(e: MouseEvent) {
   const minHeight = 40
   const maxHeight = containerRect.height - headerHeight * 2 - resizerHeight - minHeight
 
-  // 计算笔记本部分的新高度
-  const newHeight = e.clientY - containerRect.top - headerHeight
+  // 根据鼠标移动的差值计算新高度
+  const deltaY = e.clientY - resizeStartY.value
+  const newHeight = resizeStartHeight.value + deltaY
 
   notebookHeight.value = Math.max(minHeight, Math.min(maxHeight, newHeight))
 }
@@ -767,6 +777,17 @@ onUnmounted(() => {
 .panel-resizer:hover {
   background: var(--color-primary);
   opacity: 0.5;
+}
+
+/* 拖拽遮罩层 */
+.resize-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9999;
+  cursor: row-resize;
 }
 
 /* 空白区域 */

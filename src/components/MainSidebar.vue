@@ -325,6 +325,7 @@ onMounted(() => {
   flex-direction: column;
   flex-shrink: 0;
   overflow: hidden;
+  border-right: 1px solid var(--border-color);
 }
 
 /* 侧边栏分隔线 */
