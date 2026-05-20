@@ -638,7 +638,6 @@ function toggleSidebar() {
 
 /* ===== macOS 平台特殊布局 ===== */
 .title-bar.mac {
-  flex-direction: row-reverse; /* 左右互换 */
   line-height: 22px;
 }
 
