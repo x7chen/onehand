@@ -377,6 +377,12 @@ export default {
     show: '显示侧边栏',
     hide: '隐藏侧边栏',
   },
+  auxiliarySidebar: {
+    title: '辅助侧边栏',
+    show: '显示辅助侧边栏',
+    hide: '隐藏辅助侧边栏',
+    noContent: '暂无内容',
+  },
   quickCommand: {
     title: '快捷指令',
     noCommands: '暂无快捷指令',

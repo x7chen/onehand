@@ -377,6 +377,12 @@ export default {
     show: 'Show Sidebar',
     hide: 'Hide Sidebar',
   },
+  auxiliarySidebar: {
+    title: 'Auxiliary Sidebar',
+    show: 'Show Auxiliary Sidebar',
+    hide: 'Hide Auxiliary Sidebar',
+    noContent: 'No content',
+  },
   quickCommand: {
     title: 'Quick Commands',
     noCommands: 'No quick commands',

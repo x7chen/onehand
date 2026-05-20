@@ -514,6 +514,7 @@ import { useNotebookStore } from '@/stores/notebookStore'
 import { useTagStore } from '@/stores/tagStore'
 import { useVectorStore } from '@/stores/vectorStore'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { useAuxiliarySidebarStore } from '@/stores/auxiliarySidebarStore'
 import { formatDuration } from '@/utils/helpers'
 import { renderMarkdown, renderMermaidCharts, reRenderMermaidCharts, processImagePaths } from '@/utils/markdownRenderer'
 import { getNotebookDataDir, getNotebookImagesDir } from '@/utils/userFilesPath'
@@ -527,6 +528,7 @@ const notebookStore = useNotebookStore()
 const tagStore = useTagStore()
 const vectorStore = useVectorStore()
 const settingsStore = useSettingsStore()
+const auxiliarySidebarStore = useAuxiliarySidebarStore()
 
 const props = defineProps<{
   node: CanvasNode | DisplayNode
@@ -1215,29 +1217,24 @@ const showRelatedNodePopup = ref(false)
 const relatedNodeUrl = ref('')
 const relatedNodeData = ref<NodePopupData | null>(null)
 
-// 打开关联笔记气泡
+// 打开关联笔记气泡（改为使用辅助侧边栏）
 async function openRelatedNotesPopover(text: string, source: 'transcript' | 'agentResult', event: MouseEvent) {
-  const btn = event.currentTarget as HTMLElement
-  const rect = btn.getBoundingClientRect()
-  relatedNotesPopoverStyle.value = {
-    top: `${rect.bottom + 4}px`,
-    right: `${window.innerWidth - rect.right}px`
-  }
-  showRelatedNotesPopover.value = true
+  // 显示辅助侧边栏并设置搜索状态
+  auxiliarySidebarStore.setSearching(true)
+  auxiliarySidebarStore.show()
+
   relatedNotesSource.value = source
-  relatedNotes.value = []
-  isSearchingRelated.value = true
 
   // 执行语义搜索
   try {
     const results = await vectorStore.semanticSearch(text, 10)
     // 过滤掉当前节点本身
-    relatedNotes.value = results.filter(r => r.nodeId !== props.node.id)
+    const filteredResults = results.filter(r => r.nodeId !== props.node.id)
+    // 使用辅助侧边栏显示结果
+    auxiliarySidebarStore.showRelatedNotes(filteredResults, props.node.id, props.node.title)
   } catch (error) {
     console.error('Semantic search error:', error)
-    relatedNotes.value = []
-  } finally {
-    isSearchingRelated.value = false
+    auxiliarySidebarStore.showRelatedNotes([], props.node.id, props.node.title)
   }
 }
 

@@ -155,6 +155,9 @@
           @dragEnd="handleProfileDragEnd"
         />
       </main>
+
+      <!-- 辅助侧边栏 -->
+      <AuxiliarySidebar />
     </div>
 
     <!-- 状态栏（整个界面底部） -->
@@ -220,6 +223,7 @@ import CanvasViewPanel from '@/components/CanvasViewPanel.vue'
 import ParticleViewPanel from '@/components/ParticleViewPanel.vue'
 import ContextEditPanel from '@/components/ContextEditPanel.vue'
 import StatusBar from '@/components/StatusBar.vue'
+import AuxiliarySidebar from '@/components/AuxiliarySidebar.vue'
 import type { ContextFile, ContextType } from '@/types/context'
 import { CONTEXT_COLORS, type ContextColor } from '@/types/context'
 import type { QuickCommand } from '@/types/quickCommand'

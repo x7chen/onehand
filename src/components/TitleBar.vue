@@ -61,6 +61,23 @@
           <line x1="6" y1="0.5" x2="6" y2="14.5"/>
         </svg>
       </button>
+      <!-- 辅助侧边栏显示/隐藏按钮（主侧边栏的对称图标） -->
+      <button class="title-bar-btn auxiliary-sidebar-btn" @click="auxiliarySidebarStore.toggle()" :title="auxiliarySidebarStore.visible ? t('auxiliarySidebar.hide') : t('auxiliarySidebar.show')">
+        <!-- 显示辅助侧边栏：右边实心（主侧边栏的镜像） -->
+        <svg v-if="auxiliarySidebarStore.visible" viewBox="0 0 15 15" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1">
+          <!-- 外框 -->
+          <rect x="0.5" y="0.5" width="14" height="14" rx="2.5"/>
+          <!-- 右侧填充（约40%宽度，2:3比例），带右上和右下圆角 -->
+          <path d="M 14.5 3 A 2.5 2.5 0 0 0 12 0.5 L 9 0.5 L 9 14.5 L 12 14.5 A 2.5 2.5 0 0 0 14.5 12 Z" fill="currentColor" stroke="none"/>
+        </svg>
+        <!-- 隐藏辅助侧边栏：两部分都空心 -->
+        <svg v-else viewBox="0 0 15 15" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1">
+          <!-- 外框 -->
+          <rect x="0.5" y="0.5" width="14" height="14" rx="2.5"/>
+          <!-- 分隔线（约60%位置，3:2比例） -->
+          <line x1="9" y1="0.5" x2="9" y2="14.5"/>
+        </svg>
+      </button>
     </div>
 
     <!-- 窗口控制按钮容器（macOS 不显示，已有红绿灯按钮） -->
@@ -118,6 +135,7 @@ import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useDropdownStore } from '@/stores/dropdownStore'
+import { useAuxiliarySidebarStore } from '@/stores/auxiliarySidebarStore'
 import SearchDropdown from '@/components/SearchDropdown.vue'
 
 const props = defineProps<{
@@ -133,6 +151,7 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const settingsStore = useSettingsStore()
 const dropdownStore = useDropdownStore()
+const auxiliarySidebarStore = useAuxiliarySidebarStore()
 
 // 直接检测 macOS 平台
 const isMacOS = ref(false)
