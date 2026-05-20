@@ -393,7 +393,7 @@ defineExpose({
 
 .node-list-item.active {
   background: var(--color-primary-bg);
-  border-left: 3px solid var(--color-primary);
+  border: 0.5px solid var(--color-primary);
 }
 
 .node-checkbox {

@@ -1390,7 +1390,7 @@ defineExpose({
 }
 
 .chat-panel.is-active {
-  border-top: 3px solid var(--color-primary);
+  border-top: 1px solid var(--color-primary);
 }
 
 .chat-header {

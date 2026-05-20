@@ -2087,7 +2087,7 @@ watch(() => props.node.thinkingContent, async (newThinkingContent) => {
 /* 图片预览区域 */
 .image-box {
   background: white;
-  border-left: 3px solid var(--color-success);
+  border-left: 1px solid var(--color-success);
   padding: 10px;
   border-radius: 4px;
   margin-bottom: 3px;
@@ -2117,7 +2117,7 @@ watch(() => props.node.thinkingContent, async (newThinkingContent) => {
 
 .transcript-box {
   background: white;
-  border-left: 3px solid var(--color-primary);
+  border-left: 1px solid var(--color-primary);
   padding: 10px;
   border-radius: 4px;
   margin-bottom: 3px;
@@ -2341,7 +2341,7 @@ watch(() => props.node.thinkingContent, async (newThinkingContent) => {
 /* 引用 */
 .transcript-content :deep(blockquote),
 .agent-content :deep(blockquote) {
-  border-left: 3px solid var(--blockquote-border);
+  border-left: 1px solid var(--blockquote-border);
   padding-left: 0.8em;
   margin: 0.5em 0;
   padding: 0.3em 0 0.3em 0.5em;
@@ -2416,7 +2416,7 @@ background-color: rgba(0, 0, 0, 1);
 
 .agent-result-box {
   background: white;
-  border-left: 3px solid var(--color-success);
+  border-left: 1px solid var(--color-success);
   padding: 10px;
   border-radius: 4px;
   position: relative;
@@ -2425,7 +2425,7 @@ background-color: rgba(0, 0, 0, 1);
 /* 思考过程区域样式 */
 .thinking-box {
   background: var(--bg-thinking);
-  border-left: 3px solid var(--color-thinking);
+  border-left: 1px solid var(--color-thinking);
   padding: 8px 10px;
   border-radius: 4px;
   margin-bottom: 3px;
