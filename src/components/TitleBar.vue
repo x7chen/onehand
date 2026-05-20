@@ -1,12 +1,12 @@
 <template>
-  <div class="title-bar" :class="{ maximized: isMaximized, inactive: isInactive, light: isLight, 'wco-enabled': isWCOEnabled }">
-    <!-- 左侧：应用图标（macOS 为红绿灯按钮预留空间） -->
-    <div class="title-bar-left" :class="{ 'macos-traffic-light-space': isMacOS }">
+  <div class="title-bar" :class="{ maximized: isMaximized, inactive: isInactive, light: isLight, 'wco-enabled': isWCOEnabled, 'has-center': true, mac: isMacOS }">
+    <!-- 左侧：应用图标（20%） -->
+    <div class="titlebar-left" :class="{ 'macos-traffic-light-space': isMacOS }">
       <img v-if="!isMacOS" :src="iconPath" class="app-icon" alt="OneHand" />
     </div>
 
-    <!-- 中间：搜索输入框 -->
-    <div class="title-bar-center">
+    <!-- 中间：搜索输入框（60%） -->
+    <div class="titlebar-center">
       <!-- 搜索下拉框打开时隐藏输入框，显示占位区域 -->
       <div v-if="!showSearchDropdown" class="center-input-wrapper">
         <input
@@ -24,97 +24,100 @@
       <div v-else class="center-input-placeholder"></div>
     </div>
 
-    <!-- 右侧功能区：搜索 + 主题 + 窗口控制 -->
-    <div class="title-bar-actions">
-      <!-- 搜索按钮 -->
-      <button class="title-bar-btn search-btn" @click="handleSearch" :title="t('common.search')">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-          <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 7 9.5 7 14 9.01 14 9.5 11.99 14 9.5 14z"/>
-        </svg>
-      </button>
-      <!-- 主题切换按钮 -->
-      <button class="title-bar-btn theme-btn" @click="cycleTheme" :title="t('theme.currentTheme', { name: getThemeLabel() })">
-        <svg v-if="getThemeIcon() === 'moon'" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-          <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-3.03 0-5.5-2.47-5.5-5.5 0-1.82.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/>
-        </svg>
-        <svg v-else-if="getThemeIcon() === 'sun'" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-          <path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0 .39-.39.39-1.03 0-1.41l-1.06-1.06zm1.06-10.96c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41.39.39 1.03.39 1.41 0l1.06-1.06zM7.05 18.36c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41.39.39 1.03.39 1.41 0l1.06-1.06z"/>
-        </svg>
-        <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-          <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zm-7-2h2v-4h4v-2h-4V7h-2v4H8v2h4v4z"/>
-        </svg>
-      </button>
-      <!-- 侧边栏显示/隐藏按钮 -->
-      <button class="title-bar-btn sidebar-btn" @click="toggleSidebar" :title="sidebarCollapsed ? t('sidebar.show') : t('sidebar.hide')">
-        <!-- 显示侧边栏：左边实心 -->
-        <svg v-if="!sidebarCollapsed" viewBox="0 0 15 15" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1">
-          <!-- 外框 -->
-          <rect x="0.5" y="0.5" width="14" height="14" rx="2.5"/>
-          <!-- 左侧填充（约40%宽度，2:3比例），带左上和左下圆角 -->
-          <path d="M 0.5 3 A 2.5 2.5 0 0 1 3 0.5 L 6 0.5 L 6 14.5 L 3 14.5 A 2.5 2.5 0 0 1 0.5 12 Z" fill="currentColor" stroke="none"/>
-        </svg>
-        <!-- 隐藏侧边栏：两部分都空心 -->
-        <svg v-else viewBox="0 0 15 15" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1">
-          <!-- 外框 -->
-          <rect x="0.5" y="0.5" width="14" height="14" rx="2.5"/>
-          <!-- 分隔线（约40%位置，2:3比例） -->
-          <line x1="6" y1="0.5" x2="6" y2="14.5"/>
-        </svg>
-      </button>
-      <!-- 辅助侧边栏显示/隐藏按钮（主侧边栏的对称图标） -->
-      <button class="title-bar-btn auxiliary-sidebar-btn" @click="auxiliarySidebarStore.toggle()" :title="auxiliarySidebarStore.visible ? t('auxiliarySidebar.hide') : t('auxiliarySidebar.show')">
-        <!-- 显示辅助侧边栏：右边实心（主侧边栏的镜像） -->
-        <svg v-if="auxiliarySidebarStore.visible" viewBox="0 0 15 15" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1">
-          <!-- 外框 -->
-          <rect x="0.5" y="0.5" width="14" height="14" rx="2.5"/>
-          <!-- 右侧填充（约40%宽度，2:3比例），带右上和右下圆角 -->
-          <path d="M 14.5 3 A 2.5 2.5 0 0 0 12 0.5 L 9 0.5 L 9 14.5 L 12 14.5 A 2.5 2.5 0 0 0 14.5 12 Z" fill="currentColor" stroke="none"/>
-        </svg>
-        <!-- 隐藏辅助侧边栏：两部分都空心 -->
-        <svg v-else viewBox="0 0 15 15" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1">
-          <!-- 外框 -->
-          <rect x="0.5" y="0.5" width="14" height="14" rx="2.5"/>
-          <!-- 分隔线（约60%位置，3:2比例） -->
-          <line x1="9" y1="0.5" x2="9" y2="14.5"/>
-        </svg>
-      </button>
-    </div>
+    <!-- 右侧功能区：搜索 + 主题 + 布局 + 窗口控制（20%） -->
+    <div class="titlebar-right">
+      <!-- 功能按钮区域 -->
+      <div class="titlebar-actions">
+        <!-- 搜索按钮 -->
+        <button class="title-bar-btn search-btn" @click="handleSearch" :title="t('common.search')">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 7 9.5 7 14 9.01 14 9.5 11.99 14 9.5 14z"/>
+          </svg>
+        </button>
+        <!-- 主题切换按钮 -->
+        <button class="title-bar-btn theme-btn" @click="cycleTheme" :title="t('theme.currentTheme', { name: getThemeLabel() })">
+          <svg v-if="getThemeIcon() === 'moon'" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-3.03 0-5.5-2.47-5.5-5.5 0-1.82.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/>
+          </svg>
+          <svg v-else-if="getThemeIcon() === 'sun'" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0 .39-.39.39-1.03 0-1.41l-1.06-1.06zm1.06-10.96c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41.39.39 1.03.39 1.41 0l1.06-1.06zM7.05 18.36c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41.39.39 1.03.39 1.41 0l1.06-1.06z"/>
+          </svg>
+          <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zm-7-2h2v-4h4v-2h-4V7h-2v4H8v2h4v4z"/>
+          </svg>
+        </button>
+        <!-- 侧边栏显示/隐藏按钮 -->
+        <button class="title-bar-btn sidebar-btn" @click="toggleSidebar" :title="sidebarCollapsed ? t('sidebar.show') : t('sidebar.hide')">
+          <!-- 显示侧边栏：左边实心 -->
+          <svg v-if="!sidebarCollapsed" viewBox="0 0 15 15" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1">
+            <!-- 外框 -->
+            <rect x="0.5" y="0.5" width="14" height="14" rx="2.5"/>
+            <!-- 左侧填充（约40%宽度，2:3比例），带左上和左下圆角 -->
+            <path d="M 0.5 3 A 2.5 2.5 0 0 1 3 0.5 L 6 0.5 L 6 14.5 L 3 14.5 A 2.5 2.5 0 0 1 0.5 12 Z" fill="currentColor" stroke="none"/>
+          </svg>
+          <!-- 隐藏侧边栏：两部分都空心 -->
+          <svg v-else viewBox="0 0 15 15" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1">
+            <!-- 外框 -->
+            <rect x="0.5" y="0.5" width="14" height="14" rx="2.5"/>
+            <!-- 分隔线（约40%位置，2:3比例） -->
+            <line x1="6" y1="0.5" x2="6" y2="14.5"/>
+          </svg>
+        </button>
+        <!-- 辅助侧边栏显示/隐藏按钮（主侧边栏的对称图标） -->
+        <button class="title-bar-btn auxiliary-sidebar-btn" @click="auxiliarySidebarStore.toggle()" :title="auxiliarySidebarStore.visible ? t('auxiliarySidebar.hide') : t('auxiliarySidebar.show')">
+          <!-- 显示辅助侧边栏：右边实心（主侧边栏的镜像） -->
+          <svg v-if="auxiliarySidebarStore.visible" viewBox="0 0 15 15" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1">
+            <!-- 外框 -->
+            <rect x="0.5" y="0.5" width="14" height="14" rx="2.5"/>
+            <!-- 右侧填充（约40%宽度，2:3比例），带右上和右下圆角 -->
+            <path d="M 14.5 3 A 2.5 2.5 0 0 0 12 0.5 L 9 0.5 L 9 14.5 L 12 14.5 A 2.5 2.5 0 0 0 14.5 12 Z" fill="currentColor" stroke="none"/>
+          </svg>
+          <!-- 隐藏辅助侧边栏：两部分都空心 -->
+          <svg v-else viewBox="0 0 15 15" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1">
+            <!-- 外框 -->
+            <rect x="0.5" y="0.5" width="14" height="14" rx="2.5"/>
+            <!-- 分隔线（约60%位置，3:2比例） -->
+            <line x1="9" y1="0.5" x2="9" y2="14.5"/>
+          </svg>
+        </button>
+      </div>
 
-    <!-- 窗口控制按钮容器（macOS 不显示，已有红绿灯按钮） -->
-    <div v-if="!isMacOS && !isWCOEnabled" class="window-controls-container">
-      <!-- 最小化按钮 -->
-      <button class="window-icon window-minimize" @click="minimize" :title="t('common.minimize')">
-        <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor">
-          <path d="M3 8h10v1H3z"/>
-        </svg>
-      </button>
-      <!-- 最大化/恢复按钮 -->
-      <button
-        class="window-icon window-max-restore"
-        @click="maximize"
-        :title="isMaximized ? t('common.restore') : t('common.maximize')"
-      >
-        <!-- 最大化图标 -->
-        <svg v-if="!isMaximized" viewBox="0 0 16 16" width="16" height="16" fill="currentColor">
-          <path d="M3 3v10h10V3H3zm1 1h8v8H4V4z"/>
-        </svg>
-        <!-- 恢复图标 -->
-        <svg v-else viewBox="0 0 16 16" width="16" height="16" fill="currentColor">
-          <path d="M5 5v10h10V5H5zm1 1h8v8H6V6z"/>
-          <path d="M3 3v10h2V5h8V3H3z" fill="var(--bg-secondary)"/>
-          <path d="M3 3h10v2H5v8H3V3z" fill="currentColor"/>
-        </svg>
-      </button>
-      <!-- 关闭按钮 -->
-      <button class="window-icon window-close" @click="close" :title="t('common.close')">
-        <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor">
-          <path d="M8 8.707l3.536-3.536.707.707L8.707 9.414l3.536 3.536-.707.707L8 10.121l-3.536 3.536-.707-.707L7.293 9.414 3.757 5.878l.707-.707L8 8.707z"/>
-        </svg>
-      </button>
-    </div>
+      <!-- 窗口控制按钮容器（macOS 不显示，已有红绿灯按钮） -->
+      <div v-if="!isMacOS && !isWCOEnabled" class="window-controls-container">
+        <!-- 最小化按钮 -->
+        <button class="window-icon window-minimize" @click="minimize" :title="t('common.minimize')">
+          <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor">
+            <path d="M3 8h10v1H3z"/>
+          </svg>
+        </button>
+        <!-- 最大化/恢复按钮 -->
+        <button
+          class="window-icon window-max-restore"
+          @click="maximize"
+          :title="isMaximized ? t('common.restore') : t('common.maximize')"
+        >
+          <!-- 最大化图标 -->
+          <svg v-if="!isMaximized" viewBox="0 0 16 16" width="16" height="16" fill="currentColor">
+            <path d="M3 3v10h10V3H3zm1 1h8v8H4V4z"/>
+          </svg>
+          <!-- 恢复图标 -->
+          <svg v-else viewBox="0 0 16 16" width="16" height="16" fill="currentColor">
+            <path d="M5 5v10h10V5H5zm1 1h8v8H6V6z"/>
+            <path d="M3 3v10h2V5h8V3H3z" fill="var(--bg-secondary)"/>
+            <path d="M3 3h10v2H5v8H3V3z" fill="currentColor"/>
+          </svg>
+        </button>
+        <!-- 关闭按钮 -->
+        <button class="window-icon window-close" @click="close" :title="t('common.close')">
+          <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor">
+            <path d="M8 8.707l3.536-3.536.707.707L8.707 9.414l3.536 3.536-.707.707L8 10.121l-3.536 3.536-.707-.707L7.293 9.414 3.757 5.878l.707-.707L8 8.707z"/>
+          </svg>
+        </button>
+      </div>
 
-    <!-- WCO 启用时：预留系统控制按钮的空间（macOS 不需要） -->
-    <div v-if="!isMacOS && isWCOEnabled" class="window-controls-container wco-placeholder"></div>
+      <!-- WCO 启用时：预留系统控制按钮的空间（macOS 不需要） -->
+      <div v-if="!isMacOS && isWCOEnabled" class="window-controls-container wco-placeholder"></div>
+    </div>
 
     <!-- 窗口调整大小区域（仅非 macOS 且未最大化时显示） -->
     <div v-if="!isMacOS && !isMaximized" class="title-bar-resizer"></div>
@@ -417,7 +420,7 @@ function toggleSidebar() {
   height: 32px;
   display: flex;
   flex-direction: row;
-  justify-content: space-between;
+  justify-content: left;
   align-items: center;
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border-color);
@@ -426,6 +429,7 @@ function toggleSidebar() {
   -webkit-user-select: none;
   box-shadow: var(--shadow-color);
   transition: background-color 0.3s, border-color 0.3s;
+  line-height: 22px;
   /* 整体可拖拽 */
   -webkit-app-region: drag;
 }
@@ -439,16 +443,38 @@ function toggleSidebar() {
   opacity: 0.6;
 }
 
-/* 左侧图标区域 - 确保不被中间区域覆盖 */
-.title-bar-left {
+/* ===== 有中间区域时的布局（三段式） ===== */
+
+/* 左侧：20%宽度，扩展填充，左对齐 */
+.title-bar.has-center > .titlebar-left {
+  order: 0;
+  flex: 2 1 0%;
+  justify-content: flex-start;
+}
+
+/* 中间：60%宽度，居中 */
+.title-bar.has-center > .titlebar-center {
+  order: 1;
+  flex: 6 1 0%;
+  margin: 0 10px;
+  justify-content: center;
+  min-width: 0;
+}
+
+/* 右侧：20%宽度，扩展填充，右对齐 */
+.title-bar.has-center > .titlebar-right {
+  order: 2;
+  flex: 2 1 0%;
+  justify-content: flex-end;
+  min-width: min-content;
+}
+
+/* ===== 左侧区域样式 ===== */
+.titlebar-left {
   display: flex;
   align-items: center;
   padding: 0 8px;
   height: 100%;
-  flex-shrink: 0;
-  /* 确保左侧区域在中间输入框之上 */
-  z-index: 10;
-  position: relative;
 }
 
 .app-icon {
@@ -458,26 +484,21 @@ function toggleSidebar() {
 }
 
 /* macOS 红绿灯按钮预留空间 */
-.title-bar-left.macos-traffic-light-space {
+.titlebar-left.macos-traffic-light-space {
   width: 70px;
 }
 
-/* 中间输入框区域 - 严格居中，不影响左右布局 */
-.title-bar-center {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
+/* ===== 中间区域样式 ===== */
+.titlebar-center {
   display: flex;
   justify-content: center;
   align-items: center;
   height: 100%;
-  /* pointer-events: none 让点击穿透到下层，输入框wrapper单独设置 pointer-events: auto */
-  pointer-events: none;
 }
 
 .center-input-wrapper {
-  width: 560px;
-  max-width: calc(100vw - 200px);
+  width: 100%;
+  max-width: 560px;
   /* 输入框区域恢复点击事件 */
   pointer-events: auto;
   /* 输入框区域不可拖拽 */
@@ -509,27 +530,30 @@ function toggleSidebar() {
 
 /* 搜索下拉框打开时的占位区域 */
 .center-input-placeholder {
-  width: 600px;
-  max-width: calc(100vw - 200px);
+  width: 100%;
+  max-width: 560px;
   height: 24px;
   /* 确保点击穿透到下拉框 */
   pointer-events: none;
 }
 
-/* 右侧功能区（搜索 + 主题按钮） - 不可拖拽，确保不被中间区域覆盖，靠右显示 */
-.title-bar-actions {
+/* ===== 右侧区域样式 ===== */
+.titlebar-right {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  /* 按钮区域不可拖拽 */
+  -webkit-app-region: no-drag;
+}
+
+/* 功能按钮区域 */
+.titlebar-actions {
   display: flex;
   align-items: center;
   height: 100%;
   flex-shrink: 0;
-  /* 靠右显示 */
-  margin-left: auto;
   margin-right: 24px;
-  /* 确保按钮区域在中间输入框之上 */
-  z-index: 10;
-  position: relative;
-  /* 按钮区域不可拖拽 */
-  -webkit-app-region: no-drag;
+  margin-left: 24px;
 }
 
 .title-bar-btn {
@@ -551,18 +575,15 @@ function toggleSidebar() {
   background: var(--bg-hover);
 }
 
-/* 窗口控制按钮容器 - 参考 VSCode window-controls-container，不可拖拽 */
+/* 窗口控制按钮容器 - 参考 VSCode window-controls-container */
 .window-controls-container {
   display: flex;
   flex-grow: 0;
   flex-shrink: 0;
   text-align: center;
-  /* 确保按钮区域在中间输入框之上 */
-  z-index: 10;
-  position: relative;
   height: 100%;
-  /* 窗口控制按钮区域不可拖拽 */
-  -webkit-app-region: no-drag;
+  /* Windows/Linux 窗口控制按钮宽度（支持缩放补偿） */
+  width: calc(138px / var(--zoom-factor, 1));
 }
 
 /* WCO 启用时的占位容器 */
@@ -613,6 +634,16 @@ function toggleSidebar() {
   cursor: n-resize;
   /* 调整大小区域不可拖拽 */
   -webkit-app-region: no-drag;
+}
+
+/* ===== macOS 平台特殊布局 ===== */
+.title-bar.mac {
+  flex-direction: row-reverse; /* 左右互换 */
+  line-height: 22px;
+}
+
+.title-bar.mac .window-controls-container {
+  width: 70px;
 }
 
 /* 搜索下拉框 - 与 StatusBar 下拉框样式一致 */
