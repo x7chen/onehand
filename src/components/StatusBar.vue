@@ -159,8 +159,8 @@
               :class="{ selected: activeProfileId === profile.id }"
               @click="selectModel(profile.id)"
             >
-              <span class="option-check" v-if="activeProfileId === profile.id">✓</span>
               <span class="option-label">{{ profile.name || t('statusBar.defaultModel') }}</span>
+              <span class="option-check" v-if="activeProfileId === profile.id">✓</span>
             </div>
             <div v-if="filteredProfiles.length === 0" class="dropdown-option disabled">
               <span class="option-label">{{ t('statusBar.noModelConfig') }}</span>
@@ -173,16 +173,16 @@
               :class="{ selected: dropdownValue === true }"
               @click="selectOption(true)"
             >
-              <span class="option-check" v-if="dropdownValue === true">✓</span>
               <span class="option-label">{{ t('statusBar.aiAnswerEnabled') }}</span>
+              <span class="option-check" v-if="dropdownValue === true">✓</span>
             </div>
             <div
               class="dropdown-option"
               :class="{ selected: dropdownValue === false }"
               @click="selectOption(false)"
             >
-              <span class="option-check" v-if="dropdownValue === false">✓</span>
               <span class="option-label">{{ t('statusBar.aiAnswerDisabled') }}</span>
+              <span class="option-check" v-if="dropdownValue === false">✓</span>
             </div>
           </template>
           <!-- 上下文模式下拉 -->
@@ -192,24 +192,24 @@
               :class="{ selected: contextMode === 'off' }"
               @click="selectContextMode('off')"
             >
-              <span class="option-check" v-if="contextMode === 'off'">✓</span>
               <span class="option-label">{{ t('statusBar.contextOff') }}</span>
+              <span class="option-check" v-if="contextMode === 'off'">✓</span>
             </div>
             <div
               class="dropdown-option"
               :class="{ selected: contextMode === 'auto' }"
               @click="selectContextMode('auto')"
             >
-              <span class="option-check" v-if="contextMode === 'auto'">✓</span>
               <span class="option-label">{{ t('statusBar.contextAuto') }}</span>
+              <span class="option-check" v-if="contextMode === 'auto'">✓</span>
             </div>
             <div
               class="dropdown-option"
               :class="{ selected: contextMode === 'rag' }"
               @click="selectContextMode('rag')"
             >
-              <span class="option-check" v-if="contextMode === 'rag'">✓</span>
               <span class="option-label">{{ t('statusBar.contextRag') }}</span>
+              <span class="option-check" v-if="contextMode === 'rag'">✓</span>
             </div>
           </template>
         </div>
@@ -605,6 +605,7 @@ function closeDropdown() {
 .dropdown-option {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
   padding: 6px 8px;
   border-radius: 6px;
@@ -626,7 +627,6 @@ function closeDropdown() {
 }
 
 .option-check {
-  width: 16px;
   font-size: var(--font-size-small);
   color: var(--color-primary);
   font-weight: bold;
