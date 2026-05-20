@@ -213,5 +213,15 @@
         "prompt": "请纠正以下文字中的标点错误，保持原文的意思不变。\n\n原文：{text}\n\n请直接输出纠正后的文字，不要解释。"
       }
     }
+  },
+  "Execution": {
+    "label": "执行",
+    "icon": "execution",
+    "children": {
+      "code": {
+        "label": "执行",
+        "prompt": "{text}"
+      }
+    }
   }
 }
