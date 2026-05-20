@@ -120,7 +120,6 @@ function handleScroll() {
 
 .tag-item.active {
   background: var(--bg-secondary);
-  border: 1px solid var(--color-primary);
   padding-left: 10px;
 }
 

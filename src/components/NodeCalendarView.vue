@@ -1229,8 +1229,7 @@ defineExpose({
 }
 
 .note-item.active {
-  background: var(--color-primary-bg);
-  border: 0.5px solid var(--color-primary);
+  background: var(--bg-secondary);
 }
 
 .note-checkbox {

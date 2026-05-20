@@ -94,7 +94,6 @@ function handleSelectTab(tab: 'notes' | 'notebooks' | 'contexts' | 'quickCommand
 .trash-tab.active {
   background: var(--bg-secondary);
   color: var(--text-primary);
-  border: 1px solid var(--color-primary);
   padding-left: 13px;
 }
 

@@ -74,7 +74,6 @@ function handleSelectTab(tab: 'general' | 'model') {
 .settings-tab.active {
   background: var(--bg-secondary);
   color: var(--color-primary);
-  border: 1px solid var(--color-primary);
   padding-left: 13px;
 }
 
