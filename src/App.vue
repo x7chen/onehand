@@ -309,6 +309,21 @@ body {
   background: var(--bg-secondary);
   color: var(--text-primary);
   transition: background-color 0.3s, color 0.3s;
+  user-select: none;
+}
+
+/* 允许选取的元素：可编辑内容、markdown渲染内容 */
+input,
+textarea,
+[contenteditable="true"],
+[contenteditable=""],
+.markdown,
+.transcript-content,
+.agent-content,
+.thinking-content,
+.small-transcript-content,
+.render-container {
+  user-select: text;
 }
 
 #app {
