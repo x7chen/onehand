@@ -220,6 +220,11 @@ interface LatexContext {
   placeholders: Map<string, { type: 'display' | 'inline', equation: string }>
 }
 
+// 代码块占位符上下文
+interface CodeBlockContext {
+  placeholders: Map<string, string>
+}
+
 // 预处理 LaTeX 公式，修正 \text{} 在 KaTeX 中的渲染问题
 function normalizeLatexText(equation: string): string {
   return equation.replace(/\\text\{([^}]+)\}/g, (_, content) => {
@@ -233,6 +238,11 @@ function createPlaceholder(id: string): string {
   return `<span class="latex-placeholder" data-latex-id="${id}"></span>`
 }
 
+// 生成代码块占位符
+function createCodeBlockPlaceholder(id: string): string {
+  return `__CODEBLOCK_PLACEHOLDER_${id}__`
+}
+
 // 清理公式内容中可能存在的引用块标记
 function cleanBlockquoteMarkers(equation: string): string {
   return equation
@@ -240,6 +250,36 @@ function cleanBlockquoteMarkers(equation: string): string {
     .map(line => line.replace(/^>\s?/, '').trim())
     .filter(line => line.length > 0)
     .join('\n')
+}
+
+// 提取代码块内容为占位符，防止 LaTeX 正则误匹配
+function extractCodeBlocks(markdown: string, context: CodeBlockContext): string {
+  let processed = markdown
+
+  // 提取三重反引号代码块
+  processed = processed.replace(/^```[\s\S]*?^```/gm, (match) => {
+    const id = `CODEBLOCK_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    context.placeholders.set(id, match)
+    return createCodeBlockPlaceholder(id)
+  })
+
+  // 提取单反引号行内代码
+  processed = processed.replace(/`[^`]+`/g, (match) => {
+    const id = `INLINECODE_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    context.placeholders.set(id, match)
+    return createCodeBlockPlaceholder(id)
+  })
+
+  return processed
+}
+
+// 还原代码块内容
+function restoreCodeBlocks(markdown: string, context: CodeBlockContext): string {
+  let result = markdown
+  for (const [id, content] of context.placeholders) {
+    result = result.replace(createCodeBlockPlaceholder(id), content)
+  }
+  return result
 }
 
 // 提取 LaTeX 公式为占位符
@@ -271,14 +311,16 @@ function extractLatex(markdown: string, context: LatexContext): string {
   })
 
   // 提取行内公式 $...$
-  processed = processed.replace(/([^`]|^)\$([^`\n$]+?)\$(?![`$])/g, (match, before, equation) => {
+  // 注意：此时代码块已被提取为占位符，所以不需要检查反引号
+  processed = processed.replace(/\$([^$\n]+?)\$(?!\$)/g, (match, equation) => {
     const trimmedEquation = normalizeLatexText(equation.trim())
+    // 排除过长内容或包含中文的内容（可能是价格等普通文本）
     if (trimmedEquation.length > 200 || /\p{Script=Han}/u.test(trimmedEquation)) {
       return match
     }
     const id = `LATEX_INLINE_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     context.placeholders.set(id, { type: 'inline', equation: trimmedEquation })
-    return before + createPlaceholder(id)
+    return createPlaceholder(id)
   })
 
   return processed
@@ -485,29 +527,36 @@ export async function renderMarkdown(markdown: string): Promise<string> {
     .replace(/<\|begin_of_box\|>/gi, '')
     .replace(/<\|end_of_box\|>/gi, '')
 
-  const cacheKey = `v6:${processedMarkdown.length}:${processedMarkdown.substring(0, 200)}`
+  const cacheKey = `v7:${processedMarkdown.length}:${processedMarkdown.substring(0, 200)}`
 
   if (markdownCache.has(cacheKey)) {
     return markdownCache.get(cacheKey)!
   }
 
   try {
-    const context: LatexContext = { placeholders: new Map() }
+    const latexContext: LatexContext = { placeholders: new Map() }
+    const codeBlockContext: CodeBlockContext = { placeholders: new Map() }
 
     // 1. 将 data URL 图片转换为 HTML（避免 markdown-it 解析错误）
     processedMarkdown = convertDataUrlImages(processedMarkdown)
 
-    // 2. 提取 LaTeX 公式为占位符
-    const markdownWithoutLatex = extractLatex(processedMarkdown, context)
+    // 2. 先提取代码块为占位符，防止 LaTeX 正则误匹配
+    const markdownWithCodeBlockPlaceholders = extractCodeBlocks(processedMarkdown, codeBlockContext)
 
-    // 3. 解析 Markdown (使用 markdown-it + shiki)
+    // 3. 提取 LaTeX 公式为占位符（此时代码块内容已被保护）
+    const markdownWithoutLatex = extractLatex(markdownWithCodeBlockPlaceholders, latexContext)
+
+    // 4. 还原代码块内容（在 LaTeX 提取后）
+    const markdownRestored = restoreCodeBlocks(markdownWithoutLatex, codeBlockContext)
+
+    // 5. 解析 Markdown (使用 markdown-it + shiki)
     const md = await initMarkdownIt()
-    let html = md.render(markdownWithoutLatex)
+    let html = md.render(markdownRestored)
 
-    // 4. 渲染 LaTeX 公式并替换占位符
-    html = await renderLatex(html, context)
+    // 6. 渲染 LaTeX 公式并替换占位符
+    html = await renderLatex(html, latexContext)
 
-    // 5. HTML 净化
+    // 7. HTML 净化
     const sanitized = sanitizeHtml(html)
 
     if (markdownCache.size < MAX_CACHE_SIZE) {
