@@ -158,7 +158,7 @@ function startResize(e: MouseEvent) {
 
   function handleResize(e: MouseEvent) {
     const minWidth = 200
-    const maxWidth = 400
+    const maxWidth = 600
     const diff = startX - e.clientX // 向左拖动增加宽度
     const newWidth = Math.max(minWidth, Math.min(maxWidth, startWidth + diff))
     sidebarWidth.value = newWidth
@@ -177,7 +177,7 @@ function startResize(e: MouseEvent) {
 <style scoped>
 .auxiliary-sidebar {
   min-width: 200px;
-  max-width: 400px;
+  max-width: 600px;
   height: 100%;
   background: var(--bg-primary);
   border-left: 1px solid var(--border-color);

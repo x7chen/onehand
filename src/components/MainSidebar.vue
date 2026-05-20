@@ -261,7 +261,7 @@ function handleResize(e: MouseEvent) {
   if (!isResizing.value) return
 
   const minWidth = 150
-  const maxWidth = 300
+  const maxWidth = 600
   // 计算宽度时需要减去活动栏的48px
   const newWidth = Math.max(minWidth, Math.min(maxWidth, e.clientX - 48))
 

@@ -60,7 +60,7 @@ export interface GeneralSettings {
   pinnedNotebookIds?: string[]  // 固定的笔记本ID列表（侧边栏快捷访问）
   pinnedAllNotebooks?: boolean  // 是否固定全部笔记本视图
   // VSCode风格布局设置
-  sidebarWidth?: number  // 主侧边栏宽度，默认 200，范围 150-300
+  sidebarWidth?: number  // 主侧边栏宽度，默认 200，范围 150-600
   sidebarCollapsed?: boolean  // 主侧边栏是否折叠，默认 false
   activeActivityItem?: string  // 活动栏选中项，默认 'notebooks'
 }
