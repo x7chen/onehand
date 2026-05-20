@@ -184,7 +184,6 @@ export default {
     evernoteLinkPrefixHint: "Used to jump from notes to Evernote, final link format: {'prefix'}{'ever_id'}/{'ever_id'}/",
     fontSize: 'Font Size',
     fontSizeSmall: 'Small',
-    fontSizeMedium: 'Medium',
     fontSizeLarge: 'Large',
   },
   notebook: {

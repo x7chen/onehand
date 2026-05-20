@@ -110,28 +110,44 @@
 
           <div class="form-group">
             <label>{{ t('settings.fontSize') }}</label>
-            <div class="font-size-selector">
-              <button
-                class="font-size-btn"
-                :class="{ active: settingsStore.settings.general.fontSize === 'small' }"
-                @click="updateFontSize('small')"
+            <div class="font-size-control">
+              <span class="font-size-label">{{ t('settings.fontSizeSmall') }}</span>
+              <svg
+                class="font-size-slider-svg"
+                viewBox="0 0 560 40"
+                width="560"
+                height="40"
               >
-                <span>{{ t('settings.fontSizeSmall') }}</span>
-              </button>
-              <button
-                class="font-size-btn"
-                :class="{ active: settingsStore.settings.general.fontSize === 'medium' || !settingsStore.settings.general.fontSize }"
-                @click="updateFontSize('medium')"
-              >
-                <span>{{ t('settings.fontSizeMedium') }}</span>
-              </button>
-              <button
-                class="font-size-btn"
-                :class="{ active: settingsStore.settings.general.fontSize === 'large' }"
-                @click="updateFontSize('large')"
-              >
-                <span>{{ t('settings.fontSizeLarge') }}</span>
-              </button>
+                <!-- 背景轨道 -->
+                <rect x="24" y="16" width="512" height="8" rx="4" fill="var(--bg-secondary)" />
+                <!-- 5个刻度点和数字 -->
+                <g v-for="(item, index) in [12, 13, 14, 15, 16]" :key="item">
+                  <circle
+                    :cx="24 + index * 128"
+                    cy="20"
+                    r="12"
+                    :fill="currentFontSize === item ? 'var(--color-primary)' : 'var(--bg-secondary)'"
+                    :stroke="currentFontSize === item ? 'var(--color-primary)' : 'var(--border-color)'"
+                    stroke-width="1.5"
+                    class="font-size-dot"
+                    @click="updateFontSize(item)"
+                  />
+                  <text
+                    :x="24 + index * 128"
+                    y="20"
+                    text-anchor="middle"
+                    dominant-baseline="middle"
+                    :fill="currentFontSize === item ? 'white' : 'var(--text-secondary)'"
+                    font-size="10"
+                    font-weight="600"
+                    class="font-size-number"
+                    @click="updateFontSize(item)"
+                  >
+                    {{ item }}
+                  </text>
+                </g>
+              </svg>
+              <span class="font-size-label">{{ t('settings.fontSizeLarge') }}</span>
             </div>
           </div>
 
@@ -660,7 +676,7 @@ function updateEvernoteLinkPrefix(prefix: string) {
 }
 
 // 更新字体大小
-function updateFontSize(size: 'small' | 'medium' | 'large') {
+function updateFontSize(size: number) {
   settingsStore.updateSettings({
     general: {
       ...settingsStore.settings.general,
@@ -668,6 +684,9 @@ function updateFontSize(size: 'small' | 'medium' | 'large') {
     }
   })
 }
+
+// 当前字体大小
+const currentFontSize = computed(() => settingsStore.settings.general.fontSize ?? 13)
 
 </script>
 
@@ -1098,33 +1117,33 @@ function updateFontSize(size: 'small' | 'medium' | 'large') {
   opacity: 0.7;
 }
 
-/* Font size selector */
-.font-size-selector {
-  display: flex;
-  gap: 8px;
-}
-
-.font-size-btn {
+/* Font size control */
+.font-size-control {
   display: flex;
   align-items: center;
-  padding: 8px 16px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  background: var(--bg-secondary);
+  gap: 12px;
+}
+
+.font-size-label {
+  font-size: var(--font-size-small);
   color: var(--text-secondary);
-  font-size: var(--font-size-body);
+  min-width: 24px;
+  flex-shrink: 0;
+}
+
+.font-size-slider-svg {
+  flex: 1;
   cursor: pointer;
-  transition: all 0.2s;
 }
 
-.font-size-btn:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
+.font-size-dot {
+  cursor: pointer;
+  transition: fill 0.2s, stroke 0.2s;
 }
 
-.font-size-btn.active {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-  color: white;
+.font-size-number {
+  cursor: pointer;
+  pointer-events: all;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 </style>

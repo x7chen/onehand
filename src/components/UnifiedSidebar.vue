@@ -1007,7 +1007,7 @@ function handleTrashClick() {
   height: 16px;
   background: #e53e3e;
   color: white;
-  font-size: var(--font-size-mini);
+  font-size: 8px;
   font-weight: 600;
   border-radius: 3px;
   flex-shrink: 0;

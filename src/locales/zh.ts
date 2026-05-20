@@ -184,7 +184,6 @@ export default {
     evernoteLinkPrefixHint: "用于从笔记跳转到印象笔记，最终链接格式为: {'前缀'}{'ever_id'}/{'ever_id'}/",
     fontSize: '字体大小',
     fontSizeSmall: '小',
-    fontSizeMedium: '中',
     fontSizeLarge: '大',
   },
   notebook: {

@@ -48,7 +48,7 @@ export interface GeneralSettings {
   theme: 'dark' | 'light' | 'system'  // 深浅色模式
   colorTheme: BuiltinTheme | 'custom'  // 颜色主题
   customPrimaryColor?: string  // 自定义主题色（仅当colorTheme为custom时有效）
-  fontSize?: 'small' | 'medium' | 'large'  // 字体大小：小(12px)、中(13px)、大(14px)
+  fontSize?: number  // 字体大小：12-16px
   notebooksViewMode?: 'grid' | 'list'  // 笔记本面板视图模式
   nodeListViewMode?: 'card' | 'list' | 'calendar'  // 笔记列表视图模式
   nodeListSortOrder?: 'createdAtAsc' | 'createdAtDesc' | 'updatedAtAsc' | 'updatedAtDesc' | 'titleAsc' | 'titleDesc'  // 笔记列表排序方式
@@ -123,7 +123,7 @@ export const defaultSettings: Settings = {
     theme: 'system',
     colorTheme: 'default',
     customPrimaryColor: undefined,
-    fontSize: 'medium',  // 默认中等字体
+    fontSize: 13,  // 默认13px
     notebooksViewMode: 'grid',
     nodeListViewMode: 'card',
     nodeListSortOrder: 'createdAtDesc',  // 默认按创建时间倒序（最新在前）

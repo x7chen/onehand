@@ -37,16 +37,9 @@ const router = useRouter()
 const route = useRoute()
 useTheme(settingsStore)
 
-// 字体大小映射
-const fontSizeMap: Record<'small' | 'medium' | 'large', number> = {
-  small: 12,
-  medium: 13,
-  large: 15
-}
-
 // 应用字体大小
-function applyFontSize(fontSize: 'small' | 'medium' | 'large' | undefined) {
-  const size = fontSizeMap[fontSize || 'medium']
+function applyFontSize(fontSize: number | undefined) {
+  const size = fontSize ?? 13
   const root = document.documentElement
   root.style.setProperty('--font-size-title', `${size}px`)
   root.style.setProperty('--font-size-heading', `${size}px`)
