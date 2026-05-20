@@ -77,11 +77,13 @@ import { transcribeWithSherpaOnnx } from '@/composables/useSherpaOnnx'
 import { chatWithLLM, buildFullContextMessages } from '@/composables/useQwenAgent'
 import { extractImagePaths, loadEmbeddedImagesForTranscript, loadImageBase64 } from '@/utils/contextBuilder'
 import { getNotebookAudioDir, getNotebookDataDir, getNotebookImagesDir } from '@/utils/userFilesPath'
+import { semanticSearch } from '@/services/semanticSearch'
+import type { UnifiedSearchResult } from '@/services/semanticSearch'
 
 const props = defineProps<{
   globalHideAiResult: boolean
   aiAnswerEnabled: boolean
-  autoSelectNewNote: boolean
+  contextMode: 'off' | 'auto' | 'rag'
   staticContextFiles: ContextFile[]
   dynamicContextFile?: ContextFile
   notebookModelId?: string
@@ -96,6 +98,12 @@ const emit = defineEmits<{
 const notebookStore = useNotebookStore()
 const settingsStore = useSettingsStore()
 const { t } = useI18n()
+
+// 判断是否自动勾选新笔记（只有 'auto' 模式才自动勾选）
+const shouldAutoSelectNewNote = computed(() => props.contextMode === 'auto')
+
+// 判断是否使用 RAG 上下文
+const shouldUseRagContext = computed(() => props.contextMode === 'rag')
 
 // 录音实例
 const simpleRecorder = createAudioWorkletRecorder()
@@ -765,7 +773,7 @@ async function handleLongPressEnd(isCancel = false) {
       transcriptStatus: 'pending',
       agentResult: null,
       agentStatus: 'pending',
-      selectedAsContext: props.autoSelectNewNote,
+      selectedAsContext: shouldAutoSelectNewNote.value,
       createdAt: Date.now(),
       updatedAt: Date.now(),
       duration: recordingDuration.value
@@ -877,7 +885,44 @@ async function handleAgentResponse(nodeId: string, transcript: string) {
       }
     }
 
-    const selectedNodes = notebookStore.getAllNodes().filter(n => n.selectedAsContext && n.id !== nodeId)
+    // 获取上下文节点
+    let selectedNodes: { transcript: string; agentResult: string; imageBase64?: string; embeddedImages?: string[] }[]
+
+    // RAG 模式：使用语义搜索获取前10条相关笔记作为上下文
+    if (shouldUseRagContext.value && transcript.trim()) {
+      console.log('[RAG] Performing semantic search for:', transcript.slice(0, 50))
+      try {
+        const ragResults = await semanticSearch(transcript, 10)
+        console.log('[RAG] Found', ragResults.length, 'results')
+
+        // 将搜索结果转换为上下文节点格式
+        selectedNodes = await Promise.all(ragResults.map(async (result: UnifiedSearchResult) => {
+          // 根据搜索结果找到对应节点
+          const ragNotebook = notebookStore.notebooks.find(nb => nb.id === result.notebookId)
+          const ragNode = ragNotebook?.nodes?.find(n => n.id === result.nodeId)
+
+          let embeddedImages = ragNode?.embeddedImages
+          if (!embeddedImages && ragNode?.transcript) {
+            embeddedImages = await loadEmbeddedImagesForTranscript(ragNode.transcript, result.notebookId, window.electronAPI.readFile)
+          }
+
+          return {
+            transcript: result.fieldType === 'transcript' ? result.fullText : (ragNode?.transcript || ''),
+            agentResult: result.fieldType === 'agentResult' ? result.fullText : (ragNode?.agentResult || ''),
+            imageBase64: ragNode?.imageBase64,
+            embeddedImages
+          }
+        }))
+      } catch (e) {
+        console.error('[RAG] Semantic search failed:', e)
+        selectedNodes = []
+      }
+    } else {
+      // 非 RAG 模式：使用手动勾选的节点
+      selectedNodes = notebookStore.getAllNodes()
+        .filter(n => n.selectedAsContext && n.id !== nodeId)
+        .map(n => ({ transcript: n.transcript || '', agentResult: n.agentResult || '', imageBase64: n.imageBase64, embeddedImages: n.embeddedImages }))
+    }
 
     const staticContextContent = props.staticContextFiles
       .map(f => f.content)
@@ -885,7 +930,7 @@ async function handleAgentResponse(nodeId: string, transcript: string) {
       .join('\n\n')
 
     const messages = buildFullContextMessages(
-      selectedNodes.map(n => ({ transcript: n.transcript || '', agentResult: n.agentResult || '', imageBase64: n.imageBase64, embeddedImages: n.embeddedImages })),
+      selectedNodes,
       transcript,
       staticContextContent,
       props.dynamicContextFile?.content,
@@ -1162,7 +1207,7 @@ function handleMagicInputSave(text: string) {
       transcriptStatus: 'done',
       agentResult: null,
       agentStatus: 'pending',
-      selectedAsContext: props.autoSelectNewNote,
+      selectedAsContext: shouldAutoSelectNewNote.value,
       createdAt: Date.now(),
       updatedAt: Date.now()
     }
@@ -1200,7 +1245,7 @@ async function handleDropText(x: number, y: number, text: string) {
     transcriptStatus: 'done',
     agentResult: null,
     agentStatus: 'pending',
-    selectedAsContext: props.autoSelectNewNote,
+    selectedAsContext: shouldAutoSelectNewNote.value,
     createdAt: Date.now(),
     updatedAt: Date.now()
   }
@@ -1240,7 +1285,7 @@ async function handleDropImage(x: number, y: number, files: File[]) {
       transcriptStatus: 'done',
       agentResult: null,
       agentStatus: 'pending',
-      selectedAsContext: props.autoSelectNewNote,
+      selectedAsContext: shouldAutoSelectNewNote.value,
       createdAt: Date.now(),
       updatedAt: Date.now()
     }
@@ -1288,7 +1333,7 @@ async function handleAskWithNewRecording() {
         transcriptStatus: 'pending',
         agentResult: null,
         agentStatus: 'pending',
-        selectedAsContext: props.autoSelectNewNote,
+        selectedAsContext: shouldAutoSelectNewNote.value,
         createdAt: Date.now(),
         updatedAt: Date.now(),
         duration: recordingDuration.value

@@ -124,12 +124,12 @@
           </span>
         </div>
 
-        <!-- 自动勾选状态 -->
+        <!-- 上下文模式状态 -->
         <div class="status-separator"></div>
         <div class="status-item clickable" @click="toggleAutoSelectDropdown">
-          <span class="status-label">{{ t('statusBar.autoSelect') }}:</span>
-          <span class="status-value toggle-value" :class="{ enabled: autoSelectNewNote }">
-            {{ autoSelectNewNote ? t('statusBar.autoSelectEnabled') : t('statusBar.autoSelectDisabled') }}
+          <span class="status-label">{{ t('statusBar.contextMode') }}:</span>
+          <span class="status-value toggle-value" :class="{ enabled: contextMode !== 'off' }">
+            {{ getContextModeLabel() }}
           </span>
         </div>
       </div>
@@ -166,8 +166,8 @@
               <span class="option-label">{{ t('statusBar.noModelConfig') }}</span>
             </div>
           </template>
-          <!-- AI 回答/自动勾选下拉 -->
-          <template v-else>
+          <!-- AI 回答下拉 -->
+          <template v-if="dropdownType === 'ai'">
             <div
               class="dropdown-option"
               :class="{ selected: dropdownValue === true }"
@@ -183,6 +183,33 @@
             >
               <span class="option-check" v-if="dropdownValue === false">✓</span>
               <span class="option-label">{{ t('statusBar.aiAnswerDisabled') }}</span>
+            </div>
+          </template>
+          <!-- 上下文模式下拉 -->
+          <template v-else-if="dropdownType === 'autoSelect'">
+            <div
+              class="dropdown-option"
+              :class="{ selected: contextMode === 'off' }"
+              @click="selectContextMode('off')"
+            >
+              <span class="option-check" v-if="contextMode === 'off'">✓</span>
+              <span class="option-label">{{ t('statusBar.contextOff') }}</span>
+            </div>
+            <div
+              class="dropdown-option"
+              :class="{ selected: contextMode === 'auto' }"
+              @click="selectContextMode('auto')"
+            >
+              <span class="option-check" v-if="contextMode === 'auto'">✓</span>
+              <span class="option-label">{{ t('statusBar.contextAuto') }}</span>
+            </div>
+            <div
+              class="dropdown-option"
+              :class="{ selected: contextMode === 'rag' }"
+              @click="selectContextMode('rag')"
+            >
+              <span class="option-check" v-if="contextMode === 'rag'">✓</span>
+              <span class="option-label">{{ t('statusBar.contextRag') }}</span>
             </div>
           </template>
         </div>
@@ -208,14 +235,14 @@ const props = defineProps<{
   editingContextName?: string
   quickCommandEditingStatus?: { isCreating: boolean; name?: string } | null
   aiAnswerEnabled?: boolean
-  autoSelectNewNote?: boolean
+  contextMode?: 'off' | 'auto' | 'rag'
   allProfiles?: LLMProfile[]
   activeProfileId?: string
 }>()
 
 const emit = defineEmits<{
   'update:aiAnswerEnabled': [value: boolean]
-  'update:autoSelectNewNote': [value: boolean]
+  'update:contextMode': [value: 'off' | 'auto' | 'rag']
   'select-model': [modelId: string]
 }>()
 
@@ -253,8 +280,20 @@ const dropdownValue = computed(() => {
   if (dropdownType.value === 'ai') {
     return props.aiAnswerEnabled ?? false
   }
-  return props.autoSelectNewNote ?? false
+  return props.contextMode ?? 'off'
 })
+
+// 上下文模式
+const contextMode = computed(() => props.contextMode ?? 'off')
+
+// 获取上下文模式显示标签
+function getContextModeLabel(): string {
+  switch (contextMode.value) {
+    case 'auto': return t('statusBar.contextAuto')
+    case 'rag': return t('statusBar.contextRag')
+    default: return t('statusBar.contextOff')
+  }
+}
 
 // 是否是笔记本面板
 const isNotebookPanel = computed(() => {
@@ -340,7 +379,7 @@ function getDropdownPlaceholder(): string {
     case 'ai':
       return t('statusBar.aiAnswer')
     case 'autoSelect':
-      return t('statusBar.autoSelect')
+      return t('statusBar.contextMode')
     default:
       return t('common.search')
   }
@@ -389,9 +428,12 @@ function selectModel(modelId: string) {
 function selectOption(value: boolean) {
   if (dropdownType.value === 'ai') {
     emit('update:aiAnswerEnabled', value)
-  } else {
-    emit('update:autoSelectNewNote', value)
   }
+  closeDropdown()
+}
+
+function selectContextMode(value: 'off' | 'auto' | 'rag') {
+  emit('update:contextMode', value)
   closeDropdown()
 }
 

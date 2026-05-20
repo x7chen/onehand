@@ -146,15 +146,17 @@ import { loadEmbeddedImagesForTranscript } from '@/utils/contextBuilder'
 import { createAudioWorkletRecorder } from '@/utils/audioWorkletRecorder'
 import { transcribeWithSherpaOnnx } from '@/composables/useSherpaOnnx'
 import { getNotebookAudioDir, getNotebookImagesDir, getNotebookDataDir, getPdfDir } from '@/utils/userFilesPath'
+import { semanticSearch } from '@/services/semanticSearch'
 import type { CanvasNode } from '@/types/notebook'
 import type { ContextFile } from '@/types/context'
+import type { UnifiedSearchResult } from '@/services/semanticSearch'
 
 const props = defineProps<{
   activeNode: CanvasNode | null
   staticContextFiles: ContextFile[]
   dynamicContextFile?: ContextFile | null
   aiAnswerEnabled: boolean
-  autoSelectNewNote?: boolean
+  contextMode?: 'off' | 'auto' | 'rag'
   currentPage?: number
   includedPageImage?: { imageBase64: string; pageNumber: number } | null
   isActive?: boolean
@@ -208,6 +210,12 @@ const notebookStore = useNotebookStore()
 const settingsStore = useSettingsStore()
 const quickCommandStore = useQuickCommandStore()
 const { t } = useI18n()
+
+// 判断是否自动勾选新笔记（只有 'auto' 模式才自动勾选）
+const shouldAutoSelectNewNote = computed(() => props.contextMode === 'auto')
+
+// 判断是否使用 RAG 上下文
+const shouldUseRagContext = computed(() => props.contextMode === 'rag')
 
 // 加载快捷指令
 onMounted(() => {
@@ -520,7 +528,7 @@ async function handleSendInput(sendText?: string) {
     transcriptStatus: 'done',
     agentResult: null,
     agentStatus: props.aiAnswerEnabled ? 'pending' : 'pending',
-    selectedAsContext: props.autoSelectNewNote ?? false,
+    selectedAsContext: shouldAutoSelectNewNote.value,
     createdAt: Date.now(),
     updatedAt: Date.now(),
     pdfPage: props.currentPage,
@@ -675,7 +683,7 @@ async function handleMagicPadDrop(e: DragEvent) {
     transcriptStatus: 'done',
     agentResult: null,
     agentStatus: 'pending',
-    selectedAsContext: props.autoSelectNewNote ?? false,
+    selectedAsContext: shouldAutoSelectNewNote.value,
     createdAt: Date.now(),
     updatedAt: Date.now(),
     pdfPage: props.currentPage,
@@ -738,7 +746,7 @@ async function handleMagicPadImageDrop(files: File[]) {
       transcriptStatus: 'done',
       agentResult: null,
       agentStatus: 'pending',
-      selectedAsContext: props.autoSelectNewNote ?? false,
+      selectedAsContext: shouldAutoSelectNewNote.value,
       createdAt: Date.now(),
       updatedAt: Date.now(),
       pdfPage: props.currentPage,
@@ -776,10 +784,39 @@ async function handleAgentResponseForText(nodeId: string, transcript: string) {
       }
     }
 
-    // 获取上下文节点：在全部笔记本视图下使用跨笔记本方法
+    // 获取上下文节点
     let selectedNodes: { transcript: string; agentResult: string; imageBase64?: string; embeddedImages?: string[] }[]
 
-    if (props.targetNotebookId === null) {
+    // RAG 模式：使用语义搜索获取前10条相关笔记作为上下文
+    if (shouldUseRagContext.value && transcript.trim()) {
+      console.log('[RAG] Performing semantic search for:', transcript.slice(0, 50))
+      try {
+        const ragResults = await semanticSearch(transcript, 10)
+        console.log('[RAG] Found', ragResults.length, 'results')
+
+        // 将搜索结果转换为上下文节点格式
+        selectedNodes = await Promise.all(ragResults.map(async (result: UnifiedSearchResult) => {
+          // 根据搜索结果找到对应节点
+          const ragNotebook = notebookStore.notebooks.find(nb => nb.id === result.notebookId)
+          const ragNode = ragNotebook?.nodes?.find(n => n.id === result.nodeId)
+
+          let embeddedImages = ragNode?.embeddedImages
+          if (!embeddedImages && ragNode?.transcript) {
+            embeddedImages = await loadEmbeddedImagesForTranscript(ragNode.transcript, result.notebookId, window.electronAPI.readFile)
+          }
+
+          return {
+            transcript: result.fieldType === 'transcript' ? result.fullText : (ragNode?.transcript || ''),
+            agentResult: result.fieldType === 'agentResult' ? result.fullText : (ragNode?.agentResult || ''),
+            imageBase64: ragNode?.imageBase64,
+            embeddedImages
+          }
+        }))
+      } catch (e) {
+        console.error('[RAG] Semantic search failed:', e)
+        selectedNodes = []
+      }
+    } else if (props.targetNotebookId === null) {
       // 全部笔记本视图：获取所有笔记本中被选中的节点及其笔记本ID
       const selectedNodesWithNotebookId = notebookStore.getAllNotebooksSelectedContextNodesWithNotebookId(nodeId)
 
@@ -1046,7 +1083,7 @@ async function createVoiceNode(audioBlob: Blob, duration: number) {
     transcriptStatus: 'pending',
     agentResult: null,
     agentStatus: 'pending',
-    selectedAsContext: props.autoSelectNewNote ?? false,
+    selectedAsContext: shouldAutoSelectNewNote.value,
     createdAt: Date.now(),
     updatedAt: Date.now(),
     duration,
@@ -1215,10 +1252,39 @@ async function handleAgentResponseForVoice(nodeId: string, transcript: string, p
       }
     }
 
-    // 获取上下文节点：在全部笔记本视图下使用跨笔记本方法
+    // 获取上下文节点
     let selectedNodes: { transcript: string; agentResult: string; imageBase64?: string; embeddedImages?: string[] }[]
 
-    if (props.targetNotebookId === null) {
+    // RAG 模式：使用语义搜索获取前10条相关笔记作为上下文
+    if (shouldUseRagContext.value && transcript.trim()) {
+      console.log('[RAG] Performing semantic search for:', transcript.slice(0, 50))
+      try {
+        const ragResults = await semanticSearch(transcript, 10)
+        console.log('[RAG] Found', ragResults.length, 'results')
+
+        // 将搜索结果转换为上下文节点格式
+        selectedNodes = await Promise.all(ragResults.map(async (result: UnifiedSearchResult) => {
+          // 根据搜索结果找到对应节点
+          const ragNotebook = notebookStore.notebooks.find(nb => nb.id === result.notebookId)
+          const ragNode = ragNotebook?.nodes?.find(n => n.id === result.nodeId)
+
+          let embeddedImages = ragNode?.embeddedImages
+          if (!embeddedImages && ragNode?.transcript) {
+            embeddedImages = await loadEmbeddedImagesForTranscript(ragNode.transcript, result.notebookId, window.electronAPI.readFile)
+          }
+
+          return {
+            transcript: result.fieldType === 'transcript' ? result.fullText : (ragNode?.transcript || ''),
+            agentResult: result.fieldType === 'agentResult' ? result.fullText : (ragNode?.agentResult || ''),
+            imageBase64: ragNode?.imageBase64,
+            embeddedImages
+          }
+        }))
+      } catch (e) {
+        console.error('[RAG] Semantic search failed:', e)
+        selectedNodes = []
+      }
+    } else if (props.targetNotebookId === null) {
       // 全部笔记本视图：获取所有笔记本中被选中的节点及其笔记本ID
       const selectedNodesWithNotebookId = notebookStore.getAllNotebooksSelectedContextNodesWithNotebookId(nodeId)
 

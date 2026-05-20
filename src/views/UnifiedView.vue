@@ -71,6 +71,7 @@
             :active-profile-id="settingsStore.settings.llm.activeProfileId"
             :activate-node-id="activateNodeId"
             :trigger-create-note="shouldTriggerCreateNote"
+            :context-mode="contextMode"
             @node-activated="handleNodeActivated"
             @create-note-triggered="handleCreateNoteTriggered"
           />
@@ -85,7 +86,7 @@
             :all-dynamic-context-files="contextStore.dynamicContextFiles"
             :dynamic-context-file="dynamicContextFile || null"
             :ai-answer-enabled="aiAnswerEnabled"
-            :auto-select-new-note="autoSelectNewNote"
+            :context-mode="contextMode"
             @toggle-static-context="toggleStaticContext"
             @select-dynamic-context="selectDynamicContext"
             @dynamic-context-drop="handleDynamicContextDrop"
@@ -111,6 +112,7 @@
             :all-profiles="settingsStore.settings.llm.profiles"
             :active-profile-id="settingsStore.settings.llm.activeProfileId"
             :activate-node-id="activateNodeId"
+            :context-mode="contextMode"
             @node-activated="handleNodeActivated"
           />
         </template>
@@ -169,11 +171,11 @@
       :selected-tag-name="selectedTagName"
       :settings-tab="settingsTab"
       :ai-answer-enabled="aiAnswerEnabled"
-      :auto-select-new-note="autoSelectNewNote"
+      :context-mode="contextMode"
       :all-profiles="settingsStore.settings.llm.profiles"
       :active-profile-id="settingsStore.settings.llm.activeProfileId"
       @update:ai-answer-enabled="aiAnswerEnabled = $event"
-      @update:auto-select-new-note="autoSelectNewNote = $event"
+      @update:context-mode="contextMode = $event"
       @select-model="handleSelectModel"
     />
 
@@ -304,8 +306,8 @@ const trashTab = ref<'notes' | 'notebooks' | 'contexts' | 'quickCommands'>('note
 // AI 回答开关状态（从设置中读取默认值）
 const aiAnswerEnabled = ref(settingsStore.settings.general.autoAiAnswer ?? true)
 
-// 自动勾选新笔记开关
-const autoSelectNewNote = ref(false)
+// 上下文模式：关闭 / 自动勾选 / RAG上下文
+const contextMode = ref<'off' | 'auto' | 'rag'>('off')
 
 // 静态上下文文件
 const staticContextFiles = computed(() => {

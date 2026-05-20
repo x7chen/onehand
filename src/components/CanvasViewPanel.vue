@@ -25,7 +25,7 @@
         ref="canvasAreaRef"
         :global-hide-ai-result="globalHideAiResult"
         :ai-answer-enabled="props.aiAnswerEnabled ?? true"
-        :auto-select-new-note="props.autoSelectNewNote ?? false"
+        :context-mode="props.contextMode ?? 'off'"
         :static-context-files="staticContextFiles"
         :dynamic-context-file="dynamicContextFile || undefined"
         :notebook-model-id="currentNotebook?.modelId"
@@ -79,7 +79,7 @@ const props = defineProps<{
   allDynamicContextFiles: ContextFile[]
   dynamicContextFile?: ContextFile | null
   aiAnswerEnabled?: boolean
-  autoSelectNewNote?: boolean
+  contextMode?: 'off' | 'auto' | 'rag'
 }>()
 
 const emit = defineEmits<{

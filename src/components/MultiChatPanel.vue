@@ -7,8 +7,6 @@
       :all-dynamic-context-files="allDynamicContextFiles"
       :dynamic-context-file="dynamicContextFile || undefined"
       v-model:global-hide-ai-result="globalHideAiResult"
-      v-model:ai-answer-enabled="aiAnswerEnabled"
-      v-model:auto-select-new-note="autoSelectNewNote"
       :show-viewport-controls="false"
       :notebook-model-id="currentNotebook?.modelId"
       :all-profiles="allProfiles"
@@ -32,7 +30,7 @@
           :static-context-files="staticContextFiles"
           :dynamic-context-file="dynamicContextFile"
           :ai-answer-enabled="aiAnswerEnabled"
-          :auto-select-new-note="autoSelectNewNote"
+          :context-mode="contextMode"
           :is-active="activePanel === 'left'"
           :panel-id="'left'"
           :target-notebook-id="notebookId"
@@ -77,7 +75,7 @@
           :static-context-files="staticContextFiles"
           :dynamic-context-file="dynamicContextFile"
           :ai-answer-enabled="aiAnswerEnabled"
-          :auto-select-new-note="autoSelectNewNote"
+          :context-mode="contextMode"
           :is-active="activePanel === 'right'"
           :panel-id="'right'"
           :target-notebook-id="notebookId"
@@ -136,9 +134,11 @@ import ChatPanel from '@/components/ChatPanel.vue'
 import { chatWithLLM, buildFullContextMessages } from '@/composables/useQwenAgent'
 import { loadEmbeddedImagesForTranscript, loadImageBase64 } from '@/utils/contextBuilder'
 import { getNotebookDataDir } from '@/utils/userFilesPath'
+import { semanticSearch } from '@/services/semanticSearch'
 import type { CanvasNode, Notebook } from '@/types/notebook'
 import type { ContextFile } from '@/types/context'
 import type { LLMProfile } from '@/types/settings'
+import type { UnifiedSearchResult } from '@/services/semanticSearch'
 
 const props = withDefaults(defineProps<{
   notebookId: string | null
@@ -150,6 +150,7 @@ const props = withDefaults(defineProps<{
   activeProfileId: string
   activateNodeId?: string | null
   triggerCreateNote?: boolean
+  contextMode?: 'off' | 'auto' | 'rag'
 }>(), {
   notebookId: null,
   staticContextFiles: () => [],
@@ -159,7 +160,8 @@ const props = withDefaults(defineProps<{
   allProfiles: () => [],
   activeProfileId: '',
   activateNodeId: null,
-  triggerCreateNote: false
+  triggerCreateNote: false,
+  contextMode: 'off'
 })
 
 const emit = defineEmits<{
@@ -233,8 +235,14 @@ const globalHideAiResult = ref(false)
 // AI 回答开关（从设置中读取默认值）
 const aiAnswerEnabled = ref(settingsStore.settings.general.autoAiAnswer ?? true)
 
-// 自动勾选新笔记开关
-const autoSelectNewNote = ref(false)
+// 使用 props 的 contextMode
+const contextMode = computed(() => props.contextMode ?? 'off')
+
+// 判断是否自动勾选新笔记（只有 'auto' 模式才自动勾选）
+const shouldAutoSelectNewNote = computed(() => contextMode.value === 'auto')
+
+// 判断是否使用 RAG 上下文
+const shouldUseRagContext = computed(() => contextMode.value === 'rag')
 
 // 动态上下文
 const showDynamicContextEditor = ref(false)
@@ -623,10 +631,39 @@ async function handleAgentResponse(nodeId: string, transcript: string) {
       }
     }
 
-    // 获取上下文节点：在全部笔记本视图下使用跨笔记本方法加载图片
+    // 获取上下文节点
     let selectedNodes: { transcript: string; agentResult: string; imageBase64?: string; embeddedImages?: string[] }[]
 
-    if (props.notebookId === null) {
+    // RAG 模式：使用语义搜索获取前10条相关笔记作为上下文
+    if (shouldUseRagContext.value && transcript.trim()) {
+      console.log('[RAG] Performing semantic search for:', transcript.slice(0, 50))
+      try {
+        const ragResults = await semanticSearch(transcript, 10)
+        console.log('[RAG] Found', ragResults.length, 'results')
+
+        // 将搜索结果转换为上下文节点格式
+        selectedNodes = await Promise.all(ragResults.map(async (result: UnifiedSearchResult) => {
+          // 根据搜索结果找到对应节点
+          const ragNotebook = notebookStore.notebooks.find(nb => nb.id === result.notebookId)
+          const ragNode = ragNotebook?.nodes?.find(n => n.id === result.nodeId)
+
+          let embeddedImages = ragNode?.embeddedImages
+          if (!embeddedImages && ragNode?.transcript) {
+            embeddedImages = await loadEmbeddedImagesForTranscript(ragNode.transcript, result.notebookId, window.electronAPI.readFile)
+          }
+
+          return {
+            transcript: result.fieldType === 'transcript' ? result.fullText : (ragNode?.transcript || ''),
+            agentResult: result.fieldType === 'agentResult' ? result.fullText : (ragNode?.agentResult || ''),
+            imageBase64: ragNode?.imageBase64,
+            embeddedImages
+          }
+        }))
+      } catch (e) {
+        console.error('[RAG] Semantic search failed:', e)
+        selectedNodes = []
+      }
+    } else if (props.notebookId === null) {
       // 全部笔记本视图：获取所有笔记本中被选中的节点及其笔记本ID
       const selectedNodesWithNotebookId = notebookStore.getAllNotebooksSelectedContextNodesWithNotebookId(nodeId)
 
