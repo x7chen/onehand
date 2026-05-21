@@ -119,7 +119,7 @@
         </div>
         <div v-else-if="isDocReady" class="pdf-page-outer" :style="pageOuterStyle">
           <div class="pdf-page-container" ref="pageContainerRef" :style="pageContainerStyle">
-            <canvas ref="canvasRef" class="pdf-canvas" :style="canvasStyle"></canvas>
+            <canvas ref="canvasRef" class="pdf-canvas" :style="canvasStyle" :class="{ 'dark-mode': isDarkMode }"></canvas>
             <div ref="textLayerRef" class="textLayer-container"></div>
             <div class="node-markers" :style="nodeMarkersStyle">
               <div
@@ -190,6 +190,7 @@ import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist'
 import RecordingIndicator from '@/components/RecordingIndicator.vue'
 import { createAudioWorkletRecorder } from '@/utils/audioWorkletRecorder'
 import OutlineTree from './OutlineTree.vue'
+import { useSettingsStore } from '@/stores/settingsStore'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker
 
@@ -227,6 +228,14 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const settingsStore = useSettingsStore()
+
+const isDarkMode = computed(() => {
+  const theme = settingsStore.settings.general.theme
+  if (theme === 'dark') return true
+  if (theme === 'light') return false
+  return window.matchMedia('(prefers-color-scheme: dark)').matches
+})
 
 const containerRef = ref<HTMLElement | null>(null)
 const contentRef = ref<HTMLElement | null>(null)
@@ -1382,6 +1391,11 @@ async function handleIncludePageChange() {
 
 .pdf-canvas {
   display: block;
+}
+
+.pdf-canvas.dark-mode {
+  mix-blend-mode: multiply;
+  filter: brightness(0.8);
 }
 
 .textLayer-container {

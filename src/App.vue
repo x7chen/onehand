@@ -315,7 +315,8 @@ textarea,
 .agent-content,
 .thinking-content,
 .small-transcript-content,
-.render-container {
+.render-container,
+.textLayer {
   user-select: text;
 }
 
