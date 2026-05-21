@@ -506,10 +506,6 @@ function closeDropdown() {
   font-weight: 500;
 }
 
-.toggle-value.enabled {
-  color: var(--color-primary);
-}
-
 .model-value {
   font-weight: 500;
   color: var(--text-primary);
@@ -519,7 +515,6 @@ function closeDropdown() {
 }
 
 .path-value {
-  color: var(--color-primary);
   font-weight: 500;
 }
 
