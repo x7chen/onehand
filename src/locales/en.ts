@@ -438,6 +438,7 @@ export default {
     moveTo: 'Move to',
     noAvailableNotebooks: 'No available notebooks',
     favorite: 'Favorite',
+    unfavorite: 'Unfavorite',
   },
   statusBar: {
     context: 'Context',

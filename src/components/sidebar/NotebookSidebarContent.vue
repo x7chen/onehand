@@ -520,14 +520,14 @@ async function handleBatchMove(nodeIds: string[], targetNotebookId: string) {
   await notebookStore.saveNotebook(targetNotebook)
 }
 
-function handleBatchFavorite(nodeIds: string[]) {
-  // 批量收藏
+function handleBatchFavorite(nodeIds: string[], isFavorite: boolean) {
+  // 批量收藏/取消收藏
   const notebookGroups = groupNodesByNotebook(nodeIds)
   for (const [notebookId, ids] of notebookGroups) {
     const notebook = notebookStore.notebooks.find(n => n.id === notebookId)
     if (notebook) {
       const nodes = notebook.nodes?.filter(n => ids.includes(n.id)) || []
-      nodes.forEach(n => n.isFavorite = true)
+      nodes.forEach(n => n.isFavorite = isFavorite)
       notebookStore.saveNotebook(notebook)
     }
   }

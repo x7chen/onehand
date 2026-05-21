@@ -13,6 +13,9 @@
         @toggle-favorite="$emit('toggle-favorite', $event)"
         @activate="handleNodeActivate"
         @batch-select-context="handleBatchSelectContext"
+        @batch-delete="$emit('batch-delete', $event)"
+        @batch-move="handleBatchMoveFromView"
+        @batch-favorite="handleBatchFavoriteFromView"
       />
 
       <!-- 日历视图 -->
@@ -27,6 +30,9 @@
         @activate="handleNodeActivate"
         @visible-nodes-change="handleVisibleNodesChange"
         @batch-select-context="handleBatchSelectContext"
+        @batch-delete="$emit('batch-delete', $event)"
+        @batch-move="handleBatchMoveFromView"
+        @batch-favorite="handleBatchFavoriteFromView"
       />
     </div>
 
@@ -58,12 +64,13 @@
       <div v-if="showBatchMenu" class="drawer-menu batch-menu" :style="batchMenuStyle">
         <button
           class="drawer-menu-item favorite"
+          :class="{ active: areAllSelectedFavorite }"
           @click="handleBatchFavorite"
         >
           <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
             <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
           </svg>
-          <span>{{ t('nodeList.favorite') }}</span>
+          <span>{{ areAllSelectedFavorite ? t('nodeList.unfavorite') : t('nodeList.favorite') }}</span>
         </button>
         <button
           class="drawer-menu-item move"
@@ -160,7 +167,7 @@ const emit = defineEmits<{
   'activate': [nodeId: string]
   'batch-delete': [nodeIds: string[]]
   'batch-move': [nodeIds: string[], targetNotebookId: string]
-  'batch-favorite': [nodeIds: string[]]
+  'batch-favorite': [nodeIds: string[], isFavorite: boolean]
   'batch-select-context': [nodeIds: string[], selected: boolean]
   'visible-nodes-change': [nodeIds: string[]]
 }>()
@@ -264,6 +271,20 @@ const selectedCount = computed(() => {
   return selectedNodes.value.length
 })
 
+// 获取当前选中的节点列表
+const currentSelectedNodes = computed(() => {
+  if (viewMode.value === 'calendar') {
+    return calendarVisibleNodes.value.filter(n => n.selectedAsContext)
+  }
+  return selectedNodes.value
+})
+
+// 选中的节点是否全部已收藏
+const areAllSelectedFavorite = computed(() => {
+  if (selectedCount.value === 0) return false
+  return currentSelectedNodes.value.every(n => n.isFavorite === true)
+})
+
 // 可选择的节点（只考虑转录完成的节点）
 const selectableNodes = computed(() => {
   return props.nodes.filter(n => n.transcriptStatus === 'done')
@@ -314,17 +335,23 @@ function deselectAll() {
   }
 }
 
-// 批量收藏
+// 批量收藏/取消收藏
 function handleBatchFavorite() {
   closeBatchMenu()
   if (selectedCount.value === 0) return
-  let nodesToFavorite: CanvasNode[]
-  if (viewMode.value === 'calendar') {
-    nodesToFavorite = calendarVisibleNodes.value.filter(n => n.selectedAsContext)
-  } else {
-    nodesToFavorite = selectedNodes.value
-  }
-  emit('batch-favorite', nodesToFavorite.map(n => n.id))
+  const nodeIds = currentSelectedNodes.value.map(n => n.id)
+  // 如果全部已收藏，则取消收藏；否则收藏
+  emit('batch-favorite', nodeIds, !areAllSelectedFavorite.value)
+}
+
+// 从列表视图接收批量收藏事件
+function handleBatchFavoriteFromView(nodeIds: string[], isFavorite: boolean) {
+  emit('batch-favorite', nodeIds, isFavorite)
+}
+
+// 从列表视图接收批量移动事件
+function handleBatchMoveFromView(nodeIds: string[], targetNotebookId: string) {
+  emit('batch-move', nodeIds, targetNotebookId)
 }
 
 // 批量删除（显示确认对话框）
@@ -560,6 +587,14 @@ onUnmounted(() => {
 
 .batch-menu {
   min-width: 120px;
+}
+
+.batch-menu .drawer-menu-item.favorite.active {
+  color: var(--color-favorite);
+}
+
+.batch-menu .drawer-menu-item.favorite.active:hover {
+  background: rgba(251, 191, 36, 0.1);
 }
 
 .batch-menu .drawer-menu-item.delete:hover {

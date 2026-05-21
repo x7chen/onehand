@@ -135,6 +135,7 @@
             :class="{ active: activeNodeId === node.id }"
             :data-node-id="node.id"
             @click="handleNodeClick(node.id)"
+            @contextmenu.prevent="handleContextMenu(node, $event)"
           >
             <!-- 勾选框 -->
             <input
@@ -178,13 +179,93 @@
         </div>
       </div>
     </div>
+
+    <!-- 右键菜单 -->
+    <Teleport to="body">
+      <div v-if="showContextMenu" class="menu-overlay" @click="closeContextMenu"></div>
+      <div v-if="showContextMenu" class="context-menu" :style="contextMenuStyle">
+        <button
+          class="context-menu-item favorite"
+          :class="{ active: contextMenuNode?.isFavorite }"
+          @click="handleContextFavorite"
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
+          </svg>
+          <span>{{ contextMenuNode?.isFavorite ? t('nodeList.unfavorite') : t('nodeList.favorite') }}</span>
+        </button>
+        <button
+          class="context-menu-item move"
+          @click="handleContextMove"
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-6 12H6v-2h8v2zm4-4H6v-2h12v2z"/>
+          </svg>
+          <span>{{ t('nodeList.moveTo') }}</span>
+        </button>
+        <button
+          class="context-menu-item delete"
+          @click="handleContextDelete"
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+          </svg>
+          <span>{{ t('common.delete') }}</span>
+        </button>
+      </div>
+
+      <!-- 移动笔记本菜单 -->
+      <div v-if="showMoveNotebookMenu" class="context-menu move-notebook-menu" :style="moveNotebookMenuStyle">
+        <button
+          v-for="notebook in availableNotebooks"
+          :key="notebook.id"
+          class="context-menu-item notebook-item"
+          @click="selectMoveNotebook(notebook.id)"
+        >
+          <svg v-if="notebook.pdfPath" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
+          </svg>
+          <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z"/>
+          </svg>
+          <span>{{ notebook.name }}</span>
+        </button>
+        <div v-if="availableNotebooks.length === 0" class="empty-notebooks">
+          {{ t('nodeList.noAvailableNotebooks') }}
+        </div>
+      </div>
+
+      <!-- 删除确认对话框 -->
+      <div v-if="showDeleteConfirmDialog" class="delete-dialog-overlay" @click="showDeleteConfirmDialog = false">
+        <div class="delete-dialog" @click.stop>
+          <div class="dialog-header">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" class="warning-icon">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+            </svg>
+            <h3>{{ t('nodeList.deleteConfirmTitle') }}</h3>
+          </div>
+          <div class="dialog-body">
+            <p>{{ t('nodeList.deleteConfirmMessage', { count: 1 }) }}</p>
+          </div>
+          <div class="dialog-footer">
+            <button class="cancel-btn" @click="showDeleteConfirmDialog = false">
+              {{ t('common.cancel') }}
+            </button>
+            <button class="delete-btn" @click="confirmDelete">
+              {{ t('common.delete') }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { CanvasNode } from '@/types/notebook'
+import { useNotebookStore } from '@/stores/notebookStore'
+import type { CanvasNode, Notebook } from '@/types/notebook'
 
 const props = withDefaults(defineProps<{
   nodes: CanvasNode[]
@@ -201,9 +282,13 @@ const emit = defineEmits<{
   'activate': [nodeId: string]
   'visible-nodes-change': [nodes: CanvasNode[]]
   'batch-select-context': [nodeIds: string[], selected: boolean]
+  'batch-delete': [nodeIds: string[]]
+  'batch-move': [nodeIds: string[], targetNotebookId: string]
+  'batch-favorite': [nodeIds: string[], isFavorite: boolean]
 }>()
 
 const { t } = useI18n()
+const notebookStore = useNotebookStore()
 
 // 拖拽多选状态
 const isDragSelecting = ref(false)
@@ -215,6 +300,23 @@ const isDragStarted = ref(false) // 是否已进入拖拽模式
 const startNodeId = ref<string | null>(null) // 开始时的节点ID
 
 const DRAG_THRESHOLD = 5 // 拖拽阈值，超过此距离才进入拖拽模式
+
+// 右键菜单状态
+const showContextMenu = ref(false)
+const contextMenuStyle = ref<{ top?: string; left?: string }>({})
+const contextMenuNode = ref<CanvasNode | null>(null)
+
+// 移动笔记本菜单状态
+const showMoveNotebookMenu = ref(false)
+const moveNotebookMenuStyle = ref<{ top?: string; left?: string }>({})
+
+// 删除确认对话框状态
+const showDeleteConfirmDialog = ref(false)
+
+// 可移动的笔记本列表（排除当前笔记本）
+const availableNotebooks = computed<Notebook[]>(() => {
+  return notebookStore.notebooks.filter(n => n.id !== notebookStore.currentNotebook?.id)
+})
 
 // 当前显示的年份
 const currentYear = ref(new Date().getFullYear())
@@ -675,6 +777,72 @@ function handleNodeClick(nodeId: string) {
   emit('activate', nodeId)
 }
 
+// 右键菜单处理
+function handleContextMenu(node: CanvasNode, e: MouseEvent) {
+  contextMenuNode.value = node
+  const x = e.clientX
+  const y = e.clientY
+
+  // 确保菜单不超出屏幕
+  const menuWidth = 140
+  const menuHeight = 120
+  const left = Math.min(x, window.innerWidth - menuWidth - 8)
+  const top = Math.min(y, window.innerHeight - menuHeight - 8)
+
+  contextMenuStyle.value = {
+    left: `${left}px`,
+    top: `${top}px`
+  }
+  showContextMenu.value = true
+}
+
+function closeContextMenu() {
+  showContextMenu.value = false
+  showMoveNotebookMenu.value = false
+  contextMenuNode.value = null
+}
+
+function handleContextFavorite() {
+  if (!contextMenuNode.value) return
+  const isFavorite = !contextMenuNode.value.isFavorite
+  emit('batch-favorite', [contextMenuNode.value.id], isFavorite)
+  closeContextMenu()
+}
+
+function handleContextMove(e: MouseEvent) {
+  if (!contextMenuNode.value) return
+
+  const target = e.currentTarget as HTMLElement
+  if (target) {
+    const rect = target.getBoundingClientRect()
+    const left = Math.min(rect.right + 4, window.innerWidth - 160 - 8)
+    const top = Math.min(rect.top, window.innerHeight - 300 - 8)
+    moveNotebookMenuStyle.value = {
+      left: `${left}px`,
+      top: `${top}px`
+    }
+  }
+  showMoveNotebookMenu.value = true
+}
+
+function selectMoveNotebook(notebookId: string) {
+  if (!contextMenuNode.value) return
+  emit('batch-move', [contextMenuNode.value.id], notebookId)
+  closeContextMenu()
+}
+
+function handleContextDelete() {
+  if (!contextMenuNode.value) return
+  showDeleteConfirmDialog.value = true
+}
+
+function confirmDelete() {
+  if (!contextMenuNode.value) return
+  emit('batch-delete', [contextMenuNode.value.id])
+  showDeleteConfirmDialog.value = false
+  closeContextMenu()
+}
+
 // 格式化笔记时间（年-月-日 时:分）
 function formatNoteTime(timestamp: number) {
   const date = new Date(timestamp)
@@ -844,6 +1012,7 @@ onMounted(() => {
   const today = new Date()
   selectedDate.value = today
   document.addEventListener('click', handlePickerClickOutside)
+  document.addEventListener('keydown', handleKeydown)
   // emit必须在selectedDate设置后执行
   emit('visible-nodes-change', rangeNotes.value)
   // 添加笔记列表拖拽多选事件监听
@@ -854,6 +1023,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener('click', handlePickerClickOutside)
+  document.removeEventListener('keydown', handleKeydown)
   // 移除笔记列表拖拽多选事件监听
   if (notesListContainerRef.value) {
     notesListContainerRef.value.removeEventListener('mousedown', handleDragStart)
@@ -868,6 +1038,14 @@ onUnmounted(() => {
     scrollbarTimer = null
   }
 })
+
+// ESC 关闭菜单
+function handleKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape') {
+    closeContextMenu()
+    showDeleteConfirmDialog.value = false
+  }
+}
 
 // 监听可见节点变化（不使用immediate，避免在selectedDate设置前emit空数组）
 watch(rangeNotes, (notes) => {
@@ -1306,5 +1484,170 @@ defineExpose({
   font-size: var(--font-size-small);
   color: var(--text-secondary);
   flex-shrink: 0;
+}
+
+/* 右键菜单遮罩层 */
+.menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2000;
+  background: transparent;
+}
+
+/* 右键菜单 */
+.context-menu {
+  position: fixed;
+  z-index: 2001;
+  min-width: 140px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px var(--shadow-color);
+  padding: 4px;
+}
+
+.context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  font-size: var(--font-size-body);
+  text-align: left;
+  transition: background 0.2s;
+}
+
+.context-menu-item:hover {
+  background: var(--bg-hover);
+}
+
+.context-menu-item.favorite.active {
+  color: var(--color-favorite);
+}
+
+.context-menu-item.favorite.active:hover {
+  background: rgba(251, 191, 36, 0.1);
+}
+
+.context-menu-item.delete:hover {
+  background: rgba(255, 68, 68, 0.1);
+  color: var(--color-error);
+}
+
+/* 移动笔记本菜单 */
+.move-notebook-menu {
+  min-width: 160px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.notebook-item {
+  font-size: var(--font-size-body);
+}
+
+.empty-notebooks {
+  padding: 12px;
+  font-size: var(--font-size-body);
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+/* 删除确认对话框 */
+.delete-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2600;
+}
+
+.delete-dialog {
+  background: var(--bg-primary);
+  border-radius: 12px;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 8px 32px var(--shadow-color);
+  overflow: hidden;
+}
+
+.delete-dialog .dialog-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.delete-dialog .dialog-header h3 {
+  margin: 0;
+  font-size: var(--font-size-title);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.delete-dialog .warning-icon {
+  color: var(--color-error);
+}
+
+.delete-dialog .dialog-body {
+  padding: 16px;
+}
+
+.delete-dialog .dialog-body p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-heading);
+  line-height: 1.5;
+}
+
+.delete-dialog .dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+.delete-dialog .cancel-btn {
+  padding: 8px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: var(--font-size-heading);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.delete-dialog .cancel-btn:hover {
+  background: var(--bg-hover);
+}
+
+.delete-dialog .delete-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  background: var(--color-error);
+  color: white;
+  font-size: var(--font-size-heading);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.delete-dialog .delete-btn:hover {
+  opacity: 0.9;
 }
 </style>

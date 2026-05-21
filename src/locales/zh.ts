@@ -434,6 +434,7 @@ export default {
     moveTo: '移动到',
     noAvailableNotebooks: '没有可移动的笔记本',
     favorite: '收藏',
+    unfavorite: '取消收藏',
   },
   statusBar: {
     context: '上下文',
