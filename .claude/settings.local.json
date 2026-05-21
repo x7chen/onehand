@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx vue-tsc:*)"
+      "Bash(npx vue-tsc:*)",
+      "WebSearch",
+      "WebFetch(domain:www.npmjs.com)",
+      "Bash(npm uninstall *)",
+      "Bash(npm install *)",
+      "Bash(npm list *)",
+      "Bash(npm show *)"
     ]
   }
 }

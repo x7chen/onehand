@@ -484,61 +484,41 @@
    任务列表 (Task List)
    ======================================== */
 
-/* 支持 markdown-it-task-lists 插件 */
-.markdown ul.contains-task-list {
+/* remark-gfm 任务列表样式 */
+.markdown ul.contains-task-list,
+.markdown ul.task-list {
   list-style: none;
   padding-left: 0;
   margin: 0.5em 0;
 }
 
-.markdown li.task-list-item {
+.markdown li.task-list-item,
+.markdown ul.contains-task-list li,
+.markdown ul.task-list li {
   display: flex;
   align-items: flex-start;
   gap: 0.5em;
   margin-bottom: 0.25em;
 }
 
-.markdown li.task-list-item input.task-list-item-checkbox {
+.markdown li.task-list-item input.task-list-item-checkbox,
+.markdown ul.contains-task-list li input[type="checkbox"],
+.markdown ul.task-list li input[type="checkbox"] {
   flex: 0 0 auto;
   margin-top: 0.25em;
   cursor: pointer;
   accent-color: var(--color-primary);
 }
 
-/* 原有样式（兼容其他格式） */
-.markdown ul[data-type='taskList'] {
-  list-style: none;
-  padding-left: 0;
-}
-
-.markdown ul[data-type='taskList'] li {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5em;
-}
-
-.markdown ul[data-type='taskList'] li > label {
-  flex: 0 0 auto;
-  margin-right: 0.5em;
-  user-select: none;
-  display: flex;
-  align-items: center;
-}
-
-.markdown ul[data-type='taskList'] li > div {
-  flex: 1 1 auto;
-}
-
-.markdown ul[data-type='taskList'] li > div p {
-  margin: 0;
-}
-
-.markdown ul[data-type='taskList'] li[data-checked='true'] > div {
+/* 已完成的任务项 */
+.markdown li.task-list-item[data-checked="true"],
+.markdown ul.contains-task-list li.checked,
+.markdown ul.task-list li.checked {
   color: var(--text-secondary);
-  text-decoration: line-through;
 }
 
-.markdown ul[data-type='taskList'] input[type='checkbox'] {
-  cursor: pointer;
-  accent-color: var(--color-primary);
+.markdown li.task-list-item[data-checked="true"] > p,
+.markdown ul.contains-task-list li.checked > p,
+.markdown ul.task-list li.checked > p {
+  text-decoration: line-through;
 }

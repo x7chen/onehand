@@ -1,133 +1,59 @@
 /**
- * 增强的 Markdown 渲染器
- * 使用 markdown-it + shiki 替代 marked + highlight.js
- * 支持：代码高亮、LaTeX 公式、Mermaid 图表
+ * Markdown 渲染器 - unified/remark/rehype 生态
+ * 支持：代码高亮、LaTeX 公式、Mermaid 图表、任务列表、表格
+ * 使用 remark-cjk-friendly 解决中文 emphasis 问题
  */
 
+import { unified } from 'unified'
+import remarkParse from 'remark-parse'
+import remarkGfm from 'remark-gfm'
+import remarkMath from 'remark-math'
+import remarkCjkFriendly from 'remark-cjk-friendly'
+import remarkRehype from 'remark-rehype'
+import rehypeKatex from 'rehype-katex'
+import rehypeRaw from 'rehype-raw'
+import rehypeStringify from 'rehype-stringify'
+import rehypeExternalLinks from 'rehype-external-links'
+import { visit } from 'unist-util-visit'
+import { fromHtml } from 'hast-util-from-html'
+import { createHighlighter, type Highlighter } from 'shiki'
 import { getNotebookDataDir } from '@/utils/userFilesPath'
-import MarkdownIt from 'markdown-it'
-import { createHighlighter } from 'shiki'
-import { fromHighlighter } from '@shikijs/markdown-it'
-// @ts-ignore - markdown-it-task-lists 没有 ESM 类型定义
-import taskLists from 'markdown-it-task-lists'
+import type { Element, Root } from 'hast'
 
-// Markdown 渲染缓存
+// ============================================
+// 缓存机制
+// ============================================
 const markdownCache = new Map<string, string>()
 const MAX_CACHE_SIZE = 100
+const imageBlobCache = new Map<string, string>()
+let disableCache = false
 
-// 转义 HTML 特殊字符
-function escapeHtml(html: string): string {
-  const escapeMap: Record<string, string> = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;',
-  }
-  return html.replace(/[&<>"']/g, (char) => escapeMap[char])
+export function clearMarkdownCache() {
+  markdownCache.clear()
 }
 
-// 预处理：将 data URL 图片转换为 HTML（markdown-it 无法正确解析）
-function convertDataUrlImages(markdown: string): string {
-  let result = markdown
-  let count = 0
-
-  // 使用手动解析而非正则，以处理 data URL 中可能包含的括号
-  let i = 0
-  while (i < result.length) {
-    // 查找 ![ 的开始
-    const imgStart = result.indexOf('![', i)
-    if (imgStart === -1) break
-
-    // 查找 ] 的结束（alt text 的结束）
-    const altEnd = result.indexOf(']', imgStart + 2)
-    if (altEnd === -1) {
-      i = imgStart + 2
-      continue
-    }
-
-    // 检查后面是否有 (data:image/
-    const parenStart = altEnd + 1
-    if (result.substring(parenStart, parenStart + 6) !== '(data:') {
-      i = altEnd + 1
-      continue
-    }
-
-    // 提取 alt text
-    const alt = result.substring(imgStart + 2, altEnd)
-
-    // 找到匹配的右括号（需要处理嵌套括号）
-    let depth = 1
-    let urlEnd = parenStart + 1
-    while (urlEnd < result.length && depth > 0) {
-      const ch = result[urlEnd]
-      if (ch === '(') depth++
-      else if (ch === ')') depth--
-      urlEnd++
-    }
-
-    if (depth !== 0) {
-      i = altEnd + 1
-      continue
-    }
-
-    // 提取 URL（不包括首尾括号）
-    const url = result.substring(parenStart + 1, urlEnd - 1)
-
-    // 生成 HTML img 标签
-    const escapedAlt = alt.replace(/"/g, '&quot;')
-    const imgTag = `<img src="${url}" alt="${escapedAlt}">`
-
-    // 替换原始 markdown 图片语法
-    const fullMatch = result.substring(imgStart, urlEnd)
-    result = result.replace(fullMatch, imgTag)
-    count++
-
-    console.log('[MarkdownRenderer] Converted data URL image:', url.substring(0, 60) + '...')
-
-    // 继续查找下一个（从替换位置之后开始）
-    i = imgStart + imgTag.length
-  }
-
-  console.log('[MarkdownRenderer] Total converted data URL images:', count)
-
-  return result
+export function clearImageCache() {
+  imageBlobCache.clear()
 }
 
-// 常用语言列表（按需加载其他语言）
-const COMMON_LANGS = [
-  'javascript',
-  'typescript',
-  'vue',
-  'python',
-  'java',
-  'cpp',
-  'c',
-  'go',
-  'rust',
-  'ruby',
-  'php',
-  'swift',
-  'kotlin',
-  'html',
-  'css',
-  'scss',
-  'json',
-  'yaml',
-  'xml',
-  'markdown',
-  'sql',
-  'shell',
-  'bash',
-  'dockerfile',
-  'diff',
-]
+export function setMarkdownCacheEnabled(enabled: boolean) {
+  disableCache = !enabled
+}
 
-// Shiki highlighter 实例（单例）
-let highlighter: Awaited<ReturnType<typeof createHighlighter>> | null = null
+// ============================================
+// Shiki Highlighter 单例
+// ============================================
+let highlighter: Highlighter | null = null
 let highlighterPromise: Promise<void> | null = null
 
-// 预初始化 highlighter（应用启动时调用）
+const COMMON_LANGS = [
+  'javascript', 'typescript', 'vue', 'python', 'java',
+  'cpp', 'c', 'go', 'rust', 'ruby', 'php', 'swift',
+  'kotlin', 'html', 'css', 'scss', 'json', 'yaml',
+  'xml', 'markdown', 'sql', 'shell', 'bash',
+  'dockerfile', 'diff'
+]
+
 export async function preInitHighlighter(): Promise<void> {
   if (highlighter || highlighterPromise) {
     return highlighterPromise || Promise.resolve()
@@ -143,235 +69,203 @@ export async function preInitHighlighter(): Promise<void> {
   return highlighterPromise
 }
 
-// 初始化 markdown-it 实例
-async function initMarkdownIt(): Promise<MarkdownIt> {
+// ============================================
+// 辅助函数
+// ============================================
+function escapeHtml(html: string): string {
+  const escapeMap: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  }
+  return html.replace(/[&<>"']/g, (char) => escapeMap[char])
+}
+
+function sanitizeHtml(html: string): string {
+  return html
+    .replace(/<(script|iframe|object|embed|form)[^>]*>.*?<\/\1>|<(script|iframe|object|embed|form)[^>]*\/?>/gi, '')
+    .replace(/\s+on\w+="[^"]*"/gi, '')
+    .replace(/(javascript|vbscript):/gi, '')
+    .trim()
+}
+
+function getLanguageFromClass(className: string | string[] | undefined): string | null {
+  if (!className) return null
+  const classes = Array.isArray(className) ? className : [className]
+  const langClass = classes.find(c => typeof c === 'string' && c.startsWith('language-'))
+  return langClass ? langClass.replace('language-', '') : null
+}
+
+function getTextContent(node: Element | Root): string {
+  let text = ''
+  if ('value' in node && typeof node.value === 'string') {
+    text += node.value
+  }
+  if ('children' in node && node.children) {
+    for (const child of node.children) {
+      if (child.type === 'text' && 'value' in child) {
+        text += child.value
+      } else if (child.type === 'element') {
+        text += getTextContent(child)
+      }
+    }
+  }
+  return text
+}
+
+// ============================================
+// 自定义 rehype 插件：Shiki 代码高亮
+// ============================================
+function rehypeShiki(options: { highlighter: Highlighter }) {
+  const { highlighter } = options
+
+  return (tree: Root) => {
+    const isDark = document.documentElement.classList.contains('dark')
+
+    visit(tree, 'element', (node: Element, index: number | undefined, parent: Element | Root | undefined) => {
+      if (node.tagName !== 'pre' || !parent || index === undefined) return
+
+      const codeNode = node.children?.find(
+        (child) => child.type === 'element' && child.tagName === 'code'
+      ) as Element | undefined
+
+      if (!codeNode) return
+
+      const lang = getLanguageFromClass(codeNode.properties?.className as string | string[] | undefined) || 'text'
+      const content = getTextContent(codeNode)
+
+      // Mermaid 特殊处理
+      if (lang === 'mermaid') {
+        const mermaidId = `mermaid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+        console.log('[MarkdownRenderer] Processing mermaid block, lang:', lang, 'content:', content.substring(0, 50))
+        node.tagName = 'div'
+        node.properties = {
+          ...node.properties,
+          className: ['mermaid-wrapper'],
+          // HAST 属性名使用驼峰命名，会被转换为 data-mermaid-id
+          dataMermaidId: mermaidId,
+          dataMermaidDefinition: content
+        }
+        node.children = [{
+          type: 'element',
+          tagName: 'pre',
+          properties: { className: ['mermaid'], id: mermaidId },
+          children: [{ type: 'text', value: content }]
+        }]
+        return 'skip' // 停止遍历子节点
+      }
+
+      // Shiki 高亮
+      try {
+        const html = highlighter.codeToHtml(content, {
+          lang,
+          themes: { light: 'github-light', dark: 'github-dark' }
+        })
+
+        // 解析 Shiki 输出的 HTML 并注入到 HAST
+        const hast = fromHtml(html, { fragment: true })
+        if (hast.children && hast.children.length > 0) {
+          // 找到 pre 元素
+          const preElement = hast.children.find(
+            (child) => child.type === 'element' && child.tagName === 'pre'
+          ) as Element | undefined
+
+          if (preElement) {
+            node.children = preElement.children
+            node.properties = {
+              ...node.properties,
+              className: ['shiki', ...((preElement.properties?.className as string[]) || [])]
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('[MarkdownRenderer] Shiki highlight error:', e)
+        // 保持原样
+      }
+    })
+
+    return tree
+  }
+}
+
+// ============================================
+// 自定义 rehype 插件：Mermaid 占位符处理（已集成到 rehypeShiki）
+// ============================================
+function rehypeMermaidPlaceholder() {
+  return (tree: Root) => {
+    // 此插件主要用于后处理，确保 mermaid-wrapper 结构正确
+    // 实际 mermaid 代码块已在 rehypeShiki 中处理
+    return tree
+  }
+}
+
+// ============================================
+// 主渲染函数
+// ============================================
+export async function renderMarkdown(markdown: string): Promise<string> {
+  if (!markdown) return ''
+
+  // 预处理：清理特殊标签
+  let processed = markdown
+    .replace(/<\/?think>/gi, '')
+    .replace(/<\|begin_of_box\|>/gi, '')
+    .replace(/<\|end_of_box\|>/gi, '')
+
+  // 缓存检查
+  const cacheKey = `v9:${processed.length}:${processed.substring(0, 200)}`
+  if (!disableCache && markdownCache.has(cacheKey)) {
+    return markdownCache.get(cacheKey)!
+  }
+
   // 确保 highlighter 已初始化
   if (!highlighter) {
     await preInitHighlighter()
   }
 
-  const md = new MarkdownIt({
-    html: true,
-    linkify: true,
-    typographer: true,
-  })
-
-  // 使用 shiki 进行代码高亮，未知语言回退到 markdown（无特殊高亮）
-  md.use(fromHighlighter(highlighter!, {
-    themes: {
-      light: 'github-light',
-      dark: 'github-dark',
-    },
-    fallbackLanguage: 'markdown',
-  }))
-
-  // 自定义代码块渲染，支持 Mermaid
-  const defaultFenceRenderer = md.renderer.rules.fence || function(tokens, idx, options, env, self) {
-    return self.renderToken(tokens, idx, options)
-  }
-
-  md.renderer.rules.fence = function(tokens, idx, options, env, self) {
-    const token = tokens[idx]
-    const lang = token.info.trim().toLowerCase()
-    const content = token.content
-
-    // 检测是否为 Mermaid 图表
-    if (lang === 'mermaid') {
-      const mermaidId = `mermaid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-      return `<div class="mermaid-wrapper" data-mermaid-id="${mermaidId}"><pre class="mermaid" id="${mermaidId}">${escapeHtml(content)}</pre></div>`
-    }
-
-    // 其他代码块使用 shiki 默认渲染
-    return defaultFenceRenderer(tokens, idx, options, env, self)
-  }
-
-  // 使用 markdown-it-task-lists 插件
-  md.use(taskLists)
-
-  // 自定义链接渲染，添加 target="_blank"
-  const defaultLinkRenderer = md.renderer.rules.link_open || function(tokens, idx, options, env, self) {
-    return self.renderToken(tokens, idx, options)
-  }
-
-  md.renderer.rules.link_open = function(tokens, idx, options, env, self) {
-    // 添加 target="_blank" 和 rel 属性
-    const targetIdx = tokens[idx].attrIndex('target')
-    if (targetIdx < 0) {
-      tokens[idx].attrPush(['target', '_blank'])
-    } else if (tokens[idx].attrs) {
-      tokens[idx].attrs[targetIdx][1] = '_blank'
-    }
-
-    const relIdx = tokens[idx].attrIndex('rel')
-    if (relIdx < 0) {
-      tokens[idx].attrPush(['rel', 'noopener noreferrer'])
-    } else if (tokens[idx].attrs) {
-      tokens[idx].attrs[relIdx][1] = 'noopener noreferrer'
-    }
-
-    return defaultLinkRenderer(tokens, idx, options, env, self)
-  }
-
-  return md
-}
-
-// LaTeX 公式上下文 - 每个渲染请求独立
-interface LatexContext {
-  placeholders: Map<string, { type: 'display' | 'inline', equation: string }>
-}
-
-// 代码块占位符上下文
-interface CodeBlockContext {
-  placeholders: Map<string, string>
-}
-
-// 预处理 LaTeX 公式，修正 \text{} 在 KaTeX 中的渲染问题
-function normalizeLatexText(equation: string): string {
-  return equation.replace(/\\text\{([^}]+)\}/g, (_, content) => {
-    const escapedContent = content.replace(/_/g, '\\_')
-    return `\\mathrm{${escapedContent}}`
-  })
-}
-
-// 生成不会被 markdown-it 处理的占位符
-function createPlaceholder(id: string): string {
-  return `<span class="latex-placeholder" data-latex-id="${id}"></span>`
-}
-
-// 生成代码块占位符（使用 HTML 注释格式，不会被 markdown-it 解析）
-function createCodeBlockPlaceholder(id: string): string {
-  return `<!--CODEBLOCK_PLACEHOLDER_${id}-->`
-}
-
-// 清理公式内容中可能存在的引用块标记
-function cleanBlockquoteMarkers(equation: string): string {
-  return equation
-    .split('\n')
-    .map(line => line.replace(/^>\s?/, '').trim())
-    .filter(line => line.length > 0)
-    .join('\n')
-}
-
-// 提取代码块内容为占位符，防止 LaTeX 正则误匹配
-function extractCodeBlocks(markdown: string, context: CodeBlockContext): string {
-  let processed = markdown
-
-  // 提取三重反引号代码块
-  processed = processed.replace(/^```[\s\S]*?^```/gm, (match) => {
-    const id = `CODEBLOCK_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-    context.placeholders.set(id, match)
-    return createCodeBlockPlaceholder(id)
-  })
-
-  // 提取单反引号行内代码
-  processed = processed.replace(/`[^`]+`/g, (match) => {
-    const id = `INLINECODE_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-    context.placeholders.set(id, match)
-    return createCodeBlockPlaceholder(id)
-  })
-
-  return processed
-}
-
-// 还原代码块内容
-function restoreCodeBlocks(markdown: string, context: CodeBlockContext): string {
-  let result = markdown
-  for (const [id, content] of context.placeholders) {
-    result = result.replace(createCodeBlockPlaceholder(id), content)
-  }
-  return result
-}
-
-// 提取 LaTeX 公式为占位符
-function extractLatex(markdown: string, context: LatexContext): string {
-  let processed = markdown
-
-  // 提取块级公式 $$...$$
-  processed = processed.replace(/\$\$([\s\S]+?)\$\$/g, (_, equation) => {
-    const id = `LATEX_DISPLAY_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-    const cleanedEquation = cleanBlockquoteMarkers(equation)
-    context.placeholders.set(id, { type: 'display', equation: normalizeLatexText(cleanedEquation) })
-    return createPlaceholder(id)
-  })
-
-  // 提取块级公式 \[...\]
-  processed = processed.replace(/\\\[([\s\S]+?)\\\]/g, (_, equation) => {
-    const id = `LATEX_DISPLAY_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-    const cleanedEquation = cleanBlockquoteMarkers(equation)
-    context.placeholders.set(id, { type: 'display', equation: normalizeLatexText(cleanedEquation) })
-    return createPlaceholder(id)
-  })
-
-  // 提取行内公式 \(...\)
-  processed = processed.replace(/\\\(([^)]+?)\\\)/g, (_, equation) => {
-    const trimmedEquation = normalizeLatexText(equation.trim())
-    const id = `LATEX_INLINE_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-    context.placeholders.set(id, { type: 'inline', equation: trimmedEquation })
-    return createPlaceholder(id)
-  })
-
-  // 提取行内公式 $...$
-  // 注意：此时代码块已被提取为占位符，所以不需要检查反引号
-  processed = processed.replace(/\$([^$\n]+?)\$(?!\$)/g, (match, equation) => {
-    const trimmedEquation = normalizeLatexText(equation.trim())
-    // 排除过长内容或包含中文的内容（可能是价格等普通文本）
-    if (trimmedEquation.length > 200 || /\p{Script=Han}/u.test(trimmedEquation)) {
-      return match
-    }
-    const id = `LATEX_INLINE_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-    context.placeholders.set(id, { type: 'inline', equation: trimmedEquation })
-    return createPlaceholder(id)
-  })
-
-  return processed
-}
-
-// 渲染 LaTeX 公式并替换占位符
-async function renderLatex(html: string, context: LatexContext): Promise<string> {
-  const katex = await import('katex')
-
-  const placeholderRegex = /<span class="latex-placeholder" data-latex-id="(.+?)"><\/span>/g
-  let match
-  const matches: Array<{ full: string, id: string, index: number }> = []
-
-  while ((match = placeholderRegex.exec(html)) !== null) {
-    matches.push({
-      full: match[0],
-      id: match[1],
-      index: match.index
-    })
-  }
-
-  for (let i = matches.length - 1; i >= 0; i--) {
-    const { id, index, full } = matches[i]
-    const data = context.placeholders.get(id)
-
-    if (!data) {
-      console.warn('[MarkdownRenderer] No data for placeholder:', id)
-      continue
-    }
-
-    try {
-      const result = katex.default.renderToString(data.equation, {
-        displayMode: data.type === 'display',
-        throwOnError: false,
-        output: 'html',
-        trust: false,
+  try {
+    // 构建 unified processor
+    const processor = unified()
+      .use(remarkParse)                                    // Markdown → MDAST
+      .use(remarkGfm, { singleTilde: false })              // GFM 扩展（表格、任务列表等）
+      .use(remarkCjkFriendly)                              // 中文 emphasis 问题修复
+      .use(remarkMath)                              // LaTeX 公式识别（默认支持 $...$）
+      .use(remarkRehype, { allowDangerousHtml: true })     // MDAST → HAST
+      .use(rehypeRaw)                                      // 允许原始 HTML
+      .use(rehypeShiki, { highlighter: highlighter! })     // Shiki 代码高亮 + Mermaid
+      .use(rehypeMermaidPlaceholder)                       // Mermaid 后处理
+      .use(rehypeKatex as any)                           // LaTeX 公式渲染
+      .use(rehypeExternalLinks, {                          // 外部链接处理
+        target: '_blank',
+        rel: ['noopener', 'noreferrer']
       })
-      const rendered = result.replace(/\n/g, '')
-      html = html.substring(0, index) + rendered + html.substring(index + full.length)
-    } catch (e) {
-      const errorMsg = e instanceof Error ? e.message : String(e)
-      console.error('[MarkdownRenderer] Formula render error:', e)
-      const errorHtml = `<span class="latex-error">公式渲染失败：${escapeHtml(data.equation)} - ${escapeHtml(errorMsg)}</span>`
-      html = html.substring(0, index) + errorHtml + html.substring(index + full.length)
-    }
-  }
+      .use(rehypeStringify)                                // HAST → HTML
 
-  return html
+    const result = await processor.process(processed)
+    let html = String(result)
+
+    // 处理 Shiki 双主题切换的 CSS
+    html = html.replace(/class="shiki"/g, 'class="shiki" data-theme="auto"')
+
+    // HTML 净化
+    const sanitized = sanitizeHtml(html)
+
+    // 缓存结果
+    if (!disableCache && markdownCache.size < MAX_CACHE_SIZE) {
+      markdownCache.set(cacheKey, sanitized)
+    }
+
+    return sanitized
+  } catch (error) {
+    console.error('[MarkdownRenderer] Error rendering markdown:', error)
+    return escapeHtml(markdown)
+  }
 }
 
-// 渲染 Mermaid 图表（在组件挂载后调用）
+// ============================================
+// Mermaid 渲染（客户端）
+// ============================================
 export async function renderMermaidCharts(container: HTMLElement): Promise<number> {
   if (!container) {
     console.warn('[MarkdownRenderer] renderMermaidCharts called with null container')
@@ -379,6 +273,7 @@ export async function renderMermaidCharts(container: HTMLElement): Promise<numbe
   }
 
   const mermaidWrappers = container.querySelectorAll('.mermaid-wrapper')
+  console.log('[MarkdownRenderer] Found mermaid wrappers:', mermaidWrappers.length)
   if (mermaidWrappers.length === 0) return 0
 
   let renderedCount = 0
@@ -413,7 +308,7 @@ export async function renderMermaidCharts(container: HTMLElement): Promise<numbe
         .replace(/（/g, '(')
         .replace(/）/g, ')')
 
-      // 保存原始定义到 wrapper 的 data 属性，供主题切换时重新渲染使用
+      // 保存原始定义到 wrapper 的 data 属性
       wrapper.setAttribute('data-mermaid-definition', graphDefinition)
 
       const mermaidId = mermaidEl.getAttribute('id') || `mermaid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
@@ -464,7 +359,6 @@ export async function reRenderMermaidCharts(container: HTMLElement): Promise<num
 
     const isDark = document.documentElement.classList.contains('dark')
 
-    // 先 reset 清除缓存，再 initialize
     mermaid.default.mermaidAPI.reset()
     mermaid.default.initialize({
       startOnLoad: false,
@@ -474,7 +368,6 @@ export async function reRenderMermaidCharts(container: HTMLElement): Promise<num
     })
 
     for (const wrapper of mermaidWrappers) {
-      // 从 data 属性读取原始定义
       const graphDefinition = wrapper.getAttribute('data-mermaid-definition')
       if (!graphDefinition) continue
 
@@ -482,7 +375,6 @@ export async function reRenderMermaidCharts(container: HTMLElement): Promise<num
       const oldSvg = wrapper.querySelector('.mermaid-svg')
       if (oldSvg) oldSvg.remove()
 
-      // 使用新的 ID 强制重新渲染
       const newMermaidId = `mermaid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
 
       try {
@@ -509,81 +401,9 @@ export async function reRenderMermaidCharts(container: HTMLElement): Promise<num
   return reRenderedCount
 }
 
-// 简单的 HTML 净化函数
-function sanitizeHtml(html: string): string {
-  return html
-    .replace(/<(script|iframe|object|embed|form)[^>]*>.*?<\/\1>|<(script|iframe|object|embed|form)[^>]*\/?>/gi, '')
-    .replace(/\s+on\w+="[^"]*"/gi, '')
-    .replace(/(javascript|vbscript):/gi, '')
-    .trim()
-}
-
-// 渲染 Markdown 为 HTML 的主函数
-export async function renderMarkdown(markdown: string): Promise<string> {
-  if (!markdown) return ''
-
-  let processedMarkdown = markdown
-    .replace(/<\/?think>/gi, '')
-    .replace(/<\|begin_of_box\|>/gi, '')
-    .replace(/<\|end_of_box\|>/gi, '')
-
-  const cacheKey = `v7:${processedMarkdown.length}:${processedMarkdown.substring(0, 200)}`
-
-  if (markdownCache.has(cacheKey)) {
-    return markdownCache.get(cacheKey)!
-  }
-
-  try {
-    const latexContext: LatexContext = { placeholders: new Map() }
-    const codeBlockContext: CodeBlockContext = { placeholders: new Map() }
-
-    // 1. 将 data URL 图片转换为 HTML（避免 markdown-it 解析错误）
-    processedMarkdown = convertDataUrlImages(processedMarkdown)
-
-    // 2. 先提取代码块为占位符，防止 LaTeX 正则误匹配
-    const markdownWithCodeBlockPlaceholders = extractCodeBlocks(processedMarkdown, codeBlockContext)
-
-    // 3. 提取 LaTeX 公式为占位符（此时代码块内容已被保护）
-    const markdownWithoutLatex = extractLatex(markdownWithCodeBlockPlaceholders, latexContext)
-
-    // 4. 还原代码块内容（在 LaTeX 提取后）
-    const markdownRestored = restoreCodeBlocks(markdownWithoutLatex, codeBlockContext)
-
-    // 5. 解析 Markdown (使用 markdown-it + shiki)
-    const md = await initMarkdownIt()
-    let html = md.render(markdownRestored)
-
-    // 6. 渲染 LaTeX 公式并替换占位符
-    html = await renderLatex(html, latexContext)
-
-    // 7. HTML 净化
-    const sanitized = sanitizeHtml(html)
-
-    if (markdownCache.size < MAX_CACHE_SIZE) {
-      markdownCache.set(cacheKey, sanitized)
-    }
-
-    return sanitized
-  } catch (error) {
-    console.error('[MarkdownRenderer] Error rendering markdown:', error)
-    return escapeHtml(markdown)
-  }
-}
-
-// 清除缓存
-export function clearMarkdownCache() {
-  markdownCache.clear()
-}
-
-// 开发模式下禁用缓存的辅助函数
-let disableCache = false
-export function setMarkdownCacheEnabled(enabled: boolean) {
-  disableCache = !enabled
-}
-
-// 图片路径缓存
-const imageBlobCache = new Map<string, string>()
-
+// ============================================
+// 图片路径处理
+// ============================================
 export async function processImagePaths(html: string, notebookId: string): Promise<string> {
   if (!html || !notebookId) return html
 
@@ -646,8 +466,4 @@ async function loadImageAsBlobUrl(relativePath: string, notebookId: string): Pro
   }
 
   return null
-}
-
-export function clearImageCache() {
-  imageBlobCache.clear()
 }
