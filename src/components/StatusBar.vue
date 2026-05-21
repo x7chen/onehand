@@ -156,11 +156,11 @@
               v-for="profile in filteredProfiles"
               :key="profile.id"
               class="dropdown-option"
-              :class="{ selected: activeProfileId === profile.id }"
+              :class="{ selected: displayedProfileId === profile.id }"
               @click="selectModel(profile.id)"
             >
               <span class="option-label">{{ profile.name || t('statusBar.defaultModel') }}</span>
-              <span class="option-check" v-if="activeProfileId === profile.id">✓</span>
+              <span class="option-check" v-if="displayedProfileId === profile.id">✓</span>
             </div>
             <div v-if="filteredProfiles.length === 0" class="dropdown-option disabled">
               <span class="option-label">{{ t('statusBar.noModelConfig') }}</span>
@@ -271,8 +271,20 @@ const filteredProfiles = computed(() => {
   return profiles.filter(p => (p.name || '').toLowerCase().includes(filter))
 })
 
+const displayedProfileId = computed(() => {
+  // 优先使用当前笔记本的 modelId
+  if (props.activeNotebookId) {
+    const notebook = notebookStore.notebooks.find(nb => nb.id === props.activeNotebookId)
+    if (notebook?.modelId) {
+      return notebook.modelId
+    }
+  }
+  // 否则使用全局的 activeProfileId
+  return props.activeProfileId
+})
+
 const currentModelName = computed(() => {
-  const profile = allProfiles.value.find(p => p.id === props.activeProfileId)
+  const profile = allProfiles.value.find(p => p.id === displayedProfileId.value)
   return profile?.name || t('statusBar.defaultModel')
 })
 

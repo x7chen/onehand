@@ -866,12 +866,12 @@ function handleDynamicContextDrop(text: string) {
 }
 
 function handleSelectModel(modelId: string) {
-  settingsStore.updateSettings({
-    llm: {
-      ...settingsStore.settings.llm,
-      activeProfileId: modelId
-    }
-  })
+  // 只更新当前笔记本的 modelId，不改变全局 activeProfileId
+  const currentNotebook = notebookStore.currentNotebook
+  if (currentNotebook) {
+    currentNotebook.modelId = modelId
+    notebookStore.saveNotebook(currentNotebook)
+  }
 }
 
 // 视图模式切换

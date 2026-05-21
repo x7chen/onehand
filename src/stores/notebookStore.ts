@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import type { Notebook, CanvasNode, TrashNotebook } from '@/types/notebook'
 import type { NotebookContext } from '@/types/context'
 import { getNotebooksDir, getNotebookFilePath, getNotebookPdfDir, getNotebookDataDir, getNotebookAudioDir, getNotebookImagesDir, getTrashNotebooksDir, getTrashNotebookFilePath, getTrashNotebookDataDir, getTrashNotebooksMetaFilePath, getTrashNodesFilePath, getTrashNodesDataDir } from '@/utils/userFilesPath'
+import { useSettingsStore } from './settingsStore'
 
 // 回收站节点元数据接口
 interface TrashNodeMeta {
@@ -250,6 +251,7 @@ export const useNotebookStore = defineStore('notebook', () => {
     const notebookId = Date.now().toString()
     let finalPdfPath = pdfPath
     let finalName = name.trim()
+    const settingsStore = useSettingsStore()
 
     // 如果有PDF路径，复制PDF到笔记本文件夹下的pdf子目录
     if (pdfPath) {
@@ -289,7 +291,8 @@ export const useNotebookStore = defineStore('notebook', () => {
       createdAt: Date.now(),
       updatedAt: Date.now(),
       nodes: [],
-      viewport: { x: 0, y: 0, zoom: 1 }
+      viewport: { x: 0, y: 0, zoom: 1 },
+      modelId: settingsStore.settings.llm.activeProfileId
     }
 
     if (context && (context.staticContextIds?.length || context.dynamicContextId)) {
