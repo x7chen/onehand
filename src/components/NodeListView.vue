@@ -165,6 +165,7 @@ const isDragSelecting = ref(false)
 const dragSelectedIds = ref<Set<string>>(new Set())
 const dragStartY = ref(0)
 const dragStartX = ref(0)
+const lastDragY = ref(0) // 上一次拖拽位置的 Y 坐标
 const isSelecting = ref(true) // true表示选取，false表示取消选取
 const isDragStarted = ref(false) // 是否已进入拖拽模式
 const startNodeId = ref<string | null>(null) // 开始时的节点ID
@@ -368,6 +369,7 @@ function handleDragStart(e: MouseEvent) {
   dragSelectedIds.value.clear()
   dragStartX.value = e.clientX
   dragStartY.value = e.clientY
+  lastDragY.value = e.clientY
 
   // 记录起始位置的节点
   const node = getNodeAtPosition(e.clientX, e.clientY)
@@ -413,8 +415,9 @@ function handleDragMove(e: MouseEvent) {
     }
   }
 
-  // 处理当前位置的节点
-  processNodeAtPosition(e.clientX, e.clientY)
+  // 处理从上次位置到当前位置之间的所有节点
+  processNodesBetweenYPositions(lastDragY.value, e.clientY, e.clientX)
+  lastDragY.value = e.clientY
 }
 
 // 拖拽多选：结束拖拽
@@ -449,6 +452,47 @@ function getNodeAtPosition(x: number, y: number): CanvasNode | null {
     }
   }
   return null
+}
+
+// 处理两个 Y 坐标之间的所有节点（用于快速拖动时不漏选）
+function processNodesBetweenYPositions(startY: number, endY: number, x: number) {
+  const container = nodeContainerRef.value
+  if (!container) return
+
+  // 获取所有节点元素
+  const nodeItems = container.querySelectorAll('.node-list-item')
+
+  // 确定处理的 Y 范围
+  const minY = Math.min(startY, endY)
+  const maxY = Math.max(startY, endY)
+
+  for (const item of nodeItems) {
+    const rect = item.getBoundingClientRect()
+    // 检查节点是否在 Y 范围内（使用中心点判断）
+    const nodeCenterY = rect.top + rect.height / 2
+
+    if (nodeCenterY >= minY && nodeCenterY <= maxY) {
+      const nodeId = item.getAttribute('data-node-id')
+      if (!nodeId) continue
+
+      const node = props.nodes.find(n => n.id === nodeId)
+      if (!node || node.transcriptStatus !== 'done') continue
+
+      if (!dragSelectedIds.value.has(nodeId)) {
+        dragSelectedIds.value.add(nodeId)
+
+        if (isSelecting.value) {
+          if (!node.selectedAsContext) {
+            emit('batch-select-context', [nodeId], true)
+          }
+        } else {
+          if (node.selectedAsContext) {
+            emit('batch-select-context', [nodeId], false)
+          }
+        }
+      }
+    }
+  }
 }
 
 // 拖拽多选：处理指定位置的节点
