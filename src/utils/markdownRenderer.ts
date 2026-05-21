@@ -18,7 +18,18 @@ import { visit } from 'unist-util-visit'
 import { fromHtml } from 'hast-util-from-html'
 import { createHighlighter, type Highlighter } from 'shiki'
 import { getNotebookDataDir } from '@/utils/userFilesPath'
+import {
+  downloadTextFile,
+  svgToPng,
+  copyPngToClipboard,
+  downloadSvg,
+  downloadPng,
+  getLanguageExtension
+} from '@/utils/exportUtils'
+import i18n from '@/i18n'
 import type { Element, Root } from 'hast'
+
+const t = i18n.global.t
 
 // ============================================
 // 缓存机制
@@ -48,10 +59,10 @@ let highlighterPromise: Promise<void> | null = null
 
 const COMMON_LANGS = [
   'javascript', 'typescript', 'vue', 'python', 'java',
-  'cpp', 'c', 'go', 'rust', 'ruby', 'php', 'swift',
+  'cpp', 'c', 'csharp', 'go', 'rust', 'ruby', 'php', 'swift',
   'kotlin', 'html', 'css', 'scss', 'json', 'yaml',
   'xml', 'markdown', 'sql', 'shell', 'bash',
-  'dockerfile', 'diff'
+  'dockerfile', 'diff', 'tsx', 'jsx', 'vue-html'
 ]
 
 export async function preInitHighlighter(): Promise<void> {
@@ -176,7 +187,8 @@ function rehypeShiki(options: { highlighter: Highlighter }) {
             node.children = preElement.children
             node.properties = {
               ...node.properties,
-              className: ['shiki', ...((preElement.properties?.className as string[]) || [])]
+              className: ['shiki', `language-${lang}`, ...((preElement.properties?.className as string[]) || [])],
+              dataLang: lang  // 添加语言标识属性
             }
           }
         }
@@ -266,6 +278,45 @@ export async function renderMarkdown(markdown: string): Promise<string> {
 // ============================================
 // Mermaid 渲染（客户端）
 // ============================================
+
+/**
+ * 调整 SVG 以适应容器（最大高度 1000px）
+ */
+function fitSvgToContainer(wrapper: HTMLElement): void {
+  const svg = wrapper.querySelector('.mermaid-svg') as SVGElement | null
+  if (!svg) return
+
+  // 获取 SVG 的原始尺寸（通过 viewBox 或 bounding box）
+  const viewBox = svg.getAttribute('viewBox')
+  if (!viewBox) return
+
+  const viewBoxValues = viewBox.split(' ').map(Number)
+  const svgWidth = viewBoxValues[2] || 0
+  const svgHeight = viewBoxValues[3] || 0
+
+  if (svgWidth <= 0 || svgHeight <= 0) return
+
+  // 容器尺寸（最大高度 1000px）
+  const containerWidth = wrapper.clientWidth || 800
+  const maxHeight = 1000
+
+  // 计算缩放比例以适应容器
+  const scaleX = containerWidth / svgWidth
+  const scaleY = maxHeight / svgHeight
+  const scale = Math.min(scaleX, scaleY, 1) // 不放大，只缩小
+
+  // 设置 SVG 尺寸
+  const fittedWidth = svgWidth * scale
+  const fittedHeight = svgHeight * scale
+
+  svg.style.width = `${fittedWidth}px`
+  svg.style.height = `${fittedHeight}px`
+  svg.style.maxWidth = '100%'
+  svg.style.maxHeight = `${maxHeight}px`
+  svg.style.display = 'block'
+  svg.style.margin = '0 auto'
+}
+
 export async function renderMermaidCharts(container: HTMLElement): Promise<number> {
   if (!container) {
     console.warn('[MarkdownRenderer] renderMermaidCharts called with null container')
@@ -322,12 +373,28 @@ export async function renderMermaidCharts(container: HTMLElement): Promise<numbe
 
         if (svgEl) {
           svgEl.setAttribute('class', 'mermaid-svg')
-          svgEl.setAttribute('style', 'max-width: 100%; height: auto; display: block; margin: 0 auto;')
+          // 移除固定尺寸属性，保留 viewBox
+          svgEl.removeAttribute('width')
+          svgEl.removeAttribute('height')
+          svgEl.removeAttribute('style')
+
+          // 确保 viewBox 存在
+          const viewBox = svgEl.getAttribute('viewBox')
+          if (!viewBox) {
+            // 如果没有 viewBox，从内容推断
+            const bbox = svgEl.getBBox ? svgEl.getBBox() : null
+            if (bbox) {
+              svgEl.setAttribute('viewBox', `${bbox.x} ${bbox.y} ${bbox.width} ${bbox.height}`)
+            }
+          }
 
           // 移除 pre.mermaid 元素，只保留 SVG
           mermaidEl.remove()
           wrapper.appendChild(svgEl.cloneNode(true))
           renderedCount++
+
+          // 渲染后调整 SVG 以适应容器
+          fitSvgToContainer(wrapper as HTMLElement)
         }
 
         wrapper.classList.add('mermaid-rendered')
@@ -371,9 +438,14 @@ export async function reRenderMermaidCharts(container: HTMLElement): Promise<num
       const graphDefinition = wrapper.getAttribute('data-mermaid-definition')
       if (!graphDefinition) continue
 
-      // 移除旧的 SVG
+      // 移除旧的 SVG 和工具栏
       const oldSvg = wrapper.querySelector('.mermaid-svg')
       if (oldSvg) oldSvg.remove()
+      const oldToolbar = wrapper.querySelector('.mermaid-toolbar')
+      if (oldToolbar) oldToolbar.remove()
+
+      // 移除已处理标记，以便重新注入工具栏
+      wrapper.classList.remove('toolbar-injected')
 
       const newMermaidId = `mermaid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
 
@@ -386,9 +458,25 @@ export async function reRenderMermaidCharts(container: HTMLElement): Promise<num
 
         if (svgEl) {
           svgEl.setAttribute('class', 'mermaid-svg')
-          svgEl.setAttribute('style', 'max-width: 100%; height: auto; display: block; margin: 0 auto;')
+          // 移除固定尺寸属性
+          svgEl.removeAttribute('width')
+          svgEl.removeAttribute('height')
+          svgEl.removeAttribute('style')
+
+          // 确保 viewBox 存在
+          const viewBox = svgEl.getAttribute('viewBox')
+          if (!viewBox) {
+            const bbox = svgEl.getBBox ? svgEl.getBBox() : null
+            if (bbox) {
+              svgEl.setAttribute('viewBox', `${bbox.x} ${bbox.y} ${bbox.width} ${bbox.height}`)
+            }
+          }
+
           wrapper.appendChild(svgEl.cloneNode(true))
           reRenderedCount++
+
+          // 调整 SVG 以适应容器
+          fitSvgToContainer(wrapper as HTMLElement)
         }
       } catch (e) {
         console.error('[MarkdownRenderer] Mermaid re-render error:', e)
@@ -466,4 +554,283 @@ async function loadImageAsBlobUrl(relativePath: string, notebookId: string): Pro
   }
 
   return null
+}
+
+// ============================================
+// 工具栏注入
+// ============================================
+
+/**
+ * 从 className 中提取语言名称
+ */
+function extractLanguageFromClass(className: string | string[] | undefined): string {
+  if (!className) return 'text'
+  const classes = Array.isArray(className) ? className : className.split(' ')
+  const langClass = classes.find(c => typeof c === 'string' && c.startsWith('language-'))
+  return langClass ? langClass.replace('language-', '') : 'text'
+}
+
+/**
+ * 注入代码块和图表工具栏
+ * 在 renderMermaidCharts 之后调用
+ */
+export async function injectToolbars(container: HTMLElement): Promise<void> {
+  if (!container) return
+
+  // 处理代码块 - 包装并添加工具栏
+  const codeBlocks = container.querySelectorAll('pre.shiki:not(.toolbar-injected)')
+  for (const block of codeBlocks) {
+    // 标记已处理
+    block.classList.add('toolbar-injected')
+
+    // 创建包装器
+    const wrapper = document.createElement('div')
+    wrapper.className = 'code-block-wrapper'
+
+    // 获取代码内容和语言（优先从 data-lang 属性获取）
+    const code = block.textContent || ''
+    const langFromAttr = block.getAttribute('data-lang')
+    const lang = langFromAttr || extractLanguageFromClass(block.className)
+
+    // 创建工具栏
+    const toolbar = createCodeBlockToolbarDOM(code, lang)
+
+    // 包装代码块
+    block.parentNode?.insertBefore(wrapper, block)
+    wrapper.appendChild(block)
+    wrapper.appendChild(toolbar)
+  }
+
+  // 处理 Mermaid 图表 - 添加工具栏和拖动支持
+  const mermaidWrappers = container.querySelectorAll('.mermaid-wrapper.mermaid-rendered:not(.toolbar-injected)')
+  for (const wrapper of mermaidWrappers) {
+    // 标记已处理
+    wrapper.classList.add('toolbar-injected')
+
+    // 获取 SVG 和 ID
+    const svg = wrapper.querySelector('.mermaid-svg') as SVGElement | null
+    const mermaidId = wrapper.getAttribute('data-mermaid-id') || `mermaid-${Date.now()}`
+
+    if (svg) {
+      // 启用拖动和缩放
+      enableMermaidDragAndZoom(wrapper as HTMLElement, svg)
+
+      // 创建工具栏
+      const toolbar = createMermaidToolbarDOM(svg, mermaidId, wrapper as HTMLElement, (svgContent: string) => {
+        // 触发自定义事件，通知 Vue 组件打开全屏预览
+        const event = new CustomEvent('mermaid-fullscreen', {
+          detail: { svgContent, title: t('common.mermaidChart') }
+        })
+        container.dispatchEvent(event)
+      })
+
+      wrapper.appendChild(toolbar)
+    }
+  }
+}
+
+/**
+ * 创建代码块工具栏 DOM
+ */
+function createCodeBlockToolbarDOM(code: string, language: string): HTMLElement {
+  const toolbar = document.createElement('div')
+  toolbar.className = 'code-block-toolbar'
+
+  // 语言标签
+  const langLabel = document.createElement('span')
+  langLabel.className = 'code-language'
+  langLabel.textContent = language.toUpperCase()
+  toolbar.appendChild(langLabel)
+
+  // 复制按钮
+  const copyBtn = document.createElement('button')
+  copyBtn.className = 'toolbar-btn'
+  copyBtn.title = t('common.copyCode')
+  copyBtn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+    <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+  </svg>`
+  copyBtn.onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(code)
+      copyBtn.title = t('common.copied')
+      setTimeout(() => { copyBtn.title = t('common.copyCode') }, 2000)
+    } catch (e) {
+      console.error('Copy failed:', e)
+    }
+  }
+  toolbar.appendChild(copyBtn)
+
+  // 下载按钮
+  const downloadBtn = document.createElement('button')
+  downloadBtn.className = 'toolbar-btn'
+  downloadBtn.title = t('common.downloadCode')
+  downloadBtn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+    <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+  </svg>`
+  downloadBtn.onclick = () => {
+    const ext = getLanguageExtension(language)
+    downloadTextFile(code, `code-${Date.now()}`, ext)
+  }
+  toolbar.appendChild(downloadBtn)
+
+  return toolbar
+}
+
+/**
+ * 启用 Mermaid 图表的拖动和缩放功能
+ */
+function enableMermaidDragAndZoom(wrapper: HTMLElement, svgElement: SVGElement): void {
+  // 变换状态 - 使用对象存储避免闭包问题
+  const transformState = { scale: 1, x: 0, y: 0 }
+  let isDragging = false
+  let startPos = { x: 0, y: 0 }
+  let startTransform = { x: 0, y: 0 }
+
+  // 设置 SVG 可变换
+  svgElement.style.transformOrigin = 'top left'
+  svgElement.style.cursor = 'grab'
+
+  // 应用变换
+  const applyTransform = () => {
+    svgElement.style.transform = `translate(${transformState.x}px, ${transformState.y}px) scale(${transformState.scale})`
+  }
+
+  // 鼠标按下 - 开始拖拽
+  const handleMouseDown = (e: MouseEvent) => {
+    // 只响应左键，排除工具栏按钮
+    if (e.button !== 0) return
+    const target = e.target as HTMLElement
+    if (target.closest('.mermaid-toolbar')) return
+
+    isDragging = true
+    startPos = { x: e.clientX, y: e.clientY }
+    startTransform = { x: transformState.x, y: transformState.y }
+    svgElement.style.cursor = 'grabbing'
+    e.preventDefault()
+  }
+
+  // 鼠标移动 - 实时变换
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!isDragging) return
+
+    const dx = e.clientX - startPos.x
+    const dy = e.clientY - startPos.y
+    transformState.x = startTransform.x + dx
+    transformState.y = startTransform.y + dy
+    applyTransform()
+    e.preventDefault()
+  }
+
+  // 鼠标释放 - 结束拖拽
+  const handleMouseUp = () => {
+    isDragging = false
+    svgElement.style.cursor = 'grab'
+  }
+
+  // 滚轮缩放 - Ctrl/Cmd + 滚轮
+  const handleWheel = (e: WheelEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault()
+      const delta = e.deltaY < 0 ? 0.1 : -0.1
+      const newScale = Math.max(0.1, Math.min(3, transformState.scale + delta))
+      transformState.scale = newScale
+      applyTransform()
+    }
+  }
+
+  // 添加事件监听
+  wrapper.addEventListener('mousedown', handleMouseDown)
+  document.addEventListener('mousemove', handleMouseMove)
+  document.addEventListener('mouseup', handleMouseUp)
+  wrapper.addEventListener('wheel', handleWheel, { passive: false })
+
+  // 存储清理函数，以便将来可能的需要
+  ;(wrapper as any)._mermaidCleanup = () => {
+    wrapper.removeEventListener('mousedown', handleMouseDown)
+    document.removeEventListener('mousemove', handleMouseMove)
+    document.removeEventListener('mouseup', handleMouseUp)
+    wrapper.removeEventListener('wheel', handleWheel)
+  }
+}
+
+/**
+ * 创建 Mermaid 工具栏 DOM
+ */
+function createMermaidToolbarDOM(
+  svgElement: SVGElement,
+  mermaidId: string,
+  wrapper: HTMLElement,
+  onFullscreen: (svgContent: string) => void
+): HTMLElement {
+  const toolbar = document.createElement('div')
+  toolbar.className = 'mermaid-toolbar'
+
+  // 复制 PNG 按钮
+  const copyPngBtn = document.createElement('button')
+  copyPngBtn.className = 'toolbar-btn'
+  copyPngBtn.title = t('common.copyAsPng')
+  copyPngBtn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+    <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+  </svg>`
+  copyPngBtn.onclick = async () => {
+    const blob = await svgToPng(svgElement, 2)
+    if (blob) {
+      await copyPngToClipboard(blob)
+      copyPngBtn.title = t('common.copied')
+      setTimeout(() => { copyPngBtn.title = t('common.copyAsPng') }, 2000)
+    }
+  }
+  toolbar.appendChild(copyPngBtn)
+
+  // 下载 SVG 按钮
+  const downloadSvgBtn = document.createElement('button')
+  downloadSvgBtn.className = 'toolbar-btn'
+  downloadSvgBtn.title = t('common.downloadSvg')
+  downloadSvgBtn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+    <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+  </svg>`
+  downloadSvgBtn.onclick = () => {
+    downloadSvg(svgElement, `diagram-${mermaidId}`)
+  }
+  toolbar.appendChild(downloadSvgBtn)
+
+  // 下载 PNG 按钮
+  const downloadPngBtn = document.createElement('button')
+  downloadPngBtn.className = 'toolbar-btn'
+  downloadPngBtn.title = t('common.downloadPng')
+  downloadPngBtn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+    <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+  </svg>`
+  downloadPngBtn.onclick = async () => {
+    await downloadPng(svgElement, `diagram-${mermaidId}`, 2)
+  }
+  toolbar.appendChild(downloadPngBtn)
+
+  // 全屏预览按钮
+  const fullscreenBtn = document.createElement('button')
+  fullscreenBtn.className = 'toolbar-btn'
+  fullscreenBtn.title = t('common.fullscreenPreview')
+  fullscreenBtn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+    <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
+  </svg>`
+  fullscreenBtn.onclick = () => {
+    const svgContent = new XMLSerializer().serializeToString(svgElement)
+    onFullscreen(svgContent)
+  }
+  toolbar.appendChild(fullscreenBtn)
+
+  // 重置视图按钮
+  const resetBtn = document.createElement('button')
+  resetBtn.className = 'toolbar-btn'
+  resetBtn.title = t('common.resetView')
+  resetBtn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+    <path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/>
+  </svg>`
+  resetBtn.onclick = () => {
+    // 重置 SVG 变换
+    svgElement.style.transform = 'translate(0px, 0px) scale(1)'
+  }
+  toolbar.appendChild(resetBtn)
+
+  return toolbar
 }

@@ -7,6 +7,7 @@ import { useSettingsStore } from '@/stores/settingsStore'
 
 // 导入全局样式
 import '@/assets/styles/markdown.css'
+import '@/assets/styles/toolbar.css'
 
 const app = createApp(App)
 const pinia = createPinia()

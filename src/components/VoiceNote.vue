@@ -503,6 +503,14 @@
     @close="closeRelatedNodePopup"
     @navigate="handleRelatedNodeNavigate"
   />
+
+  <!-- 全屏预览 -->
+  <FullscreenPreview
+    :visible="fullscreenPreview.visible"
+    :svg-content="fullscreenPreview.svgContent"
+    :title="fullscreenPreview.title"
+    @close="closeFullscreenPreview"
+  />
 </template>
 
 <script setup lang="ts">
@@ -510,13 +518,14 @@ import { ref, nextTick, watch, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import NodePopup from '@/components/NodePopup.vue'
+import FullscreenPreview from '@/components/common/FullscreenPreview.vue'
 import { useNotebookStore } from '@/stores/notebookStore'
 import { useTagStore } from '@/stores/tagStore'
 import { useVectorStore } from '@/stores/vectorStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useAuxiliarySidebarStore } from '@/stores/auxiliarySidebarStore'
 import { formatDuration } from '@/utils/helpers'
-import { renderMarkdown, renderMermaidCharts, reRenderMermaidCharts, processImagePaths } from '@/utils/markdownRenderer'
+import { renderMarkdown, renderMermaidCharts, reRenderMermaidCharts, processImagePaths, injectToolbars } from '@/utils/markdownRenderer'
 import { getNotebookDataDir, getNotebookImagesDir } from '@/utils/userFilesPath'
 import { generateDeepLinkUrl, findNodeByNodeId } from '@/composables/useDeepLink'
 import type { NodePopupData } from '@/composables/useDeepLink'
@@ -1541,12 +1550,34 @@ onUnmounted(() => {
 // 组件引用
 const voiceNoteRef = ref<HTMLElement | null>(null)
 
-// 渲染 Mermaid 图表
+// 全屏预览状态
+const fullscreenPreview = ref({
+  visible: false,
+  svgContent: '',
+  title: 'Mermaid 图表'
+})
+
+// 渲染 Mermaid 图表并注入工具栏
 async function renderMermaid() {
   if (voiceNoteRef.value) {
     // 等待 DOM 完全更新
     await nextTick()
+    await nextTick()
     const result = await renderMermaidCharts(voiceNoteRef.value)
+
+    // 注入工具栏
+    await injectToolbars(voiceNoteRef.value)
+
+    // 监听全屏预览事件
+    const handleFullscreen = (e: Event) => {
+      const customEvent = e as CustomEvent
+      fullscreenPreview.value = {
+        visible: true,
+        svgContent: customEvent.detail.svgContent,
+        title: customEvent.detail.title || 'Mermaid 图表'
+      }
+    }
+    voiceNoteRef.value.addEventListener('mermaid-fullscreen', handleFullscreen as EventListener)
 
     // 如果渲染了 Mermaid 图表，触发重新测量高度
     if (result && result > 0) {
@@ -1556,15 +1587,22 @@ async function renderMermaid() {
   }
 }
 
+// 关闭全屏预览
+function closeFullscreenPreview() {
+  fullscreenPreview.value.visible = false
+}
+
 // 主题变化 observer
 let themeObserver: MutationObserver | null = null
 
 // 监听主题变化，重新渲染 Mermaid 图表
 onMounted(() => {
   // 使用 MutationObserver 监听 classList 变化
-  themeObserver = new MutationObserver(() => {
+  themeObserver = new MutationObserver(async () => {
     if (voiceNoteRef.value) {
-      reRenderMermaidCharts(voiceNoteRef.value)
+      await reRenderMermaidCharts(voiceNoteRef.value)
+      // 重新注入工具栏
+      await injectToolbars(voiceNoteRef.value)
     }
   })
   themeObserver.observe(document.documentElement, {
